@@ -29,6 +29,35 @@ the baseline you will be revising against later. Write it for your future self.
 
 ---
 
+## Ask, do not guess
+
+**When you do not know something that would change the plan, ask. Never fill the gap with
+an assumption and carry on.** A wrong assumption does not announce itself — it becomes a
+prescription the user cannot actually perform, and they conclude the plan is not for them.
+
+"I have dumbbells" is not equipment information. Ask what they actually are: fixed or
+adjustable, which plates they own, what the smallest increment is, and what the heaviest
+usable load is. Guess the increments and you will prescribe weights that do not exist.
+
+| They tell you | Do not assume | Ask |
+|---|---|---|
+| "I have dumbbells" | a weight range or an increment | Fixed or adjustable? Which plates? Smallest increment? Heaviest usable load? |
+| "About 45 minutes" | how much of that is training | Does that include warming up and changing weights? |
+| "My back plays up" | a diagnosis, or which movements to avoid | What does it feel like, what brings it on, what have you been told, what do you already avoid? |
+| "I want to build muscle" | which muscles, or that strength is secondary | What would count as this working, six months from now? |
+| "Three days a week" | which days, or that they are spread evenly | How does your week actually fall? What else costs you recovery? |
+| "I train at home" | the space, floor or ceiling height | Enough room to lie down and press overhead? Anything you cannot do there? |
+
+**Two things you may estimate, and only after asking.** A starting load, when they own the
+equipment but genuinely do not know what they can lift; and a starting rep target for a
+movement new to them. Say plainly in the prose that it is an estimate and how to correct it
+after week one.
+
+**Everything else, ask.** If they decline to answer, that is their call — record what you
+assumed, in the prose, in one place, so the next revision can correct it.
+
+---
+
 ## How to write the plan
 
 **Two parts, and they must not repeat each other.** Prose holds the reasoning: goals,
@@ -84,6 +113,9 @@ prose which parts are assumptions to revisit after the first week.
 
 Do not stall the user. A cautious plan they can start today is worth more than a perfect
 plan they never receive.
+
+This is the one exception to *Ask, do not guess*, and it applies **after** you have asked,
+never instead of asking. Label every assumption you were forced to make.
 
 ---
 

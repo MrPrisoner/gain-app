@@ -89,7 +89,7 @@ the context — anything it cannot parse, it preserves.
 | 5 | Storage | One SQLite DB **per user**, plus a per-user file directory. DB is source of truth |
 | 6 | Client | Installable PWA, offline-capable sessions with sync |
 | 7 | Log schema | Fixed core (reps/weight/duration/difficulty) + plan-declared custom metrics |
-| 8 | Scheduling | Suggested-next-session, no calendar; one-tap logging of squash/walks/rest |
+| 8 | Scheduling | Suggested-next-session, no calendar; one-tap logging of activity outside the plan |
 | 9 | Stack | TypeScript + SvelteKit, single Node container, `better-sqlite3` |
 | 10 | Versioning | Immutable plan versions, diff review at import, logs bound to their version |
 | 11 | Export | One self-contained `.md` bundle, windowed by default |
@@ -208,10 +208,27 @@ metric_value              id, scope_ref (set_log|workout|exercise-in-workout),
 deviation                 id, workout_id, exercise_def_id, kind (skip|substitute|
                           add_set|drop_set|stop_red_flag), reason_code, note,
                           substitute_exercise_slug
-activity                  id, kind (squash|walk|rest|other), occurred_at,
-                          duration_min, intensity, note
+activity                  id, kind (free-form slug, user's own vocabulary),
+                          occurred_at, duration_min, intensity, note
 ai_template               id, name, body_md, is_default, updated_at
 ```
+
+> **This model predates the exercise catalogue and must be reconciled before phase 2
+> starts.** It is still right about identity and logging, and out of date about structure.
+> The gaps, all introduced when `exercises` became a top-level catalogue:
+>
+> - **No block table.** `tracking`, `type: rounds`, `rounds` and block `name` / `note`
+>   have nowhere to live, and neither do session `name`, `note` and `order`.
+> - **`version_exercise.sets` is one column**, but `sets` accepts `[min, max]`.
+> - **No `note` column**, though notes now exist at both catalogue and prescription level
+>   and one resolves over the other.
+> - **`load_config` has no `note`**, which the fixture uses on every configuration.
+> - **Movement-level properties have no home.** `type`, `per_side`, `conditional`,
+>   `condition` and `substitutes` are catalogue properties now. They belong in a
+>   per-version catalogue table, not smeared across `version_exercise` rows where three
+>   prescriptions of one movement could disagree about what it is.
+>
+> Phase 1 is unaffected — it is pure functions over plain data and never opens SQLite.
 
 ### Why `exercise_def.slug` is load-bearing
 
@@ -277,15 +294,13 @@ loads:
     is_bodyweight: true
 
 metrics:
-  set:
+  exercise:
     - key: rir
       label: RIR
       type: number
       min: 0
       max: 5
-      prompt_when: per_exercise
       optional: true
-  exercise:
     - key: technique
       label: Technique quality
       type: enum
@@ -318,6 +333,8 @@ exercises:                                  # the catalogue — each movement de
   - {id: march-in-place, type: time, load: bodyweight}
   - {id: goblet-squat, load: heavy, rest_sec: [75, 90]}
   - {id: side-plank, type: time, per_side: true, load: bodyweight}
+  - {id: dead-bug, per_side: true, load: bodyweight}      # declared, though only
+  - {id: front-plank, type: time, load: bodyweight}       # ever used as substitutes
   - id: reverse-crunch
     load: bodyweight
     conditional: true
@@ -342,9 +359,8 @@ sessions:
         name: Core
         exercises:
           - {id: side-plank, sets: 2, duration_sec: [20, 40]}
-          - {id: reverse-crunch, sets: 2, reps: [8, 12]}
-            condition: "Omit if it reproduces familiar back symptoms"
-            substitutes: [dead-bug, front-plank]
+          - {id: reverse-crunch, sets: 2, reps: [8, 12]}   # conditional + substitutes
+                                                           # come from the catalogue
 
   - key: D
     name: Full Body + Arms + Abdominal Development
@@ -379,9 +395,9 @@ partial import.
 
 **A reference plan is already written.**
 [`fixtures/plans/home-dumbbell-v1.md`](../fixtures/plans/home-dumbbell-v1.md)
-is a complete example: ~1300 lines of prose context plus the contract block in Appendix
-A, structuring 4 sessions and 22 distinct exercises. Its "Import notes" section records
-the five interpretations made when structuring it.
+is a complete example: ~500 lines of prose context plus the contract block in Appendix
+A, structuring 4 sessions and 23 distinct exercises. Its "Import notes" section records
+the eight interpretations made when structuring it.
 
 The plan is **fictional** — profile, training history and symptom context are
 invented. It is written in the style a real AI-authored plan uses, because its job
@@ -389,11 +405,11 @@ is to behave like one. No real health data belongs in this repository.
 
 It is also the phase-1 test fixture, chosen because it exercises every primitive in one
 file: a rounds block, checkoff warm-ups, two conditional exercises, per-side reps and
-per-side time, ranged sets and ranged rest, bodyweight-to-loaded progressions, and both
-substitute forms — bare slugs resolved in the catalogue, and an inline external movement.
+per-side time, ranged sets and ranged rest, bodyweight-to-loaded progressions, catalogue
+rest defaults overridden per occurrence, and a movement that exists only as a substitute.
 
-22 exercises produce 60 prescriptions across the four sessions, so the catalogue carries
-its weight: the same movement is prescribed on average 2.7 times.
+Its 22 prescribed movements produce 60 prescriptions across the four sessions, so the
+catalogue carries its weight: the same movement is prescribed on average 2.7 times.
 
 ---
 
@@ -427,7 +443,7 @@ generate prompt = bootstrap template + answers + CONTRACT.md verbatim
       ↓
 [ user's own AI chat: it interviews them, then emits a plan document ]
       ↓  one paste
-import → "4 sessions, 22 exercises, 60 prescriptions" → commit
+import → "4 sessions, 23 exercises, 60 prescriptions" → commit
       ↓
 Today screen, session A
 ```
@@ -479,6 +495,8 @@ The user should not need to open the contract, and must never be asked to hand-e
 ```
 paste / upload .md
       ↓
+is this a GAIN export bundle?  → yes: explain, import nothing
+      ↓  no
 split: extract ```gain-plan block  →  contract
        everything else                →  context_md (verbatim)
       ↓
@@ -511,7 +529,12 @@ context a future AI may well want.
 The screen you actually stare at, sweating, between sets. It gets the most design care.
 
 - **Home:** suggested next session per `scheduling.sequence` and rules, with any
-  session selectable as an override. One-tap buttons to log squash / walk / rest.
+  session selectable as an override. One-tap buttons to log activity that is not part of
+  the plan. `activity.kind` is a free-form slug in the user's own vocabulary — the
+  buttons are their previously-used kinds, plus rest, plus a field for a new one. GAIN
+  ships no list of sports, because the plan's own `scheduling.rules` already reference
+  whatever the user actually does, and hardcoding one fixture's sport into the schema
+  would make every other user's activity an "other".
 - **Pre-session:** prompts only for metrics with `prompt_when: start`.
 - **Running:** vertical list of exercises; the current one expanded and prominent,
   completed ones collapsed with a summary, upcoming ones dimmed. Target reps/weight
@@ -567,7 +590,9 @@ One `.md` file, self-contained, ready to paste or upload into any chat.
 # GAIN Export — <Plan> — <window>
 
 ## 0. Your task                       ← user-editable template, verbatim
-## 1. Plan context               ← context_md of current version, verbatim
+## 1. The current plan                ← source_md of the current version, verbatim:
+                                        the prose context AND the gain-plan block,
+                                        exactly as the user pasted it in
 ## 2. Progress summary                ← generated tables: per-exercise progression,
                                         adherence, metric trends, deviations
 ## 3. Raw logs                        ← ```csv sets / ```csv sessions / ```csv activities
@@ -575,6 +600,17 @@ One `.md` file, self-contained, ready to paste or upload into any chat.
                                       ← the contract spec + ID-preservation rules
 ```
 
+- **Section 1 is `source_md`, byte-for-byte** — not `context_md` with the contract block
+  spliced back in. The plan document already sits on disk exactly as it arrived, so
+  emitting it is a copy rather than a reconstruction, and there is no block-position
+  bookkeeping to get wrong. `context_md` exists for diffing and for the
+  never-paraphrase guarantee; it is not what the export replays.
+- **The bundle is not a plan document and is not re-importable.** An AI reads a bundle and
+  returns a plan document; import only ever sees plan documents. When a user pastes a whole
+  bundle — and they will — GAIN recognises its own generated sections and says so: *"that
+  is a GAIN export, not a plan. Paste what your AI gave you."* Teaching the parser to strip
+  GAIN's own headings instead would couple it to the export generator and to a Section 0
+  the user is free to retitle.
 - **Windowed by default** (current block / last N weeks) with a full-history option.
   A year of raw sets will otherwise blow past a usable context window and bury the
   recent signal in old noise.
@@ -604,11 +640,16 @@ This constrains the design, and the constraints are already baked into the above
 
 - **Schema-first, not convention-first.** The Zod contract schema, the SQLite DDL and
   the API types are the specification. Agents implement against types, not prose.
-- **Golden-file tests on the real document.** `4_week_home_dumbbell_training_program_ai_context.md`
+- **Golden-file tests on the real document.**
+  [`fixtures/plans/home-dumbbell-v1.md`](../fixtures/plans/home-dumbbell-v1.md)
   is committed as a fixture. The round-trip test is the project's spine:
-  `import → log synthetic workouts → export → re-import` must preserve every exercise
-  ID, every set, and `context_md` byte-for-byte. Write this test in phase 1, before the
-  UI exists.
+  `import → log synthetic workouts → export → extract Section 1 → re-import` must
+  preserve every exercise ID, every set, and `context_md` byte-for-byte. Write this test
+  in phase 1, before the UI exists.
+
+  Note what it does **not** assert: that a real revision comes back unchanged. The AI is
+  supposed to rewrite the prose when the reasoning changes. The invariant is that GAIN's
+  own storage and replay are lossless — not that the loop is a no-op.
 - **Deterministic core.** Parsing, diffing, progression logic and export generation are
   pure functions over plain data — trivially unit-testable, no I/O, no time
   dependency (inject the clock).
@@ -617,13 +658,34 @@ This constrains the design, and the constraints are already baked into the above
 - **Property tests on the sync layer**, where AI-written code most reliably goes wrong:
   replay any subset of the queue in any order, assert no duplicate sets and no data loss.
 
+### Toolchain, settled
+
+Phase 1 scaffolds these. They are recorded here so an agent implements them rather than
+choosing them, and so two agents do not choose differently.
+
+| | Choice | Why |
+|---|---|---|
+| Runtime | **Node 24 LTS**, pinned in `.nvmrc`, `package.json` `engines`, and the Dockerfile base image | One version everywhere. A container on a different major than the dev machine is a class of bug nobody enjoys finding |
+| Package manager | **npm** | Ships with Node, one lockfile, no corepack step in the image build. This is a single-package repo; a workspace-aware manager would earn nothing |
+| Language | **TypeScript, `strict: true`** | The Zod schema and the SQLite DDL are the specification (above). Loose types would defeat the point |
+| Tests | **Vitest** | Already decision 9's stack. The golden round-trip test is plain Vitest, no harness |
+| Lint / format | **ESLint + Prettier**, plus `svelte-check` | What `sv create` scaffolds. Formatting arguments are not a good use of anyone's attention |
+| CI | **GitHub Actions**: typecheck, lint and test on push and PR; build and push the image on a tag | Minimal. The round-trip test failing must be loud |
+
+**No per-file licence headers.** The AGPL does not require them, they are noise, and agents
+apply them inconsistently. `LICENSE` at the root plus the README note is the whole of it.
+
+**AGPL §13 needs one thing from the UI**, though: a running instance must offer its source
+to its users. That is a link to the repository in the app shell — cheap, but it has to
+actually be built. It belongs to phase 3, when a shell exists to put it in.
+
 ### Build order
 
 | Phase | Deliverable | Done when |
 |---|---|---|
 | 1 | Contract schema, parser, diff engine, export generator, **both prompt templates** — pure functions, no UI | Round-trip golden test passes on the real plan doc; both templates embed CONTRACT.md byte-for-byte |
-| 2 | SQLite layer, per-user DB provisioning, migrations | Import writes a version; second import produces a correct diff |
-| 3 | OIDC auth, group gate, session handling, container + compose, **first run: empty state → prompt out → paste a plan in** | Deploys to Portainer; unauthorised user gets a clean 403; a user with an empty account copies the bootstrap prompt and pastes a plan back into a working app |
+| 2 | SQLite layer, per-user DB provisioning, migrations — **reconcile §5 with the catalogue first** | Import writes a version; second import produces a correct diff |
+| 3 | OIDC auth, group gate, session handling, container + compose, AGPL §13 source link, **first run: empty state → prompt out → paste a plan in** | Deploys to Portainer; unauthorised user gets a clean 403; a user with an empty account copies the bootstrap prompt and pastes a plan back into a working app |
 | 4 | Session runner UI, online only | A full session of the real plan can be logged on a phone |
 | 5 | Offline PWA: IndexedDB, sync queue, idempotency | Airplane-mode session syncs cleanly on reconnect; property tests pass |
 | 6 | Progress, history, charts | Double-progression state matches hand-calculated expectations |

@@ -70,9 +70,14 @@ When a set is logged, the rest timer takes **the whole screen** and names what i
 next. You are not doing anything else during rest, and you are often reading it from a mat
 at arm's length. A corner chip is the conventional choice and the wrong one here.
 
-It appears **only where the contract declares `rest_sec`**. The warm-up and the abdominal
-finisher declare none, so logging there moves straight on without an interruption. Do not
-invent a default rest period.
+It appears **only where the contract declares `rest_sec`** — taken from the prescription,
+falling back to the catalogue. Do not invent a default rest period.
+
+Two kinds of block never rest between exercises, whatever the catalogue says: **checkoff**
+blocks, which record no sets at all, and **rounds** blocks, where moving straight to the
+next movement is the entire point. A rounds block may declare its own `rest_sec`, which
+rests *between rounds* — so the abdominal finisher pauses once after round one, not four
+times.
 
 Both escapes are always available: add 30 seconds, or start the next set early.
 
@@ -104,7 +109,7 @@ finished.
 | `tracking: checkoff` | Tappable pills. No set rows, no reps, no load, no effort. Excluded from progression. |
 | `per_side: true` | One ledger row **per side** (L / R), because differing between sides is the entire reason the flag exists. |
 | Ranged sets `[2, 3]` | Draw the **minimum** only, then offer "Add the optional 3rd set". Never pre-draw a set the plan did not commit to. |
-| `type: rounds` | A round progress indicator on the block; the exercise list is **not** repeated per round. |
+| `type: rounds` | A round progress indicator on the block; the exercise list is **not** repeated per round. Rest fires between rounds only, and only if the block declares it. |
 | `conditional: true` | The `condition` text is shown in full, with every declared substitute offered as a one-tap swap alongside "Do it". |
 | Ranged reps `[8, 12]` | Shown as the target on each set row; the stepper pre-fills from last time, not from the range. |
 
@@ -165,6 +170,10 @@ back.
   Never show raw YAML, never ask them to edit it, never say only "import failed".
 - **A failed import is a normal step**, so it must not feel like a wall. Keep the pasted
   text in place, and put the copy-the-error action next to it.
+- **A pasted export bundle is a wrong-document error, not a parse failure.** It is a
+  predictable mistake — the bundle is the last thing the user copied. Name it: "that is a
+  GAIN export, not a plan. Paste what your AI gave you." Never a field-path error, and
+  never an attempt to import it anyway.
 
 ---
 

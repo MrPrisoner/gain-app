@@ -5,7 +5,7 @@ Markdown, run and log sessions from an offline-capable PWA, then export your ful
 plan and progress for an AI to review and revise.
 
 > **Status: design stage.** This repository currently contains the architecture, the
-> plan specification, the settled UI design, a reference fixture and a template.
+> plan specification, the settled UI design, a reference fixture and two prompt templates.
 > There is no application code yet and nothing to deploy.
 
 ---

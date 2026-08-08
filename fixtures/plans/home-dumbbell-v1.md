@@ -551,50 +551,70 @@ loads:
 exercises:
   - {id: march-in-place, type: time, load: bodyweight}
   - {id: bodyweight-squat, load: bodyweight}
-  - {id: glute-bridge, load: bodyweight}
-  - {id: bird-dog, per_side: true, load: bodyweight}
+  - {id: glute-bridge, load: bodyweight, rest_sec: [45, 60]}
+  - {id: bird-dog, per_side: true, load: bodyweight, rest_sec: 30}
   - {id: shoulder-circles, load: bodyweight, note: 10 each direction}
   - {id: hip-circles, per_side: true, load: bodyweight}
   - id: goblet-squat
+    rest_sec: [75, 90]
     note: Hold one dumbbell against chest. Brace abdomen. Squat through a comfortable range. Do not force depth.
   - id: db-floor-press
     name: Dumbbell floor press
+    rest_sec: [60, 90]
     note: "Starting reference: 2 × 6 kg. Lower until upper arms gently contact floor. Avoid excessive elbow flare."
-  - {id: supported-one-arm-row, name: Supported one-arm row, per_side: true}
-  - {id: reverse-lunge, per_side: true, load: bodyweight}
-  - {id: dead-bug, per_side: true, load: bodyweight}
-  - {id: side-plank, type: time, per_side: true, load: bodyweight}
+  - {id: supported-one-arm-row, name: Supported one-arm row, per_side: true, rest_sec: [60, 75]}
+  - {id: reverse-lunge, per_side: true, load: bodyweight, rest_sec: [60, 75]}
+  - {id: dead-bug, per_side: true, load: bodyweight, rest_sec: 30}
+  - {id: side-plank, type: time, per_side: true, load: bodyweight, rest_sec: 30}
   - id: db-shoulder-press
     name: Dumbbell shoulder press
     load: heavy
+    rest_sec: [60, 90]
     note: "Starting reference: 2 × 6 kg. Avoid leaning backward. Reduce weight if lumbar arching occurs."
   - id: lateral-raise
     load: light
+    rest_sec: [45, 60]
     note: "Starting reference: 2 × 4 kg. Soft elbows, raise toward shoulder height, avoid shrugging, no momentum."
-  - {id: db-curl, name: Dumbbell curl, load: light, note: Light/moderate.}
-  - {id: overhead-triceps-extension, load: light}
-  - {id: mcgill-curl-up, name: McGill curl-up, per_side: true, load: bodyweight}
+  - {id: db-curl, name: Dumbbell curl, load: light, rest_sec: 45, note: Light/moderate.}
+  - {id: overhead-triceps-extension, load: light, rest_sec: 45}
+  - id: lying-triceps-extension
+    name: Lying dumbbell triceps extension
+    load: light
+    rest_sec: 45
+    note: "Substitute for the overhead version. Lie on the mat, upper arms vertical, lower toward the forehead."
+  - {id: mcgill-curl-up, name: McGill curl-up, per_side: true, load: bodyweight, rest_sec: 30}
   - id: split-squat
     per_side: true
     load: bodyweight
+    rest_sec: [60, 90]
     note: "Bodyweight → light/heavy as tolerated. Staggered stance, lower mostly vertically, front foot remains planted."
   - id: rear-delt-reverse-fly
     name: Rear-delt reverse fly
     load: light
+    rest_sec: [45, 60]
     note: Use only as much forward hinge as comfortable. Use a supported or prone variation if necessary. Avoid momentum.
   - id: front-plank
     type: time
     load: bodyweight
+    rest_sec: 30
     conditional: true
     condition: Optional. Omit if it aggravates symptoms.
-  - {id: hammer-curl, load: light, note: Light/moderate.}
+  - {id: hammer-curl, load: light, rest_sec: 45, note: Light/moderate.}
   - id: reverse-crunch
     load: bodyweight
+    rest_sec: 30
     conditional: true
     condition: "Conditional. If it reproduces familiar back symptoms, replace with additional dead bugs, plank, or another symptom-free core exercise."
     substitutes: [dead-bug, front-plank]
 
 metrics:
+  set:
+    - key: set_symptom
+      label: Symptoms during this set
+      type: scale
+      min: 0
+      max: 10
+      optional: true
   exercise:
     - key: rir
       label: RIR (reps in reserve)
@@ -667,8 +687,8 @@ sessions:
       - key: main
         name: Main work
         exercises:
-          - {id: goblet-squat, sets: 3, reps: [8, 12], load: heavy, rest_sec: [75, 90]}
-          - {id: db-floor-press, sets: 3, reps: [8, 12], load: heavy, rest_sec: [60, 90]}
+          - {id: goblet-squat, sets: 3, reps: [8, 12], load: heavy}
+          - {id: db-floor-press, sets: 3, reps: [8, 12], load: heavy}
           - id: supported-one-arm-row
             sets: 3
             reps: [10, 12]
@@ -711,7 +731,7 @@ sessions:
           - id: overhead-triceps-extension
             sets: 2
             reps: [10, 15]
-            substitutes: [{id: lying-triceps-extension, name: Lying dumbbell triceps extension}]
+            substitutes: [lying-triceps-extension]
             note: "Light/moderate. If overhead extension encourages lumbar arching, substitute lying dumbbell triceps extensions."
       - key: core
         name: Core
@@ -780,6 +800,7 @@ sessions:
         name: Abdominal finisher
         type: rounds
         rounds: 2
+        rest_sec: [45, 60]
         exercises:
           - {id: dead-bug, reps: 8}
           - {id: mcgill-curl-up, reps: 8}
@@ -874,7 +895,7 @@ safety:
 
 ## Import notes
 
-Five interpretations were made when structuring this plan. They are recorded here
+Eight interpretations were made when structuring this plan. They are recorded here
 so they can be reviewed and corrected rather than silently inherited.
 
 1. **Warm-up applied to all four sessions.** The prose specifies warm-up exercises only
@@ -894,3 +915,20 @@ so they can be reviewed and corrected rather than silently inherited.
    under the session where an exercise first appears. They are properties of the movement,
    so they sit on the catalogue entry and are shown wherever the exercise is prescribed —
    the goblet squat cue now appears in Session D as well as Session A.
+6. **Rest periods were assigned, not transcribed.** The prose never states rest periods,
+   only that they belong in the block. They are declared on the catalogue — roughly 75–90
+   seconds for compounds, 45–60 for isolation, 30 for core — so a load change does not
+   require editing rest in fifty places. Session A's supported one-arm row overrides this
+   to 30 seconds, because the prose does say the transition between sides is short. Every
+   one of these numbers is a reasonable default rather than a coached decision, and a
+   revising AI should feel free to change them. Session D's abdominal finisher rests
+   45–60 seconds **between rounds** and not between exercises, which is what makes it a
+   circuit rather than four more sets.
+7. **`lying-triceps-extension` is in the catalogue although no session prescribes it.**
+   It exists only as a substitute for the overhead version. Declaring it means that if the
+   substitution is taken every week, the sets are logged against a stable slug and appear
+   in progress charts, rather than vanishing into a free-text deviation.
+8. **A per-set symptom scale was added.** §4 makes symptom response the governing signal of
+   this plan, but the prose captures it only per session, which cannot distinguish "the
+   squats hurt" from "the session hurt". `set_symptom` is optional, so a set still commits
+   in one tap and the field is there on the sets where it matters.

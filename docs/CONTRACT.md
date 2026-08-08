@@ -77,7 +77,13 @@ loads:
     is_bodyweight: true                        # no weight field shown when logging
 ```
 
-`ref` values are free-form; `heavy` / `moderate` / `light` / `bodyweight` are conventional.
+| Field | Required | Meaning |
+|---|---|---|
+| `ref` | yes | Stable identifier referenced by `load`. Free-form; `heavy` / `moderate` / `light` / `bodyweight` are conventional |
+| `label` | yes | Display name shown wherever the configuration is named |
+| `default_kg` | no | Starting weight. Omit on a bodyweight configuration |
+| `is_bodyweight` | no (default `false`) | Suppresses the weight field when logging |
+| `note` | no | Guidance shown alongside the configuration |
 
 ### `exercises` — the catalogue
 
@@ -135,13 +141,41 @@ sessions:
         name: Main work
         type: sequence           # sequence (default) | rounds
         rounds: 2                # required when type: rounds
+        rest_sec: [45, 60]       # rounds blocks only — rest BETWEEN rounds
         tracking: full           # full (default) | checkoff
         note: "..."              # optional
         exercises: [ ... ]
 ```
 
-`tracking: checkoff` marks a block as completion-only — no reps, weight or difficulty are
-recorded and nothing feeds progression charts. Use it for warm-ups and mobility work.
+`tracking: checkoff` marks a block as completion-only — no reps, weight, difficulty or
+rest are recorded, and nothing feeds progression charts. Use it for warm-ups and mobility
+work. A `rest_sec` reaching a checkoff block from the catalogue is **ignored, not
+rejected**: it is a true property of the movement where the movement is trained, and a
+warm-up is not that.
+
+`type: rounds` makes the block a circuit — every exercise is performed once in order, and
+the whole block repeats `rounds` times. **`sets` is invalid on an exercise inside a rounds
+block.** `rounds` is the only multiplier there, and a block declaring both is rejected
+rather than interpreted, because "3 sets" inside a 2-round circuit has two equally
+defensible readings.
+
+**Rest in a rounds block is between rounds, not between exercises.** Moving straight to
+the next movement is what makes a circuit a circuit, so a `rest_sec` reaching a rounds
+block from the catalogue is ignored, exactly as in a checkoff block. To prescribe a pause,
+declare `rest_sec` on the block:
+
+```yaml
+- key: ab-finisher
+  name: Abdominal finisher
+  type: rounds
+  rounds: 2
+  rest_sec: [45, 60]         # once, after each round
+  exercises: [ ... ]
+```
+
+Block-level `rest_sec` is valid **only** on a `type: rounds` block. Anywhere else it is
+rejected: rest between straight sets is a property of the movement, and the catalogue is
+where movements are described.
 
 ### Exercise entries — the prescription
 
@@ -169,14 +203,16 @@ exercises:
 Flow style (`- {id: ..., reps: 8}`) and block style are both valid YAML and both accepted.
 Flow keeps a session readable as a table; use whichever is clearer.
 
-`substitutes` entries are either a bare slug defined in the catalogue, or an external
-movement given inline — which needs an explicit name, since it has no catalogue entry:
+**`substitutes` entries are always bare slugs declared in the catalogue.** There is no
+inline form — a movement the plan may ask for is a movement the plan declares.
 
 ```yaml
-substitutes:
-  - dead-bug
-  - {id: lying-triceps-extension, name: Lying dumbbell triceps extension}
+substitutes: [dead-bug, lying-triceps-extension]
 ```
+
+Declare a substitute in the catalogue even when no session prescribes it directly. A
+substitute that gets taken every week accumulates real history, and history needs a stable
+slug exactly as much as a prescribed movement does.
 
 **The same exercise may appear in several sessions or blocks** with different targets —
 that is normal and expected. All occurrences share one `id`, and therefore one identity,
@@ -189,8 +225,13 @@ recorded and must not be declared here. Declare anything additional the plan wan
 
 ```yaml
 metrics:
-  set:                              # prompted per set
-    - key: ...
+  set:                              # prompted per set, alongside the core fields
+    - key: set_symptom
+      label: Symptoms during this set
+      type: scale
+      min: 0
+      max: 10
+      optional: true
   exercise:                         # prompted once per exercise
     - key: rir
       label: RIR (reps in reserve)
@@ -207,7 +248,26 @@ metrics:
       prompt_when: start            # start | end | next_morning
 ```
 
+| Field | Required | Meaning |
+|---|---|---|
+| `key` | yes | STABLE identifier. Unique within its scope |
+| `label` | yes | Prompt text shown to the user |
+| `type` | yes | `number` \| `scale` \| `enum` \| `text` \| `bool` |
+| `min`, `max` | for `number` and `scale` | Inclusive bounds |
+| `options` | for `enum` | The allowed values, in display order |
+| `optional` | no (default `false`) | May be left unanswered |
+| `prompt_when` | `session` scope only | `start` \| `end` \| `next_morning` |
+
+`prompt_when` applies to **session-scope metrics only**. A `set` metric is prompted with
+each set and an `exercise` metric once per exercise, so there is nothing left to schedule;
+`prompt_when` on either is rejected.
+
 `prompt_when: next_morning` schedules a prompt on the next app open the following day.
+
+**Set-scope metrics should almost always be `optional: true`.** A set is committed in a
+single tap; a required per-set prompt turns every set into two interactions, and a log
+that is tedious stops being an honest one. Use `exercise` or `session` scope unless the
+value genuinely changes from set to set.
 
 Metric `key` values are **stable identifiers**. Renaming a key breaks that metric's
 history exactly as renaming an exercise slug does.
@@ -268,8 +328,9 @@ GAIN joins all history on the exercise slug. These rules are what keep a user's 
 history intact across a revision. Breaking them silently destroys data that cannot be
 reconstructed.
 
-Every slug is declared exactly once, in `exercises`. That catalogue is the only place you
-need to look to check you have preserved them all.
+Every slug is declared exactly once, in `exercises` — including movements that appear only
+as substitutes. That catalogue is therefore the only place you need to look to check you
+have preserved them all.
 
 1. **Never change an existing `id`.** If `goblet-squat` was in the previous version and
    the exercise is still in the plan, it is still `goblet-squat`. Not
@@ -339,14 +400,17 @@ writes nothing:
 - `load` referencing an undeclared `ref`
 - A session exercise `id` with no entry in the `exercises` catalogue
 - `scheduling.sequence` referencing an undeclared session `key`
-- A bare-slug `substitutes` entry not defined in the catalogue
+- A `substitutes` entry not defined in the `exercises` catalogue
+- `sets` on an exercise inside a `type: rounds` block
+- `rounds` missing on a `type: rounds` block, or `rounds` on any other block type
+- Block-level `rest_sec` on a block that is not `type: rounds`
 - Duplicate `id` in the catalogue, or a duplicate session `key`
 - `version` not greater than the current stored version for that `plan.slug`
+- `changelog` missing or empty when `version` is above 1
 
 Warnings — surfaced in the diff review but not blocking:
 
 - A slug in the previous version is absent from the new one (possible rename or removal)
 - A new slug closely resembles an existing one (possible accidental rename)
-- A catalogue entry that no session references
+- A catalogue entry referenced by no prescription and no `substitutes` list
 - A metric key has disappeared, orphaning its history
-- `changelog` is empty on a version above 1

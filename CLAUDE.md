@@ -23,6 +23,9 @@ behaves; read it before touching anything user-facing.
 TypeScript + SvelteKit, single Node container, SQLite via `better-sqlite3`, Zod for
 contract validation, Vitest for tests. One image, one port, one volume.
 
+Node version, package manager, lint/format and CI are settled in ARCHITECTURE §12,
+"Toolchain, settled". Implement those choices; do not make them again.
+
 ## What this app is
 
 GAIN is the structured middle of a copy-paste loop. An AI writes a training plan in
@@ -92,7 +95,11 @@ container restart, and an expired session — a 401 must never discard queued lo
 
 These break things quietly, and no test catches them today:
 
-- **`context_md` is byte-identical** through import → storage → export → re-import.
+- **`context_md` is byte-identical** through import → storage → export → re-import. The
+  export replays `source_md` verbatim as Section 1, so the plan document is copied, never
+  reassembled from `context_md` plus a block. The bundle itself is **not** re-importable —
+  an AI reads a bundle and returns a plan document, and a pasted bundle gets an explanation
+  rather than a second supported input format. See ARCHITECTURE §11.
 - **Import is all-or-nothing.** On any validation failure, report the failing field and
   write nothing. Never partially import.
 - **`docs/CONTRACT.md` is shipped output, not internal documentation.** It is reproduced
@@ -102,6 +109,12 @@ These break things quietly, and no test catches them today:
 - **Validation errors are written for an AI to read.** Field path, expected, found,
   copy-pasteable. The user's recovery from a bad import is pasting the error back into
   their chat, never hand-editing YAML.
+- **Both outbound templates instruct the AI to ask rather than assume**, with worked
+  examples. "I have dumbbells" must produce a question about plates and increments, not a
+  guessed weight. A wrong assumption is silent: it becomes a prescription the user cannot
+  perform, and they conclude the plan is not for them. The only sanctioned estimates are a
+  starting load and a starting rep target, both only after asking and both labelled as
+  estimates in the prose.
 - **Contract changes touch three places together:** `docs/CONTRACT.md`, the Zod schema,
   and the fixture. A spec change that leaves the fixture stale is a broken change.
 - **The contract key is `plan`, and synonyms are not accepted.** `plan.slug`,
@@ -121,12 +134,13 @@ the spine of the phase-1 test suite.
   in fixtures, tests or examples.
 - It exercises every primitive in one file: a rounds block, checkoff warm-ups, two
   conditional exercises, per-side reps and per-side time, ranged sets and ranged rest,
-  bodyweight-to-loaded progressions, and both substitute forms — bare slugs resolved in
-  the catalogue, and an inline external movement.
+  bodyweight-to-loaded progressions, catalogue rest defaults overridden per occurrence,
+  a movement that exists only as a substitute, and metrics at all three scopes.
 - Its oddities are **deliberate test cases, not defects.** The five documented
   interpretations in "Import notes" should not be tidied away.
-- 22 exercises, 60 prescriptions, 4 sessions. The catalogue declares each movement once,
-  so an exercise appearing in three sessions has one entry and three prescriptions.
+- 23 exercises, 60 prescriptions, 4 sessions. The catalogue declares each movement once,
+  so an exercise appearing in three sessions has one entry and three prescriptions — and
+  one entry, `lying-triceps-extension`, has none, because it is only ever a substitute.
 
 ## Build order
 

@@ -56,12 +56,22 @@ This document contains everything you need:
   professional named in Section 1. If symptom data suggests something is getting worse,
   say so plainly and recommend I raise it with them.
 
-## If the data is insufficient
+## Ask, do not guess
 
-Ask me for what you need rather than guessing. Missing data is a normal outcome of real
-life, and a question is more useful than a confident recommendation built on a gap. If
-you can make some decisions confidently and not others, do the confident ones and flag
-the rest.
+**Where the data does not tell you something, ask me. Do not infer it and proceed.**
+Missing data is a normal outcome of real life, and a question is more useful than a
+confident recommendation built on a gap.
+
+- A missing log is missing, not a zero. Do not read an absent session as a skipped one.
+- A skip with no reason recorded has no reason. Ask, rather than attributing it to pain,
+  time or motivation.
+- Do not assume my equipment, schedule or symptoms have changed since Section 1 says they
+  were. If a recommendation depends on that, ask first.
+- Two sessions are not a trend. Say the evidence is thin rather than reading a direction
+  into it.
+
+If you can make some decisions confidently and not others, make the confident ones and
+put the questions at the end, in one place, so I can answer them in a single reply.
 
 ## Tone
 
