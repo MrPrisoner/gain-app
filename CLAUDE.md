@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Current state
 
 **This repository contains no code yet.** It holds an agreed design, a specification, a
-settled UI design, a test fixture and a template. Phase 1 has not started.
+settled UI design, a test fixture and two prompt templates. Phase 1 has not started.
 
 There are therefore **no build, test, lint or run commands** — do not invent them, and do
 not report a command as having been run. `package.json` and the toolchain arrive with
@@ -36,6 +36,15 @@ AI chat  ──md──►  import  ──►  train & log  ──►  export  �
 
 **GAIN never calls an AI.** No API keys, no chat UI, no LLM in any code path. This is a
 decision, not a gap.
+
+**The loop is the product.** Everything else exists to make one round of it worth
+completing, so every crossing between GAIN and an AI must be one tap out and one paste
+back. Nothing the user assembles by hand, no format knowledge required, paste as the
+primary transport, one document per crossing. A user who finds the handoff clumsy stops
+revising, and an unrevised plan is a notes app with extra steps. See ARCHITECTURE §1.
+
+A new user has no plan, so nothing to export, so **the loop cannot start itself.** That is
+what `templates/bootstrap-prompt.md` is for — see ARCHITECTURE §7.
 
 ## The architecture that isn't obvious from any single file
 
@@ -87,8 +96,12 @@ These break things quietly, and no test catches them today:
 - **Import is all-or-nothing.** On any validation failure, report the failing field and
   write nothing. Never partially import.
 - **`docs/CONTRACT.md` is shipped output, not internal documentation.** It is reproduced
-  verbatim as Section 4 of every export, so editing it changes the instructions every
-  revising AI receives.
+  verbatim in **both** outbound templates — Section 4 of every export and Section 2 of the
+  bootstrap prompt — so editing it changes the instructions every AI receives, whether it
+  is authoring a first plan or revising one.
+- **Validation errors are written for an AI to read.** Field path, expected, found,
+  copy-pasteable. The user's recovery from a bad import is pasting the error back into
+  their chat, never hand-editing YAML.
 - **Contract changes touch three places together:** `docs/CONTRACT.md`, the Zod schema,
   and the fixture. A spec change that leaves the fixture stale is a broken change.
 - **The contract key is `plan`, and synonyms are not accepted.** `plan.slug`,
@@ -122,7 +135,7 @@ export generator, plus the golden test that imports the fixture, logs synthetic 
 exports, re-imports, and asserts every ID survives and `context_md` is unchanged.
 
 Everything else is built on that guarantee, so it comes first. Full phase table in
-ARCHITECTURE §11.
+ARCHITECTURE §12.
 
 Parsing, diffing, progression logic and export generation are pure functions over plain
 data — no I/O, and the clock is injected so they stay deterministic.

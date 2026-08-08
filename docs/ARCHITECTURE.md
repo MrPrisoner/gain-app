@@ -24,6 +24,37 @@ GAIN never talks to an AI itself. It is the structured, offline-capable middle o
 copy-paste loop, and the quality of the whole system rests on one thing: **the
 markdown that leaves GAIN must be able to come back in without losing identity.**
 
+### The loop is the product
+
+**This diagram is not a summary of the app. It is the app.** Everything else — the
+session runner, the charts, the offline queue — exists to make one round of this loop
+worth completing. If moving between GAIN and an AI is awkward, the loop stops turning,
+and a plan that is never revised is just a note-taking app with extra steps.
+
+So every crossing of that boundary is a first-class piece of design, not plumbing:
+
+| Crossing | Must feel like |
+|---|---|
+| **GAIN → AI**, first plan | One button, one paste. GAIN produces the whole prompt; the user never assembles it |
+| **AI → GAIN**, import | Paste, see a plain-language diff, commit. No file wrangling, no format knowledge |
+| **GAIN → AI**, revision | One button, one paste. Everything the AI needs, in one document |
+| **AI → GAIN**, re-import | The same paste-and-review as the first time |
+
+Concrete obligations that follow, all of them testable:
+
+- **Nothing the user must assemble by hand.** Every outbound artifact is complete and
+  copy-ready in one action — including the contract spec, which the AI needs and the user
+  should never have to think about.
+- **No format knowledge required.** A user who has never read `CONTRACT.md` must be able
+  to complete a full round. The spec travels inside the documents.
+- **Errors are part of the loop, not a dead end.** When an AI emits an invalid plan, the
+  error must be written so the *AI* can act on it — field path, expected, found — and be
+  copy-pasteable in one tap. The user's recovery is to paste the error back into the chat,
+  not to hand-edit YAML.
+- **Paste is the primary transport.** File upload is a convenience. Assume a phone,
+  a chat window in another tab, and no filesystem.
+- **One document per crossing.** Never "copy this, then also copy that."
+
 ### The central tension
 
 A plan document is two things at once:
@@ -366,7 +397,81 @@ its weight: the same movement is prescribed on average 2.7 times.
 
 ---
 
-## 7. Import pipeline
+## 7. First run — starting the loop
+
+A new user has no plan, so nothing to export, so nothing to give an AI. **The loop cannot
+start itself**, and closing that gap is what first run is for.
+
+GAIN therefore ships **two** outbound templates, both user-editable, both carrying
+`docs/CONTRACT.md` verbatim because no AI knows the `gain-plan` format otherwise:
+
+| Template | Direction | Purpose |
+|---|---|---|
+| `templates/bootstrap-prompt.md` | GAIN → AI, no plan yet | Interview the user and author a first plan |
+| `templates/default-ai-instructions.md` | GAIN → AI, plan + logs | Revise an existing plan against real data |
+
+They are the same asset pointing in opposite directions, and both are Section 0 of the
+document GAIN emits.
+
+### The flow
+
+```
+sign in, no plan
+      ↓
+empty state: "GAIN doesn't write plans — an AI does"
+      ↓
+four optional questions   ← equipment, days/week + minutes, goals, anything to work around
+      ↓
+generate prompt = bootstrap template + answers + CONTRACT.md verbatim
+      ↓  one tap: copy (download as fallback)
+      ↓
+[ user's own AI chat: it interviews them, then emits a plan document ]
+      ↓  one paste
+import → diff review (v1: everything is new) → commit
+      ↓
+Today screen, session A
+```
+
+### Why questions in the app at all
+
+Barely any. **An AI is a better interviewer than a form** — a form asks everyone the same
+thing, an AI asks a follow-up. The questions exist to give the AI a running start and set
+the frame, not to gather requirements. Four, all skippable, thirty seconds.
+
+The bootstrap template tells the AI explicitly that Section 1 is thin and that anything
+missing is something to ask about.
+
+### Template variables
+
+`templates/bootstrap-prompt.md` is filled with `{{equipment}}`, `{{sessions_per_week}}`,
+`{{session_minutes}}`, `{{goals}}`, `{{constraints}}` and `{{contract}}`.
+
+Every one except `{{contract}}` may be empty, and the template tells the AI so — a blank
+field is a question to ask, not a gap to invent around. `{{contract}}` is
+`docs/CONTRACT.md` verbatim and is never optional.
+
+### The answers are not stored
+
+They exist only to fill a template the user copies. Generate the prompt, discard the
+inputs. Nothing is written to `gain.db` until a plan is actually imported.
+
+This is not a shortcut, it is the point: "anything to work around" invites health
+information, and none of it should become stored data belonging to someone who has not
+yet imported a plan. Per-user isolation is meaningless if we collect before we commit.
+
+### Invalid first plans are expected
+
+An AI writing to an unfamiliar spec will sometimes get it wrong. That is a normal step in
+the loop, not a failure state, and the recovery path is the user pasting the error back
+into the chat.
+
+So **validation errors are written for an AI to read**: field path, what was expected,
+what was found, one per failure, copy-pasteable in a single tap. Never "import failed."
+The user should not need to open the contract, and must never be asked to hand-edit YAML.
+
+---
+
+## 8. Import pipeline
 
 ```
 paste / upload .md
@@ -392,7 +497,7 @@ context a future AI may well want.
 
 ---
 
-## 8. The session runner
+## 9. The session runner
 
 The screen you actually stare at, sweating, between sets. It gets the most design care.
 
@@ -432,7 +537,7 @@ The screen you actually stare at, sweating, between sets. It gets the most desig
 
 ---
 
-## 9. Progress & history
+## 10. Progress & history
 
 - **Per exercise:** load × reps over time, estimated volume, double-progression state
   ("12/11/11 — one session from a load increase"), and difficulty distribution.
@@ -445,7 +550,7 @@ The screen you actually stare at, sweating, between sets. It gets the most desig
 
 ---
 
-## 10. Export
+## 11. Export
 
 One `.md` file, self-contained, ready to paste or upload into any chat.
 
@@ -484,7 +589,7 @@ One `.md` file, self-contained, ready to paste or upload into any chat.
 
 ---
 
-## 11. Being built entirely by AI
+## 12. Being built entirely by AI
 
 This constrains the design, and the constraints are already baked into the above.
 
@@ -507,20 +612,32 @@ This constrains the design, and the constraints are already baked into the above
 
 | Phase | Deliverable | Done when |
 |---|---|---|
-| 1 | Contract schema, parser, diff engine, export generator — pure functions, no UI | Round-trip golden test passes on the real plan doc |
+| 1 | Contract schema, parser, diff engine, export generator, **both prompt templates** — pure functions, no UI | Round-trip golden test passes on the real plan doc; both templates embed CONTRACT.md byte-for-byte |
 | 2 | SQLite layer, per-user DB provisioning, migrations | Import writes a version; second import produces a correct diff |
 | 3 | OIDC auth, group gate, session handling, container + compose | Deploys to Portainer; unauthorised user gets a clean 403 |
 | 4 | Session runner UI, online only | A full session of the real plan can be logged on a phone |
 | 5 | Offline PWA: IndexedDB, sync queue, idempotency | Airplane-mode session syncs cleanly on reconnect; property tests pass |
 | 6 | Progress, history, charts | Double-progression state matches hand-calculated expectations |
-| 7 | Import review/diff UI, template editor, export UI | Full loop runs end-to-end without touching a database |
+| 7 | First-run onboarding, import review/diff UI, template editor, export UI | A user with no plan completes a full loop — prompt out, plan in, session logged, export out — without touching a database |
+
+**Why the templates land in phase 1.** They are pure content, they need no code, and they
+must embed `docs/CONTRACT.md` verbatim — the same mechanism the export generator already
+implements, so it is one assertion in the golden test rather than a new capability.
+
+The stronger reason is that **writing them tests the contract**. If clear instructions for
+producing a valid `gain-plan` block cannot be written, the contract is not clear enough,
+and that is far cheaper to discover before a parser hardens the current wording.
+
+**Known consequence of the ordering.** Onboarding lands last, so a *second* user cannot
+start until phase 7. This does not block development — seed your own plan directly — but
+it is the gate on sharing the app with anyone else. Accepted deliberately, not overlooked.
 
 Phase 1 before anything else. If the round-trip is not provably lossless, everything
 built on top of it is built on sand.
 
 ---
 
-## 12. Non-goals
+## 13. Non-goals
 
 Explicitly out of scope, to stop agents inventing work:
 
@@ -534,7 +651,7 @@ Explicitly out of scope, to stop agents inventing work:
 
 ---
 
-## 13. Risks
+## 14. Risks
 
 | Risk | Mitigation |
 |---|---|

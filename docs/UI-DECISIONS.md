@@ -3,7 +3,7 @@
 Settled in a design pass against
 [`fixtures/plans/home-dumbbell-v1.md`](../fixtures/plans/home-dumbbell-v1.md),
 before any code existed. Nothing here is built: the session runner is **phase 4**, and it
-depends on the phase-1 round-trip core. See ARCHITECTURE §11.
+depends on the phase-1 round-trip core. See ARCHITECTURE §12.
 
 These are decisions, not suggestions — implement against them rather than relitigating
 them, the same way ARCHITECTURE §2 works. Where a decision has a *reason* attached, the
@@ -144,8 +144,31 @@ theme override.
 
 ---
 
+## 11. First run, and every crossing to an AI
+
+ARCHITECTURE §1 and §7 hold the detail. What binds them to the UI:
+
+**Getting to an AI and back is the primary flow, not a settings-menu chore.** A user who
+finds the handoff clumsy stops revising, and an unrevised plan is a notes app. Judge every
+screen that touches this boundary by whether a round trip is one tap out and one paste
+back.
+
+- **Empty state is honest about what GAIN is.** "GAIN doesn't write plans — an AI does."
+  Then one button that produces the whole prompt. Do not bury it behind a wizard.
+- **Four questions, all skippable**, and the answers are **never stored** — they only fill
+  a template the user copies. Nothing is written until a plan is imported.
+- **Copy is the primary action**, download the fallback. Assume a phone with a chat open
+  in another tab and no usable filesystem.
+- **One document per crossing.** Never "copy this, and also copy that."
+- **Import errors are addressed to the AI**, not the user: field path, expected, found,
+  copy-pasteable in one tap. The user's fix is to paste the error back into the chat.
+  Never show raw YAML, never ask them to edit it, never say only "import failed".
+- **A failed import is a normal step**, so it must not feel like a wall. Keep the pasted
+  text in place, and put the copy-the-error action next to it.
+
+---
+
 ## What this does not decide
 
-Still open, and not blocking phase 1: the history and progress screens, the import review
-and diff UI, the AI-template editor, the offline sync-state indicator, and onboarding for
-a user's first import.
+Still open, and not blocking phase 1: the history and progress screens, the diff-review
+layout itself, the AI-template editor, and the offline sync-state indicator.

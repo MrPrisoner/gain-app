@@ -85,7 +85,7 @@ TypeScript, SvelteKit, SQLite. One image, one port, one volume.
 | [`docs/UI-DECISIONS.md`](docs/UI-DECISIONS.md) | How the session runner behaves, and why |
 | [`design/`](design/) | A clickable mockup of the session runner — open it in a browser |
 | [`fixtures/plans/`](fixtures/plans/) | A complete reference plan |
-| [`templates/`](templates/) | Default instructions sent to the reviewing AI |
+| [`templates/`](templates/) | The two prompts GAIN hands to an AI — author a plan, revise a plan |
 
 ## Licence
 
