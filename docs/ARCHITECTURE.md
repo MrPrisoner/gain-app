@@ -427,10 +427,13 @@ generate prompt = bootstrap template + answers + CONTRACT.md verbatim
       ↓
 [ user's own AI chat: it interviews them, then emits a plan document ]
       ↓  one paste
-import → diff review (v1: everything is new) → commit
+import → "4 sessions, 22 exercises, 60 prescriptions" → commit
       ↓
 Today screen, session A
 ```
+
+There is no diff to review on a first import — nothing exists to compare against — so it
+confirms what was parsed and commits. Diff review belongs to the *second* import onward.
 
 ### Why questions in the app at all
 
@@ -480,9 +483,11 @@ split: extract ```gain-plan block  →  contract
        everything else                →  context_md (verbatim)
       ↓
 validate contract against Zod schema
-      ↓  errors → field-level error UI, nothing written
+      ↓  errors → field-level errors, copy-pasteable back to the AI, nothing written
 resolve exercise slugs vs existing exercise_def
       ↓
+   ┌──┴── first import? ── summary only: sessions, exercises, prescriptions
+   │
 DIFF REVIEW  ── changed targets, added/removed exercises,
                 unmatched slugs flagged as possible renames,
                 metric definitions added/removed
@@ -490,6 +495,10 @@ DIFF REVIEW  ── changed targets, added/removed exercises,
 write plan_version (immutable) + source_md to disk
 mark is_current, previous version retained read-only
 ```
+
+Both paths share everything except the review step, so the first import is not a special
+case in the pipeline — it is the same pipeline with nothing to compare against. That is
+why it can ship in phase 3 while diff review waits for phase 7.
 
 Old versions stay browsable. Workouts remain attached to the version they were logged
 under, so "what did the plan actually say in week 3" is always answerable —
@@ -614,11 +623,11 @@ This constrains the design, and the constraints are already baked into the above
 |---|---|---|
 | 1 | Contract schema, parser, diff engine, export generator, **both prompt templates** — pure functions, no UI | Round-trip golden test passes on the real plan doc; both templates embed CONTRACT.md byte-for-byte |
 | 2 | SQLite layer, per-user DB provisioning, migrations | Import writes a version; second import produces a correct diff |
-| 3 | OIDC auth, group gate, session handling, container + compose | Deploys to Portainer; unauthorised user gets a clean 403 |
+| 3 | OIDC auth, group gate, session handling, container + compose, **first run: empty state → prompt out → paste a plan in** | Deploys to Portainer; unauthorised user gets a clean 403; a user with an empty account copies the bootstrap prompt and pastes a plan back into a working app |
 | 4 | Session runner UI, online only | A full session of the real plan can be logged on a phone |
 | 5 | Offline PWA: IndexedDB, sync queue, idempotency | Airplane-mode session syncs cleanly on reconnect; property tests pass |
 | 6 | Progress, history, charts | Double-progression state matches hand-calculated expectations |
-| 7 | First-run onboarding, import review/diff UI, template editor, export UI | A user with no plan completes a full loop — prompt out, plan in, session logged, export out — without touching a database |
+| 7 | Revision diff review, template editor, export UI | A logged block exports, comes back revised, and the diff is reviewed and committed — the loop closes |
 
 **Why the templates land in phase 1.** They are pure content, they need no code, and they
 must embed `docs/CONTRACT.md` verbatim — the same mechanism the export generator already
@@ -628,9 +637,27 @@ The stronger reason is that **writing them tests the contract**. If clear instru
 producing a valid `gain-plan` block cannot be written, the contract is not clear enough,
 and that is far cheaper to discover before a parser hardens the current wording.
 
-**Known consequence of the ordering.** Onboarding lands last, so a *second* user cannot
-start until phase 7. This does not block development — seed your own plan directly — but
-it is the gate on sharing the app with anyone else. Accepted deliberately, not overlooked.
+**Why first run lands in phase 3, not at the end.** Importing a plan is the front door,
+not a refinement. Every user arrives with an empty account — including the first one — and
+until a plan is in, there is nothing to run, nothing to log and nothing to export. An app
+that can only be populated by running a script against its database is not usable by
+anybody, and seeding one by hand is a development workaround, not a product.
+
+It needs nothing that phases 1 and 2 do not already provide: parse, validate, write a
+version. The screen is a paste box, a validation result and a confirmation.
+
+**The two imports are not the same job**, which is what makes the split clean:
+
+| | First import | Revision import |
+|---|---|---|
+| Diff against | Nothing — everything is new | The previous version |
+| Needs | Parse, validate, confirm | Rename detection, per-field diff, mapping UI |
+| Available | Phase 3 | Phase 7 |
+
+The first import has nothing to compare against, so it needs no diff review — a summary of
+what was parsed is enough. The revision import is where the real work lives, and it cannot
+happen until there are weeks of logs to export in the first place. Deferring it costs
+nothing.
 
 Phase 1 before anything else. If the round-trip is not provably lossless, everything
 built on top of it is built on sand.
