@@ -1,4 +1,4 @@
-# Gain
+# GAIN
 
 Self-hosted training tracker for AI-authored exercise programmes. Import a programme as
 Markdown, run and log sessions from an offline-capable PWA, then export your full
@@ -12,7 +12,7 @@ programme and progress for an AI to review and revise.
 
 ## Health disclaimer
 
-**Gain is a logging tool, not a source of medical or fitness advice.**
+**GAIN is a logging tool, not a source of medical or fitness advice.**
 
 Programmes tracked in this app are written by general-purpose AI assistants, which are
 not clinicians, do not examine you, and can be confidently wrong. Nothing produced by
@@ -31,22 +31,24 @@ You are responsible for what you choose to do with the programmes you track here
 
 ## What it is
 
-Gain sits in the middle of a loop that otherwise has no memory:
+GAIN sits in the middle of a loop that otherwise has no memory:
 
 ```
 AI chat  ──md──►  import  ──►  train & log  ──►  export  ──md──►  AI chat
 (external)      (structured)   (offline PWA)   (bundle)         (external)
 ```
 
-You compile a programme by chatting with an AI somewhere else. Gain imports that
+You compile a programme by chatting with an AI somewhere else. GAIN imports that
 Markdown, turns it into sessions you can actually run on your phone in the garage, and
 records what you did. When the block ends, it exports a single Markdown file — the
 programme in full, plus your progress — that you paste back into an AI to get the next
 revision.
 
-**Gain never talks to an AI itself.** No API keys, no in-app chat, no LLM in any code
-path. You keep using whichever assistant you prefer, and no third party sits between you
-and your training data.
+**The AI is in the name, not in the code.** G‑**AI**‑N is spelled that way on purpose:
+AI sits on both ends of this loop and nowhere inside it. It writes your programme and it
+revises it — but GAIN itself never talks to an AI. No API keys, no in-app chat, no LLM
+in any code path. You keep using whichever assistant you prefer, and no third party sits
+between you and your training data.
 
 ### What it does
 
@@ -87,7 +89,7 @@ TypeScript, SvelteKit, SQLite. One image, one port, one volume.
 
 [GNU Affero General Public License v3.0](LICENSE).
 
-If you run a modified version of Gain as a network service, AGPL §13 requires you to
+If you run a modified version of GAIN as a network service, AGPL §13 requires you to
 offer its source to your users. Self-hosting it unmodified for yourself, your household
 or your friends carries no such obligation — run it however you like.
 

@@ -1,6 +1,6 @@
-# The Gain programme contract — v1
+# The GAIN programme contract — v1
 
-This is the authoritative specification for the machine-readable block that Gain reads
+This is the authoritative specification for the machine-readable block that GAIN reads
 from a programme document. It is reproduced verbatim as **Section 4** of every export,
 so the AI revising a programme always has the spec in front of it.
 
@@ -8,14 +8,14 @@ so the AI revising a programme always has the spec in front of it.
 
 ## 1. What this is for
 
-A Gain programme document has two parts:
+A GAIN programme document has two parts:
 
 - **Prose context** — rationale, goals, form cues, injury rules, progression philosophy,
-  exclusions. Gain stores this verbatim and never modifies it.
-- **One fenced contract block** — the structured skeleton Gain uses to render sessions
+  exclusions. GAIN stores this verbatim and never modifies it.
+- **One fenced contract block** — the structured skeleton GAIN uses to render sessions
   and record logs.
 
-Everything outside the block is context. The block is the only part Gain parses.
+Everything outside the block is context. The block is the only part GAIN parses.
 
 ## 2. Placement and fencing
 
@@ -162,7 +162,7 @@ history exactly as renaming an exercise slug does.
 
 ### `scheduling`, `progression`, `safety`
 
-All optional and largely free-text — Gain surfaces them in the UI but does not act on
+All optional and largely free-text — GAIN surfaces them in the UI but does not act on
 them automatically. `scheduling.sequence` is the exception: it drives the suggested
 next session.
 
@@ -212,7 +212,7 @@ front of you at the moment you need it.
 
 ## 5. Round-trip rules — read this before revising a programme
 
-Gain joins all history on the exercise slug. These rules are what keep a user's training
+GAIN joins all history on the exercise slug. These rules are what keep a user's training
 history intact across a revision. Breaking them silently destroys data that cannot be
 reconstructed.
 
@@ -235,7 +235,7 @@ reconstructed.
    misattributes past workouts.
 10. **Metric `key` values are stable** for the same reason.
 
-Gain shows the user a diff before committing an import, and flags any slug present in
+GAIN shows the user a diff before committing an import, and flags any slug present in
 the previous version but absent from the new one as a possible rename. That safety net
 exists because this failure mode is silent, not because these rules are optional.
 
@@ -277,7 +277,7 @@ sessions:
 
 ## 7. Validation behaviour
 
-Import is all-or-nothing. On any of the following, Gain reports the failing field and
+Import is all-or-nothing. On any of the following, GAIN reports the failing field and
 writes nothing:
 
 - Missing or duplicated `gain-program` block

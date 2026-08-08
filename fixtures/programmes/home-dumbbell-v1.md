@@ -1,7 +1,7 @@
 # 4-Week Home Dumbbell Training Programme — AI Context & Progression Record
 
 > **Example programme.** This is a fictional reference programme used as a test fixture
-> for the Gain training app. The user profile, training history and symptom context are
+> for the GAIN training app. The user profile, training history and symptom context are
 > invented. It is written in the style a real AI-authored programme would use, because
 > its purpose is to exercise every feature of the programme format.
 
@@ -1307,11 +1307,11 @@ Recommended changes for next block:
 
 ---
 
-# Appendix A — Machine-readable programme (Gain contract block)
+# Appendix A — Machine-readable programme (GAIN contract block)
 
-The block below is the structured skeleton of this programme. It is read by the Gain
+The block below is the structured skeleton of this programme. It is read by the GAIN
 training app to render sessions and record logs. Everything above it is the prose
-context, which Gain stores verbatim and does not modify.
+context, which GAIN stores verbatim and does not modify.
 
 **If you are an AI assistant revising this programme:** the rules for regenerating this
 block — in particular the requirement to preserve every `id` value — are stated in the

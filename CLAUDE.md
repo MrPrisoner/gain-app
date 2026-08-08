@@ -23,7 +23,7 @@ contract validation, Vitest for tests. One image, one port, one volume.
 
 ## What this app is
 
-Gain is the structured middle of a copy-paste loop. An AI writes a training programme in
+GAIN is the structured middle of a copy-paste loop. An AI writes a training programme in
 some external chat; the user imports the Markdown here, trains and logs offline, then
 exports a bundle to feed back to an AI for revision.
 
@@ -32,7 +32,7 @@ AI chat  ──md──►  import  ──►  train & log  ──►  export  �
 (external)      (structured)   (offline PWA)   (bundle)         (external)
 ```
 
-**Gain never calls an AI.** No API keys, no chat UI, no LLM in any code path. This is a
+**GAIN never calls an AI.** No API keys, no chat UI, no LLM in any code path. This is a
 decision, not a gap.
 
 ## The architecture that isn't obvious from any single file
@@ -44,7 +44,7 @@ inside one fenced ` ```gain-program ` YAML block) wrapped in ~1200 lines of **pr
 context** (rationale, form cues, injury rules, progression philosophy).
 
 The skeleton is parsed into SQLite and drives the UI. The context is stored **verbatim**
-and replayed into exports byte-for-byte. Gain never paraphrases, summarises or
+and replayed into exports byte-for-byte. GAIN never paraphrases, summarises or
 regenerates context — anything it cannot parse, it preserves. Nearly all of the document
 is useless to the session UI and essential to the next AI revision.
 
