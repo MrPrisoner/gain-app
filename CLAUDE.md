@@ -26,6 +26,16 @@ contract validation, Vitest for tests. One image, one port, one volume.
 Node version, package manager, lint/format and CI are settled in ARCHITECTURE §12,
 "Toolchain, settled". Implement those choices; do not make them again.
 
+### How to report back
+
+Short and scannable — bullets over prose, lead with what changed, and put anything I need
+to decide under its own heading at the end, numbered so I can reply "1. yes, 2. no". Never
+bury a question mid-paragraph. Ask rather than guess, and give a recommendation with the
+question. This mirrors `~/.claude/CLAUDE.md`; the global file is authoritative.
+
+Design documents in this repo are the exception — `docs/` is written for AI agents and a
+human reviewer, and its prose is deliberate. Do not "bullet-ify" it.
+
 ## What this app is
 
 GAIN is the structured middle of a copy-paste loop. An AI writes a training plan in
@@ -136,7 +146,7 @@ the spine of the phase-1 test suite.
   conditional exercises, per-side reps and per-side time, ranged sets and ranged rest,
   bodyweight-to-loaded progressions, catalogue rest defaults overridden per occurrence,
   a movement that exists only as a substitute, and metrics at all three scopes.
-- Its oddities are **deliberate test cases, not defects.** The five documented
+- Its oddities are **deliberate test cases, not defects.** The eight documented
   interpretations in "Import notes" should not be tidied away.
 - 23 exercises, 60 prescriptions, 4 sessions. The catalogue declares each movement once,
   so an exercise appearing in three sessions has one entry and three prescriptions — and
