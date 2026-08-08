@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Current state
 
 **This repository contains no code yet.** It holds an agreed design, a specification, a
-test fixture and a template. Phase 1 has not started.
+settled UI design, a test fixture and a template. Phase 1 has not started.
 
 There are therefore **no build, test, lint or run commands** — do not invent them, and do
 not report a command as having been run. `package.json` and the toolchain arrive with
@@ -14,7 +14,9 @@ phase 1.
 Read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) first, then
 [`docs/CONTRACT.md`](docs/CONTRACT.md), before doing anything substantive. The twelve
 design decisions in ARCHITECTURE §2 are settled — implement against them rather than
-relitigating them.
+relitigating them. The same applies to
+[`docs/UI-DECISIONS.md`](docs/UI-DECISIONS.md), which settles how the session runner
+behaves; read it before touching anything user-facing.
 
 ### Stack, once phase 1 scaffolds it
 

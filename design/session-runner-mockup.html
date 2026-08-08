@@ -1,0 +1,989 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!--
+  GAIN — session runner mockup.  Snapshot taken 2026-08-08, before any code existed.
+
+  ILLUSTRATIVE, NOT AUTHORITATIVE.  docs/UI-DECISIONS.md is the specification; this
+  file only shows what those decisions look like.  Where the two disagree, the
+  document wins.  Do not reverse-engineer behaviour from this markup.
+
+  Open it directly in a browser — no build step, no network.  Every screen uses real
+  data from fixtures/programmes/home-dumbbell-v1.md.
+
+  Typeface: Plus Jakarta Sans, SIL OFL 1.1 — see fonts/OFL.txt.
+-->
+<title>GAIN — session runner mockups</title>
+
+<style>
+@font-face {
+  font-family: "Jakarta";
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: block;
+  src: url("fonts/plus-jakarta-sans-latin.woff2") format("woff2");
+}
+
+/* ============================================================
+   TOKENS
+   Hue is reserved for meaning: green / amber / red belong to the
+   programme's symptom framework and appear nowhere decorative.
+   Hierarchy is carried by weight and luminance.
+   ============================================================ */
+:root {
+  --ground:    #0B0D10;
+  --surface:   #14171C;
+  --raised:    #1B1F26;
+  --hover:     #232831;
+  --line:      #272D36;
+  --line-soft: #1E232B;
+  --text:      #F2F5F8;
+  --muted:     #99A3B0;
+  --dim:       #6B7480;
+  --accent:    #5B8DEF;
+  --accent-in: #0B0D10;
+  --accent-soft: rgba(91,141,239,.15);
+  --green:     #3FA96A;
+  --amber:     #D9A23F;
+  --amber-soft: rgba(217,162,63,.12);
+  --red:       #E0655B;
+  --shadow:    0 -20px 40px -26px rgba(0,0,0,.9);
+
+  --font: "Jakarta", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --r-xs: 8px;
+  --r-sm: 12px;
+  --r-md: 16px;
+  --r-lg: 22px;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --ground:#F4F6F8; --surface:#FFFFFF; --raised:#F8FAFB; --hover:#EFF2F5;
+    --line:#E3E7EC; --line-soft:#EDF0F4; --text:#0F1319; --muted:#5C6672; --dim:#8B95A1;
+    --accent:#2C6BE0; --accent-in:#FFFFFF; --accent-soft:rgba(44,107,224,.10);
+    --green:#2E8B52; --amber:#9C7218; --amber-soft:rgba(156,114,24,.10); --red:#C94A40;
+    --shadow: 0 -20px 40px -30px rgba(15,25,45,.35);
+  }
+}
+:root[data-theme="light"] {
+  --ground:#F4F6F8; --surface:#FFFFFF; --raised:#F8FAFB; --hover:#EFF2F5;
+  --line:#E3E7EC; --line-soft:#EDF0F4; --text:#0F1319; --muted:#5C6672; --dim:#8B95A1;
+  --accent:#2C6BE0; --accent-in:#FFFFFF; --accent-soft:rgba(44,107,224,.10);
+  --green:#2E8B52; --amber:#9C7218; --amber-soft:rgba(156,114,24,.10); --red:#C94A40;
+  --shadow: 0 -20px 40px -30px rgba(15,25,45,.35);
+}
+:root[data-theme="dark"] {
+  --ground:#0B0D10; --surface:#14171C; --raised:#1B1F26; --hover:#232831;
+  --line:#272D36; --line-soft:#1E232B; --text:#F2F5F8; --muted:#99A3B0; --dim:#6B7480;
+  --accent:#5B8DEF; --accent-in:#0B0D10; --accent-soft:rgba(91,141,239,.15);
+  --green:#3FA96A; --amber:#D9A23F; --amber-soft:rgba(217,162,63,.12); --red:#E0655B;
+  --shadow: 0 -20px 40px -26px rgba(0,0,0,.9);
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.5;
+  letter-spacing: -.006em;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+button { font: inherit; letter-spacing: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+@media (prefers-reduced-motion: reduce) { * { animation-duration:.001ms !important; transition-duration:.001ms !important; } }
+
+/* every figure that can be compared vertically lines up */
+.num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+
+/* ============================================================
+   PROTOTYPE CHROME — deliberately quieter than the app
+   ============================================================ */
+.stage {
+  display: grid;
+  grid-template-columns: minmax(0, 430px) minmax(0, 400px);
+  gap: 48px; justify-content: center; align-items: start;
+  padding: 30px 20px 64px;
+}
+.chrome { display: flex; flex-direction: column; gap: 14px; }
+.chrome-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.chrome-title { font-size: 14px; font-weight: 600; margin: 0; }
+.chrome-sub { font-size: 12.5px; color: var(--dim); }
+.switch { display: flex; flex-wrap: wrap; gap: 5px; }
+.switch button {
+  font-size: 12.5px; font-weight: 500; color: var(--muted);
+  padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line);
+  transition: color .15s, border-color .15s, background .15s;
+}
+.switch button:hover { color: var(--text); background: var(--hover); }
+.switch button[aria-pressed="true"] { color: var(--accent-in); background: var(--text); border-color: var(--text); }
+
+/* ============================================================
+   PHONE
+   ============================================================ */
+.phone {
+  position: relative;
+  height: min(880px, 88vh); min-height: 620px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 26px; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.screen { display: none; flex-direction: column; height: 100%; min-height: 0; }
+.screen.is-on { display: flex; }
+
+.bar { display: flex; align-items: center; gap: 12px; padding: 20px 20px 14px; flex: none; }
+.bar-main { flex: 1; min-width: 0; }
+.kicker { font-size: 13px; font-weight: 500; color: var(--muted); }
+/* The name carries the thesis: AI on both ends of the loop, never inside it. */
+.wm { font-size: 15px; font-weight: 800; letter-spacing: .01em; color: var(--dim); }
+.wm b { color: var(--accent); font-weight: 800; }
+.bar-title { font-size: 19px; font-weight: 700; letter-spacing: -.022em; margin: 2px 0 0; }
+.bar-act {
+  font-size: 13.5px; font-weight: 550; color: var(--muted);
+  padding: 8px 14px; border-radius: 999px; background: var(--raised);
+  transition: color .15s, background .15s;
+}
+.bar-act:hover { color: var(--text); background: var(--hover); }
+
+.rule { display: flex; align-items: center; gap: 12px; padding: 4px 20px 14px; flex: none; font-size: 13px; color: var(--muted); }
+.rule-track { flex: 1; height: 4px; background: var(--line-soft); border-radius: 4px; overflow: hidden; }
+.rule-fill { height: 100%; background: var(--accent); border-radius: 4px; }
+
+.scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.pad-log   { padding: 0 0 236px; }
+.pad-plain { padding: 0 0 36px; }
+
+/* --- blocks --- */
+.block { display: flex; align-items: center; gap: 9px; padding: 22px 20px 10px; }
+.block-name { font-size: 14px; font-weight: 650; letter-spacing: -.01em; }
+.tag {
+  font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 999px;
+  background: var(--accent-soft); color: var(--accent);
+}
+.block-note { padding: 0 20px 12px; font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+/* --- check-off warm-up --- */
+.checks { display: flex; flex-wrap: wrap; gap: 7px; padding: 0 20px; }
+.chk {
+  display: inline-flex; align-items: center; gap: 8px;
+  border-radius: 999px; padding: 9px 15px 9px 11px;
+  font-size: 13.5px; font-weight: 500; color: var(--muted); background: var(--raised);
+  transition: color .15s, background .15s;
+}
+.chk:hover { background: var(--hover); }
+.chk-box { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--dim); flex: none; position: relative; }
+.chk-t { font-size: 12.5px; color: var(--dim); }
+.chk.is-done { color: var(--text); background: var(--accent-soft); }
+.chk.is-done .chk-box { background: var(--accent); border-color: var(--accent); }
+.chk.is-done .chk-box::after {
+  content: ""; position: absolute; inset: 0; background: var(--surface);
+  clip-path: polygon(21% 49%, 40% 67%, 79% 27%, 87% 35%, 40% 82%, 13% 56%);
+}
+.chk.is-done .chk-t { color: var(--muted); }
+
+/* --- exercise rows --- */
+.ex { padding: 0 12px; }
+.ex + .ex { margin-top: 2px; }
+.ex-head { display: flex; align-items: center; gap: 13px; width: 100%; text-align: left; padding: 13px 8px; border-radius: var(--r-sm); }
+.ex-mark { flex: none; width: 22px; text-align: center; font-size: 13px; font-weight: 600; color: var(--dim); }
+.ex-body { flex: 1; min-width: 0; }
+.ex-name { font-size: 15.5px; font-weight: 550; color: var(--muted); letter-spacing: -.012em; }
+.ex-meta { font-size: 13px; color: var(--dim); margin-top: 1px; }
+.ex-tick { flex: none; font-size: 13px; color: var(--dim); }
+.ex.is-done .ex-mark { color: var(--green); }
+.ex.is-done .ex-name { color: var(--dim); }
+
+.ex.is-live {
+  background: var(--raised); border-radius: var(--r-md);
+  padding: 4px 12px 16px; margin: 6px 8px;
+}
+.ex.is-live .ex-head { padding-bottom: 4px; }
+.ex.is-live .ex-name { color: var(--text); font-weight: 700; font-size: 17px; letter-spacing: -.02em; }
+.ex.is-live .ex-meta { color: var(--muted); font-size: 13.5px; margin-top: 3px; }
+.ex.is-live .ex-mark { color: var(--accent); }
+
+.ex-open { padding: 0 8px; }
+.ex-cue { font-size: 13px; color: var(--muted); line-height: 1.55; margin: 6px 0 14px; }
+.ex-cue b { color: var(--text); font-weight: 600; }
+
+.cond {
+  border-left: 3px solid var(--amber); background: var(--amber-soft);
+  padding: 11px 13px; border-radius: 0 var(--r-xs) var(--r-xs) 0; margin: 6px 0 14px;
+}
+.cond-l { display: block; font-size: 12px; font-weight: 650; color: var(--amber); margin-bottom: 3px; }
+.cond-t { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+/* --- the set ledger --- */
+.lrow {
+  display: grid; grid-template-columns: 30px 1fr 44px 62px 40px;
+  align-items: center; gap: 10px; padding: 11px 2px;
+  border-bottom: 1px solid var(--line-soft); font-size: 14.5px;
+}
+.lrow--h { font-size: 12.5px; font-weight: 550; color: var(--dim); padding: 4px 2px 8px; }
+.l-set { font-weight: 600; color: var(--muted); }
+.l-target { font-size: 13px; color: var(--dim); }
+.l-num { text-align: right; font-variant-numeric: tabular-nums; }
+.l-eff { text-align: right; }
+.lrow.is-logged .l-num { color: var(--text); font-weight: 600; }
+.lrow.is-next .l-set { color: var(--accent); }
+.lrow.is-next .l-num { color: var(--dim); font-weight: 500; }
+.lrow.is-pending { opacity: .38; }
+.lrow:last-child { border-bottom: none; }
+
+.eff-mini { display: inline-flex; gap: 3px; vertical-align: middle; }
+.eff-mini i { width: 5px; height: 12px; border-radius: 2px; background: var(--line); display: block; }
+.eff-mini i.on { background: var(--accent); }
+
+.addset {
+  display: block; width: 100%; text-align: center; margin-top: 10px;
+  font-size: 13.5px; font-weight: 550; color: var(--accent);
+  padding: 11px 0; border-radius: var(--r-sm); background: var(--accent-soft);
+}
+.addset:hover { filter: brightness(1.15); }
+
+/* --- rounds --- */
+.rounds { display: flex; align-items: center; gap: 7px; padding: 0 20px 12px; }
+.rdot { flex: none; width: 30px; height: 4px; border-radius: 4px; background: var(--line); }
+.rdot.on { background: var(--accent); }
+.rdot.now { background: var(--text); }
+.rlabel { font-size: 13px; color: var(--muted); margin-left: 5px; }
+
+/* ============================================================
+   LOG STRIP — the thumb zone. Effort is the commit action.
+   ============================================================ */
+.strip {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  background: var(--surface); border-top: 1px solid var(--line);
+  padding: 14px 16px 18px; box-shadow: var(--shadow);
+}
+.strip-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 4px 12px; font-size: 13px; }
+.strip-set { font-weight: 650; }
+.strip-last { color: var(--dim); }
+.strip-dev { color: var(--muted); font-weight: 550; padding: 4px 10px; border-radius: 999px; background: var(--raised); font-size: 12.5px; }
+.strip-dev:hover { color: var(--amber); }
+
+.dials { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.dial {
+  display: grid; grid-template-columns: 46px 1fr 46px; align-items: center;
+  background: var(--raised); border-radius: var(--r-md); height: 72px;
+}
+.dial-btn { height: 100%; font-size: 22px; font-weight: 400; color: var(--muted); border-radius: var(--r-md); }
+.dial-btn:hover { color: var(--text); background: var(--hover); }
+.dial-val { text-align: center; line-height: 1; }
+.dial-n { font-size: 30px; font-weight: 750; letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
+.dial-u { font-size: 12px; font-weight: 500; color: var(--dim); margin-top: 5px; }
+
+.efforts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.ek {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px;
+  height: 70px; border-radius: var(--r-md); background: var(--raised);
+  transition: background .14s, transform .1s;
+}
+.ek:hover { background: var(--accent-soft); }
+.ek:active { transform: scale(.97); }
+.ek-n { font-size: 14.5px; font-weight: 600; letter-spacing: -.012em; }
+.ek-fill { display: flex; gap: 3px; }
+.ek-fill i { width: 13px; height: 4px; border-radius: 2px; background: var(--line); display: block; }
+.ek-fill i.on { background: var(--accent); }
+
+/* ============================================================
+   REST — takes the screen, names what is next
+   ============================================================ */
+.rest { position: absolute; inset: 0; background: var(--surface); display: none; flex-direction: column; z-index: 20; padding: 26px 22px 22px; }
+.rest.is-on { display: flex; }
+.rest-top { font-size: 13px; color: var(--muted); }
+.rest-mid { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.rest-n { font-size: 96px; font-weight: 750; letter-spacing: -.055em; font-variant-numeric: tabular-nums; line-height: 1; }
+.rest-state { font-size: 14px; font-weight: 550; color: var(--muted); margin-top: 8px; }
+.rest.is-ready .rest-n { color: var(--green); }
+.rest.is-ready .rest-state { color: var(--green); }
+
+.band { width: 100%; margin-top: 30px; }
+.band-track { position: relative; height: 6px; background: var(--line-soft); border-radius: 6px; overflow: hidden; }
+.band-zone { position: absolute; top: 0; bottom: 0; background: var(--accent-soft); }
+.band-fill { position: absolute; top: 0; bottom: 0; left: 0; background: var(--accent); border-radius: 6px; }
+.band-lab { display: flex; justify-content: space-between; margin-top: 9px; font-size: 12.5px; color: var(--dim); }
+
+.upnext { display: flex; align-items: center; gap: 13px; background: var(--raised); border-radius: var(--r-md); padding: 15px 16px; margin-top: 26px; }
+.upnext-l { font-size: 12.5px; font-weight: 550; color: var(--dim); }
+.upnext-n { font-size: 16px; font-weight: 650; letter-spacing: -.015em; margin-top: 2px; }
+.upnext-t { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+.rest-btns { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; margin-top: 14px; }
+.rbtn { height: 56px; border-radius: var(--r-md); font-size: 15px; font-weight: 600; background: var(--raised); }
+.rbtn:hover { background: var(--hover); }
+.rbtn--go { background: var(--accent); color: var(--accent-in); }
+.rbtn--go:hover { background: var(--accent); filter: brightness(1.08); }
+
+/* ============================================================
+   DEVIATE
+   ============================================================ */
+.veil { position: absolute; inset: 0; background: rgba(4,6,9,.55); display: none; z-index: 30; }
+.veil.is-on { display: block; }
+.sheet {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 31;
+  background: var(--surface); border-radius: var(--r-lg) var(--r-lg) 0 0;
+  padding: 22px 18px 22px; display: none;
+}
+.sheet.is-on { display: block; }
+.sheet-h { font-size: 18px; font-weight: 700; letter-spacing: -.02em; margin: 0 0 3px; }
+.sheet-s { font-size: 13.5px; color: var(--muted); margin: 0 0 16px; }
+.opts { display: flex; flex-direction: column; gap: 8px; }
+.opt { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; border-radius: var(--r-md); padding: 14px 16px; background: var(--raised); transition: background .14s; }
+.opt:hover { background: var(--accent-soft); }
+.opt-n { font-size: 15px; font-weight: 600; letter-spacing: -.012em; }
+.opt-d { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.opt-k { font-size: 13px; font-weight: 550; color: var(--dim); flex: none; }
+.why { margin-top: 18px; }
+.why-l { font-size: 13px; font-weight: 600; margin-bottom: 9px; }
+.why-l span { font-weight: 400; color: var(--dim); }
+.why-row { display: flex; flex-wrap: wrap; gap: 7px; }
+.why-c { border-radius: 999px; padding: 8px 14px; font-size: 13.5px; font-weight: 500; color: var(--muted); background: var(--raised); }
+.why-c:hover { background: var(--hover); color: var(--text); }
+.why-c.on { background: var(--accent); color: var(--accent-in); }
+
+/* ============================================================
+   TODAY
+   ============================================================ */
+.today { padding: 2px 20px 0; }
+.card { border-radius: var(--r-lg); padding: 22px; background: var(--raised); }
+.card-top { display: flex; justify-content: space-between; align-items: baseline; }
+.card-l { font-size: 13px; font-weight: 550; color: var(--muted); }
+.card-t { font-size: 28px; font-weight: 750; letter-spacing: -.035em; margin: 8px 0 2px; }
+.card-m { font-size: 14px; color: var(--muted); }
+.card-list { margin: 18px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.card-list li { font-size: 13.5px; color: var(--muted); display: flex; gap: 12px; }
+.card-list b { font-weight: 550; color: var(--dim); flex: none; width: 62px; }
+.go { display: block; width: 100%; margin-top: 20px; height: 56px; border-radius: var(--r-md); background: var(--accent); color: var(--accent-in); font-size: 16px; font-weight: 650; letter-spacing: -.015em; }
+.go:hover { filter: brightness(1.08); }
+
+.minor { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.minor button { border-radius: var(--r-md); padding: 15px 16px; text-align: left; background: var(--raised); transition: background .14s; }
+.minor button:hover { background: var(--hover); }
+.minor-t { font-size: 14.5px; font-weight: 600; letter-spacing: -.012em; }
+.minor-s { font-size: 12.5px; color: var(--dim); margin-top: 2px; }
+
+.seq { display: flex; gap: 6px; margin-top: 22px; }
+.seq-i { flex: 1; text-align: center; font-size: 13px; font-weight: 600; padding: 9px 0; border-radius: var(--r-xs); background: var(--raised); color: var(--dim); }
+.seq-i.done { color: var(--muted); }
+.seq-i.now { color: var(--accent-in); background: var(--text); }
+.seq-cap { font-size: 13px; color: var(--dim); margin: 10px 0 0; line-height: 1.5; }
+
+.nudge { display: flex; gap: 12px; align-items: center; background: var(--raised); border-radius: var(--r-md); padding: 14px 16px; margin-top: 22px; }
+.nudge-t { font-size: 13.5px; color: var(--muted); line-height: 1.45; flex: 1; }
+.nudge-b { font-size: 13.5px; font-weight: 600; color: var(--accent); flex: none; }
+
+/* ============================================================
+   WRAP-UP
+   ============================================================ */
+.wrapup { padding: 4px 20px 30px; }
+.stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 26px; }
+.stat { border-radius: var(--r-md); padding: 14px 15px; background: var(--raised); }
+.stat-n { font-size: 26px; font-weight: 750; letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
+.stat-l { font-size: 12.5px; color: var(--dim); margin-top: 2px; }
+
+.metric { margin-bottom: 24px; }
+.metric-q { font-size: 15.5px; font-weight: 600; letter-spacing: -.015em; margin-bottom: 2px; }
+.metric-h { font-size: 13px; color: var(--dim); margin-bottom: 11px; }
+.scale { display: grid; grid-template-columns: repeat(11, 1fr); gap: 4px; }
+.scale button {
+  aspect-ratio: 1; border-radius: var(--r-xs); background: var(--raised);
+  font-size: 13px; font-weight: 550; color: var(--muted);
+  display: flex; align-items: center; justify-content: center;
+  font-variant-numeric: tabular-nums; transition: background .12s, color .12s;
+}
+.scale button:hover { background: var(--hover); color: var(--text); }
+.scale button.on { background: var(--accent); color: var(--accent-in); }
+
+.later { background: var(--raised); border-radius: var(--r-md); padding: 14px 16px; margin-bottom: 22px; }
+.later-l { font-size: 12.5px; font-weight: 600; color: var(--dim); }
+.later-t { font-size: 13.5px; color: var(--muted); line-height: 1.5; margin-top: 3px; }
+
+/* ============================================================
+   NOTES
+   ============================================================ */
+.notes { padding-top: 6px; }
+.notes-h { font-size: 15px; font-weight: 700; letter-spacing: -.02em; margin: 0 0 5px; }
+.notes-s { font-size: 13.5px; color: var(--muted); margin: 0 0 22px; line-height: 1.6; }
+.note { border-top: 1px solid var(--line); padding: 15px 0; }
+.note-k { font-size: 12.5px; font-weight: 600; color: var(--dim); }
+.note-t { font-size: 15px; font-weight: 650; letter-spacing: -.017em; margin: 3px 0 6px; }
+.note-b { font-size: 13.5px; color: var(--muted); line-height: 1.65; margin: 0; }
+.note-b b { color: var(--text); font-weight: 600; }
+.note--ok .note-k { color: var(--green); }
+.note--open .note-k { color: var(--amber); }
+
+@media (max-width: 900px) {
+  .stage { grid-template-columns: minmax(0, 460px); gap: 30px; padding: 14px 14px 48px; }
+  .phone { height: min(860px, 82vh); border-radius: 22px; }
+}
+@media (max-width: 560px) {
+  .stage { padding: 10px 0 44px; gap: 20px; }
+  .chrome { padding: 0 14px; }
+  .phone { height: calc(100vh - 172px); min-height: 520px; border-radius: 0; border-left: none; border-right: none; }
+  .notes { padding: 0 16px; }
+}
+</style>
+
+</head>
+<body>
+<div class="stage">
+  <div class="chrome">
+    <div class="chrome-head">
+      <h1 class="chrome-title"><span class="wm">G<b>AI</b>N</span> — session runner</h1>
+      <span class="chrome-sub">mockup · not built</span>
+    </div>
+    <div class="switch" id="switch">
+      <button data-go="today" aria-pressed="true">Today</button>
+      <button data-go="run" aria-pressed="false">Session A</button>
+      <button data-go="rest" aria-pressed="false">Rest</button>
+      <button data-go="dev" aria-pressed="false">Deviate</button>
+      <button data-go="dee" aria-pressed="false">Rounds</button>
+      <button data-go="end" aria-pressed="false">Wrap-up</button>
+    </div>
+
+    <div class="phone" id="phone">
+
+      <!-- ========== TODAY ========== -->
+      <section class="screen is-on" data-s="today">
+        <div class="bar">
+          <div class="bar-main">
+            <div class="wm">G<b>AI</b>N</div>
+            <h2 class="bar-title">4-Week Home Dumbbell</h2>
+          </div>
+          <button class="bar-act">History</button>
+        </div>
+        <div class="scroll"><div class="pad-plain">
+          <div class="today">
+            <div class="card">
+              <div class="card-top">
+                <span class="card-l">Up next</span>
+                <span class="card-l num">45 min</span>
+              </div>
+              <h3 class="card-t">Session A</h3>
+              <div class="card-m">Full Body Strength + Abs</div>
+              <ul class="card-list">
+                <li><b>Warm-up</b>6 movements, check off</li>
+                <li><b>Main</b>Goblet squat · Floor press · Row · Reverse lunge</li>
+                <li><b>Core</b>Dead bug · Side plank · Bird dog</li>
+              </ul>
+              <button class="go" data-go="run">Start Session A</button>
+            </div>
+
+            <div class="minor">
+              <button><div class="minor-t">Log squash</div><div class="minor-s">Outside the programme</div></button>
+              <button><div class="minor-t">Pick another</div><div class="minor-s">B · C · D</div></button>
+            </div>
+
+            <div class="seq">
+              <div class="seq-i done">A</div><div class="seq-i done">B</div>
+              <div class="seq-i done">Sq</div><div class="seq-i done">C</div>
+              <div class="seq-i done">D</div><div class="seq-i now">A</div>
+            </div>
+            <p class="seq-cap">Week 2 of 4 — Build. Sequence A → B → C → D, no fixed weekdays; last session was 3 days ago.</p>
+
+            <div class="nudge">
+              <span class="nudge-t">Session D is missing its next-morning symptom score.</span>
+              <button class="nudge-b">Add</button>
+            </div>
+          </div>
+        </div></div>
+      </section>
+
+      <!-- ========== SESSION A ========== -->
+      <section class="screen" data-s="run">
+        <div class="bar">
+          <div class="bar-main">
+            <div class="kicker">Session A — Week 2</div>
+            <h2 class="bar-title">Full Body Strength + Abs</h2>
+          </div>
+          <button class="bar-act">End</button>
+        </div>
+        <div class="rule">
+          <span class="num">24:18</span>
+          <div class="rule-track"><div class="rule-fill" style="width:38%"></div></div>
+          <span>4 of 10</span>
+        </div>
+
+        <div class="scroll"><div class="pad-log">
+          <div class="block"><span class="block-name">Warm-up</span><span class="tag">Check off</span></div>
+          <p class="block-note">Avoid forcing uncomfortable side bending or forward bending.</p>
+          <div class="checks">
+            <button class="chk is-done"><span class="chk-box"></span>March in place<span class="chk-t num">60s</span></button>
+            <button class="chk is-done"><span class="chk-box"></span>Bodyweight squat<span class="chk-t num">8</span></button>
+            <button class="chk is-done"><span class="chk-box"></span>Glute bridge<span class="chk-t num">10</span></button>
+            <button class="chk is-done"><span class="chk-box"></span>Bird dog<span class="chk-t num">6/side</span></button>
+            <button class="chk is-done"><span class="chk-box"></span>Shoulder circles<span class="chk-t num">10</span></button>
+            <button class="chk"><span class="chk-box"></span>Hip circles<span class="chk-t num">6/side</span></button>
+          </div>
+
+          <div class="block"><span class="block-name">Main work</span></div>
+
+          <div class="ex is-done">
+            <div class="ex-head">
+              <span class="ex-mark">✓</span>
+              <span class="ex-body"><span class="ex-name">Goblet squat</span>
+                <div class="ex-meta num">11 · 10 · 10 &nbsp;at&nbsp; 6 kg</div></span>
+              <span class="ex-tick num">3/3</span>
+            </div>
+          </div>
+
+          <div class="ex is-live">
+            <div class="ex-head">
+              <span class="ex-mark">▸</span>
+              <span class="ex-body"><span class="ex-name">Dumbbell floor press</span>
+                <div class="ex-meta">3 × 8–12 · heavy pair · rest 60–90s</div></span>
+            </div>
+            <div class="ex-open">
+              <p class="ex-cue">Lower until upper arms gently contact the floor, then press vertically. <b>Straight wrists, avoid excessive elbow flare.</b></p>
+              <div class="lrow lrow--h">
+                <span>Set</span><span>Target</span><span class="l-num">Reps</span><span class="l-num">Load</span><span class="l-eff">Effort</span>
+              </div>
+              <div class="lrow is-logged">
+                <span class="l-set num">1</span><span class="l-target">8–12</span>
+                <span class="l-num num">11</span><span class="l-num num">12 kg</span>
+                <span class="l-eff"><span class="eff-mini"><i class="on"></i><i class="on"></i><i></i></span></span>
+              </div>
+              <div class="lrow is-next">
+                <span class="l-set num">2</span><span class="l-target">8–12</span>
+                <span class="l-num num">11</span><span class="l-num num">12 kg</span>
+                <span class="l-eff">—</span>
+              </div>
+              <div class="lrow is-pending">
+                <span class="l-set num">3</span><span class="l-target">8–12</span>
+                <span class="l-num">—</span><span class="l-num">—</span><span class="l-eff">—</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="ex"><div class="ex-head"><span class="ex-mark num">3</span>
+            <span class="ex-body"><span class="ex-name">Supported one-arm row</span>
+              <div class="ex-meta">3 × 10–12 per side · heavy</div></span></div></div>
+
+          <div class="ex"><div class="ex-head"><span class="ex-mark num">4</span>
+            <span class="ex-body"><span class="ex-name">Reverse lunge</span>
+              <div class="ex-meta">2 × 8–10 per leg · bodyweight → light</div></span></div></div>
+
+          <div class="block"><span class="block-name">Core</span></div>
+          <div class="ex"><div class="ex-head"><span class="ex-mark num">5</span>
+            <span class="ex-body"><span class="ex-name">Dead bug</span><div class="ex-meta">2 × 6–10 per side</div></span></div></div>
+          <div class="ex"><div class="ex-head"><span class="ex-mark num">6</span>
+            <span class="ex-body"><span class="ex-name">Side plank</span><div class="ex-meta">2 × 20–40 sec per side</div></span></div></div>
+          <div class="ex"><div class="ex-head"><span class="ex-mark num">7</span>
+            <span class="ex-body"><span class="ex-name">Bird dog</span><div class="ex-meta">2 × 6–8 per side</div></span></div></div>
+        </div></div>
+
+        <div class="strip">
+          <div class="strip-top">
+            <span class="strip-set">Set 2 of 3</span>
+            <button class="strip-dev" data-go="dev">Change</button>
+            <span class="strip-last num">Last time 11 at 12 kg</span>
+          </div>
+          <div class="dials">
+            <div class="dial">
+              <button class="dial-btn" data-step="reps,-1">−</button>
+              <div class="dial-val"><div class="dial-n" id="reps">11</div><div class="dial-u">reps</div></div>
+              <button class="dial-btn" data-step="reps,1">+</button>
+            </div>
+            <div class="dial">
+              <button class="dial-btn" data-step="kg,-1">−</button>
+              <div class="dial-val"><div class="dial-n" id="kg">12</div><div class="dial-u" id="kghint">kg total · 2 × 6</div></div>
+              <button class="dial-btn" data-step="kg,1">+</button>
+            </div>
+          </div>
+          <div class="efforts">
+            <button class="ek" data-go="rest"><span class="ek-n">Easy</span><span class="ek-fill"><i class="on"></i><i></i><i></i></span></button>
+            <button class="ek" data-go="rest"><span class="ek-n">Medium</span><span class="ek-fill"><i class="on"></i><i class="on"></i><i></i></span></button>
+            <button class="ek" data-go="rest"><span class="ek-n">Hard</span><span class="ek-fill"><i class="on"></i><i class="on"></i><i class="on"></i></span></button>
+          </div>
+        </div>
+
+        <div class="veil" id="veil" data-close></div>
+        <div class="sheet" id="sheet">
+          <h3 class="sheet-h">Change this exercise</h3>
+          <p class="sheet-s">Dumbbell floor press · set 2 of 3</p>
+          <div class="opts">
+            <button class="opt"><span style="flex:1"><span class="opt-n">Skip the rest of it</span>
+              <div class="opt-d">Keeps set 1, moves on</div></span><span class="opt-k">Skip</span></button>
+            <button class="opt"><span style="flex:1"><span class="opt-n">Swap for something else</span>
+              <div class="opt-d">No substitute declared — you'll name it</div></span><span class="opt-k">Swap</span></button>
+            <button class="opt"><span style="flex:1"><span class="opt-n">Add a 4th set</span>
+              <div class="opt-d">Above the prescribed 3</div></span><span class="opt-k">Add</span></button>
+          </div>
+          <div class="why">
+            <div class="why-l">Why? <span>— this goes to the AI</span></div>
+            <div class="why-row">
+              <button class="why-c">Symptoms</button><button class="why-c on">Fatigue</button>
+              <button class="why-c">Time</button><button class="why-c">Equipment</button>
+              <button class="why-c">Felt easy</button><button class="why-c">Other…</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="rest" id="rest">
+          <div class="rest-top">Set 2 logged — 11 reps at 12 kg, medium</div>
+          <div class="rest-mid">
+            <div class="rest-n" id="restn">0:47</div>
+            <div class="rest-state" id="rests">Resting</div>
+          </div>
+          <div class="band">
+            <div class="band-track">
+              <div class="band-zone" style="left:66.7%;right:0"></div>
+              <div class="band-fill" style="width:14%"></div>
+            </div>
+            <div class="band-lab"><span>0:00</span><span>Rest window 60–90s</span><span>1:30</span></div>
+          </div>
+          <div class="upnext">
+            <span style="flex:1">
+              <span class="upnext-l">Up next</span>
+              <div class="upnext-n">Dumbbell floor press</div>
+              <div class="upnext-t">Set 3 of 3 · 8–12 reps at 12 kg</div>
+            </span>
+          </div>
+          <div class="rest-btns">
+            <button class="rbtn">+30 s</button>
+            <button class="rbtn rbtn--go" data-go="run">Start set 3</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== SESSION D — ranged sets, rounds, conditional ========== -->
+      <section class="screen" data-s="dee">
+        <div class="bar">
+          <div class="bar-main">
+            <div class="kicker">Session D — the lighter one</div>
+            <h2 class="bar-title">Full Body + Arms + Abs</h2>
+          </div>
+          <button class="bar-act">End</button>
+        </div>
+        <div class="rule">
+          <span class="num">31:02</span>
+          <div class="rule-track"><div class="rule-fill" style="width:72%"></div></div>
+          <span>8 of 11</span>
+        </div>
+
+        <div class="scroll"><div class="pad-log">
+          <div class="block"><span class="block-name">Main work</span></div>
+
+          <div class="ex is-live">
+            <div class="ex-head">
+              <span class="ex-mark">▸</span>
+              <span class="ex-body"><span class="ex-name">Floor press</span>
+                <div class="ex-meta">2–3 × 10–15 · moderate</div></span>
+            </div>
+            <div class="ex-open">
+              <div class="lrow lrow--h">
+                <span>Set</span><span>Target</span><span class="l-num">Reps</span><span class="l-num">Load</span><span class="l-eff">Effort</span>
+              </div>
+              <div class="lrow is-logged">
+                <span class="l-set num">1</span><span class="l-target">10–15</span>
+                <span class="l-num num">14</span><span class="l-num num">10 kg</span>
+                <span class="l-eff"><span class="eff-mini"><i class="on"></i><i></i><i></i></span></span>
+              </div>
+              <div class="lrow is-logged">
+                <span class="l-set num">2</span><span class="l-target">10–15</span>
+                <span class="l-num num">13</span><span class="l-num num">10 kg</span>
+                <span class="l-eff"><span class="eff-mini"><i class="on"></i><i class="on"></i><i></i></span></span>
+              </div>
+              <button class="addset">Add the optional 3rd set</button>
+            </div>
+          </div>
+
+          <div class="block"><span class="block-name">Abdominal finisher</span><span class="tag">2 rounds</span></div>
+          <div class="rounds">
+            <div class="rdot on"></div><div class="rdot now"></div>
+            <span class="rlabel">Round 2 of 2</span>
+          </div>
+
+          <div class="ex is-done"><div class="ex-head"><span class="ex-mark">✓</span>
+            <span class="ex-body"><span class="ex-name">Dead bug</span>
+              <div class="ex-meta">8 per side · both rounds done</div></span></div></div>
+          <div class="ex is-done"><div class="ex-head"><span class="ex-mark">✓</span>
+            <span class="ex-body"><span class="ex-name">McGill curl-up</span>
+              <div class="ex-meta">8 per side · both rounds done</div></span></div></div>
+
+          <div class="ex is-live">
+            <div class="ex-head">
+              <span class="ex-mark">▸</span>
+              <span class="ex-body"><span class="ex-name">Side plank</span>
+                <div class="ex-meta">30 sec per side · round 2</div></span>
+            </div>
+            <div class="ex-open">
+              <div class="lrow lrow--h">
+                <span>Side</span><span>Target</span><span class="l-num">Held</span><span class="l-num"></span><span class="l-eff">Effort</span>
+              </div>
+              <div class="lrow is-logged">
+                <span class="l-set">L</span><span class="l-target">30 sec</span>
+                <span class="l-num num">30</span><span class="l-num">sec</span>
+                <span class="l-eff"><span class="eff-mini"><i class="on"></i><i class="on"></i><i></i></span></span>
+              </div>
+              <div class="lrow is-next">
+                <span class="l-set">R</span><span class="l-target">30 sec</span>
+                <span class="l-num num">30</span><span class="l-num">sec</span>
+                <span class="l-eff">—</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="ex">
+            <div class="ex-head">
+              <span class="ex-mark">?</span>
+              <span class="ex-body"><span class="ex-name">Reverse crunch</span>
+                <div class="ex-meta">8–12 · conditional</div></span>
+            </div>
+            <div class="ex-open" style="padding:0 8px 6px">
+              <div class="cond">
+                <span class="cond-l">Only if it feels alright</span>
+                <span class="cond-t">If it reproduces familiar back symptoms, replace with additional dead bugs, plank, or another symptom-free core exercise.</span>
+              </div>
+              <div class="opts">
+                <button class="opt"><span style="flex:1"><span class="opt-n">Do it</span></span><span class="opt-k num">8–12</span></button>
+                <button class="opt"><span style="flex:1"><span class="opt-n">Swap for dead bug</span>
+                  <div class="opt-d">Declared substitute</div></span><span class="opt-k">Swap</span></button>
+                <button class="opt"><span style="flex:1"><span class="opt-n">Swap for front plank</span>
+                  <div class="opt-d">Declared substitute</div></span><span class="opt-k">Swap</span></button>
+              </div>
+            </div>
+          </div>
+        </div></div>
+
+        <div class="strip">
+          <div class="strip-top">
+            <span class="strip-set">Side plank — right</span>
+            <button class="strip-dev">Change</button>
+            <span class="strip-last num">Last time 30s</span>
+          </div>
+          <div class="dials" style="grid-template-columns:1fr">
+            <div class="dial">
+              <button class="dial-btn" data-step="sec,-5">−</button>
+              <div class="dial-val"><div class="dial-n" id="sec">30</div><div class="dial-u">seconds held · right side</div></div>
+              <button class="dial-btn" data-step="sec,5">+</button>
+            </div>
+          </div>
+          <div class="efforts">
+            <button class="ek"><span class="ek-n">Easy</span><span class="ek-fill"><i class="on"></i><i></i><i></i></span></button>
+            <button class="ek"><span class="ek-n">Medium</span><span class="ek-fill"><i class="on"></i><i class="on"></i><i></i></span></button>
+            <button class="ek"><span class="ek-n">Hard</span><span class="ek-fill"><i class="on"></i><i class="on"></i><i class="on"></i></span></button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== WRAP-UP ========== -->
+      <section class="screen" data-s="end">
+        <div class="bar">
+          <div class="bar-main">
+            <div class="kicker">Session A — finished 18:42</div>
+            <h2 class="bar-title">How did that go?</h2>
+          </div>
+        </div>
+        <div class="scroll"><div class="pad-plain">
+          <div class="wrapup">
+            <div class="stat-row">
+              <div class="stat"><div class="stat-n">47</div><div class="stat-l">minutes</div></div>
+              <div class="stat"><div class="stat-n">19</div><div class="stat-l">sets</div></div>
+              <div class="stat"><div class="stat-n">1</div><div class="stat-l">change</div></div>
+            </div>
+
+            <div class="metric">
+              <div class="metric-q">Lower-back symptoms during the session</div>
+              <div class="metric-h">0 is none, 10 is worst</div>
+              <div class="scale">
+                <button class="on">0</button><button>1</button><button>2</button><button>3</button>
+                <button>4</button><button>5</button><button>6</button><button>7</button>
+                <button>8</button><button>9</button><button>10</button>
+              </div>
+            </div>
+
+            <div class="metric">
+              <div class="metric-q">Lower-back symptoms immediately after</div>
+              <div class="metric-h">0 is none, 10 is worst</div>
+              <div class="scale">
+                <button>0</button><button>1</button><button class="on">2</button><button>3</button>
+                <button>4</button><button>5</button><button>6</button><button>7</button>
+                <button>8</button><button>9</button><button>10</button>
+              </div>
+            </div>
+
+            <div class="metric">
+              <div class="metric-q">Energy after</div>
+              <div class="metric-h">1 is flat, 10 is strong</div>
+              <div class="scale">
+                <button style="visibility:hidden">·</button>
+                <button>1</button><button>2</button><button>3</button><button>4</button>
+                <button>5</button><button>6</button><button class="on">7</button><button>8</button>
+                <button>9</button><button>10</button>
+              </div>
+            </div>
+
+            <div class="later">
+              <div class="later-l">Tomorrow</div>
+              <div class="later-t">The programme also asks for next-morning symptoms. Gain will prompt you once, tomorrow — not now.</div>
+            </div>
+
+            <button class="go">Save and finish</button>
+          </div>
+        </div></div>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- ============ NOTES ============ -->
+  <aside class="notes">
+    <h2 class="notes-h">What's being decided here</h2>
+    <p class="notes-s">Real data from <b>home-dumbbell-v1.md</b> on every screen. Tap through with the buttons above.</p>
+
+    <div class="note note--ok">
+      <div class="note-k">Settled</div>
+      <div class="note-t">Effort is three keys, and it commits the set</div>
+      <p class="note-b">Reps and load pre-fill from last time, so the usual case is <b>one tap at thumb height</b> — no save button. RIR stays supported as an optional metric the contract can declare, but it never sits in the hot path.</p>
+    </div>
+
+    <div class="note note--ok">
+      <div class="note-k">Settled</div>
+      <div class="note-t">Load is total kilos</div>
+      <p class="note-b">The floor press reads <b>12 kg</b>, not "6 kg each" — with <b>2 × 6</b> underneath as a quiet check. Goblet squat and one-arm row are single-dumbbell, so their total is 6 kg. One number that means the same thing in the charts and the export.</p>
+    </div>
+
+    <div class="note note--ok">
+      <div class="note-k">Settled</div>
+      <div class="note-t">Rest runs itself, where the programme says so</div>
+      <p class="note-b">It starts on its own and names what's coming, so you never hunt for it. It appears <b>only where the contract declares a rest</b> — the warm-up and the ab finisher declare none, so you just carry on. Add 30 s or start early at any point.</p>
+    </div>
+
+    <div class="note">
+      <div class="note-k">Layout</div>
+      <div class="note-t">A list, with one exercise open</div>
+      <p class="note-b">Collapsed rows keep the sequence in view; the open one gets the space and the numbers. You always know where you are without losing what's next.</p>
+    </div>
+
+    <div class="note">
+      <div class="note-k">Colour</div>
+      <div class="note-t">Green, amber and red mean symptoms</div>
+      <p class="note-b">They're reserved for the programme's pain-response framework and used nowhere decorative. That's why Easy / Medium / Hard is a <b>fill level, not a traffic light</b> — "Hard" is a good outcome in training, and red would say the opposite.</p>
+    </div>
+
+    <div class="note">
+      <div class="note-k">Hard cases</div>
+      <div class="note-t">The awkward primitives, drawn</div>
+      <p class="note-b"><b>Check-off</b> warm-ups are pills with no set rows. <b>Per-side</b> gets a row each side. <b>Ranged sets</b> draw the minimum and offer the optional one. <b>Rounds</b> get a progress bar, not a repeated list. <b>Conditional</b> exercises put the condition and both declared substitutes in front of you.</p>
+    </div>
+
+    <div class="note note--ok">
+      <div class="note-k">Settled</div>
+      <div class="note-t">The load dial steps 1 kg</div>
+      <p class="note-b">No per-configuration increment, no new contract field. On a paired lift an odd total shows as <b>2 × 5.5</b>, which is exactly what 1.25 kg plates give you — so the awkward-looking number is the honest one.</p>
+    </div>
+
+    <div class="note note--ok">
+      <div class="note-k">Settled</div>
+      <div class="note-t">The warm-up stays where it is</div>
+      <p class="note-b">Six pills, quick to tick, no collapse. Small enough not to be in the way, and visible enough that it doesn't quietly stop happening.</p>
+    </div>
+
+    <div class="note">
+      <div class="note-k">Next</div>
+      <div class="note-t">None of this gets built first</div>
+      <p class="note-b">Phase 1 is the round-trip core with no UI at all — parser, diff, export, and the golden test proving an import survives a full loop with every exercise ID and the context intact. The session runner is phase 4, and it's built on that guarantee.</p>
+    </div>
+  </aside>
+</div>
+
+<script>
+(function () {
+  var phone = document.getElementById('phone');
+  var sw    = document.getElementById('switch');
+  var rest  = document.getElementById('rest');
+  var sheet = document.getElementById('sheet');
+  var veil  = document.getElementById('veil');
+
+  function closeOverlays() {
+    rest.classList.remove('is-on');
+    sheet.classList.remove('is-on');
+    veil.classList.remove('is-on');
+  }
+
+  function show(name) {
+    closeOverlays();
+    var target = (name === 'rest' || name === 'dev') ? 'run' : name;
+    phone.querySelectorAll('.screen').forEach(function (s) {
+      s.classList.toggle('is-on', s.dataset.s === target);
+    });
+    if (name === 'rest') rest.classList.add('is-on');
+    if (name === 'dev') { sheet.classList.add('is-on'); veil.classList.add('is-on'); }
+    sw.querySelectorAll('button').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.go === name));
+    });
+    var sc = phone.querySelector('.screen.is-on .scroll');
+    if (sc) sc.scrollTop = 0;
+  }
+
+  document.addEventListener('click', function (e) {
+    var go = e.target.closest('[data-go]');
+    if (go) { show(go.dataset.go); return; }
+    if (e.target.closest('[data-close]')) { closeOverlays(); return; }
+
+    var step = e.target.closest('[data-step]');
+    if (step) {
+      var p = step.dataset.step.split(',');
+      var el = document.getElementById(p[0]);
+      if (el) {
+        var v = Math.max(0, parseInt(el.textContent, 10) + parseInt(p[1], 10));
+        el.textContent = v;
+        if (p[0] === 'kg') {
+          var hint = document.getElementById('kghint');
+          hint.textContent = 'kg total · 2 × ' + (v / 2);
+        }
+      }
+      return;
+    }
+
+    var chk = e.target.closest('.chk');
+    if (chk) { chk.classList.toggle('is-done'); return; }
+
+    var why = e.target.closest('.why-c');
+    if (why) {
+      why.parentElement.querySelectorAll('.why-c').forEach(function (c) { c.classList.remove('on'); });
+      why.classList.add('on');
+      return;
+    }
+
+    var cell = e.target.closest('.scale button');
+    if (cell) {
+      cell.parentElement.querySelectorAll('button').forEach(function (c) { c.classList.remove('on'); });
+      cell.classList.add('on');
+    }
+  });
+
+  /* Rest counts down to the window, then keeps counting inside it. */
+  var MIN = 60, MAX = 90, elapsed = 13;
+  var nEl = document.getElementById('restn');
+  var sEl = document.getElementById('rests');
+  var fill = rest.querySelector('.band-fill');
+
+  setInterval(function () {
+    if (!rest.classList.contains('is-on')) return;
+    elapsed += 1;
+    var remain = MIN - elapsed;
+    if (remain > 0) {
+      nEl.textContent = '0:' + String(remain).padStart(2, '0');
+      sEl.textContent = 'Resting';
+      rest.classList.remove('is-ready');
+    } else {
+      nEl.textContent = Math.floor(elapsed / 60) + ':' + String(elapsed % 60).padStart(2, '0');
+      sEl.textContent = elapsed <= MAX ? 'Ready — inside the window' : 'Past the window';
+      rest.classList.add('is-ready');
+    }
+    fill.style.width = Math.min(100, (elapsed / MAX) * 100) + '%';
+    if (elapsed > 150) elapsed = 0;
+  }, 1000);
+})();
+</script>
+</body>
+</html>

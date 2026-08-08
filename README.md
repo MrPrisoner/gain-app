@@ -5,8 +5,8 @@ Markdown, run and log sessions from an offline-capable PWA, then export your ful
 programme and progress for an AI to review and revise.
 
 > **Status: design stage.** This repository currently contains the architecture, the
-> programme specification, a reference fixture and a template. There is no application
-> code yet and nothing to deploy.
+> programme specification, the settled UI design, a reference fixture and a template.
+> There is no application code yet and nothing to deploy.
 
 ---
 
@@ -82,6 +82,8 @@ TypeScript, SvelteKit, SQLite. One image, one port, one volume.
 |---|---|
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Design, decisions, data model, build order |
 | [`docs/CONTRACT.md`](docs/CONTRACT.md) | The programme format an AI must produce |
+| [`docs/UI-DECISIONS.md`](docs/UI-DECISIONS.md) | How the session runner behaves, and why |
+| [`design/`](design/) | A clickable mockup of the session runner — open it in a browser |
 | [`fixtures/programmes/`](fixtures/programmes/) | A complete reference programme |
 | [`templates/`](templates/) | Default instructions sent to the reviewing AI |
 
