@@ -40,7 +40,8 @@ fails with an explicit error and nothing is written.
 | `schema_version` | yes | Always `1` for this spec |
 | `plan` | yes | Identity, version, changelog |
 | `loads` | yes | Named load configurations referenced by exercises |
-| `sessions` | yes | The trainable sessions |
+| `exercises` | yes | The catalogue — every movement declared once |
+| `sessions` | yes | The trainable sessions, which reference the catalogue |
 | `metrics` | no | Plan-declared fields to log beyond the fixed core |
 | `scheduling` | no | Session ordering and selection rules |
 | `progression` | no | Progression model and effort targets |
@@ -78,6 +79,49 @@ loads:
 
 `ref` values are free-form; `heavy` / `moderate` / `light` / `bodyweight` are conventional.
 
+### `exercises` — the catalogue
+
+**Every movement is declared exactly once here**, and sessions refer to it by `id`. A
+plan typically prescribes the same exercise in several sessions with different targets;
+the catalogue is what stops those occurrences from disagreeing about what the exercise
+*is*.
+
+```yaml
+exercises:
+  - id: goblet-squat                        # STABLE SLUG — see §5. lowercase, hyphenated
+  - id: db-floor-press
+    name: Dumbbell floor press              # only when the derived name is wrong
+  - id: side-plank
+    type: time                              # reps (default) | time
+    per_side: true
+    load: bodyweight
+  - id: reverse-crunch
+    load: bodyweight
+    conditional: true
+    condition: "If it reproduces familiar back symptoms, replace it."
+    substitutes: [dead-bug, front-plank]
+```
+
+`id` is the only required field. Everything else is optional and describes the movement
+itself rather than any one prescription of it:
+
+| Field | Default | Meaning |
+|---|---|---|
+| `name` | derived from `id` | Display name. `goblet-squat` → "Goblet squat" |
+| `type` | `reps` | `reps` or `time` |
+| `per_side` | `false` | Logs left and right separately |
+| `load` | — | Default load `ref`, overridable per occurrence |
+| `rest_sec` | — | Default rest, overridable per occurrence |
+| `note` | — | Persistent guidance — form cues shown wherever it appears |
+| `conditional`, `condition`, `substitutes` | — | Properties of the movement, not the occurrence |
+
+**Name derivation.** With `name` omitted, GAIN replaces hyphens with spaces and
+capitalises the first letter. Supply `name` only where that is wrong — `db-floor-press`
+and `mcgill-curl-up` need it; `goblet-squat` does not.
+
+Because `name` is declared once, **one `id` cannot carry two display names.** That
+ambiguity is not resolvable by rule; it is unrepresentable.
+
 ### `sessions`
 
 ```yaml
@@ -99,36 +143,44 @@ sessions:
 `tracking: checkoff` marks a block as completion-only — no reps, weight or difficulty are
 recorded and nothing feeds progression charts. Use it for warm-ups and mobility work.
 
-### Exercise entries
+### Exercise entries — the prescription
+
+Inside a block, an entry is a **reference to the catalogue plus the targets for this
+occasion**. It carries only what varies; everything else comes from the catalogue entry.
 
 ```yaml
-- id: goblet-squat          # STABLE SLUG — see §5. lowercase, hyphenated
-  name: Goblet squat
-  type: reps                # reps | time
-  sets: 3                   # integer, or [min, max] for "2–3 sets"
-  reps: [8, 12]             # integer, or [min, max]. Required when type: reps
-  duration_sec: [20, 40]    # integer, or [min, max]. Required when type: time
-  load: heavy               # a `ref` from `loads`
-  per_side: true            # logs left and right separately
-  rest_sec: [75, 90]        # integer, or [min, max]
-  note: "Starting reference: 2 × 6 kg"
-  conditional: true         # surfaces the condition before the exercise, easy to skip
-  condition: "Omit if it reproduces familiar back symptoms"
-  substitutes:              # offered in the session UI when substituting
-    - dead-bug                                              # slug defined elsewhere in the plan
-    - id: lying-triceps-extension                           # or an external movement,
-      name: Lying dumbbell triceps extension                # which needs an explicit name
+exercises:
+  - {id: goblet-squat, sets: 3, reps: [8, 12], load: heavy, rest_sec: [75, 90]}
+  - {id: bird-dog, reps: 6}                       # sets defaults to 1
+  - {id: side-plank, sets: 2, duration_sec: [20, 40]}
 ```
 
-Only `id`, `name`, `type` and `sets` are required, plus `reps` or `duration_sec` to match
-`type`.
+| Field | Default | Meaning |
+|---|---|---|
+| `id` | required | Must exist in `exercises` |
+| `sets` | `1` | Integer, or `[min, max]` for "2–3 sets" |
+| `reps` | — | Integer or `[min, max]`. Required when `type: reps` |
+| `duration_sec` | — | Integer or `[min, max]`. Required when `type: time` |
+| `load` | catalogue | A `ref` from `loads` |
+| `rest_sec` | catalogue | Integer or `[min, max]` |
+| `note` | catalogue | Guidance for this prescription specifically |
+| `conditional`, `condition`, `substitutes` | catalogue | Override for this occasion only |
+
+Flow style (`- {id: ..., reps: 8}`) and block style are both valid YAML and both accepted.
+Flow keeps a session readable as a table; use whichever is clearer.
+
+`substitutes` entries are either a bare slug defined in the catalogue, or an external
+movement given inline — which needs an explicit name, since it has no catalogue entry:
+
+```yaml
+substitutes:
+  - dead-bug
+  - {id: lying-triceps-extension, name: Lying dumbbell triceps extension}
+```
 
 **The same exercise may appear in several sessions or blocks** with different targets —
-that is normal, and all occurrences share one `id`. `name` is display-only: where the
-same `id` carries different names in different places (a plan may say "Overhead
-triceps extension" in one session and "Triceps extension" in another), the first
-occurrence in document order is canonical and the variation is reported as a warning,
-not an error. Identity lives in the `id` alone.
+that is normal and expected. All occurrences share one `id`, and therefore one identity,
+one name and one set of movement properties.
 
 ### `metrics`
 
@@ -216,6 +268,9 @@ GAIN joins all history on the exercise slug. These rules are what keep a user's 
 history intact across a revision. Breaking them silently destroys data that cannot be
 reconstructed.
 
+Every slug is declared exactly once, in `exercises`. That catalogue is the only place you
+need to look to check you have preserved them all.
+
 1. **Never change an existing `id`.** If `goblet-squat` was in the previous version and
    the exercise is still in the plan, it is still `goblet-squat`. Not
    `goblet_squat`, not `db-goblet-squat`, not `goblet-squat-v2`. Changing the `name` is
@@ -257,6 +312,9 @@ loads:
     label: Working weight
     default_kg: 20
 
+exercises:
+  - id: goblet-squat
+
 sessions:
   - key: A
     name: Session A
@@ -265,12 +323,7 @@ sessions:
       - key: main
         name: Main work
         exercises:
-          - id: goblet-squat
-            name: Goblet squat
-            type: reps
-            sets: 3
-            reps: [8, 12]
-            load: main
+          - {id: goblet-squat, sets: 3, reps: [8, 12], load: main}
 ```
 
 ---
@@ -284,14 +337,16 @@ writes nothing:
 - YAML that does not parse
 - Missing required keys, or a value of the wrong type
 - `load` referencing an undeclared `ref`
+- A session exercise `id` with no entry in the `exercises` catalogue
 - `scheduling.sequence` referencing an undeclared session `key`
-- A bare-slug `substitutes` entry not defined elsewhere in the plan
-- Duplicate `id` within the plan, or a duplicate session `key`
+- A bare-slug `substitutes` entry not defined in the catalogue
+- Duplicate `id` in the catalogue, or a duplicate session `key`
 - `version` not greater than the current stored version for that `plan.slug`
 
 Warnings — surfaced in the diff review but not blocking:
 
 - A slug in the previous version is absent from the new one (possible rename or removal)
 - A new slug closely resembles an existing one (possible accidental rename)
+- A catalogue entry that no session references
 - A metric key has disappeared, orphaning its history
 - `changelog` is empty on a version above 1

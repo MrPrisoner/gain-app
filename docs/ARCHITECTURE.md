@@ -30,12 +30,15 @@ A plan document is two things at once:
 
 | | Purpose | Consumer | Size |
 |---|---|---|---|
-| **Skeleton** | Sessions → exercises → set targets, with stable IDs | The session-runner UI | ~100 lines |
-| **Context** | Rationale, form cues, pain rules, progression philosophy, exclusions | The AI, on the next revision | ~1200 lines |
+| **Skeleton** | A catalogue of movements, then sessions → blocks → prescriptions, with stable IDs | The session-runner UI | ~350 lines |
+| **Context** | Rationale, form cues, pain rules, progression philosophy, exclusions | The AI, on the next revision | ~500 lines |
 
-The reference plan (`4_week_home_dumbbell_training_program_ai_context.md`) is
-~1300 lines. Almost none of it is needed to render "exercise 3 of 8 — log your reps".
-All of it is needed when you ask an AI to write block 2.
+The reference plan is ~900 lines. Almost none of the context is needed to render
+"exercise 3 of 8 — log your reps". All of it is needed when you ask an AI to write
+block 2.
+
+The two never restate each other. Prescriptions live only in the skeleton, reasoning only
+in the context — otherwise a revision has to update both and one of them will drift.
 
 **Therefore both are first-class and both round-trip.** The skeleton is parsed into
 SQLite and drives the app. The context is stored verbatim, byte-for-byte, and is
@@ -280,6 +283,16 @@ metrics:
       max: 10
       prompt_when: next_morning
 
+exercises:                                  # the catalogue — each movement declared once
+  - {id: march-in-place, type: time, load: bodyweight}
+  - {id: goblet-squat, load: heavy, rest_sec: [75, 90]}
+  - {id: side-plank, type: time, per_side: true, load: bodyweight}
+  - id: reverse-crunch
+    load: bodyweight
+    conditional: true
+    condition: "If it reproduces familiar back symptoms, replace it."
+    substitutes: [dead-bug, front-plank]
+
 sessions:
   - key: A
     name: Full Body Strength + Abs
@@ -287,38 +300,18 @@ sessions:
     blocks:
       - key: warmup
         name: Warm-up
+        tracking: checkoff
         exercises:
-          - id: march-in-place
-            name: March in place
-            type: time
-            sets: 1
-            duration_sec: 60
+          - {id: march-in-place, duration_sec: 60}
       - key: main
         name: Main work
         exercises:
-          - id: goblet-squat
-            name: Goblet squat
-            type: reps
-            sets: 3
-            reps: [10, 15]
-            load: heavy
-            rest_sec: [75, 90]
+          - {id: goblet-squat, sets: 3, reps: [10, 15]}
       - key: core
         name: Core
         exercises:
-          - id: side-plank
-            name: Side plank
-            type: time
-            sets: 2
-            duration_sec: [20, 40]
-            per_side: true
-          - id: reverse-crunch
-            name: Reverse crunch
-            type: reps
-            sets: 2
-            reps: [8, 12]
-            load: bodyweight
-            conditional: true
+          - {id: side-plank, sets: 2, duration_sec: [20, 40]}
+          - {id: reverse-crunch, sets: 2, reps: [8, 12]}
             condition: "Omit if it reproduces familiar back symptoms"
             substitutes: [dead-bug, front-plank]
 
@@ -365,8 +358,11 @@ is to behave like one. No real health data belongs in this repository.
 
 It is also the phase-1 test fixture, chosen because it exercises every primitive in one
 file: a rounds block, checkoff warm-ups, two conditional exercises, per-side reps and
-per-side time, ranged sets and ranged rest, bodyweight-to-loaded progressions, both
-substitute forms, and one exercise carrying two display names under a single stable slug.
+per-side time, ranged sets and ranged rest, bodyweight-to-loaded progressions, and both
+substitute forms — bare slugs resolved in the catalogue, and an inline external movement.
+
+22 exercises produce 60 prescriptions across the four sessions, so the catalogue carries
+its weight: the same movement is prescribed on average 2.7 times.
 
 ---
 

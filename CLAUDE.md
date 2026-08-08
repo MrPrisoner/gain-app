@@ -41,9 +41,13 @@ decision, not a gap.
 
 ### A plan is two representations, and both round-trip
 
-A plan document is a ~100-line **skeleton** (sessions → exercises → set targets,
-inside one fenced ` ```gain-plan ` YAML block) wrapped in ~1200 lines of **prose
-context** (rationale, form cues, injury rules, progression philosophy).
+A plan document is a ~350-line **skeleton** (a catalogue of every movement, then sessions
+→ blocks → prescriptions, inside one fenced ` ```gain-plan ` YAML block) wrapped in ~500
+lines of **prose context** (rationale, form cues, injury rules, progression philosophy).
+
+The split is strict: **prose holds the reasoning, the block holds the prescription.**
+Neither restates the other. Sets, reps, loads and rest appear only in the block; a plan
+that also spells them out in prose has to keep two copies in sync and will not.
 
 The skeleton is parsed into SQLite and drives the UI. The context is stored **verbatim**
 and replayed into exports byte-for-byte. GAIN never paraphrases, summarises or
@@ -102,13 +106,14 @@ the spine of the phase-1 test suite.
   context are invented. It is modelled closely on a real AI-authored plan so it
   behaves like one, but this repository is public — never commit real health data to it,
   in fixtures, tests or examples.
-- It exercises every primitive in one file: a rounds block,
-  checkoff warm-ups, two conditional exercises, per-side reps and per-side time, ranged
-  sets and ranged rest, bodyweight-to-loaded progressions, both substitute forms, and one
-  exercise carrying two display names under a single stable slug.
-- Its oddities are **deliberate test cases, not defects.** The dual-named
-  `overhead-triceps-extension` and the five documented interpretations in "Import notes"
-  should not be tidied away.
+- It exercises every primitive in one file: a rounds block, checkoff warm-ups, two
+  conditional exercises, per-side reps and per-side time, ranged sets and ranged rest,
+  bodyweight-to-loaded progressions, and both substitute forms — bare slugs resolved in
+  the catalogue, and an inline external movement.
+- Its oddities are **deliberate test cases, not defects.** The five documented
+  interpretations in "Import notes" should not be tidied away.
+- 22 exercises, 60 prescriptions, 4 sessions. The catalogue declares each movement once,
+  so an exercise appearing in three sessions has one entry and three prescriptions.
 
 ## Build order
 

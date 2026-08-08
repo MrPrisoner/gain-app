@@ -7,127 +7,79 @@
 
 ## Document purpose
 
-This document is the authoritative baseline context for an AI fitness assistant helping to manage, evaluate, and progressively adjust the user's home training plan.
+This is the baseline context for an AI assistant helping to manage, evaluate and
+progressively adjust the user's home training plan. Use it together with the progress
+report to make **small, evidence-based adjustments** rather than replacing the plan.
 
-The assistant should use this document together with future progress reports to make **small, evidence-based plan adjustments**, rather than replacing the plan unnecessarily.
+The plan is designed around approximately 45-minute sessions, home-only equipment, 1–2
+squash sessions per week, muscle development, core strength, general strength and energy,
+precautionary management of occasional lower-back sensitivity, and minimal dumbbell-weight
+changes during the week.
 
-The plan is designed around:
-- approximately 45-minute training sessions;
-- home-only equipment;
-- 1–2 squash sessions per week;
-- muscle development;
-- improved core/abdominal strength and development;
-- improved general strength, fitness, and energy;
-- precautionary management of occasional lower-back sensitivity;
-- minimal dumbbell-weight changes during the week.
+**What lives where.** This prose holds the *reasoning* — goals, rationale, form cues,
+symptom rules, progression philosophy. The contract block in Appendix A holds the
+*prescription* — sessions, exercises, sets, reps, loads and rest. Neither repeats the
+other. When revising, change the block and update this prose only where the reasoning
+itself has changed.
 
-> **Important:** This is a training plan, not a medical diagnosis or a treatment protocol. No clinical assessment has been carried out. Exercise selection is precautionary and should remain symptom-guided, deferring to a qualified healthcare professional where appropriate.
+> **Important:** This is a training plan, not a medical diagnosis or a treatment protocol.
+> No clinical assessment has been carried out. Exercise selection is precautionary and
+> should remain symptom-guided, deferring to a qualified healthcare professional where
+> appropriate.
 
 ---
 
 # 1. User profile and training context
 
-## Basic profile
+- Age 42, sex not recorded
+- Sport: squash, usually 1–2 times per week
+- Resistance-training target: approximately 4 days/week when recovery and squash permit
+- Session target: approximately 45 minutes
+- Environment: home gym
 
-- Age: 42
-- Sex: Not recorded
-- Sport: Squash
-- Squash frequency: usually 1–2 times per week
-- Target resistance-training frequency: approximately 4 days/week when recovery and squash schedule permit
-- Target session duration: approximately 45 minutes
-- Training environment: home gym
+## Training history
 
-## Existing training history
+The previous routine was roughly 5 min warm-up, 20 min weights, 15 min core, 5 min
+stretching, with resistance work divided by body area (chest, shoulders, arms, legs).
 
-The previous routine was approximately:
+Typical previous loads, per dumbbell:
 
-- 5 minutes warm-up
-- 20 minutes targeted weight training
-- 15 minutes core/abs
-- 5 minutes stretching
+| Exercise | Load |
+|---|---|
+| Dumbbell floor press | 2 × 6 kg, 12 reps × 3 sets |
+| Biceps curl, triceps extension, cross-body hammer curl, Arnold press | ~2 × 6 kg |
+| Lateral raise, rear-delt reverse fly | ~2 × 4 kg |
 
-The previous approach divided resistance work broadly into areas such as:
-- chest
-- shoulders
-- arms
-- legs
+The previous progression philosophy — maintain a light and a heavy configuration, increase
+when strength improves, change weights every 1–2 weeks rather than constantly — is
+**retained**, because it is practical and sustainable with the available equipment.
 
-Typical previous loads:
-- Dumbbell floor press: 2 × 6 kg, 12 reps × 3 sets
-- Biceps curls: approximately 2 × 6 kg
-- Triceps extensions: approximately 2 × 6 kg
-- Cross-body hammer curls: approximately 2 × 6 kg
-- Arnold press: approximately 2 × 6 kg
-- Lateral raises: approximately 2 × 4 kg
-- Rear-delt reverse fly: approximately 2 × 4 kg
+## Baseline at plan start
 
-Previous progression philosophy:
-- maintain a light and heavy dumbbell configuration;
-- increase weight when strength improves;
-- typically increase every 1–2 weeks rather than changing weights constantly.
-
-This philosophy is retained because it is practical and sustainable with the available equipment.
+Heavy reference ~6 kg/dumbbell, light ~4 kg/dumbbell. Floor press benchmark 2 × 6 kg × 12
+× 3. Progression by double progression at approximately 1–3 RIR. The objective for the
+first four weeks is a sustainable, well-tolerated baseline from which to progress — not
+maximum load.
 
 ---
 
-# 2. Equipment
+# 2. Equipment and load configurations
 
-The home gym contains:
+Four adjustable dumbbell handles (~1 kg each) and an exercise mat.
 
-- 4 adjustable dumbbell handles
-- Exercise mat
+Plates: 8 × 0.5 kg, 8 × 1 kg, 8 × 1.25 kg, 8 × 2 kg, 4 × 2.5 kg. Maximum symmetrical
+configuration is approximately **13 kg per dumbbell**.
 
-Available plates:
+The plan intentionally avoids requiring frequent weight changes. Three working
+configurations are declared in the contract block as `heavy`, `moderate`, `light` and
+`bodyweight`; the reasoning for each is:
 
-- 8 × 0.5 kg
-- 8 × 1 kg
-- 8 × 1.25 kg
-- 8 × 2 kg
-- 4 × 2.5 kg
-- dumbbell handles approximately 1 kg each
-
-Approximate maximum symmetrical configuration:
-
-- approximately 13 kg per dumbbell
-
-The plan intentionally avoids requiring frequent weight changes.
-
-## Initial working configurations
-
-### Heavy configuration
-
-Approximately 6 kg per dumbbell initially.
-
-Typical exercises:
-- floor press
-- supported one-arm row
-- shoulder press
-- goblet squat
-
-The exact heavy load should be adjusted according to exercise and form.
-
-### Light configuration
-
-Approximately 4 kg per dumbbell initially.
-
-Typical exercises:
-- lateral raise
-- rear-delt reverse fly
-- curls
-- triceps work
-
-### Bodyweight
-
-Used initially for:
-- split squats
-- reverse lunges
-- glute bridges
-- planks
-- dead bugs
-- bird dogs
-- other core work
-
-Progression to dumbbell loading is only appropriate when movement quality and symptom response are good.
+- **Heavy** (~6 kg) — compound work: floor press, supported one-arm row, shoulder press,
+  goblet squat. Adjust per exercise according to form.
+- **Light** (~4 kg) — isolation work: lateral raise, rear-delt fly, curls, triceps.
+- **Bodyweight** — split squats, reverse lunges, glute bridges, planks, dead bugs, bird
+  dogs and other core work. Progressing to dumbbell loading is appropriate **only** when
+  movement quality and symptom response are good.
 
 ---
 
@@ -135,1175 +87,424 @@ Progression to dumbbell loading is only appropriate when movement quality and sy
 
 ## Goal 1 — Build muscle
 
-The plan should provide sufficient weekly resistance-training volume and progressive overload for hypertrophy.
+Sufficient weekly volume and progressive overload for hypertrophy, prioritising chest,
+back, shoulders, arms, quadriceps, glutes, hamstrings and abdominal musculature.
 
-Priority muscle groups:
-- chest
-- back
-- shoulders
-- arms
-- quadriceps
-- glutes
-- hamstrings
-- abdominal musculature
-
-The plan uses mostly:
-- 8–12 reps for major compound exercises;
-- 10–15 reps for smaller/isolation exercises.
-
-The goal is not to train to failure routinely. Most sets should finish with approximately 1–3 technically good repetitions remaining.
-
----
+Mostly 8–12 reps for major compounds and 10–15 for isolation work. Training to failure is
+not the goal: most sets should finish with approximately 1–3 technically good repetitions
+remaining.
 
 ## Goal 2 — Improve muscular endurance and work capacity
 
-The plan should build the ability to sustain quality work across a full session and across a training week.
+The ability to sustain quality work across a session and across a week, pursued through
+moderate rep ranges rather than heavy low-rep work, controlled tempo, short structured
+rest on isolation work, and gradually increasing weekly volume.
 
-This is pursued through:
-- moderate repetition ranges rather than heavy low-rep work;
-- controlled tempo;
-- short, structured rest periods on isolation work;
-- gradually increasing total weekly volume.
-
-Work capacity is treated as a training quality in its own right, not merely a side effect of strength work. It is particularly relevant given that squash sessions and resistance sessions compete for the same weekly recovery budget.
-
----
+Work capacity is a training quality in its own right, not a side effect of strength work.
+It matters here because squash and resistance training compete for the same weekly
+recovery budget.
 
 ## Goal 3 — Improve abdominal and core strength
 
-The plan deliberately distinguishes between:
+The plan deliberately distinguishes two things:
 
-### Abdominal muscle development
+- **Abdominal development** — McGill curl-up, controlled plank variations, eventually
+  reverse crunches.
+- **Trunk stability and endurance** — dead bug, side plank, bird dog, plank.
 
-Examples:
-- McGill curl-up
-- eventually reverse crunches
-- controlled plank variations
-
-### Trunk stability/endurance
-
-Examples:
-- dead bug
-- side plank
-- bird dog
-- plank
-
-This combination is preferable to relying on large volumes of conventional crunches or sit-ups.
-
-The core plan is particularly relevant because squash requires:
-- trunk control;
-- rotation/deceleration;
-- lateral movement;
-- repeated lunging;
-- rapid changes of direction.
-
-The plan should not, however, use loaded rotation merely because squash involves rotation.
-
----
+This combination is preferable to high volumes of conventional crunches or sit-ups. Core
+work matters for squash, which demands trunk control, rotation and deceleration, lateral
+movement, repeated lunging and rapid direction changes — but the plan should **not** use
+loaded rotation merely because squash involves rotation.
 
 ## Goal 4 — Improve general strength
 
-Primary strength movements:
-- goblet squat
-- split squat
-- reverse lunge
-- dumbbell floor press
-- supported one-arm row
-- shoulder press
-- glute bridge
+Primary movements: goblet squat, split squat, reverse lunge, dumbbell floor press,
+supported one-arm row, shoulder press, glute bridge.
 
-The plan uses unilateral lower-body exercises because they provide a substantial training stimulus with relatively modest external loading, which suits the available dumbbells.
-
----
+Unilateral lower-body work is used because it gives a substantial stimulus at modest
+external load, which suits the available dumbbells.
 
 ## Goal 5 — Improve fitness and energy
 
-Squash already provides substantial:
-- cardiovascular work;
-- acceleration/deceleration;
-- lateral movement;
-- high-intensity intervals;
-- lower-body loading.
+Squash already supplies cardiovascular work, acceleration and deceleration, lateral
+movement, high-intensity intervals and lower-body loading. The resistance plan therefore
+does not need to become a conditioning plan.
 
-Therefore, the resistance plan does not need to become a high-volume conditioning plan.
-
-Optional walking on non-training days can provide additional low-intensity activity.
-
-If squash occurs twice in a week, the user should generally perform 3 resistance sessions rather than forcing 4 resistance sessions.
-
----
+In a two-squash week, prefer 3 resistance sessions over forcing 4.
 
 ## Goal 6 — Build tolerance around the trunk and hips
 
-This is a secondary training objective and must remain symptom-guided.
+A secondary objective, and one that must remain symptom-guided. The plan emphasises glute
+strength, unilateral leg strength, controlled trunk stability, controlled squatting,
+supported rowing and gradual loading.
 
-The plan emphasises:
-- glute strength;
-- unilateral leg strength;
-- controlled trunk stability;
-- controlled squatting;
-- supported rowing;
-- gradual loading.
-
-The plan deliberately avoids initially relying on:
-- heavy spinal loading;
-- loaded side bending;
-- loaded spinal rotation;
-- heavy unsupported bent-over rows;
-- heavy deadlifts/RDLs;
-- aggressive stretching into uncomfortable positions.
-
-The intention is to build useful physical capacity while avoiding unnecessary aggravation.
+It deliberately avoids, at least initially: heavy spinal loading, loaded side bending,
+loaded spinal rotation, heavy unsupported bent-over rows, heavy deadlifts and RDLs, and
+aggressive stretching into uncomfortable positions.
 
 ---
 
 # 4. Symptom context
 
-## Reported sensitivity
+## What is reported
 
-The user reports occasional low-grade sensitivity around the lower back and lateral hip region.
+Occasional low-grade sensitivity around the lower back and lateral hip, described as
+general tightness rather than sharp pain. Provoked by forward bending and side bending
+while standing.
 
-The user does **not** report symptoms travelling below the buttock into:
-- thigh;
-- calf;
-- foot.
+The user does **not** report symptoms travelling below the buttock into the thigh, calf or
+foot.
 
-## Reported aggravating movements
+No clinical assessment has been carried out and no diagnosis exists. The plan therefore
+takes a precautionary approach rather than attempting to address any specific structure.
 
-Sensitivity has been reported with:
-
-- forward bending while standing;
-- side bending while standing.
-
-The user describes the sensation as general tightness rather than sharp pain.
-
-## Professional input
-
-No clinical assessment has been carried out and no diagnosis exists.
-
-The plan therefore takes a precautionary approach rather than attempting to address any specific structure.
-
-## Plan implications
+## What this implies for the plan
 
 Because forward and side bending currently provoke sensitivity:
 
-- do not use uncomfortable forward/side bending as a stretching or mobility objective;
+- do not use uncomfortable forward or side bending as a stretching or mobility objective;
 - do not prescribe weighted side bends;
 - do not prioritise loaded spinal rotation;
-- do not force heavy hip-hinge exercises early in the plan;
+- do not force heavy hip-hinge exercises early;
 - use supported rows rather than heavy unsupported bent-over rows;
 - prioritise controlled trunk stability.
 
 ## Pain-response rules
 
-Use the following framework:
+**Green** — 0–2/10 discomfort that does not progressively increase, does not substantially
+alter technique, and settles normally. Usually acceptable; keep monitoring.
 
-### Green
+**Yellow** — approximately 3–4/10, or symptoms that increase during a set, alter movement
+quality, or remain noticeably elevated afterwards. Modify: reduce load, reduce range of
+motion, reduce repetitions, slow the movement, or substitute the exercise.
 
-0–2/10 discomfort that:
-- does not progressively increase;
-- does not substantially alter technique;
-- settles normally.
+**Red** — stop the exercise. Sharp or escalating pain, substantially different pain, new
+radiating symptoms, new numbness or tingling, or new weakness.
 
-Usually acceptable, while continuing to monitor response.
-
-### Yellow
-
-Approximately 3–4/10 symptoms, or symptoms that:
-- increase during a set;
-- alter movement quality;
-- remain noticeably elevated afterwards.
-
-Modify by:
-- reducing load;
-- reducing range of motion;
-- reducing repetitions;
-- slowing the movement;
-- substituting the exercise.
-
-### Red
-
-Stop the exercise if there is:
-- sharp or escalating pain;
-- substantially different pain;
-- new radiating symptoms;
-- new numbness/tingling;
-- new weakness.
-
-If symptoms progressively worsen, persist, or materially change, the user should consult a qualified healthcare professional.
+If symptoms progressively worsen, persist, or materially change, the user should consult a
+qualified healthcare professional.
 
 ---
 
 # 5. Plan philosophy
 
-The plan is intentionally a **full-body/movement-pattern plan**, not a traditional body-part split.
+This is a **full-body / movement-pattern plan**, not a body-part split, because:
 
-Reasons:
-
-1. Home dumbbell loading is relatively limited compared with a commercial gym.
-2. Full-body training provides repeated weekly stimulus to each major muscle group.
-3. The user wants general strength rather than bodybuilding specialisation.
-4. Squash already creates substantial lower-body and cardiovascular stress.
-5. Four short sessions are more sustainable when each session is not excessively specialised.
-6. The plan can flex around work and squash.
-
-The four sessions are:
-
-- Session A — Full Body Strength + Abs
-- Session B — Upper Body + Glutes + Abs
-- Session C — Lower Body + Chest/Back + Core
-- Session D — Full Body + Arms + Abdominal Development
-
-Session D is the first session to remove when fatigue/recovery is inadequate.
+1. home dumbbell loading is limited compared with a commercial gym;
+2. full-body training gives each major muscle group repeated weekly stimulus;
+3. the user wants general strength, not bodybuilding specialisation;
+4. squash already creates substantial lower-body and cardiovascular stress;
+5. four short sessions are more sustainable when none is highly specialised;
+6. the plan can flex around work and squash.
 
 ---
 
-# 6. Weekly scheduling rules
+# 6. Weekly scheduling
 
-Do not require fixed weekdays because the user's work/life schedule varies.
+No fixed weekdays — the user's schedule varies. The sequence and its rules are declared in
+the contract block; the reasoning behind them is:
 
-Use the sequence:
-
-**A → B → C → D**
-
-while inserting:
-- rest days;
-- squash;
-- easier days
-
-as required.
-
-## One squash session
-
-Typical structure:
-
-**A → B → Rest/Squash → C → D**
-
-Exact days may vary.
-
-## Two squash sessions
-
-Typical structure:
-
-**A → B → Squash → C → Squash**
-
-Skip D.
-
-## Lower-body recovery
-
-Avoid placing Session C immediately before a hard squash session.
-
-If squash performance or lower-body recovery deteriorates, reduce resistance-training volume before reducing squash.
+- **Session D is the release valve.** It is the lightest and most flexible session, so it
+  is the first to drop when the week is compressed or recovery is inadequate.
+- **Session C is the primary lower-body session**, so it should not sit immediately before
+  a hard squash session.
+- **Squash is protected.** If squash performance or lower-body recovery deteriorates,
+  reduce resistance volume before reducing squash.
 
 ---
 
 # 7. Session structure
 
-Each session targets approximately 45 minutes.
+Each session targets approximately 45 minutes:
 
 | Component | Target |
 |---|---:|
 | Warm-up | 5–6 min |
 | Resistance training | 25–28 min |
-| Core/abs | 8–10 min |
+| Core / abs | 8–10 min |
 | Cooldown | 2–4 min |
 | Total | ~45 min |
 
-If time is limited, prioritise:
-
-1. compound resistance exercises;
-2. core/abs;
-3. isolation exercises;
-4. optional stretching/cooldown.
-
-Do not sacrifice the main strength exercises simply to complete every arm isolation exercise.
+When time is short, prioritise in this order: compound resistance exercises, core work,
+isolation exercises, then optional stretching. Do not sacrifice the main strength
+exercises to complete every arm isolation exercise.
 
 ---
 
-# 8. Session A — Full Body Strength + Abs
+# 8. The four sessions
 
-## Warm-up
+Full prescriptions — exercises, sets, reps, loads and rest — are in the contract block.
+What each session is *for*:
 
-- March in place — 60 sec
-- Bodyweight squat — 8
-- Glute bridge — 10
-- Bird dog — 6/side
-- Shoulder circles — 10 each direction
-- Hip circles — 6/side
+- **Session A — Full Body Strength + Abs.** The general-purpose session: a squat pattern,
+  a horizontal press, a horizontal pull, unilateral leg work, then trunk stability.
+- **Session B — Upper Body + Glutes + Abs.** Overhead pressing and direct arm work, with
+  glute bridges supplying hip extension at low spinal cost, then direct abdominal work.
+- **Session C — Lower Body + Chest/Back + Core.** The primary lower-body strength session,
+  led by split squats. Avoid scheduling immediately before hard squash.
+- **Session D — Full Body + Arms + Abdominal Development.** The lighter, flexible session,
+  finishing with a two-round abdominal circuit. Drop this one first in a compressed week.
 
-Avoid forcing uncomfortable side bending or forward bending.
+Every session opens with the same warm-up, which is completed as a checklist rather than
+logged set by set.
 
-## Main work
+---
 
-### Goblet squat
-- 3 × 8–12
-- Heavy configuration
-- Rest 75–90 sec
+# 9. Exercise reference
 
-Purpose:
-- quads;
-- glutes;
-- general lower-body strength.
+Each movement appears once here regardless of how many sessions prescribe it.
 
-Form:
-- hold one dumbbell against chest;
-- brace abdomen;
-- squat through a comfortable range;
-- knees track naturally;
-- stand by driving through feet;
-- do not force depth.
+## Lower body
 
-### Dumbbell floor press
-- 3 × 8–12
-- Heavy pair
-- Starting reference: 2 × 6 kg
-- Rest 60–90 sec
+**Goblet squat** — quadriceps, glutes and general lower-body strength. Needs only one
+dumbbell, gives significant stimulus at limited load, is simple to control and requires no
+rack. Hold one dumbbell against the chest, brace the abdomen, squat through a comfortable
+range, let the knees track naturally, and stand by driving through the feet. Do not force
+depth.
 
-Purpose:
-- chest;
-- triceps;
-- anterior shoulders.
+**Split squat** and **reverse lunge** — high lower-body stimulus at modest external load,
+unilateral strength, hip stability, and a good complement to squash's unilateral and
+lateral demands. Staggered stance, lower mostly vertically, front foot stays planted, push
+through the front foot, torso controlled. For the reverse lunge, step backwards, lower
+under control, and avoid collapsing forward.
 
-Form:
-- lie on mat;
-- knees bent;
-- dumbbells above chest;
-- lower until upper arms gently contact floor;
-- press vertically;
-- maintain straight wrists;
-- avoid excessive elbow flare.
+**Glute bridge** — glute strength and hip extension, easy to regress or progress, and
+modest in its demands on the lumbar spine when performed correctly. Lie on the back with
+knees bent, brace the abdomen, squeeze the glutes, lift the hips and pause 1–2 seconds. Do
+not create height by arching the lumbar spine. Progression: bodyweight, then a pause, then
+a light dumbbell across the hips, then heavier only if well tolerated.
 
-### Supported one-arm row
-- 3 × 10–12/side
-- Heavy
-- Short transition between sides
+## Upper body — push
 
-Purpose:
-- lats;
-- upper back;
-- biceps;
-- shoulder stability.
+**Dumbbell floor press** — chest, triceps and anterior shoulders. Requires no bench, gives
+a stable setup, and was already familiar and well tolerated. Lie on the mat with knees
+bent and dumbbells above the chest; lower until the upper arms gently contact the floor,
+then press vertically. Keep wrists straight and avoid excessive elbow flare.
 
-Form:
-- support free hand on thigh;
-- keep pelvis/trunk stable;
-- pull toward hip;
-- avoid torso rotation.
+**Dumbbell shoulder press** — shoulders, triceps and overhead capacity. Dumbbells at
+shoulder height, abdomen braced, press overhead. Avoid leaning backward, and reduce the
+weight if lumbar arching occurs.
 
-### Reverse lunge
-- 2 × 8–10/leg
-- Bodyweight initially, then light dumbbells
+**Lateral raise** and **rear-delt reverse fly** — shoulder development and upper-back
+postural musculature, adding hypertrophy without heavy loads. For lateral raises: soft
+elbows, raise toward shoulder height, no shrugging, no momentum. For rear-delt flies: use
+only as much forward hinge as is comfortable, use a supported or prone variation if
+necessary, move the weights outward with control, and avoid momentum.
 
-Purpose:
-- quads;
-- glutes;
-- unilateral leg strength;
-- hip control.
+## Upper body — pull
 
-Form:
-- step backwards;
-- lower under control;
-- maintain stable torso;
-- push through front foot;
-- avoid excessive forward collapse.
+**Supported one-arm row** — lats, upper back, biceps and shoulder stability. Chosen over
+heavy unsupported bent-over rows because it reduces prolonged unsupported trunk
+positioning and makes torso rotation easier to control. Support the free hand on the
+thigh, keep the pelvis and trunk stable, pull toward the hip, and avoid torso rotation.
+
+## Arms
+
+**Dumbbell curl**, **hammer curl** and **overhead triceps extension** — direct arm
+hypertrophy, included because muscle development is an explicit goal. If overhead
+extension encourages lumbar arching, substitute lying dumbbell triceps extensions.
 
 ## Core
 
-### Dead bug
-2 × 6–10/side
+**Dead bug** — abdominal bracing and anti-extension control at low equipment cost.
 
-### Side plank
-2 × 20–40 sec/side
+**Side plank** — lateral trunk endurance, oblique musculature and hip/trunk stability;
+directly relevant to lateral movement in squash.
 
-### Bird dog
-2 × 6–8/side
+**Bird dog** — trunk control, coordination and resistance to unwanted rotation, at low
+load.
 
-Purpose:
-- abdominal bracing;
-- anti-extension;
-- anti-lateral-flexion;
-- trunk/pelvic control.
+**McGill curl-up** — direct abdominal training that avoids high-volume spinal flexion.
 
----
+**Front plank** — general trunk stability. Conditional: omit if it aggravates symptoms.
 
-# 9. Session B — Upper Body + Glutes + Abs
+**Reverse crunch** — a later progression for more direct abdominal loading. Conditional,
+because forward bending currently provokes sensitivity. If it reproduces familiar back
+symptoms, replace it with additional dead bugs, a plank, or another symptom-free core
+exercise.
 
-## Main work
+## Warm-up movements
 
-### Dumbbell shoulder press
-- 3 × 8–12
-- Heavy
-- Starting reference: 2 × 6 kg
-
-Purpose:
-- shoulders;
-- triceps;
-- overhead strength.
-
-Form:
-- dumbbells at shoulder height;
-- brace abdomen;
-- press overhead;
-- avoid leaning backward;
-- reduce weight if lumbar arching occurs.
-
-### Supported one-arm row
-- 3 × 10–12/side
-- Heavy
-
-Same form and purpose as Session A.
-
-### Glute bridge
-- 3 × 12–15
-- Bodyweight initially
-
-Purpose:
-- glute strength;
-- hip extension;
-- lower-body capacity with limited spinal loading.
-
-Form:
-- lie on back;
-- knees bent;
-- brace abdomen;
-- squeeze glutes;
-- lift hips;
-- pause 1–2 sec;
-- do not create height by arching lumbar spine.
-
-Progression:
-- bodyweight;
-- pause;
-- light dumbbell across hips;
-- heavier dumbbell only if symptom-free/tolerated.
-
-### Lateral raise
-- 2–3 × 10–15
-- Light configuration
-- Starting reference: 2 × 4 kg
-
-Purpose:
-- lateral deltoids.
-
-Form:
-- soft elbows;
-- raise toward shoulder height;
-- avoid shrugging;
-- no momentum.
-
-### Dumbbell curl
-- 2 × 10–15
-- Light/moderate
-
-### Overhead triceps extension
-- 2 × 10–15
-- Light/moderate
-
-If overhead extension encourages lumbar arching, substitute lying dumbbell triceps extensions.
-
-## Core
-
-- McGill curl-up — 2 × 6–10/side
-- Side plank — 2 × 20–40 sec/side
-- Dead bug — 2 × 6–10/side
-
-Purpose:
-- direct abdominal work;
-- trunk endurance;
-- controlled lumbar position.
+March in place, bodyweight squat, glute bridge, bird dog, shoulder circles and hip
+circles. Their purpose is to raise temperature and rehearse the session's patterns, not to
+create training stimulus. Avoid forcing uncomfortable side bending or forward bending.
 
 ---
 
-# 10. Session C — Lower Body + Chest/Back + Core
+# 10. Progression model
 
-This is the primary lower-body strength session.
+The core system is **double progression**: work up the rep range at a fixed load, and
+increase the load once the top of the range is reached with clean technique and
+appropriate effort.
 
-Avoid scheduling immediately before hard squash.
+For an 8–12 rep exercise, a typical four-session sequence is 10/10/9 → 11/10/10 →
+12/11/11 → 12/12/12, at which point the load increases. The same principle applies to
+10–15 rep exercises.
 
-## Main work
-
-### Split squat
-- 3 × 8–12/leg
-- Bodyweight → light/heavy as tolerated
-
-Purpose:
-- quads;
-- glutes;
-- unilateral strength;
-- hip stability.
-
-Form:
-- staggered stance;
-- lower mostly vertically;
-- front foot remains planted;
-- push through front foot;
-- keep torso controlled.
-
-### Dumbbell floor press
-- 3 × 8–12
-- Heavy
-
-### Supported one-arm row
-- 3 × 10–12/side
-- Heavy
-
-### Glute bridge
-- 3 × 12–15
-- Bodyweight → loaded
-
-### Rear-delt reverse fly
-- 2 × 10–15
-- Light
-
-Form:
-- use only as much forward hinge as comfortable;
-- use supported or prone variation if necessary;
-- move weights outward with control;
-- avoid momentum.
-
-## Core
-
-- Dead bug — 2 × 8/side
-- Side plank — 2 × 20–40 sec/side
-- Bird dog — 2 × 6/side
-- Optional front plank — 1 × 20–40 sec
-
-Plank is optional and should be omitted if it provokes symptoms.
+Effort is expressed as RIR — repetitions in reserve. Target approximately 3 RIR in week 1,
+2–3 in week 2, and 1–2 in weeks 3 and 4 while consolidating technique. Routine training to
+failure is not required.
 
 ---
 
-# 11. Session D — Full Body + Arms + Abdominal Development
+# 11. The four-week arc
 
-This is the flexible/lighter session.
-
-Drop this session first during high-fatigue weeks.
-
-## Main work
-
-### Goblet squat
-- 3 × 10–15
-- Moderate
-
-### Floor press
-- 2–3 × 10–15
-- Moderate
-
-### Supported one-arm row
-- 2–3 × 10–15/side
-- Moderate/heavy
-
-### Reverse lunge
-- 2 × 8–12/leg
-- Bodyweight/light
-
-### Lateral raise
-- 2 × 12–15
-- Light
-
-### Hammer curl
-- 2 × 10–15
-- Light/moderate
-
-### Triceps extension
-- 2 × 10–15
-- Light/moderate
-
-## Abdominal finisher
-
-Two rounds:
-
-- Dead bug — 8/side
-- McGill curl-up — 8/side
-- Side plank — 30 sec/side
-- Reverse crunch — 8–12
-
-Reverse crunch is conditional.
-
-If it provokes familiar back sensitivity, replace it with:
-- additional dead bugs;
-- plank;
-- or another symptom-free core exercise.
+- **Week 1 — Establish.** Learn technique, identify comfortable starting loads, assess
+  symptom response, avoid unnecessary soreness. Do not chase maximum repetitions.
+- **Week 2 — Build.** Add repetitions where appropriate, maintain technique, begin moving
+  toward the upper end of the rep ranges.
+- **Week 3 — Push.** Approach upper rep limits and increase effort modestly, progressing
+  only exercises that have been well tolerated.
+- **Week 4 — Consolidate.** Achieve strong, technically clean sets; determine which
+  exercises are ready for more load; assess recovery and symptom response. Do not increase
+  every exercise simply because it is week 4.
 
 ---
 
-# 12. Progression model
+# 12. Handling large dumbbell increments
 
-The core progression system is **double progression**.
+The available plates can create relatively large jumps in load. When the next weight is
+too large a step, in order: add repetitions, slow the eccentric, add a pause, increase
+range of motion where appropriate, use a unilateral variation, and only then increase load.
 
-For an 8–12 rep exercise:
-
-Example:
-
-- 10 / 10 / 9
-- 11 / 10 / 10
-- 12 / 11 / 11
-- 12 / 12 / 12
-
-Once the top of the range is achieved with clean technique and appropriate effort, increase the weight.
-
-For 10–15 rep exercises, use the same principle.
-
-## Effort target
-
-### Week 1
-Approximately 3 RIR.
-
-### Week 2
-Approximately 2–3 RIR.
-
-### Week 3
-Approximately 1–2 RIR.
-
-### Week 4
-Approximately 1–2 RIR while consolidating good technique.
-
-RIR = repetitions in reserve.
-
-Routine failure training is not required.
+For example, if 6 kg allows 12/12/12 but the next useful load causes 6/5/5, stay at 6 kg
+and make the exercise harder through tempo and reps before jumping.
 
 ---
 
-# 13. Four-week progression
+# 13. Exercises deliberately excluded
 
-## Week 1 — Establish
-
-Objectives:
-- learn exercise technique;
-- identify comfortable starting loads;
-- assess symptom response;
-- avoid unnecessary soreness.
-
-Do not chase maximum repetitions.
-
-## Week 2 — Build
-
-Objectives:
-- add repetitions where appropriate;
-- maintain technique;
-- begin moving toward the upper end of rep ranges.
-
-## Week 3 — Push
-
-Objectives:
-- approach upper rep limits;
-- increase effort modestly;
-- progress only exercises that have been well tolerated.
-
-## Week 4 — Consolidate
-
-Objectives:
-- achieve strong technically clean sets;
-- determine which exercises are ready for increased loading;
-- assess overall recovery and symptom response.
-
-Do not increase every exercise simply because it is Week 4.
+- **Weighted side bends** — side bending currently provokes sensitivity.
+- **Russian twists** — loaded spinal rotation is unnecessary for these goals and not worth
+  introducing while sensitivity is present.
+- **Heavy dumbbell deadlifts and RDLs** — forward bending currently provokes sensitivity.
+  A hip hinge may be introduced later if symptoms improve or stabilise, the movement is
+  comfortable, a healthcare professional has no objection, and the progression is
+  otherwise appropriate.
+- **Heavy unsupported bent-over rows** — supported rows are an effective alternative with
+  less sustained trunk positioning.
+- **Aggressive hip stretching** — discomfort in a stretch position should not be
+  interpreted as a need to stretch harder.
 
 ---
 
-# 14. How to handle large dumbbell increments
+# 14. Optional general activity
 
-Available plates may create relatively large jumps in load.
-
-When the next weight is too large:
-
-1. add repetitions;
-2. use a slower eccentric;
-3. add a pause;
-4. increase range of motion where appropriate;
-5. use a unilateral variation;
-6. then increase load.
-
-Example:
-
-If 6 kg allows 12/12/12 but the next useful load causes 6/5/5, remain at 6 kg and make the exercise harder through controlled tempo/reps before jumping in weight.
+Walking is useful low-intensity activity: 20–30 minutes at a comfortable or brisk pace,
+particularly on recovery days or after prolonged sitting. Squash already supplies
+substantial cardiovascular work, so do not add large amounts of conditioning if recovery
+begins to suffer.
 
 ---
 
-# 15. Exercise selection rationale
+# 15. Nutrition and recovery considerations
 
-## Goblet squat
+Adaptation depends on fuelling and recovery, not on training stimulus alone. Relevant
+here: sufficient total energy for four weekly resistance sessions plus squash; adequate
+protein distributed across the day; adequate carbohydrate around squash, the most
+glycolytically demanding activity of the week; hydration, particularly around squash; and
+sleep duration and consistency.
 
-Selected because it:
-- trains major lower-body muscles;
-- requires only one dumbbell;
-- provides significant stimulus with limited load;
-- is relatively simple to control;
-- avoids the need for a rack.
-
-## Split squat / reverse lunge
-
-Selected because they:
-- provide high lower-body stimulus with modest external load;
-- develop unilateral strength;
-- train hip stability;
-- complement squash's unilateral/lateral demands.
-
-## Floor press
-
-Selected because it:
-- trains chest/triceps effectively;
-- requires no bench;
-- provides a stable setup;
-- was already familiar and well tolerated.
-
-## Supported one-arm row
-
-Selected instead of heavy unsupported bent-over rows because it:
-- trains the back effectively;
-- reduces the need for prolonged unsupported trunk positioning;
-- makes torso rotation easier to control;
-- fits the home equipment.
-
-## Shoulder press
-
-Selected for:
-- shoulder development;
-- upper-body strength;
-- overhead capacity.
-
-It must be performed without excessive lumbar extension.
-
-## Glute bridge
-
-Selected because it:
-- trains glute strength;
-- develops hip extension;
-- can be progressively loaded;
-- is easy to regress/progress;
-- places relatively modest demands on the lumbar spine when performed correctly.
-
-## Lateral raise / rear-delt fly
-
-Selected for:
-- shoulder development;
-- upper-back/postural musculature;
-- additional hypertrophy without requiring heavy loads.
-
-## Curls / triceps
-
-Selected to provide direct arm hypertrophy because the user's goals include muscle development.
-
-## Dead bug
-
-Selected for:
-- abdominal bracing;
-- anti-extension control;
-- low equipment requirement;
-- controlled trunk work.
-
-## Side plank
-
-Selected for:
-- lateral trunk endurance;
-- oblique musculature;
-- hip/trunk stability;
-- relevance to lateral movement in squash.
-
-## Bird dog
-
-Selected for:
-- trunk control;
-- coordination;
-- resistance to unwanted rotation;
-- low-load movement practice.
-
-## McGill curl-up
-
-Selected to provide direct abdominal training while avoiding high-volume spinal flexion.
-
-## Reverse crunch
-
-Potential later progression for more direct abdominal loading.
-
-It is conditional because forward bending currently provokes sensitivity.
+If performance declines, review fuelling and sleep **before** adding volume or changing
+the plan. Do not adjust the plan on nutritional grounds without evidence from the logs.
 
 ---
 
-# 16. Exercises deliberately excluded initially
+# 16. Recovery rules
 
-## Weighted side bends
+Recovery is a plan variable, because resistance training, 1–2 squash sessions and a
+variable work schedule all draw on it.
 
-Excluded because side bending currently provokes sensitivity.
+Indicators of excessive load: declining performance across multiple sessions, unusually
+persistent soreness, worsening squash performance, worsening symptom response, poor sleep,
+persistent fatigue, loss of motivation, or an inability to hit normal rep targets.
 
-## Russian twists
-
-Excluded because loaded spinal rotation is unnecessary for achieving the user's goals and is not worth introducing while sensitivity is present.
-
-## Heavy dumbbell deadlifts/RDLs
-
-Not initially required because forward bending currently provokes sensitivity.
-
-A hip-hinge pattern may be introduced later if:
-- symptoms improve/stabilise;
-- the user can perform the movement comfortably;
-- a healthcare professional has no objection;
-- progression is appropriate.
-
-## Heavy unsupported bent-over rows
-
-Supported rows provide an effective alternative with less need for sustained trunk positioning.
-
-## Aggressive hip stretching
-
-Discomfort in a stretch position should not automatically be interpreted as a need to stretch harder.
+If several occur together, in order: reduce Session D, reduce isolation volume, maintain
+the main lifts if tolerated, consider an easier week, reassess squash volume, and consult a
+healthcare professional about persistent musculoskeletal symptoms.
 
 ---
 
-# 17. Optional general activity
+# 17. Guidance for the revising AI
 
-Walking is recommended as useful low-intensity activity when practical.
+**Do not change the plan based on a single bad workout.** Before recommending changes,
+look at training performance (load, reps per set, RIR, technique quality), symptom
+response (during, later that day, next morning, and the trend across weeks), recovery
+(sleep, energy, soreness, squash frequency) and progress against the goals in §3.
 
-Suggested:
-- 20–30 minutes;
-- comfortable/brisk pace;
-- particularly useful on recovery days or after prolonged sitting.
+## When to change load
 
-Squash already contributes substantial cardiovascular activity.
+| Do this | When |
+|---|---|
+| **Increase weight** | Top of the rep range achieved, technique good, target RIR maintained, no meaningful symptom aggravation, recovery good |
+| **Hold weight** | Reps still increasing, technique still improving, or the next jump is disproportionately large |
+| **Reduce weight** | Technique deteriorating, consistently below the bottom of the rep range, symptoms increasing, or RIR substantially lower than intended |
+| **Add reps instead** | Weight increments too large, current load technically manageable, symptoms stable, recovery good |
 
-Do not add large amounts of conditioning if recovery begins to suffer.
+Difficulty can also be increased without adding weight: slower eccentric, a pause, more
+reps, a unilateral variation, or greater controlled range of motion.
 
----
+## When to change exercises
 
-# 18. Nutrition and recovery considerations
+Do not add exercises for variety. A new exercise needs a clear purpose — filling a
+muscular gap, solving a loading limitation, providing a progression, improving movement
+capacity or adherence, or replacing something no longer appropriate.
 
-Training adaptations depend on adequate fuelling and recovery, not on training stimulus alone.
+Candidates for later, subject to symptom response: dumbbell Romanian deadlift or another
+hip hinge (introduce cautiously — forward bending currently provokes sensitivity), loaded
+glute bridge, Bulgarian split squat, single-leg Romanian deadlift, harder plank
+variations, loaded abdominal flexion, additional shoulder or back volume.
 
-General considerations relevant to this plan:
+## Standing constraints
 
-- sufficient total energy intake to support four weekly resistance sessions plus squash;
-- adequate protein intake distributed across the day;
-- adequate carbohydrate around squash sessions, which are the most glycolytically demanding activity in the week;
-- hydration, particularly around squash;
-- sleep duration and consistency.
-
-If training performance declines, review fuelling and sleep before adding training volume or changing the plan.
-
-The plan should not be adjusted on nutritional grounds without evidence from the training logs.
-
----
-
-# 19. Recovery rules
-
-The user has:
-- resistance training;
-- 1–2 squash sessions;
-- work/life scheduling variability.
-
-Therefore recovery should be treated as a plan variable.
-
-Indicators of excessive training load:
-- declining performance across multiple sessions;
-- unusually persistent muscle soreness;
-- worsening squash performance;
-- worsening symptom response;
-- poor sleep;
-- persistent fatigue;
-- loss of motivation;
-- inability to achieve normal rep targets.
-
-If several occur together:
-1. reduce Session D first;
-2. reduce isolation volume;
-3. maintain main lifts if tolerated;
-4. consider an easier week;
-5. reassess squash volume;
-6. consult a healthcare professional regarding persistent musculoskeletal symptoms.
+1. Preserve the 45-minute session format unless there is a clear reason to change it.
+2. Prefer simple progression over frequent exercise changes.
+3. Avoid unnecessary dumbbell-weight changes.
+4. Treat squash as meaningful training load, and do not prescribe four lifting sessions in
+   a two-squash week.
+5. Prioritise compound movements before isolation work.
+6. Maintain direct abdominal training throughout, alongside core stability work.
+7. Do not train through worsening symptoms, do not attempt to diagnose discomfort, and
+   recommend professional assessment where symptoms persist or worsen.
+8. Regulate effort with RIR and double progression; increase load only when technique,
+   symptoms and recovery all support it.
+9. Where the evidence is insufficient, ask for the actual training log rather than
+   guessing.
 
 ---
 
-# 20. Future AI adjustment protocol
+# 18. Four-week review
 
-A future AI assistant should **not change the plan based on a single bad workout**.
+At the end of week 4, ask for:
 
-Before recommending changes, evaluate at least:
-
-### Training performance
-- exercise;
-- weight;
-- reps per set;
-- RIR;
-- technique quality.
-
-### Symptom response
-- discomfort during exercise;
-- discomfort later that day;
-- next-morning response;
-- whether symptoms are improving, stable, or worsening.
-
-### Recovery
-- sleep;
-- energy;
-- soreness;
-- squash frequency;
-- overall workload.
-
-### Goal progress
-- strength;
-- muscle development;
-- abdominal development;
-- fitness;
-- work capacity.
+- **Strength** — current load and reps for floor press, goblet squat, supported row and
+  shoulder press; split squat and reverse lunge progression.
+- **Core** — side plank duration, dead bug quality, McGill curl-up tolerance, and reverse
+  crunch response if it was introduced.
+- **Symptoms** — typical and morning symptom levels compared with week 1, response to
+  squash, and whether forward and side bending have improved, held or worsened.
+- **Recovery** — average energy, sleep quality, soreness, number of squash sessions.
+- **Adherence** — sessions completed per week, and which were most often skipped and why.
 
 ---
 
-# 21. Recommended progress log
-
-For each resistance session, record:
-
-```text
-Date:
-Session: A / B / C / D
-
-Exercise:
-Weight:
-Set 1:
-Set 2:
-Set 3:
-RIR:
-Technique quality: Good / Acceptable / Poor
-
-Lower-back symptoms during:
-0–10:
-
-Lower-back symptoms immediately after:
-0–10:
-
-Next morning:
-0–10:
-
-Energy before:
-1–10:
-
-Energy after:
-1–10:
-
-Squash since previous workout:
-0 / 1 / 2 sessions
-
-Notes:
-```
-
-For core exercises, record duration/repetitions rather than load where appropriate.
-
----
-
-# 22. Decision rules for future progression
-
-## Increase weight when:
-
-- top of rep range is achieved;
-- technique remains good;
-- target RIR is maintained;
-- no meaningful symptom aggravation;
-- recovery is good.
-
-## Keep the same weight when:
-
-- repetitions are still increasing;
-- technique is improving;
-- the user is adapting;
-- next weight jump is disproportionately large.
-
-## Reduce weight when:
-
-- technique deteriorates;
-- the user consistently cannot achieve the bottom of the rep range;
-- symptoms increase;
-- RIR becomes substantially lower than intended.
-
-## Add repetitions when:
-
-- weight increments are too large;
-- current weight remains technically manageable;
-- symptoms are stable;
-- recovery is good.
-
-## Increase difficulty without increasing weight by:
-
-- slower eccentric;
-- pause;
-- additional reps;
-- unilateral variation;
-- greater controlled range of motion.
-
----
-
-# 23. When to introduce new exercises
-
-Do not add exercises merely for variety.
-
-A new exercise should have a clear purpose, such as:
-- filling a muscular gap;
-- solving a loading limitation;
-- providing a progression;
-- improving movement capacity;
-- improving training adherence;
-- replacing an exercise that is no longer appropriate.
-
-Potential future additions, subject to symptom response:
-
-- dumbbell Romanian deadlift / hip hinge;
-- loaded glute bridge;
-- Bulgarian split squat;
-- single-leg Romanian deadlift;
-- more challenging plank variations;
-- loaded abdominal flexion;
-- additional shoulder/back volume.
-
-The hip-hinge progression should be introduced cautiously because forward bending currently provokes sensitivity.
-
----
-
-# 24. Four-week review
-
-At the end of Week 4, the AI assistant should ask for:
-
-## Strength
-- Current weight/reps for floor press
-- Current weight/reps for goblet squat
-- Current weight/reps for row
-- Current weight/reps for shoulder press
-- Split squat/reverse lunge progression
-
-## Core
-- Side plank duration
-- Dead bug quality
-- McGill curl-up tolerance
-- Reverse crunch response if introduced
-
-## Symptoms
-- Typical symptom level compared with Week 1
-- Morning symptoms compared with Week 1
-- Response to squash
-- Whether forward/side bending has improved, remained unchanged, or worsened
-
-## Recovery
-- Average energy
-- Sleep quality
-- Muscle soreness
-- Number of squash sessions
-
-## Adherence
-- Sessions completed per week
-- Which sessions were most often skipped, and why
-
----
-
-# 25. Desired long-term progression
-
-The long-term plan should move through these stages:
-
-### Stage 1 — Foundation
-Weeks 1–4:
-- establish loads;
-- improve technique;
-- monitor symptoms;
-- build consistency.
-
-### Stage 2 — Progressive loading
-Approximately Weeks 5–8:
-- increase dumbbell loads where earned;
-- progress unilateral leg work;
-- introduce more challenging glute loading;
-- cautiously introduce a hip hinge if appropriate.
-
-### Stage 3 — Increased training stimulus
-Approximately Weeks 9–12:
-- modestly increase volume for priority muscle groups;
-- progress abdominal loading;
-- improve unilateral lower-body strength;
-- continue squash-compatible programming.
-
-### Stage 4 — Ongoing individualisation
-After approximately 12 weeks:
-- adjust based on actual progress;
-- identify lagging muscle groups;
-- adjust volume/frequency;
-- maintain or modify the trunk/hip strategy based on symptom trajectory.
-
-The plan should remain simple enough to sustain and should not become unnecessarily complicated.
-
----
-
-# 26. Core principles for future AI assistance
-
-The future assistant should follow these principles:
-
-1. **Preserve the user's preferred 45-minute format unless there is a clear reason to change it.**
-2. **Prefer simple progression over frequent exercise changes.**
-3. **Avoid unnecessary dumbbell-weight changes.**
-4. **Treat squash as meaningful training load.**
-5. **Do not automatically prescribe four lifting sessions during two-squash weeks.**
-6. **Prioritise muscle-building compound movements before isolation exercises.**
-7. **Maintain direct abdominal training throughout the plan.**
-8. **Use core stability work alongside direct abdominal hypertrophy work.**
-9. **Do not intentionally train through worsening symptoms.**
-10. **Do not attempt to diagnose the cause of any discomfort.**
-11. **Recommend professional assessment where symptoms persist or worsen.**
-12. **Do not add exercises merely for novelty.**
-13. **Use RIR and double progression to regulate effort.**
-14. **Increase load only when technique, symptoms and recovery support progression.**
-15. **When evidence is insufficient, ask for the user's actual training log rather than guessing.**
-
----
-
-# Current baseline
-
-At plan start:
-
-- Age: 42
-- Squash: 1–2×/week
-- Resistance target: ~4×/week, adjusted for squash
-- Session target: ~45 min
-- Heavy reference load: ~6 kg/dumbbell
-- Light reference load: ~4 kg/dumbbell
-- Previous floor press benchmark: 2 × 6 kg × 12 reps × 3 sets
-- Secondary consideration: occasional lower-back and lateral-hip sensitivity
-- No reported symptoms travelling below the buttock
-- Forward and side bending can provoke sensitivity
-- No clinical assessment or diagnosis exists
-- Current plan intentionally avoids loaded side bending, loaded rotation, heavy unsupported rows and heavy hip-hinge work
-- Primary progression method: double progression
-- Primary effort target: approximately 1–3 RIR
-- Main objective for first four weeks: establish a sustainable, well-tolerated baseline from which future progression can be made
-
-## End-of-block status
-
-To be completed after Week 4:
-
-```text
-Week 4 completed: Yes / No
-
-Floor press:
-Goblet squat:
-Supported row:
-Shoulder press:
-Split squat:
-Reverse lunge:
-
-Side plank:
-Dead bug:
-McGill curl-up:
-Reverse crunch:
-
-Average symptom level:
-Morning symptoms:
-Response to squash:
-
-Average weekly resistance sessions:
-Average weekly squash sessions:
-
-Energy:
-Sleep:
-Recovery:
-
-Best improvements:
-Main difficulties:
-Exercises that provoked symptoms:
-Exercises that felt particularly effective:
-
-Recommended changes for next block:
-```
+# 19. Long-term progression
+
+- **Stage 1 — Foundation (weeks 1–4).** Establish loads, improve technique, monitor
+  symptoms, build consistency.
+- **Stage 2 — Progressive loading (weeks 5–8).** Increase loads where earned, progress
+  unilateral leg work, introduce more challenging glute loading, and cautiously introduce
+  a hip hinge if appropriate.
+- **Stage 3 — Increased stimulus (weeks 9–12).** Modestly increase volume for priority
+  muscle groups, progress abdominal loading, improve unilateral lower-body strength, and
+  keep the plan squash-compatible.
+- **Stage 4 — Ongoing individualisation (after ~12 weeks).** Adjust on actual progress,
+  identify lagging muscle groups, adjust volume and frequency, and maintain or modify the
+  trunk and hip strategy based on the symptom trajectory.
+
+The plan should stay simple enough to sustain, and should not become unnecessarily
+complicated.
 
 ---
 
@@ -1312,11 +513,6 @@ Recommended changes for next block:
 The block below is the structured skeleton of this plan. It is read by the GAIN
 training app to render sessions and record logs. Everything above it is the prose
 context, which GAIN stores verbatim and does not modify.
-
-**If you are an AI assistant revising this plan:** the rules for regenerating this
-block — in particular the requirement to preserve every `id` value — are stated in the
-export bundle that accompanied this document. Preserving those identifiers is what keeps
-the user's training history intact.
 
 ```gain-plan
 schema_version: 1
@@ -1329,25 +525,74 @@ plan:
   block_length_weeks: 4
   session_target_min: 45
   changelog:
-    - "Initial import. Structured from the original AI-authored context document."
+    - Initial import. Structured from the original AI-authored context document.
 
 loads:
   - ref: heavy
     label: Heavy configuration
     default_kg: 6
-    note: "Approximately 6 kg per dumbbell initially. Adjust according to exercise and form. Maximum symmetrical configuration is approximately 13 kg per dumbbell."
+    note: Approximately 6 kg per dumbbell initially. Adjust according to exercise and form. Maximum
+      symmetrical configuration is approximately 13 kg per dumbbell.
   - ref: moderate
     label: Moderate configuration
     default_kg: 5
-    note: "Added during import: Session D prescribes 'moderate' loading, between the light and heavy configurations."
+    note: "Added during import: Session D prescribes 'moderate' loading, between the light and heavy
+      configurations."
   - ref: light
     label: Light configuration
     default_kg: 4
-    note: "Approximately 4 kg per dumbbell initially."
+    note: Approximately 4 kg per dumbbell initially.
   - ref: bodyweight
     label: Bodyweight
     is_bodyweight: true
-    note: "Progression to dumbbell loading is only appropriate when movement quality and symptom response are good."
+    note: Progression to dumbbell loading is only appropriate when movement quality and symptom
+      response are good.
+
+exercises:
+  - {id: march-in-place, type: time, load: bodyweight}
+  - {id: bodyweight-squat, load: bodyweight}
+  - {id: glute-bridge, load: bodyweight}
+  - {id: bird-dog, per_side: true, load: bodyweight}
+  - {id: shoulder-circles, load: bodyweight, note: 10 each direction}
+  - {id: hip-circles, per_side: true, load: bodyweight}
+  - id: goblet-squat
+    note: Hold one dumbbell against chest. Brace abdomen. Squat through a comfortable range. Do not force depth.
+  - id: db-floor-press
+    name: Dumbbell floor press
+    note: "Starting reference: 2 × 6 kg. Lower until upper arms gently contact floor. Avoid excessive elbow flare."
+  - {id: supported-one-arm-row, name: Supported one-arm row, per_side: true}
+  - {id: reverse-lunge, per_side: true, load: bodyweight}
+  - {id: dead-bug, per_side: true, load: bodyweight}
+  - {id: side-plank, type: time, per_side: true, load: bodyweight}
+  - id: db-shoulder-press
+    name: Dumbbell shoulder press
+    load: heavy
+    note: "Starting reference: 2 × 6 kg. Avoid leaning backward. Reduce weight if lumbar arching occurs."
+  - id: lateral-raise
+    load: light
+    note: "Starting reference: 2 × 4 kg. Soft elbows, raise toward shoulder height, avoid shrugging, no momentum."
+  - {id: db-curl, name: Dumbbell curl, load: light, note: Light/moderate.}
+  - {id: overhead-triceps-extension, load: light}
+  - {id: mcgill-curl-up, name: McGill curl-up, per_side: true, load: bodyweight}
+  - id: split-squat
+    per_side: true
+    load: bodyweight
+    note: "Bodyweight → light/heavy as tolerated. Staggered stance, lower mostly vertically, front foot remains planted."
+  - id: rear-delt-reverse-fly
+    name: Rear-delt reverse fly
+    load: light
+    note: Use only as much forward hinge as comfortable. Use a supported or prone variation if necessary. Avoid momentum.
+  - id: front-plank
+    type: time
+    load: bodyweight
+    conditional: true
+    condition: Optional. Omit if it aggravates symptoms.
+  - {id: hammer-curl, load: light, note: Light/moderate.}
+  - id: reverse-crunch
+    load: bodyweight
+    conditional: true
+    condition: "Conditional. If it reproduces familiar back symptoms, replace with additional dead bugs, plank, or another symptom-free core exercise."
+    substitutes: [dead-bug, front-plank]
 
 metrics:
   exercise:
@@ -1360,7 +605,10 @@ metrics:
     - key: technique
       label: Technique quality
       type: enum
-      options: [Good, Acceptable, Poor]
+      options:
+        - Good
+        - Acceptable
+        - Poor
       optional: true
   session:
     - key: energy_before
@@ -1408,108 +656,32 @@ sessions:
       - key: warmup
         name: Warm-up
         tracking: checkoff
-        note: "Avoid forcing painful side bending or forward bending."
+        note: Avoid forcing painful side bending or forward bending.
         exercises:
-          - id: march-in-place
-            name: March in place
-            type: time
-            sets: 1
-            duration_sec: 60
-            load: bodyweight
-          - id: bodyweight-squat
-            name: Bodyweight squat
-            type: reps
-            sets: 1
-            reps: 8
-            load: bodyweight
-          - id: glute-bridge
-            name: Glute bridge
-            type: reps
-            sets: 1
-            reps: 10
-            load: bodyweight
-          - id: bird-dog
-            name: Bird dog
-            type: reps
-            sets: 1
-            reps: 6
-            per_side: true
-            load: bodyweight
-          - id: shoulder-circles
-            name: Shoulder circles
-            type: reps
-            sets: 1
-            reps: 10
-            load: bodyweight
-            note: "10 each direction"
-          - id: hip-circles
-            name: Hip circles
-            type: reps
-            sets: 1
-            reps: 6
-            per_side: true
-            load: bodyweight
+          - {id: march-in-place, duration_sec: 60}
+          - {id: bodyweight-squat, reps: 8}
+          - {id: glute-bridge, reps: 10}
+          - {id: bird-dog, reps: 6}
+          - {id: shoulder-circles, reps: 10}
+          - {id: hip-circles, reps: 6}
       - key: main
         name: Main work
         exercises:
-          - id: goblet-squat
-            name: Goblet squat
-            type: reps
-            sets: 3
-            reps: [8, 12]
-            load: heavy
-            rest_sec: [75, 90]
-            note: "Hold one dumbbell against chest. Brace abdomen. Squat through a comfortable range. Do not force depth."
-          - id: db-floor-press
-            name: Dumbbell floor press
-            type: reps
-            sets: 3
-            reps: [8, 12]
-            load: heavy
-            rest_sec: [60, 90]
-            note: "Starting reference: 2 × 6 kg. Lower until upper arms gently contact floor. Avoid excessive elbow flare."
+          - {id: goblet-squat, sets: 3, reps: [8, 12], load: heavy, rest_sec: [75, 90]}
+          - {id: db-floor-press, sets: 3, reps: [8, 12], load: heavy, rest_sec: [60, 90]}
           - id: supported-one-arm-row
-            name: Supported one-arm row
-            type: reps
             sets: 3
             reps: [10, 12]
-            per_side: true
             load: heavy
             rest_sec: 30
-            note: "Short transition between sides. Support free hand on thigh. Pull toward hip. Avoid torso rotation."
-          - id: reverse-lunge
-            name: Reverse lunge
-            type: reps
-            sets: 2
-            reps: [8, 10]
-            per_side: true
-            load: bodyweight
-            note: "Bodyweight initially, then light dumbbells."
+            note: Short transition between sides. Support free hand on thigh. Pull toward hip. Avoid torso rotation.
+          - {id: reverse-lunge, sets: 2, reps: [8, 10], note: "Bodyweight initially, then light dumbbells."}
       - key: core
         name: Core
         exercises:
-          - id: dead-bug
-            name: Dead bug
-            type: reps
-            sets: 2
-            reps: [6, 10]
-            per_side: true
-            load: bodyweight
-          - id: side-plank
-            name: Side plank
-            type: time
-            sets: 2
-            duration_sec: [20, 40]
-            per_side: true
-            load: bodyweight
-          - id: bird-dog
-            name: Bird dog
-            type: reps
-            sets: 2
-            reps: [6, 8]
-            per_side: true
-            load: bodyweight
-
+          - {id: dead-bug, sets: 2, reps: [6, 10]}
+          - {id: side-plank, sets: 2, duration_sec: [20, 40]}
+          - {id: bird-dog, sets: 2, reps: [6, 8]}
   - key: B
     name: Upper Body + Glutes + Abs
     order: 2
@@ -1517,443 +689,192 @@ sessions:
       - key: warmup
         name: Warm-up
         tracking: checkoff
-        note: "Avoid forcing painful side bending or forward bending."
+        note: Avoid forcing painful side bending or forward bending.
         exercises:
-          - id: march-in-place
-            name: March in place
-            type: time
-            sets: 1
-            duration_sec: 60
-            load: bodyweight
-          - id: bodyweight-squat
-            name: Bodyweight squat
-            type: reps
-            sets: 1
-            reps: 8
-            load: bodyweight
-          - id: glute-bridge
-            name: Glute bridge
-            type: reps
-            sets: 1
-            reps: 10
-            load: bodyweight
-          - id: bird-dog
-            name: Bird dog
-            type: reps
-            sets: 1
-            reps: 6
-            per_side: true
-            load: bodyweight
-          - id: shoulder-circles
-            name: Shoulder circles
-            type: reps
-            sets: 1
-            reps: 10
-            load: bodyweight
-            note: "10 each direction"
-          - id: hip-circles
-            name: Hip circles
-            type: reps
-            sets: 1
-            reps: 6
-            per_side: true
-            load: bodyweight
+          - {id: march-in-place, duration_sec: 60}
+          - {id: bodyweight-squat, reps: 8}
+          - {id: glute-bridge, reps: 10}
+          - {id: bird-dog, reps: 6}
+          - {id: shoulder-circles, reps: 10}
+          - {id: hip-circles, reps: 6}
       - key: main
         name: Main work
         exercises:
-          - id: db-shoulder-press
-            name: Dumbbell shoulder press
-            type: reps
-            sets: 3
-            reps: [8, 12]
-            load: heavy
-            note: "Starting reference: 2 × 6 kg. Avoid leaning backward. Reduce weight if lumbar arching occurs."
-          - id: supported-one-arm-row
-            name: Supported one-arm row
-            type: reps
-            sets: 3
-            reps: [10, 12]
-            per_side: true
-            load: heavy
+          - {id: db-shoulder-press, sets: 3, reps: [8, 12]}
+          - {id: supported-one-arm-row, sets: 3, reps: [10, 12], load: heavy}
           - id: glute-bridge
-            name: Glute bridge
-            type: reps
             sets: 3
             reps: [12, 15]
-            load: bodyweight
             note: "Bodyweight initially. Pause 1–2 sec. Do not create height by arching the lumbar spine. Progression: bodyweight → pause → light dumbbell across hips → heavier only if symptom-free."
-          - id: lateral-raise
-            name: Lateral raise
-            type: reps
-            sets: [2, 3]
-            reps: [10, 15]
-            load: light
-            note: "Starting reference: 2 × 4 kg. Soft elbows, raise toward shoulder height, avoid shrugging, no momentum."
-          - id: db-curl
-            name: Dumbbell curl
-            type: reps
-            sets: 2
-            reps: [10, 15]
-            load: light
-            note: "Light/moderate."
+          - {id: lateral-raise, sets: [2, 3], reps: [10, 15]}
+          - {id: db-curl, sets: 2, reps: [10, 15]}
           - id: overhead-triceps-extension
-            name: Overhead triceps extension
-            type: reps
             sets: 2
             reps: [10, 15]
-            load: light
+            substitutes: [{id: lying-triceps-extension, name: Lying dumbbell triceps extension}]
             note: "Light/moderate. If overhead extension encourages lumbar arching, substitute lying dumbbell triceps extensions."
-            substitutes:
-              - id: lying-triceps-extension
-                name: Lying dumbbell triceps extension
       - key: core
         name: Core
         exercises:
-          - id: mcgill-curl-up
-            name: McGill curl-up
-            type: reps
-            sets: 2
-            reps: [6, 10]
-            per_side: true
-            load: bodyweight
-          - id: side-plank
-            name: Side plank
-            type: time
-            sets: 2
-            duration_sec: [20, 40]
-            per_side: true
-            load: bodyweight
-          - id: dead-bug
-            name: Dead bug
-            type: reps
-            sets: 2
-            reps: [6, 10]
-            per_side: true
-            load: bodyweight
-
+          - {id: mcgill-curl-up, sets: 2, reps: [6, 10]}
+          - {id: side-plank, sets: 2, duration_sec: [20, 40]}
+          - {id: dead-bug, sets: 2, reps: [6, 10]}
   - key: C
     name: Lower Body + Chest/Back + Core
     order: 3
-    note: "Primary lower-body strength session. Avoid scheduling immediately before hard squash."
+    note: Primary lower-body strength session. Avoid scheduling immediately before hard squash.
     blocks:
       - key: warmup
         name: Warm-up
         tracking: checkoff
-        note: "Avoid forcing painful side bending or forward bending."
+        note: Avoid forcing painful side bending or forward bending.
         exercises:
-          - id: march-in-place
-            name: March in place
-            type: time
-            sets: 1
-            duration_sec: 60
-            load: bodyweight
-          - id: bodyweight-squat
-            name: Bodyweight squat
-            type: reps
-            sets: 1
-            reps: 8
-            load: bodyweight
-          - id: glute-bridge
-            name: Glute bridge
-            type: reps
-            sets: 1
-            reps: 10
-            load: bodyweight
-          - id: bird-dog
-            name: Bird dog
-            type: reps
-            sets: 1
-            reps: 6
-            per_side: true
-            load: bodyweight
-          - id: shoulder-circles
-            name: Shoulder circles
-            type: reps
-            sets: 1
-            reps: 10
-            load: bodyweight
-            note: "10 each direction"
-          - id: hip-circles
-            name: Hip circles
-            type: reps
-            sets: 1
-            reps: 6
-            per_side: true
-            load: bodyweight
+          - {id: march-in-place, duration_sec: 60}
+          - {id: bodyweight-squat, reps: 8}
+          - {id: glute-bridge, reps: 10}
+          - {id: bird-dog, reps: 6}
+          - {id: shoulder-circles, reps: 10}
+          - {id: hip-circles, reps: 6}
       - key: main
         name: Main work
         exercises:
-          - id: split-squat
-            name: Split squat
-            type: reps
-            sets: 3
-            reps: [8, 12]
-            per_side: true
-            load: bodyweight
-            note: "Bodyweight → light/heavy as tolerated. Staggered stance, lower mostly vertically, front foot remains planted."
-          - id: db-floor-press
-            name: Dumbbell floor press
-            type: reps
-            sets: 3
-            reps: [8, 12]
-            load: heavy
-          - id: supported-one-arm-row
-            name: Supported one-arm row
-            type: reps
-            sets: 3
-            reps: [10, 12]
-            per_side: true
-            load: heavy
-          - id: glute-bridge
-            name: Glute bridge
-            type: reps
-            sets: 3
-            reps: [12, 15]
-            load: bodyweight
-            note: "Bodyweight → loaded."
-          - id: rear-delt-reverse-fly
-            name: Rear-delt reverse fly
-            type: reps
-            sets: 2
-            reps: [10, 15]
-            load: light
-            note: "Use only as much forward hinge as comfortable. Use a supported or prone variation if necessary. Avoid momentum."
+          - {id: split-squat, sets: 3, reps: [8, 12]}
+          - {id: db-floor-press, sets: 3, reps: [8, 12], load: heavy}
+          - {id: supported-one-arm-row, sets: 3, reps: [10, 12], load: heavy}
+          - {id: glute-bridge, sets: 3, reps: [12, 15], note: Bodyweight → loaded.}
+          - {id: rear-delt-reverse-fly, sets: 2, reps: [10, 15]}
       - key: core
         name: Core
         exercises:
-          - id: dead-bug
-            name: Dead bug
-            type: reps
-            sets: 2
-            reps: 8
-            per_side: true
-            load: bodyweight
-          - id: side-plank
-            name: Side plank
-            type: time
-            sets: 2
-            duration_sec: [20, 40]
-            per_side: true
-            load: bodyweight
-          - id: bird-dog
-            name: Bird dog
-            type: reps
-            sets: 2
-            reps: 6
-            per_side: true
-            load: bodyweight
-          - id: front-plank
-            name: Front plank
-            type: time
-            sets: 1
-            duration_sec: [20, 40]
-            load: bodyweight
-            conditional: true
-            condition: "Optional. Omit if it aggravates symptoms."
-
+          - {id: dead-bug, sets: 2, reps: 8}
+          - {id: side-plank, sets: 2, duration_sec: [20, 40]}
+          - {id: bird-dog, sets: 2, reps: 6}
+          - {id: front-plank, duration_sec: [20, 40]}
   - key: D
     name: Full Body + Arms + Abdominal Development
     order: 4
-    note: "The flexible/lighter session. Drop this session first during high-fatigue weeks."
+    note: The flexible/lighter session. Drop this session first during high-fatigue weeks.
     blocks:
       - key: warmup
         name: Warm-up
         tracking: checkoff
-        note: "Avoid forcing painful side bending or forward bending."
+        note: Avoid forcing painful side bending or forward bending.
         exercises:
-          - id: march-in-place
-            name: March in place
-            type: time
-            sets: 1
-            duration_sec: 60
-            load: bodyweight
-          - id: bodyweight-squat
-            name: Bodyweight squat
-            type: reps
-            sets: 1
-            reps: 8
-            load: bodyweight
-          - id: glute-bridge
-            name: Glute bridge
-            type: reps
-            sets: 1
-            reps: 10
-            load: bodyweight
-          - id: bird-dog
-            name: Bird dog
-            type: reps
-            sets: 1
-            reps: 6
-            per_side: true
-            load: bodyweight
-          - id: shoulder-circles
-            name: Shoulder circles
-            type: reps
-            sets: 1
-            reps: 10
-            load: bodyweight
-            note: "10 each direction"
-          - id: hip-circles
-            name: Hip circles
-            type: reps
-            sets: 1
-            reps: 6
-            per_side: true
-            load: bodyweight
+          - {id: march-in-place, duration_sec: 60}
+          - {id: bodyweight-squat, reps: 8}
+          - {id: glute-bridge, reps: 10}
+          - {id: bird-dog, reps: 6}
+          - {id: shoulder-circles, reps: 10}
+          - {id: hip-circles, reps: 6}
       - key: main
         name: Main work
         exercises:
-          - id: goblet-squat
-            name: Goblet squat
-            type: reps
-            sets: 3
-            reps: [10, 15]
-            load: moderate
-          - id: db-floor-press
-            name: Dumbbell floor press
-            type: reps
-            sets: [2, 3]
-            reps: [10, 15]
-            load: moderate
-          - id: supported-one-arm-row
-            name: Supported one-arm row
-            type: reps
-            sets: [2, 3]
-            reps: [10, 15]
-            per_side: true
-            load: moderate
-            note: "Moderate/heavy."
-          - id: reverse-lunge
-            name: Reverse lunge
-            type: reps
-            sets: 2
-            reps: [8, 12]
-            per_side: true
-            load: bodyweight
-            note: "Bodyweight/light."
-          - id: lateral-raise
-            name: Lateral raise
-            type: reps
-            sets: 2
-            reps: [12, 15]
-            load: light
-          - id: hammer-curl
-            name: Hammer curl
-            type: reps
-            sets: 2
-            reps: [10, 15]
-            load: light
-            note: "Light/moderate."
-          - id: overhead-triceps-extension
-            name: Triceps extension
-            type: reps
-            sets: 2
-            reps: [10, 15]
-            load: light
-            note: "Light/moderate."
+          - {id: goblet-squat, sets: 3, reps: [10, 15], load: moderate}
+          - {id: db-floor-press, sets: [2, 3], reps: [10, 15], load: moderate}
+          - {id: supported-one-arm-row, sets: [2, 3], reps: [10, 15], load: moderate, note: Moderate/heavy.}
+          - {id: reverse-lunge, sets: 2, reps: [8, 12], note: Bodyweight/light.}
+          - {id: lateral-raise, sets: 2, reps: [12, 15]}
+          - {id: hammer-curl, sets: 2, reps: [10, 15]}
+          - {id: overhead-triceps-extension, sets: 2, reps: [10, 15], note: Light/moderate.}
       - key: ab-finisher
         name: Abdominal finisher
         type: rounds
         rounds: 2
         exercises:
-          - id: dead-bug
-            name: Dead bug
-            type: reps
-            sets: 1
-            reps: 8
-            per_side: true
-            load: bodyweight
-          - id: mcgill-curl-up
-            name: McGill curl-up
-            type: reps
-            sets: 1
-            reps: 8
-            per_side: true
-            load: bodyweight
-          - id: side-plank
-            name: Side plank
-            type: time
-            sets: 1
-            duration_sec: 30
-            per_side: true
-            load: bodyweight
-          - id: reverse-crunch
-            name: Reverse crunch
-            type: reps
-            sets: 1
-            reps: [8, 12]
-            load: bodyweight
-            conditional: true
-            condition: "Conditional. If it reproduces familiar back symptoms, replace with additional dead bugs, plank, or another symptom-free core exercise."
-            substitutes:
-              - dead-bug
-              - front-plank
+          - {id: dead-bug, reps: 8}
+          - {id: mcgill-curl-up, reps: 8}
+          - {id: side-plank, duration_sec: 30}
+          - {id: reverse-crunch, reps: [8, 12]}
 
 scheduling:
-  sequence: [A, B, C, D]
-  drop_order: [D]
+  sequence:
+    - A
+    - B
+    - C
+    - D
+  drop_order:
+    - D
   rules:
-    - "Do not require fixed weekdays. Insert rest days, squash and easier days as required."
+    - Do not require fixed weekdays. Insert rest days, squash and easier days as required.
     - "One squash session in the week: A → B → Rest/Squash → C → D."
     - "Two squash sessions in the week: A → B → Squash → C → Squash. Skip D."
-    - "Avoid placing Session C immediately before a hard squash session."
-    - "If squash performance or lower-body recovery deteriorates, reduce resistance-training volume before reducing squash."
+    - Avoid placing Session C immediately before a hard squash session.
+    - If squash performance or lower-body recovery deteriorates, reduce resistance-training
+      volume before reducing squash.
 
 progression:
   model: double_progression
-  effort_target: "Approximately 1–3 RIR. Routine failure training is not required. Most sets should finish with approximately 1–3 technically good repetitions remaining."
+  effort_target: Approximately 1–3 RIR. Routine failure training is not required. Most sets should
+    finish with approximately 1–3 technically good repetitions remaining.
   effort_by_week:
     - week: 1
-      rir: [3, 3]
-      focus: "Establish — learn exercise technique, identify comfortable starting loads, assess symptom response, avoid unnecessary soreness."
+      rir:
+        - 3
+        - 3
+      focus: Establish — learn exercise technique, identify comfortable starting loads, assess symptom
+        response, avoid unnecessary soreness.
     - week: 2
-      rir: [2, 3]
-      focus: "Build — add repetitions where appropriate, maintain technique, begin moving toward the upper end of rep ranges."
+      rir:
+        - 2
+        - 3
+      focus: Build — add repetitions where appropriate, maintain technique, begin moving toward the
+        upper end of rep ranges.
     - week: 3
-      rir: [1, 2]
-      focus: "Push — approach upper rep limits, increase effort modestly, progress only exercises that have been well tolerated."
+      rir:
+        - 1
+        - 2
+      focus: Push — approach upper rep limits, increase effort modestly, progress only exercises that
+        have been well tolerated.
     - week: 4
-      rir: [1, 2]
-      focus: "Consolidate — achieve technically clean sets, determine which exercises are ready for increased loading."
+      rir:
+        - 1
+        - 2
+      focus: Consolidate — achieve technically clean sets, determine which exercises are ready for
+        increased loading.
   increase_load_when:
-    - "Top of rep range is achieved"
-    - "Technique remains good"
-    - "Target RIR is maintained"
-    - "No meaningful symptom aggravation"
-    - "Recovery is good"
+    - Top of rep range is achieved
+    - Technique remains good
+    - Target RIR is maintained
+    - No meaningful symptom aggravation
+    - Recovery is good
   hold_load_when:
-    - "Repetitions are still increasing"
-    - "Technique is improving"
-    - "The next weight jump is disproportionately large"
+    - Repetitions are still increasing
+    - Technique is improving
+    - The next weight jump is disproportionately large
   reduce_load_when:
-    - "Technique deteriorates"
-    - "The bottom of the rep range is consistently unachievable"
-    - "Symptoms increase"
-    - "RIR becomes substantially lower than intended"
+    - Technique deteriorates
+    - The bottom of the rep range is consistently unachievable
+    - Symptoms increase
+    - RIR becomes substantially lower than intended
 
 safety:
   symptom_framework:
     - level: green
-      label: "0–2/10 discomfort that does not progressively increase, does not substantially alter technique, and settles normally."
+      label: 0–2/10 discomfort that does not progressively increase, does not substantially alter
+        technique, and settles normally.
       action: continue
     - level: yellow
-      label: "Approximately 3–4/10 symptoms, or symptoms that increase during a set, alter movement quality, or remain noticeably elevated afterwards."
+      label: Approximately 3–4/10 symptoms, or symptoms that increase during a set, alter movement
+        quality, or remain noticeably elevated afterwards.
       action: modify
       modifications:
-        - "Reduce load"
-        - "Reduce range of motion"
-        - "Reduce repetitions"
-        - "Slow the movement"
-        - "Substitute the exercise"
+        - Reduce load
+        - Reduce range of motion
+        - Reduce repetitions
+        - Slow the movement
+        - Substitute the exercise
     - level: red
-      label: "Sharp or escalating pain, substantially different pain, new radiating symptoms, new numbness or tingling, or new weakness."
+      label: Sharp or escalating pain, substantially different pain, new radiating symptoms, new
+        numbness or tingling, or new weakness.
       action: stop
-  escalation: "If symptoms progressively worsen, persist, or materially change, consult a qualified healthcare professional. This is a training plan, not a medical diagnosis or a treatment protocol."
+  escalation: If symptoms progressively worsen, persist, or materially change, consult a qualified
+    healthcare professional. This is a training plan, not a medical diagnosis or a treatment
+    protocol.
 ```
 
 ## Import notes
 
-Four interpretations were made when structuring this plan. They are recorded here
+Five interpretations were made when structuring this plan. They are recorded here
 so they can be reviewed and corrected rather than silently inherited.
 
 1. **Warm-up applied to all four sessions.** The prose specifies warm-up exercises only
@@ -1964,13 +885,12 @@ so they can be reviewed and corrected rather than silently inherited.
    and "moderate/heavy" loading. Where the prose says "light/moderate", the lighter
    option was taken as the default.
 3. **Cooldown is not in the skeleton.** §7 allocates 2–4 minutes to a cooldown but
-   prescribes no exercises, and §16 explicitly warns against stretching into
+   prescribes no exercises, and §13 explicitly warns against stretching into
    symptom-provoking positions. Nothing was invented to fill it.
 4. **Warm-up blocks are `tracking: checkoff`** — completed as a whole rather than logged
    set by set, and excluded from progression charts. Logging reps for shoulder circles
    would add friction without producing useful data.
-5. **`overhead-triceps-extension` carries two display names.** The prose calls it
-   "Overhead triceps extension" in Session B and "Triceps extension" in Session D. It is
-   the same movement, so it keeps one `id` and one history; the Session B name is
-   canonical. This is retained deliberately as a test case for name-varies/slug-stable
-   handling.
+5. **Form cues are attached to the movement, not the occasion.** The prose gives form cues
+   under the session where an exercise first appears. They are properties of the movement,
+   so they sit on the catalogue entry and are shown wherever the exercise is prescribed —
+   the goblet squat cue now appears in Session D as well as Session A.
