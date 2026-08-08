@@ -1,6 +1,6 @@
 # GAIN — High-Level Architecture
 
-A self-hosted web app for running and tracking AI-authored exercise programmes.
+A self-hosted web app for running and tracking AI-authored exercise plans.
 
 **Status:** design agreed, not yet implemented.
 **Audience:** the AI agents that will build this, and the human reviewing their work.
@@ -9,7 +9,7 @@ A self-hosted web app for running and tracking AI-authored exercise programmes.
 
 ## 1. The core idea
 
-The programme is authored by an AI in a chat somewhere else, arrives as a markdown
+The plan is authored by an AI in a chat somewhere else, arrives as a markdown
 file, and must eventually go back to an AI with progress data attached so it can be
 revised. GAIN sits in the middle of that loop:
 
@@ -26,14 +26,14 @@ markdown that leaves GAIN must be able to come back in without losing identity.*
 
 ### The central tension
 
-A programme document is two things at once:
+A plan document is two things at once:
 
 | | Purpose | Consumer | Size |
 |---|---|---|---|
 | **Skeleton** | Sessions → exercises → set targets, with stable IDs | The session-runner UI | ~100 lines |
 | **Context** | Rationale, form cues, pain rules, progression philosophy, exclusions | The AI, on the next revision | ~1200 lines |
 
-The reference programme (`4_week_home_dumbbell_training_program_ai_context.md`) is
+The reference plan (`4_week_home_dumbbell_training_program_ai_context.md`) is
 ~1300 lines. Almost none of it is needed to render "exercise 3 of 8 — log your reps".
 All of it is needed when you ask an AI to write block 2.
 
@@ -48,16 +48,16 @@ the context — anything it cannot parse, it preserves.
 
 | # | Decision | Choice |
 |---|---|---|
-| 1 | Programme structuring | Contract block (fenced YAML) emitted by the AI + review/diff editor before commit |
+| 1 | Plan structuring | Contract block (fenced YAML) emitted by the AI + review/diff editor before commit |
 | 2 | AI integration | None in-app. Export/import only |
 | 3 | Authentication | OIDC client against Authentik |
 | 4 | Access control | Gated on an Authentik group, auto-provision on first login, no admin role |
 | 5 | Storage | One SQLite DB **per user**, plus a per-user file directory. DB is source of truth |
 | 6 | Client | Installable PWA, offline-capable sessions with sync |
-| 7 | Log schema | Fixed core (reps/weight/duration/difficulty) + programme-declared custom metrics |
+| 7 | Log schema | Fixed core (reps/weight/duration/difficulty) + plan-declared custom metrics |
 | 8 | Scheduling | Suggested-next-session, no calendar; one-tap logging of squash/walks/rest |
 | 9 | Stack | TypeScript + SvelteKit, single Node container, `better-sqlite3` |
-| 10 | Versioning | Immutable programme versions, diff review at import, logs bound to their version |
+| 10 | Versioning | Immutable plan versions, diff review at import, logs bound to their version |
 | 11 | Export | One self-contained `.md` bundle, windowed by default |
 | 12 | Deviation | Skip / substitute / add sets mid-session, with structured reasons |
 
@@ -109,8 +109,8 @@ Notes:
   users/
     <user_id>/
       gain.db                    # ALL of this user's training data
-      programmes/
-        <programme_id>/
+      plans/
+        <plan_id>/
           v1.md                  # verbatim original import, never modified
           v2.md
       exports/
@@ -151,21 +151,21 @@ Authentik. No user can read another user's data through any code path.
 Per-user `gain.db`. IDs are ULIDs unless noted.
 
 ```
-programme                 id, slug, name, created_at, archived_at
-programme_version         id, programme_id, version_no, based_on_version,
+plan                 id, slug, name, created_at, archived_at
+plan_version         id, plan_id, version_no, based_on_version,
                           source_md (verbatim), context_md, contract_json,
                           imported_at, changelog, is_current
-exercise_def              id, programme_id, slug (STABLE ACROSS VERSIONS),
+exercise_def              id, plan_id, slug (STABLE ACROSS VERSIONS),
                           name, first_seen_version, last_seen_version
-version_exercise          programme_version_id, session_key, block_key, exercise_def_id,
+version_exercise          plan_version_id, session_key, block_key, exercise_def_id,
                           order_no, type, sets, reps_min, reps_max, duration_min_s,
                           duration_max_s, per_side, load_ref, rest_min_s, rest_max_s,
                           conditional, condition_text, substitutes_json
-load_config               programme_version_id, ref, label, default_kg, is_bodyweight
-metric_def                programme_version_id, scope (set|exercise|session),
+load_config               plan_version_id, ref, label, default_kg, is_bodyweight
+metric_def                plan_version_id, scope (set|exercise|session),
                           key, label, type, min, max, options_json, prompt_when, optional
 
-workout                   id, programme_version_id, session_key, started_at,
+workout                   id, plan_version_id, session_key, started_at,
                           completed_at, status, client_id (idempotency), notes
 set_log                   id, workout_id, exercise_def_id, set_no, side,
                           reps, weight_kg, duration_s, difficulty, client_id
@@ -183,7 +183,7 @@ ai_template               id, name, body_md, is_default, updated_at
 
 Progress charts, double-progression logic and the AI's own trend analysis all join on
 `exercise_def_id`. That ID is resolved from the `slug` in the contract block. If a
-revised programme comes back with `goblet-squat` renamed to `goblet_squat` or
+revised plan comes back with `goblet-squat` renamed to `goblet_squat` or
 `db-goblet-squat`, every chart silently splits in two.
 
 Three defences, in order:
@@ -197,7 +197,7 @@ Three defences, in order:
 
 ### Exercise types the model must handle on day one
 
-Drawn directly from the reference programme, all of which appear in a single session:
+Drawn directly from the reference plan, all of which appear in a single session:
 
 - **Rep-based with load** — `3 × 8–12`, heavy config (goblet squat)
 - **Rep-based, per side** — `3 × 10–12/side` (supported one-arm row)
@@ -209,22 +209,22 @@ Drawn directly from the reference programme, all of which appear in a single ses
 - **Ranged rest** — `75–90 sec`
 
 A model that only does `sets × reps × weight` will not survive first contact with this
-programme. Build all seven now.
+plan. Build all seven now.
 
 ---
 
-## 6. The programme contract
+## 6. The plan contract
 
 The single most important interface in the system. The AI emits one fenced block with
-the info string `gain-program`; everything outside it is context prose.
+the info string `gain-plan`; everything outside it is context prose.
 
 ````markdown
-```gain-program
+```gain-plan
 schema_version: 1
 
-programme:
+plan:
   slug: home-dumbbell
-  name: 4-Week Home Dumbbell Training Programme
+  name: 4-Week Home Dumbbell Training Plan
   version: 2
   based_on_version: 1
   block_length_weeks: 4
@@ -353,14 +353,14 @@ Validated with Zod (`src/lib/contract/schema.ts`) — the schema is the implemen
 that spec. Parse failures produce field-level errors in the import UI, never a silent
 partial import.
 
-**A reference programme is already written.**
-[`fixtures/programmes/home-dumbbell-v1.md`](../fixtures/programmes/home-dumbbell-v1.md)
+**A reference plan is already written.**
+[`fixtures/plans/home-dumbbell-v1.md`](../fixtures/plans/home-dumbbell-v1.md)
 is a complete example: ~1300 lines of prose context plus the contract block in Appendix
 A, structuring 4 sessions and 22 distinct exercises. Its "Import notes" section records
 the five interpretations made when structuring it.
 
-The programme is **fictional** — profile, training history and symptom context are
-invented. It is written in the style a real AI-authored programme uses, because its job
+The plan is **fictional** — profile, training history and symptom context are
+invented. It is written in the style a real AI-authored plan uses, because its job
 is to behave like one. No real health data belongs in this repository.
 
 It is also the phase-1 test fixture, chosen because it exercises every primitive in one
@@ -375,7 +375,7 @@ substitute forms, and one exercise carrying two display names under a single sta
 ```
 paste / upload .md
       ↓
-split: extract ```gain-program block  →  contract
+split: extract ```gain-plan block  →  contract
        everything else                →  context_md (verbatim)
       ↓
 validate contract against Zod schema
@@ -386,12 +386,12 @@ DIFF REVIEW  ── changed targets, added/removed exercises,
                 unmatched slugs flagged as possible renames,
                 metric definitions added/removed
       ↓  user confirms (or maps renames, or cancels)
-write programme_version (immutable) + source_md to disk
+write plan_version (immutable) + source_md to disk
 mark is_current, previous version retained read-only
 ```
 
 Old versions stay browsable. Workouts remain attached to the version they were logged
-under, so "what did the programme actually say in week 3" is always answerable —
+under, so "what did the plan actually say in week 3" is always answerable —
 context a future AI may well want.
 
 ---
@@ -415,12 +415,12 @@ The screen you actually stare at, sweating, between sets. It gets the most desig
 - **Deviation:** every exercise has skip / substitute / add set / drop set. Skips prompt
   for a reason (pain / time / equipment / felt easy / other). A **red-flag stop** is a
   distinct, prominent action that ends the exercise and marks the workout — matching the
-  programme's own Green/Yellow/Red framework. These become structured export data:
-  "skipped reverse-crunch 3× for pain" is precisely the evidence the programme's
+  plan's own Green/Yellow/Red framework. These become structured export data:
+  "skipped reverse-crunch 3× for pain" is precisely the evidence the plan's
   Section 20 asks a reviewing AI to weigh.
 - **Conditional exercises** render with their condition text visible before you start.
 - **Post-session:** `prompt_when: end` metrics. A `next_morning` metric schedules a
-  prompt on next app open the following day — the reference programme explicitly wants
+  prompt on next app open the following day — the reference plan explicitly wants
   next-morning symptom data, and it is worthless if collected three days later.
 
 ### Offline model
@@ -441,10 +441,10 @@ The screen you actually stare at, sweating, between sets. It gets the most desig
 - **Per exercise:** load × reps over time, estimated volume, double-progression state
   ("12/11/11 — one session from a load increase"), and difficulty distribution.
 - **Per session type:** duration, completion rate, deviation count.
-- **Metric trends:** any numeric programme-declared metric is chartable, so symptom and
+- **Metric trends:** any numeric plan-declared metric is chartable, so symptom and
   energy tracking come free from the metric definitions rather than from hardcoding.
 - **History:** reverse-chronological workout list, each drilling into full set detail
-  and the programme version it ran under.
+  and the plan version it ran under.
 - Charts stay simple and read well on a phone. No dashboard sprawl.
 
 ---
@@ -454,14 +454,14 @@ The screen you actually stare at, sweating, between sets. It gets the most desig
 One `.md` file, self-contained, ready to paste or upload into any chat.
 
 ```markdown
-# GAIN Export — <Programme> — <window>
+# GAIN Export — <Plan> — <window>
 
 ## 0. Your task                       ← user-editable template, verbatim
-## 1. Programme context               ← context_md of current version, verbatim
+## 1. Plan context               ← context_md of current version, verbatim
 ## 2. Progress summary                ← generated tables: per-exercise progression,
                                         adherence, metric trends, deviations
 ## 3. Raw logs                        ← ```csv sets / ```csv sessions / ```csv activities
-## 4. How to return an updated programme
+## 4. How to return an updated plan
                                       ← the contract spec + ID-preservation rules
 ```
 
@@ -474,16 +474,16 @@ One `.md` file, self-contained, ready to paste or upload into any chat.
 - **Section 4 is generated by GAIN, not user-editable**, and states the round-trip
   rules in imperative terms: preserve every `id`; bump `version`; set
   `based_on_version`; populate `changelog`; never reuse an id for a different movement;
-  emit the whole programme, not a patch.
+  emit the whole plan, not a patch.
 - **Section 0 is the user-editable template** — per user, versioned. The seeded default
   is [`templates/default-ai-instructions.md`](../templates/default-ai-instructions.md).
-  It is deliberately programme-agnostic: it tells the AI to read and honour the
+  It is deliberately plan-agnostic: it tells the AI to read and honour the
   principles in Section 1 rather than restating them, so it still works when the
-  programme is replaced. Multiple named templates are supported (e.g. "routine 4-week
+  plan is replaced. Multiple named templates are supported (e.g. "routine 4-week
   review" vs "I'm injured, be cautious").
 
   Templates support a small fixed set of substitutions, left as literal text if unknown:
-  `{{programme_name}}`, `{{programme_version}}`, `{{export_window}}`, `{{today}}`,
+  `{{plan_name}}`, `{{plan_version}}`, `{{export_window}}`, `{{today}}`,
   `{{workouts_logged}}`, `{{weeks_elapsed}}`.
 
 ---
@@ -511,10 +511,10 @@ This constrains the design, and the constraints are already baked into the above
 
 | Phase | Deliverable | Done when |
 |---|---|---|
-| 1 | Contract schema, parser, diff engine, export generator — pure functions, no UI | Round-trip golden test passes on the real programme doc |
+| 1 | Contract schema, parser, diff engine, export generator — pure functions, no UI | Round-trip golden test passes on the real plan doc |
 | 2 | SQLite layer, per-user DB provisioning, migrations | Import writes a version; second import produces a correct diff |
 | 3 | OIDC auth, group gate, session handling, container + compose | Deploys to Portainer; unauthorised user gets a clean 403 |
-| 4 | Session runner UI, online only | A full session of the real programme can be logged on a phone |
+| 4 | Session runner UI, online only | A full session of the real plan can be logged on a phone |
 | 5 | Offline PWA: IndexedDB, sync queue, idempotency | Airplane-mode session syncs cleanly on reconnect; property tests pass |
 | 6 | Progress, history, charts | Double-progression state matches hand-calculated expectations |
 | 7 | Import review/diff UI, template editor, export UI | Full loop runs end-to-end without touching a database |
@@ -529,9 +529,9 @@ built on top of it is built on sand.
 Explicitly out of scope, to stop agents inventing work:
 
 - No in-app AI, API keys, or chat.
-- No exercise library, demo videos, or GIFs — form cues live in the programme context.
+- No exercise library, demo videos, or GIFs — form cues live in the plan context.
 - No social, sharing, or multi-user anything. Users never interact.
-- No nutrition or body-composition tracking beyond programme-declared metrics.
+- No nutrition or body-composition tracking beyond plan-declared metrics.
 - No wearable, Health/Google Fit, or Strava integration.
 - No native mobile app. The PWA is the mobile app.
 - No calendar or planned-schedule adherence.

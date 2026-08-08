@@ -1,7 +1,7 @@
 # GAIN UI decisions — the session runner
 
 Settled in a design pass against
-[`fixtures/programmes/home-dumbbell-v1.md`](../fixtures/programmes/home-dumbbell-v1.md),
+[`fixtures/plans/home-dumbbell-v1.md`](../fixtures/plans/home-dumbbell-v1.md),
 before any code existed. Nothing here is built: the session runner is **phase 4**, and it
 depends on the phase-1 round-trip core. See ARCHITECTURE §11.
 
@@ -47,7 +47,7 @@ Reps and load pre-fill from the last performance of that exercise, so the common
 one tap. The steppers are for the exception, not the rule. This only works while
 pre-filling is usually right — under double progression it is.
 
-**Three keys, not four, and no RIR in the hot path.** Programmes talk in RIR and the
+**Three keys, not four, and no RIR in the hot path.** Plans talk in RIR and the
 contract may declare an optional `rir` metric, but users reliably know how hard a set
 *felt* and do not reliably know their reps in reserve. `rir` stays supported as a declared
 optional metric; it never appears in the log strip.
@@ -64,7 +64,7 @@ One number, meaning the same thing in the log, the charts and the export.
 deliberately, to keep `loads` simple. An odd total on a paired lift displays as `2 × 5.5`,
 which is exactly what 1.25 kg plates produce. The awkward-looking number is the honest one.
 
-## 4. Rest runs itself, but only where the programme says so
+## 4. Rest runs itself, but only where the plan says so
 
 When a set is logged, the rest timer takes **the whole screen** and names what is coming
 next. You are not doing anything else during rest, and you are often reading it from a mat
@@ -82,13 +82,13 @@ are at 1:14" rather than pretending 60 is a finish line.
 
 ## 5. Colour is reserved for meaning
 
-**Green, amber and red belong to the programme's pain-response framework** (CONTRACT
+**Green, amber and red belong to the plan's pain-response framework** (CONTRACT
 `safety`, fixture §4) and appear nowhere decorative. One accent hue carries interactivity.
 Everything else is neutral.
 
 This forces a specific consequence: **Easy / Medium / Hard is a fill level, not a traffic
 light.** One, two or three filled segments in the accent. Colouring "Hard" red would say
-*stop* about the outcome the programme is usually trying to produce — the exact inversion
+*stop* about the outcome the plan is usually trying to produce — the exact inversion
 of what red means everywhere else in this app.
 
 Semantic colour and accent colour must stay separate. Do not introduce a green "success"
@@ -103,7 +103,7 @@ finished.
 |---|---|
 | `tracking: checkoff` | Tappable pills. No set rows, no reps, no load, no effort. Excluded from progression. |
 | `per_side: true` | One ledger row **per side** (L / R), because differing between sides is the entire reason the flag exists. |
-| Ranged sets `[2, 3]` | Draw the **minimum** only, then offer "Add the optional 3rd set". Never pre-draw a set the programme did not commit to. |
+| Ranged sets `[2, 3]` | Draw the **minimum** only, then offer "Add the optional 3rd set". Never pre-draw a set the plan did not commit to. |
 | `type: rounds` | A round progress indicator on the block; the exercise list is **not** repeated per round. |
 | `conditional: true` | The `condition` text is shown in full, with every declared substitute offered as a one-tap swap alongside "Do it". |
 | Ranged reps `[8, 12]` | Shown as the target on each set row; the stepper pre-fills from last time, not from the range. |

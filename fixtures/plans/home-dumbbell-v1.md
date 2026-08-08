@@ -1,17 +1,17 @@
-# 4-Week Home Dumbbell Training Programme — AI Context & Progression Record
+# 4-Week Home Dumbbell Training Plan — AI Context & Progression Record
 
-> **Example programme.** This is a fictional reference programme used as a test fixture
+> **Example plan.** This is a fictional reference plan used as a test fixture
 > for the GAIN training app. The user profile, training history and symptom context are
-> invented. It is written in the style a real AI-authored programme would use, because
-> its purpose is to exercise every feature of the programme format.
+> invented. It is written in the style a real AI-authored plan would use, because
+> its purpose is to exercise every feature of the plan format.
 
 ## Document purpose
 
-This document is the authoritative baseline context for an AI fitness assistant helping to manage, evaluate, and progressively adjust the user's home training programme.
+This document is the authoritative baseline context for an AI fitness assistant helping to manage, evaluate, and progressively adjust the user's home training plan.
 
-The assistant should use this document together with future progress reports to make **small, evidence-based programme adjustments**, rather than replacing the programme unnecessarily.
+The assistant should use this document together with future progress reports to make **small, evidence-based plan adjustments**, rather than replacing the plan unnecessarily.
 
-The programme is designed around:
+The plan is designed around:
 - approximately 45-minute training sessions;
 - home-only equipment;
 - 1–2 squash sessions per week;
@@ -21,7 +21,7 @@ The programme is designed around:
 - precautionary management of occasional lower-back sensitivity;
 - minimal dumbbell-weight changes during the week.
 
-> **Important:** This is a training programme, not a medical diagnosis or treatment plan. No clinical assessment has been carried out. Exercise selection is precautionary and should remain symptom-guided, deferring to a qualified healthcare professional where appropriate.
+> **Important:** This is a training plan, not a medical diagnosis or a treatment protocol. No clinical assessment has been carried out. Exercise selection is precautionary and should remain symptom-guided, deferring to a qualified healthcare professional where appropriate.
 
 ---
 
@@ -90,7 +90,7 @@ Approximate maximum symmetrical configuration:
 
 - approximately 13 kg per dumbbell
 
-The programme intentionally avoids requiring frequent weight changes.
+The plan intentionally avoids requiring frequent weight changes.
 
 ## Initial working configurations
 
@@ -135,7 +135,7 @@ Progression to dumbbell loading is only appropriate when movement quality and sy
 
 ## Goal 1 — Build muscle
 
-The programme should provide sufficient weekly resistance-training volume and progressive overload for hypertrophy.
+The plan should provide sufficient weekly resistance-training volume and progressive overload for hypertrophy.
 
 Priority muscle groups:
 - chest
@@ -147,7 +147,7 @@ Priority muscle groups:
 - hamstrings
 - abdominal musculature
 
-The programme uses mostly:
+The plan uses mostly:
 - 8–12 reps for major compound exercises;
 - 10–15 reps for smaller/isolation exercises.
 
@@ -157,7 +157,7 @@ The goal is not to train to failure routinely. Most sets should finish with appr
 
 ## Goal 2 — Improve muscular endurance and work capacity
 
-The programme should build the ability to sustain quality work across a full session and across a training week.
+The plan should build the ability to sustain quality work across a full session and across a training week.
 
 This is pursued through:
 - moderate repetition ranges rather than heavy low-rep work;
@@ -171,7 +171,7 @@ Work capacity is treated as a training quality in its own right, not merely a si
 
 ## Goal 3 — Improve abdominal and core strength
 
-The programme deliberately distinguishes between:
+The plan deliberately distinguishes between:
 
 ### Abdominal muscle development
 
@@ -190,14 +190,14 @@ Examples:
 
 This combination is preferable to relying on large volumes of conventional crunches or sit-ups.
 
-The core programme is particularly relevant because squash requires:
+The core plan is particularly relevant because squash requires:
 - trunk control;
 - rotation/deceleration;
 - lateral movement;
 - repeated lunging;
 - rapid changes of direction.
 
-The programme should not, however, use loaded rotation merely because squash involves rotation.
+The plan should not, however, use loaded rotation merely because squash involves rotation.
 
 ---
 
@@ -212,7 +212,7 @@ Primary strength movements:
 - shoulder press
 - glute bridge
 
-The programme uses unilateral lower-body exercises because they provide a substantial training stimulus with relatively modest external loading, which suits the available dumbbells.
+The plan uses unilateral lower-body exercises because they provide a substantial training stimulus with relatively modest external loading, which suits the available dumbbells.
 
 ---
 
@@ -225,7 +225,7 @@ Squash already provides substantial:
 - high-intensity intervals;
 - lower-body loading.
 
-Therefore, the resistance programme does not need to become a high-volume conditioning programme.
+Therefore, the resistance plan does not need to become a high-volume conditioning plan.
 
 Optional walking on non-training days can provide additional low-intensity activity.
 
@@ -237,7 +237,7 @@ If squash occurs twice in a week, the user should generally perform 3 resistance
 
 This is a secondary training objective and must remain symptom-guided.
 
-The programme emphasises:
+The plan emphasises:
 - glute strength;
 - unilateral leg strength;
 - controlled trunk stability;
@@ -245,7 +245,7 @@ The programme emphasises:
 - supported rowing;
 - gradual loading.
 
-The programme deliberately avoids initially relying on:
+The plan deliberately avoids initially relying on:
 - heavy spinal loading;
 - loaded side bending;
 - loaded spinal rotation;
@@ -281,16 +281,16 @@ The user describes the sensation as general tightness rather than sharp pain.
 
 No clinical assessment has been carried out and no diagnosis exists.
 
-The programme therefore takes a precautionary approach rather than attempting to address any specific structure.
+The plan therefore takes a precautionary approach rather than attempting to address any specific structure.
 
-## Programme implications
+## Plan implications
 
 Because forward and side bending currently provoke sensitivity:
 
 - do not use uncomfortable forward/side bending as a stretching or mobility objective;
 - do not prescribe weighted side bends;
 - do not prioritise loaded spinal rotation;
-- do not force heavy hip-hinge exercises early in the programme;
+- do not force heavy hip-hinge exercises early in the plan;
 - use supported rows rather than heavy unsupported bent-over rows;
 - prioritise controlled trunk stability.
 
@@ -334,9 +334,9 @@ If symptoms progressively worsen, persist, or materially change, the user should
 
 ---
 
-# 5. Programme philosophy
+# 5. Plan philosophy
 
-The programme is intentionally a **full-body/movement-pattern programme**, not a traditional body-part split.
+The plan is intentionally a **full-body/movement-pattern plan**, not a traditional body-part split.
 
 Reasons:
 
@@ -345,7 +345,7 @@ Reasons:
 3. The user wants general strength rather than bodybuilding specialisation.
 4. Squash already creates substantial lower-body and cardiovascular stress.
 5. Four short sessions are more sustainable when each session is not excessively specialised.
-6. The programme can flex around work and squash.
+6. The plan can flex around work and squash.
 
 The four sessions are:
 
@@ -968,7 +968,7 @@ Do not add large amounts of conditioning if recovery begins to suffer.
 
 Training adaptations depend on adequate fuelling and recovery, not on training stimulus alone.
 
-General considerations relevant to this programme:
+General considerations relevant to this plan:
 
 - sufficient total energy intake to support four weekly resistance sessions plus squash;
 - adequate protein intake distributed across the day;
@@ -976,9 +976,9 @@ General considerations relevant to this programme:
 - hydration, particularly around squash;
 - sleep duration and consistency.
 
-If training performance declines, review fuelling and sleep before adding training volume or changing the programme.
+If training performance declines, review fuelling and sleep before adding training volume or changing the plan.
 
-The programme should not be adjusted on nutritional grounds without evidence from the training logs.
+The plan should not be adjusted on nutritional grounds without evidence from the training logs.
 
 ---
 
@@ -989,7 +989,7 @@ The user has:
 - 1–2 squash sessions;
 - work/life scheduling variability.
 
-Therefore recovery should be treated as a programme variable.
+Therefore recovery should be treated as a plan variable.
 
 Indicators of excessive training load:
 - declining performance across multiple sessions;
@@ -1013,7 +1013,7 @@ If several occur together:
 
 # 20. Future AI adjustment protocol
 
-A future AI assistant should **not change the programme based on a single bad workout**.
+A future AI assistant should **not change the plan based on a single bad workout**.
 
 Before recommending changes, evaluate at least:
 
@@ -1191,7 +1191,7 @@ At the end of Week 4, the AI assistant should ask for:
 
 # 25. Desired long-term progression
 
-The long-term programme should move through these stages:
+The long-term plan should move through these stages:
 
 ### Stage 1 — Foundation
 Weeks 1–4:
@@ -1221,7 +1221,7 @@ After approximately 12 weeks:
 - adjust volume/frequency;
 - maintain or modify the trunk/hip strategy based on symptom trajectory.
 
-The programme should remain simple enough to sustain and should not become unnecessarily complicated.
+The plan should remain simple enough to sustain and should not become unnecessarily complicated.
 
 ---
 
@@ -1235,7 +1235,7 @@ The future assistant should follow these principles:
 4. **Treat squash as meaningful training load.**
 5. **Do not automatically prescribe four lifting sessions during two-squash weeks.**
 6. **Prioritise muscle-building compound movements before isolation exercises.**
-7. **Maintain direct abdominal training throughout the programme.**
+7. **Maintain direct abdominal training throughout the plan.**
 8. **Use core stability work alongside direct abdominal hypertrophy work.**
 9. **Do not intentionally train through worsening symptoms.**
 10. **Do not attempt to diagnose the cause of any discomfort.**
@@ -1249,7 +1249,7 @@ The future assistant should follow these principles:
 
 # Current baseline
 
-At programme start:
+At plan start:
 
 - Age: 42
 - Squash: 1–2×/week
@@ -1262,7 +1262,7 @@ At programme start:
 - No reported symptoms travelling below the buttock
 - Forward and side bending can provoke sensitivity
 - No clinical assessment or diagnosis exists
-- Current programme intentionally avoids loaded side bending, loaded rotation, heavy unsupported rows and heavy hip-hinge work
+- Current plan intentionally avoids loaded side bending, loaded rotation, heavy unsupported rows and heavy hip-hinge work
 - Primary progression method: double progression
 - Primary effort target: approximately 1–3 RIR
 - Main objective for first four weeks: establish a sustainable, well-tolerated baseline from which future progression can be made
@@ -1307,23 +1307,23 @@ Recommended changes for next block:
 
 ---
 
-# Appendix A — Machine-readable programme (GAIN contract block)
+# Appendix A — Machine-readable plan (GAIN contract block)
 
-The block below is the structured skeleton of this programme. It is read by the GAIN
+The block below is the structured skeleton of this plan. It is read by the GAIN
 training app to render sessions and record logs. Everything above it is the prose
 context, which GAIN stores verbatim and does not modify.
 
-**If you are an AI assistant revising this programme:** the rules for regenerating this
+**If you are an AI assistant revising this plan:** the rules for regenerating this
 block — in particular the requirement to preserve every `id` value — are stated in the
 export bundle that accompanied this document. Preserving those identifiers is what keeps
 the user's training history intact.
 
-```gain-program
+```gain-plan
 schema_version: 1
 
-programme:
+plan:
   slug: home-dumbbell
-  name: 4-Week Home Dumbbell Training Programme
+  name: 4-Week Home Dumbbell Training Plan
   version: 1
   based_on_version: null
   block_length_weeks: 4
@@ -1948,12 +1948,12 @@ safety:
     - level: red
       label: "Sharp or escalating pain, substantially different pain, new radiating symptoms, new numbness or tingling, or new weakness."
       action: stop
-  escalation: "If symptoms progressively worsen, persist, or materially change, consult a qualified healthcare professional. This is a training programme, not a medical diagnosis or treatment plan."
+  escalation: "If symptoms progressively worsen, persist, or materially change, consult a qualified healthcare professional. This is a training plan, not a medical diagnosis or a treatment protocol."
 ```
 
 ## Import notes
 
-Four interpretations were made when structuring this programme. They are recorded here
+Four interpretations were made when structuring this plan. They are recorded here
 so they can be reviewed and corrected rather than silently inherited.
 
 1. **Warm-up applied to all four sessions.** The prose specifies warm-up exercises only

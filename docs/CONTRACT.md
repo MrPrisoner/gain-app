@@ -1,14 +1,14 @@
-# The GAIN programme contract — v1
+# The GAIN plan contract — v1
 
 This is the authoritative specification for the machine-readable block that GAIN reads
-from a programme document. It is reproduced verbatim as **Section 4** of every export,
-so the AI revising a programme always has the spec in front of it.
+from a plan document. It is reproduced verbatim as **Section 4** of every export,
+so the AI revising a plan always has the spec in front of it.
 
 ---
 
 ## 1. What this is for
 
-A GAIN programme document has two parts:
+A GAIN plan document has two parts:
 
 - **Prose context** — rationale, goals, form cues, injury rules, progression philosophy,
   exclusions. GAIN stores this verbatim and never modifies it.
@@ -19,12 +19,12 @@ Everything outside the block is context. The block is the only part GAIN parses.
 
 ## 2. Placement and fencing
 
-The block appears **once** per document, fenced with the info string `gain-program`,
+The block appears **once** per document, fenced with the info string `gain-plan`,
 and by convention lives in an appendix at the end so the prose reads as a normal
 document:
 
 ````markdown
-```gain-program
+```gain-plan
 schema_version: 1
 ...
 ```
@@ -38,20 +38,20 @@ fails with an explicit error and nothing is written.
 | Key | Required | Purpose |
 |---|---|---|
 | `schema_version` | yes | Always `1` for this spec |
-| `programme` | yes | Identity, version, changelog |
+| `plan` | yes | Identity, version, changelog |
 | `loads` | yes | Named load configurations referenced by exercises |
 | `sessions` | yes | The trainable sessions |
-| `metrics` | no | Programme-declared fields to log beyond the fixed core |
+| `metrics` | no | Plan-declared fields to log beyond the fixed core |
 | `scheduling` | no | Session ordering and selection rules |
 | `progression` | no | Progression model and effort targets |
 | `safety` | no | Symptom/stop framework surfaced in the session UI |
 
-### `programme`
+### `plan`
 
 ```yaml
-programme:
-  slug: home-dumbbell                    # STABLE. Identifies the programme across all versions
-  name: 4-Week Home Dumbbell Programme
+plan:
+  slug: home-dumbbell                    # STABLE. Identifies the plan across all versions
+  name: 4-Week Home Dumbbell Plan
   version: 2                             # integer, increment on every revision
   based_on_version: 1                    # null for a first import
   block_length_weeks: 4                  # optional
@@ -62,7 +62,7 @@ programme:
 
 ### `loads`
 
-Named configurations so exercises say "heavy", not a number. This matches how programmes
+Named configurations so exercises say "heavy", not a number. This matches how plans
 are actually written and means a load change is one edit, not fifty.
 
 ```yaml
@@ -115,7 +115,7 @@ recorded and nothing feeds progression charts. Use it for warm-ups and mobility 
   conditional: true         # surfaces the condition before the exercise, easy to skip
   condition: "Omit if it reproduces familiar back symptoms"
   substitutes:              # offered in the session UI when substituting
-    - dead-bug                                              # slug defined elsewhere in the programme
+    - dead-bug                                              # slug defined elsewhere in the plan
     - id: lying-triceps-extension                           # or an external movement,
       name: Lying dumbbell triceps extension                # which needs an explicit name
 ```
@@ -125,7 +125,7 @@ Only `id`, `name`, `type` and `sets` are required, plus `reps` or `duration_sec`
 
 **The same exercise may appear in several sessions or blocks** with different targets —
 that is normal, and all occurrences share one `id`. `name` is display-only: where the
-same `id` carries different names in different places (a programme may say "Overhead
+same `id` carries different names in different places (a plan may say "Overhead
 triceps extension" in one session and "Triceps extension" in another), the first
 occurrence in document order is canonical and the variation is reported as a warning,
 not an error. Identity lives in the `id` alone.
@@ -133,7 +133,7 @@ not an error. Identity lives in the `id` alone.
 ### `metrics`
 
 The fixed core — reps, weight, duration, difficulty (Easy/Medium/Hard) — is always
-recorded and must not be declared here. Declare anything additional the programme wants:
+recorded and must not be declared here. Declare anything additional the plan wants:
 
 ```yaml
 metrics:
@@ -210,14 +210,14 @@ front of you at the moment you need it.
 
 ---
 
-## 5. Round-trip rules — read this before revising a programme
+## 5. Round-trip rules — read this before revising a plan
 
 GAIN joins all history on the exercise slug. These rules are what keep a user's training
 history intact across a revision. Breaking them silently destroys data that cannot be
 reconstructed.
 
 1. **Never change an existing `id`.** If `goblet-squat` was in the previous version and
-   the exercise is still in the programme, it is still `goblet-squat`. Not
+   the exercise is still in the plan, it is still `goblet-squat`. Not
    `goblet_squat`, not `db-goblet-squat`, not `goblet-squat-v2`. Changing the `name` is
    fine; changing the `id` is not.
 2. **Never reuse an `id` for a different movement.** A slug is bound to a movement
@@ -225,12 +225,12 @@ reconstructed.
 3. **Removing an exercise is done by omitting it**, not by renaming or repurposing it.
    Its history is retained and remains visible.
 4. **New exercises get new slugs**, descriptive and in the same style.
-5. **`programme.slug` never changes.** It is the same programme even after a total
+5. **`plan.slug` never changes.** It is the same plan even after a total
    rewrite of every session.
-6. **Increment `programme.version` by exactly one** and set `based_on_version` to the
+6. **Increment `plan.version` by exactly one** and set `based_on_version` to the
    version you were given.
 7. **Populate `changelog`** with one line per substantive change, in user-facing terms.
-8. **Emit the entire programme**, not a patch or a diff. The block must stand alone.
+8. **Emit the entire plan**, not a patch or a diff. The block must stand alone.
 9. **Session `key` values are also stable.** Reusing `C` for a different session
    misattributes past workouts.
 10. **Metric `key` values are stable** for the same reason.
@@ -243,12 +243,12 @@ exists because this failure mode is silent, not because these rules are optional
 
 ## 6. Minimal valid block
 
-```gain-program
+```gain-plan
 schema_version: 1
 
-programme:
-  slug: simple-programme
-  name: Simple Programme
+plan:
+  slug: simple-plan
+  name: Simple Plan
   version: 1
   based_on_version: null
 
@@ -280,14 +280,14 @@ sessions:
 Import is all-or-nothing. On any of the following, GAIN reports the failing field and
 writes nothing:
 
-- Missing or duplicated `gain-program` block
+- Missing or duplicated `gain-plan` block
 - YAML that does not parse
 - Missing required keys, or a value of the wrong type
 - `load` referencing an undeclared `ref`
 - `scheduling.sequence` referencing an undeclared session `key`
-- A bare-slug `substitutes` entry not defined elsewhere in the programme
-- Duplicate `id` within the programme, or a duplicate session `key`
-- `version` not greater than the current stored version for that `programme.slug`
+- A bare-slug `substitutes` entry not defined elsewhere in the plan
+- Duplicate `id` within the plan, or a duplicate session `key`
+- `version` not greater than the current stored version for that `plan.slug`
 
 Warnings — surfaced in the diff review but not blocking:
 

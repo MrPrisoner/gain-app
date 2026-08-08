@@ -25,7 +25,7 @@ contract validation, Vitest for tests. One image, one port, one volume.
 
 ## What this app is
 
-GAIN is the structured middle of a copy-paste loop. An AI writes a training programme in
+GAIN is the structured middle of a copy-paste loop. An AI writes a training plan in
 some external chat; the user imports the Markdown here, trains and logs offline, then
 exports a bundle to feed back to an AI for revision.
 
@@ -39,10 +39,10 @@ decision, not a gap.
 
 ## The architecture that isn't obvious from any single file
 
-### A programme is two representations, and both round-trip
+### A plan is two representations, and both round-trip
 
-A programme document is a ~100-line **skeleton** (sessions → exercises → set targets,
-inside one fenced ` ```gain-program ` YAML block) wrapped in ~1200 lines of **prose
+A plan document is a ~100-line **skeleton** (sessions → exercises → set targets,
+inside one fenced ` ```gain-plan ` YAML block) wrapped in ~1200 lines of **prose
 context** (rationale, form cues, injury rules, progression philosophy).
 
 The skeleton is parsed into SQLite and drives the UI. The context is stored **verbatim**
@@ -53,9 +53,9 @@ is useless to the session UI and essential to the next AI revision.
 ### Exercise slugs are load-bearing, and their failure mode is silent
 
 Every chart, progression calculation and trend join keys on `exercise_def.slug`,
-resolved from the contract block's `id` fields. If a revised programme returns
+resolved from the contract block's `id` fields. If a revised plan returns
 `goblet-squat` as `goblet_squat`, history splits in two, nothing errors, and the loss is
-unrecoverable. `programme.slug`, session `key` and metric `key` carry the same property.
+unrecoverable. `plan.slug`, session `key` and metric `key` carry the same property.
 
 Three defences, all of which must survive refactors: ID-preservation rules restated in
 every export, rename detection in the import diff, and never silently minting a slug that
@@ -87,17 +87,19 @@ These break things quietly, and no test catches them today:
   revising AI receives.
 - **Contract changes touch three places together:** `docs/CONTRACT.md`, the Zod schema,
   and the fixture. A spec change that leaves the fixture stale is a broken change.
-- **`programme` is spelled the British way in identifiers and user-facing text** —
-  `programme.slug`, `programme_version`, `block_length_weeks`. These are contract keys;
-  mixing in `program` silently breaks parsing.
+- **The contract key is `plan`, and synonyms are not accepted.** `plan.slug`,
+  `plan_version`, `plan_id`. The word was chosen partly because it is spelled
+  identically in every variety of English, unlike `programme`/`program` — but a revising
+  AI will still reach for `program`, `routine` or `workout`. The parser must reject those
+  loudly rather than coercing them, and nothing may reintroduce them as aliases.
 
 ## The fixture
 
-[`fixtures/programmes/home-dumbbell-v1.md`](fixtures/programmes/home-dumbbell-v1.md) is
+[`fixtures/plans/home-dumbbell-v1.md`](fixtures/plans/home-dumbbell-v1.md) is
 the spine of the phase-1 test suite.
 
 - **It is fictional, and must stay that way.** The profile, training history and symptom
-  context are invented. It is modelled closely on a real AI-authored programme so it
+  context are invented. It is modelled closely on a real AI-authored plan so it
   behaves like one, but this repository is public — never commit real health data to it,
   in fixtures, tests or examples.
 - It exercises every primitive in one file: a rounds block,
@@ -123,6 +125,6 @@ data — no I/O, and the clock is injected so they stay deterministic.
 ## Non-goals
 
 Do not build, and do not propose: in-app AI or chat; an exercise library with demo
-videos; social or sharing features; nutrition tracking beyond programme-declared metrics;
+videos; social or sharing features; nutrition tracking beyond plan-declared metrics;
 wearable, Health/Fit or Strava integration; a native mobile app; or a calendar with
 planned-schedule adherence.

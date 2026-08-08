@@ -1,11 +1,11 @@
 # GAIN
 
-Self-hosted training tracker for AI-authored exercise programmes. Import a programme as
+Self-hosted training tracker for AI-authored exercise plans. Import a plan as
 Markdown, run and log sessions from an offline-capable PWA, then export your full
-programme and progress for an AI to review and revise.
+plan and progress for an AI to review and revise.
 
 > **Status: design stage.** This repository currently contains the architecture, the
-> programme specification, the settled UI design, a reference fixture and a template.
+> plan specification, the settled UI design, a reference fixture and a template.
 > There is no application code yet and nothing to deploy.
 
 ---
@@ -14,7 +14,7 @@ programme and progress for an AI to review and revise.
 
 **GAIN is a logging tool, not a source of medical or fitness advice.**
 
-Programmes tracked in this app are written by general-purpose AI assistants, which are
+Plans tracked in this app are written by general-purpose AI assistants, which are
 not clinicians, do not examine you, and can be confidently wrong. Nothing produced by
 this software or by an AI using its exports constitutes medical advice, diagnosis or
 treatment.
@@ -25,7 +25,7 @@ qualified healthcare professional — and follow their guidance over anything an
 suggests. Stop exercising and seek medical attention for chest pain, breathlessness,
 dizziness, or sharp, escalating or radiating pain.
 
-You are responsible for what you choose to do with the programmes you track here.
+You are responsible for what you choose to do with the plans you track here.
 
 ---
 
@@ -38,34 +38,34 @@ AI chat  ──md──►  import  ──►  train & log  ──►  export  �
 (external)      (structured)   (offline PWA)   (bundle)         (external)
 ```
 
-You compile a programme by chatting with an AI somewhere else. GAIN imports that
+You compile a plan by chatting with an AI somewhere else. GAIN imports that
 Markdown, turns it into sessions you can actually run on your phone in the garage, and
 records what you did. When the block ends, it exports a single Markdown file — the
-programme in full, plus your progress — that you paste back into an AI to get the next
+plan in full, plus your progress — that you paste back into an AI to get the next
 revision.
 
 **The AI is in the name, not in the code.** G‑**AI**‑N is spelled that way on purpose:
-AI sits on both ends of this loop and nowhere inside it. It writes your programme and it
+AI sits on both ends of this loop and nowhere inside it. It writes your plan and it
 revises it — but GAIN itself never talks to an AI. No API keys, no in-app chat, no LLM
 in any code path. You keep using whichever assistant you prefer, and no third party sits
 between you and your training data.
 
 ### What it does
 
-- **Import** an AI-authored programme from Markdown, with a diff review before anything
-  is committed. Programme versions are immutable, so past sessions stay attached to the
-  programme that prescribed them.
+- **Import** an AI-authored plan from Markdown, with a diff review before anything
+  is committed. Plan versions are immutable, so past sessions stay attached to the
+  plan that prescribed them.
 - **Run a session** from a mobile-first PWA: exercises in sequence, current one
   highlighted, targets pre-filled from last time, rest timers, and one-tap logging of
   reps, weight and difficulty. Works offline — a dropped connection or a locked phone
   never costs you a workout.
 - **Deviate honestly.** Skip, substitute, or add sets mid-session with a reason
-  recorded. A programme that adapts to a bad day produces better data than one you
+  recorded. A plan that adapts to a bad day produces better data than one you
   silently abandon.
 - **Track progress** per exercise and per session, including any custom metrics your
-  programme declares — effort, technique, symptoms, energy, whatever it asks for.
+  plan declares — effort, technique, symptoms, energy, whatever it asks for.
 - **Export** a self-contained Markdown bundle: your editable instructions to the AI, the
-  programme context verbatim, a computed progress summary, and the raw logs as CSV.
+  plan context verbatim, a computed progress summary, and the raw logs as CSV.
 
 ### How it's built
 
@@ -81,10 +81,10 @@ TypeScript, SvelteKit, SQLite. One image, one port, one volume.
 | | |
 |---|---|
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Design, decisions, data model, build order |
-| [`docs/CONTRACT.md`](docs/CONTRACT.md) | The programme format an AI must produce |
+| [`docs/CONTRACT.md`](docs/CONTRACT.md) | The plan format an AI must produce |
 | [`docs/UI-DECISIONS.md`](docs/UI-DECISIONS.md) | How the session runner behaves, and why |
 | [`design/`](design/) | A clickable mockup of the session runner — open it in a browser |
-| [`fixtures/programmes/`](fixtures/programmes/) | A complete reference programme |
+| [`fixtures/plans/`](fixtures/plans/) | A complete reference plan |
 | [`templates/`](templates/) | Default instructions sent to the reviewing AI |
 
 ## Licence
