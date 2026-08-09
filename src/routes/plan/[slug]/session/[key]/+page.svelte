@@ -1,7 +1,7 @@
 <script lang="ts">
   import { SvelteMap } from "svelte/reactivity";
   import { ulid } from "ulidx";
-  import { enhance } from "$app/forms";
+  import { applyAction, enhance } from "$app/forms";
   import type { ActionData, PageData } from "./$types";
   import { visibleSetCount } from "$lib/session/session-view";
   // `restForSet`/`restBetweenRounds` are Task 7's (rest-timer wiring) — this
@@ -78,7 +78,8 @@
   method="POST"
   action="?/start"
   use:enhance={() => {
-    return ({ result }) => {
+    return async ({ result }) => {
+      await applyAction(result);
       if (result.type === "success" && result.data?.workoutId) {
         workoutId = result.data.workoutId as string;
       }
@@ -170,7 +171,8 @@
                         method="POST"
                         action="?/logSet"
                         use:enhance={() => {
-                          return ({ result }) => {
+                          return async ({ result }) => {
+                            await applyAction(result);
                             if (result.type === "success") {
                               loggedSets.set(key, {
                                 reps: fill.reps,
@@ -431,6 +433,6 @@
     padding: 0.4rem 0.8rem;
   }
   .action-error {
-    color: var(--red);
+    color: var(--muted);
   }
 </style>
