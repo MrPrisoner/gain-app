@@ -231,4 +231,85 @@ describe("diffContracts", () => {
     expect(diff.sessions.changed).toContainEqual(expect.objectContaining({ key: "A" }));
     expect(diff.sessions.blocks.some((b) => b.session === "A" && b.changed.length > 0)).toBe(true);
   });
+
+  // A block-level "added" line does not say what landed inside it, and restructuring
+  // sessions is exactly when the user most needs the prescriptions itemised.
+  it("enumerates prescriptions inside an added session", () => {
+    const after = revise(before, (c) => {
+      c.sessions.push({
+        key: "B",
+        name: "Session B",
+        order: 2,
+        blocks: [
+          {
+            key: "main",
+            name: "Main",
+            exercises: [
+              { id: "dead-bug", reps: 8 },
+              { id: "goblet-squat", sets: 3, reps: 10, load: "main" },
+            ],
+          },
+        ],
+      });
+    });
+    const diff = diffContracts(before, after);
+
+    const added = diff.prescriptions.filter((p) => p.status === "added" && p.session === "B");
+    expect(added.map((p) => p.id).sort()).toEqual(["dead-bug", "goblet-squat"]);
+    expect(added.every((p) => p.block === "main")).toBe(true);
+  });
+
+  it("enumerates prescriptions inside a removed block", () => {
+    const withExtra = makeContract((c) => {
+      c.sessions[0].blocks.push({
+        key: "finisher",
+        name: "Finisher",
+        exercises: [{ id: "dead-bug", reps: 8 }],
+      });
+    });
+    const after = revise(withExtra, (c) => {
+      c.plan.version = withExtra.plan.version + 1;
+      c.plan.based_on_version = withExtra.plan.version;
+    });
+
+    const diff = diffContracts(withExtra, after);
+    expect(diff.sessions.blocks.some((b) => b.removed.includes("finisher"))).toBe(true);
+    expect(diff.prescriptions).toContainEqual(
+      expect.objectContaining({
+        session: "A",
+        block: "finisher",
+        id: "dead-bug",
+        status: "removed",
+      }),
+    );
+  });
+
+  it("enumerates prescriptions inside a removed session", () => {
+    const withExtra = makeContract((c) => {
+      c.sessions.push({
+        key: "B",
+        name: "Session B",
+        order: 2,
+        blocks: [{ key: "main", name: "Main", exercises: [{ id: "dead-bug", reps: 8 }] }],
+      });
+    });
+    const after = revise(withExtra, (c) => {
+      c.plan.version = withExtra.plan.version + 1;
+      c.plan.based_on_version = withExtra.plan.version;
+    });
+
+    const diff = diffContracts(withExtra, after);
+    expect(diff.sessions.removed).toContain("B");
+    expect(diff.prescriptions).toContainEqual(
+      expect.objectContaining({ session: "B", block: "main", id: "dead-bug", status: "removed" }),
+    );
+  });
+
+  it("does not double-report a prescription in a block present on both sides", () => {
+    const after = revise(before, (c) => {
+      c.sessions[0].blocks[0].exercises[0].reps = [10, 14];
+    });
+    const diff = diffContracts(before, after);
+    expect(diff.prescriptions.filter((p) => p.id === "goblet-squat")).toHaveLength(1);
+  });
 });

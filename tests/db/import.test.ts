@@ -257,4 +257,29 @@ describe("first import of the reference plan", () => {
     // Nothing was written by the rejected import.
     expect(listVersions(userDb, first.ok ? first.plan_id : "")).toHaveLength(1);
   });
+
+  it("leaves no file behind when the database write fails", () => {
+    // SQLite can roll itself back; the filesystem cannot. Force a failure inside
+    // the transaction and assert that both stores are untouched afterwards.
+    const planDir = path.join(userDb.userDir, "plans", "home-dumbbell");
+    userDb.db.exec(
+      "CREATE TRIGGER boom BEFORE INSERT ON prescription BEGIN SELECT RAISE(ABORT, 'boom'); END",
+    );
+
+    expect(() => importPlan(userDb, { parsed, now: NOW })).toThrow(/boom/);
+
+    expect(userDb.db.prepare("SELECT COUNT(*) AS n FROM plan").get()).toEqual({ n: 0 });
+    expect(userDb.db.prepare("SELECT COUNT(*) AS n FROM plan_version").get()).toEqual({ n: 0 });
+    // No orphan document, and no staging debris either.
+    expect(fs.existsSync(planDir) ? fs.readdirSync(planDir) : []).toEqual([]);
+
+    // With the failure removed, a retry is clean.
+    userDb.db.exec("DROP TRIGGER boom");
+    const retry = importPlan(userDb, { parsed, now: NOW });
+    expect(retry.ok).toBe(true);
+    expect(fs.readdirSync(planDir)).toEqual(["v1.md"]);
+    expect(readSourceMd(userDb, getCurrentVersion(userDb, retry.ok ? retry.plan_id : "")!)).toBe(
+      fixtureMd,
+    );
+  });
 });

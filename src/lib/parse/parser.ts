@@ -197,6 +197,23 @@ function failure(kind: ParseFailureKind, report: string, issues: AiIssue[] = [])
 }
 
 /**
+ * A malformed block is the likeliest failure of all — an AI emits YAML that is one
+ * indent or one stray colon away from valid. It gets the same rendered, addressed-to-
+ * the-AI report as a contract violation; an empty report leaves the user nothing to
+ * paste back into their chat, which is their only recovery path.
+ */
+function yamlFailure(issues: AiIssue[]): ParseFailure {
+  return failure(
+    "yaml_error",
+    renderIssuesForAI(
+      issues,
+      "The `gain-plan` block could not be read as YAML, so the contract was never checked.",
+    ),
+    issues,
+  );
+}
+
+/**
  * Parses a plan document. All-or-nothing: on any failure nothing is imported and the
  * returned report explains why — for validation failures, in terms an AI can act on.
  */
@@ -272,7 +289,7 @@ export function parsePlanDocument(source: string): ParseResult {
     const e = err as { message?: string; linePos?: Array<{ line: number; col: number }> };
     const pos = e.linePos?.[0];
     const where = pos ? `gain-plan block, line ${pos.line}, column ${pos.col}` : "gain-plan block";
-    return failure("yaml_error", "", [
+    return yamlFailure([
       {
         path: where,
         problem: `the block is not valid YAML: ${e.message ?? "unknown parse error"}`,
@@ -282,7 +299,7 @@ export function parsePlanDocument(source: string): ParseResult {
   }
 
   if (data === null || typeof data !== "object" || Array.isArray(data)) {
-    return failure("yaml_error", "", [
+    return yamlFailure([
       {
         path: "(gain-plan block)",
         problem:

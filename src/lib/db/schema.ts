@@ -20,6 +20,11 @@
  * export Section 1 copies it from there (§11), and the DB never holds a second copy.
  *
  * Timestamps are ISO-8601 TEXT, stored UTC. IDs are ULIDs unless noted.
+ *
+ * Every table the offline client writes to — `workout`, `set_log`, `metric_value`,
+ * `deviation`, `activity` — carries a `client_id TEXT UNIQUE`. That column is what
+ * makes replaying the sync queue idempotent; a log table without one can duplicate
+ * a row on replay, so new log tables get one too.
  */
 
 export type Migration = {
@@ -211,7 +216,8 @@ CREATE TABLE metric_value (
   exercise_def_id  TEXT REFERENCES exercise_def(id),  -- scope = 'exercise'
   metric_key       TEXT NOT NULL,
   value_num        REAL,
-  value_text       TEXT
+  value_text       TEXT,
+  client_id        TEXT UNIQUE             -- offline-sync idempotency, as on every log table
 );
 
 CREATE TABLE deviation (

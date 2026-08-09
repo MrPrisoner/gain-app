@@ -471,19 +471,31 @@ export function diffContracts(before: GainContract, after: GainContract): Contra
     }
   };
 
+  // Every block on either side is diffed, including blocks (and whole sessions)
+  // that exist on only one. A block present on one side alone is diffed against an
+  // empty list, so its prescriptions enumerate as added or removed — the revisions
+  // that restructure sessions are exactly the ones the user most needs itemised,
+  // and a block-level "added" line alone does not say what landed inside it.
   for (const afterSession of after.sessions) {
     const beforeSession = sessionsBefore.get(afterSession.key);
-    if (!beforeSession) continue;
-    const beforeBlocks = new Map(beforeSession.blocks.map((b) => [b.key, b]));
+    const beforeBlocks = new Map((beforeSession?.blocks ?? []).map((b) => [b.key, b]));
     for (const afterBlock of afterSession.blocks) {
-      const beforeBlock = beforeBlocks.get(afterBlock.key);
-      if (!beforeBlock) continue;
       diffBlockPrescriptions(
         afterSession.key,
         afterBlock.key,
-        beforeBlock.exercises,
+        beforeBlocks.get(afterBlock.key)?.exercises ?? [],
         afterBlock.exercises,
       );
+    }
+  }
+
+  for (const beforeSession of before.sessions) {
+    const afterSession = sessionsAfter.get(beforeSession.key);
+    const afterBlocks = new Map((afterSession?.blocks ?? []).map((b) => [b.key, b]));
+    for (const beforeBlock of beforeSession.blocks) {
+      // Blocks on both sides were handled above; only the removed ones remain.
+      if (afterBlocks.has(beforeBlock.key)) continue;
+      diffBlockPrescriptions(beforeSession.key, beforeBlock.key, beforeBlock.exercises, []);
     }
   }
 

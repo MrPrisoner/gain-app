@@ -76,9 +76,15 @@ export function sourceRelPath(planSlug: string, versionNo: number): string {
 /**
  * Write a parsed plan into the user's database and file tree.
  *
- * All-or-nothing: on any failure after the version guard, nothing is written
- * (the file write happens inside the transaction; a leftover file can only
- * occur if the database itself fails mid-write, and is overwritten by a retry).
+ * All-or-nothing, across both stores. SQLite can roll itself back but cannot
+ * un-write a file, so the document is staged next to its destination and renamed
+ * into place only once the transaction has committed; if the transaction throws,
+ * the staged file is removed and the file tree is exactly as it was. `rename` is
+ * atomic within a directory, so no reader ever sees a half-written document.
+ *
+ * The transaction is IMMEDIATE: the version guard reads `MAX(version_no)` and the
+ * insert depends on it, and a deferred transaction would let two concurrent
+ * imports both pass the guard before either wrote.
  */
 export function importPlan(userDb: UserDb, input: ImportPlanInput): ImportPlanResult {
   const { db } = userDb;
@@ -116,59 +122,68 @@ export function importPlan(userDb: UserDb, input: ImportPlanInput): ImportPlanRe
 
   const counts = countRows(contract);
 
-  db.transaction(() => {
-    // -- Verbatim source to disk, byte-for-byte.
-    fs.mkdirSync(path.dirname(absPath), { recursive: true });
-    fs.writeFileSync(absPath, input.parsed.source_md, "utf8");
+  // -- Verbatim source staged beside its destination, byte-for-byte.
+  fs.mkdirSync(path.dirname(absPath), { recursive: true });
+  const stagedPath = `${absPath}.${newId()}.staged`;
+  fs.writeFileSync(stagedPath, input.parsed.source_md, "utf8");
 
-    // -- Plan row.
-    if (existingPlan) {
-      db.prepare("UPDATE plan SET name = ? WHERE id = ?").run(plan.name, planId);
-    } else {
-      db.prepare("INSERT INTO plan (id, slug, name, created_at) VALUES (?, ?, ?, ?)").run(
+  try {
+    db.transaction(() => {
+      // -- Plan row.
+      if (existingPlan) {
+        db.prepare("UPDATE plan SET name = ? WHERE id = ?").run(plan.name, planId);
+      } else {
+        db.prepare("INSERT INTO plan (id, slug, name, created_at) VALUES (?, ?, ?, ?)").run(
+          planId,
+          plan.slug,
+          plan.name,
+          nowIso,
+        );
+      }
+
+      // -- Flip is_current, then insert the new version.
+      db.prepare("UPDATE plan_version SET is_current = 0 WHERE plan_id = ?").run(planId);
+      db.prepare(
+        `INSERT INTO plan_version (
+           id, plan_id, version_no, based_on_version, source_path, context_md,
+           contract_json, changelog_json, block_length_weeks, session_target_min,
+           scheduling_json, progression_json, safety_json, imported_at, is_current
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+      ).run(
+        planVersionId,
         planId,
-        plan.slug,
-        plan.name,
+        plan.version,
+        plan.based_on_version,
+        relPath,
+        input.parsed.context_md,
+        JSON.stringify(contract),
+        plan.changelog ? JSON.stringify(plan.changelog) : null,
+        plan.block_length_weeks ?? null,
+        plan.session_target_min ?? null,
+        contract.scheduling ? JSON.stringify(contract.scheduling) : null,
+        contract.progression ? JSON.stringify(contract.progression) : null,
+        contract.safety ? JSON.stringify(contract.safety) : null,
         nowIso,
       );
-    }
 
-    // -- Flip is_current, then insert the new version.
-    db.prepare("UPDATE plan_version SET is_current = 0 WHERE plan_id = ?").run(planId);
-    db.prepare(
-      `INSERT INTO plan_version (
-         id, plan_id, version_no, based_on_version, source_path, context_md,
-         contract_json, changelog_json, block_length_weeks, session_target_min,
-         scheduling_json, progression_json, safety_json, imported_at, is_current
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-    ).run(
-      planVersionId,
-      planId,
-      plan.version,
-      plan.based_on_version,
-      relPath,
-      input.parsed.context_md,
-      JSON.stringify(contract),
-      plan.changelog ? JSON.stringify(plan.changelog) : null,
-      plan.block_length_weeks ?? null,
-      plan.session_target_min ?? null,
-      contract.scheduling ? JSON.stringify(contract.scheduling) : null,
-      contract.progression ? JSON.stringify(contract.progression) : null,
-      contract.safety ? JSON.stringify(contract.safety) : null,
-      nowIso,
-    );
+      // -- Catalogue identity: stable exercise_defs, then per-version properties.
+      const defIdBySlug = upsertExerciseDefs(db, planId, plan.version, contract.exercises);
+      insertVersionExercises(db, planVersionId, defIdBySlug, contract.exercises);
 
-    // -- Catalogue identity: stable exercise_defs, then per-version properties.
-    const defIdBySlug = upsertExerciseDefs(db, planId, plan.version, contract.exercises);
-    insertVersionExercises(db, planVersionId, defIdBySlug, contract.exercises);
+      // -- Sessions → blocks → prescriptions.
+      insertSessions(db, planVersionId, defIdBySlug, contract);
 
-    // -- Sessions → blocks → prescriptions.
-    insertSessions(db, planVersionId, contract);
+      // -- Loads and metrics.
+      insertLoads(db, planVersionId, contract.loads);
+      insertMetrics(db, planVersionId, contract);
+    }).immediate();
 
-    // -- Loads and metrics.
-    insertLoads(db, planVersionId, contract.loads);
-    insertMetrics(db, planVersionId, contract);
-  })();
+    // The database has committed; the document can now become visible.
+    fs.renameSync(stagedPath, absPath);
+  } catch (err) {
+    fs.rmSync(stagedPath, { force: true });
+    throw err;
+  }
 
   return {
     ok: true,
@@ -253,7 +268,12 @@ function insertVersionExercises(
   }
 }
 
-function insertSessions(db: UserDb["db"], planVersionId: string, contract: GainContract): void {
+function insertSessions(
+  db: UserDb["db"],
+  planVersionId: string,
+  defIdBySlug: ReadonlyMap<string, string>,
+  contract: GainContract,
+): void {
   const insertSession = db.prepare(
     `INSERT INTO version_session (plan_version_id, key, name, order_no, note)
      VALUES (?, ?, ?, ?, ?)`,
@@ -271,19 +291,6 @@ function insertSessions(db: UserDb["db"], planVersionId: string, contract: GainC
        load_ref, rest_min_s, rest_max_s, note,
        conditional, condition_text, substitutes_json
      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  );
-
-  const defIdBySlug = new Map<string, string>(
-    (
-      db
-        .prepare(
-          `SELECT e.slug AS slug, e.id AS id
-           FROM exercise_def e
-           JOIN version_exercise ve ON ve.exercise_def_id = e.id
-           WHERE ve.plan_version_id = ?`,
-        )
-        .all(planVersionId) as { slug: string; id: string }[]
-    ).map((row) => [row.slug, row.id]),
   );
 
   for (const session of contract.sessions) {

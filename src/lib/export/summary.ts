@@ -19,6 +19,19 @@ function dateOf(iso: string): string {
   return iso.slice(0, 10);
 }
 
+/**
+ * Everything below renders Markdown tables, and plan labels, session names and user
+ * notes are free text. One unescaped `|` silently swallows the rest of the row.
+ */
+function cell(value: string): string {
+  return value.replaceAll("|", "\\|");
+}
+
+/** Metric keys are unique within a scope, not across scopes — index on both. */
+function scopedKey(scope: MetricScope, key: string): string {
+  return `${scope}:${key}`;
+}
+
 // ---------------------------------------------------------------------------
 // Set rendering
 // ---------------------------------------------------------------------------
@@ -26,6 +39,12 @@ function dateOf(iso: string): string {
 /**
  * Renders one exercise's sets within one workout, e.g. `6 kg × 10/11/12`,
  * `30s/35s`, or per-side `L 10/10 · R 10/9`.
+ *
+ * Load is per set, and drop sets and lighter last sets are ordinary. A single
+ * leading weight is only correct when every set carried the same one; when they
+ * differ the weight goes on each set instead (`10 @ 6 kg/8 @ 4 kg`). This table is
+ * what the revising AI reads to prescribe the next block's loads, so a load shown
+ * against the wrong set becomes a wrong prescription.
  */
 export function renderExerciseSets(sets: readonly SetLog[]): string {
   const groups = new Map<string, SetLog[]>();
@@ -42,17 +61,27 @@ export function renderExerciseSets(sets: readonly SetLog[]): string {
     if (!list || list.length === 0) continue;
 
     const sorted = [...list].sort((a, b) => a.set_no - b.set_no);
-    const first = sorted[0];
-    const weight = first?.weight_kg;
+    const timed = sorted.every((s) => s.duration_s !== undefined);
+    const effort = (s: SetLog): string =>
+      timed ? `${formatNum(s.duration_s ?? 0)}s` : s.reps !== undefined ? String(s.reps) : "–";
+
+    const weights = sorted.map((s) => s.weight_kg);
+    const first = weights[0];
+    const uniform = weights.every((w) => w === first);
 
     let body: string;
-    if (sorted.every((s) => s.duration_s !== undefined)) {
-      body = `${sorted.map((s) => `${s.duration_s}s`).join("/")}`;
+    let prefix = "";
+    if (uniform) {
+      body = sorted.map(effort).join("/");
+      prefix = first !== undefined ? `${formatNum(first)} kg × ` : "";
     } else {
-      body = sorted.map((s) => (s.reps !== undefined ? String(s.reps) : "–")).join("/");
+      body = sorted
+        .map((s) =>
+          s.weight_kg !== undefined ? `${effort(s)} @ ${formatNum(s.weight_kg)} kg` : effort(s),
+        )
+        .join("/");
     }
 
-    const prefix = weight !== undefined ? `${formatNum(weight)} kg × ` : "";
     const sideLabel = side === "left" ? "L " : side === "right" ? "R " : "";
     parts.push(`${sideLabel}${prefix}${body}`);
   }
@@ -76,7 +105,7 @@ export function buildProgressSummary(
   const workoutById = new Map<string, Workout>(workouts.map((w) => [w.id, w]));
 
   const completed = workouts.filter((w) => w.status === "completed").length;
-  lines.push(`Window: ${windowLabel}. Generated ${isoDate(now)}.`);
+  lines.push(`Window: ${cell(windowLabel)}. Generated ${isoDate(now)}.`);
   lines.push("");
   lines.push(
     `Workouts in window: ${workouts.length} (${completed} completed). Activities in window: ${logs.activities.length}.`,
@@ -92,7 +121,7 @@ export function buildProgressSummary(
     const ws = workouts.filter((w) => w.session_key === session.key);
     const count = (status: Workout["status"]) => ws.filter((w) => w.status === status).length;
     lines.push(
-      `| ${session.key} | ${session.name} | ${ws.length} | ${count("completed")} | ${count("partial")} | ${count("stopped")} |`,
+      `| ${cell(session.key)} | ${cell(session.name)} | ${ws.length} | ${count("completed")} | ${count("partial")} | ${count("stopped")} |`,
     );
   }
   lines.push("");
@@ -132,7 +161,7 @@ export function buildProgressSummary(
 
     const name = def.name ?? deriveExerciseName(def.id);
     exerciseRows.push(
-      `| ${name} (\`${def.id}\`) | ${workoutIds.length} | ${first} | ${latest} | ${lastDifficulty ?? "–"} |`,
+      `| ${cell(name)} (\`${def.id}\`) | ${workoutIds.length} | ${first} | ${latest} | ${lastDifficulty ?? "–"} |`,
     );
   }
 
@@ -150,12 +179,28 @@ export function buildProgressSummary(
   lines.push("");
 
   // -- Metric trends, in contract declaration order (set, exercise, session).
+  //
+  // Keyed by scope AND key: the contract only requires a metric key to be unique
+  // WITHIN its scope, so a plan may legally declare `rpe` at set scope and at
+  // session scope. Keying on the bare key would merge two unrelated series into
+  // one row with a wrong n and wrong extremes.
+  const setLogById = new Map<string, SetLog>(logs.set_logs.map((s) => [s.id, s]));
   const valuesByKey = new Map<string, MetricValue[]>();
   for (const value of logs.metric_values) {
-    const list = valuesByKey.get(value.key) ?? [];
+    const id = scopedKey(value.ref.scope, value.key);
+    const list = valuesByKey.get(id) ?? [];
     list.push(value);
-    valuesByKey.set(value.key, list);
+    valuesByKey.set(id, list);
   }
+
+  /** Chronological, so that "First" and "Latest" mean what the headers say. */
+  const metricOrder = (v: MetricValue): string => {
+    const workoutId =
+      v.ref.scope === "set" ? setLogById.get(v.ref.set_log_id)?.workout_id : v.ref.workout_id;
+    const started = workoutId ? (workoutById.get(workoutId)?.started_at ?? "") : "";
+    const setNo = v.ref.scope === "set" ? (setLogById.get(v.ref.set_log_id)?.set_no ?? 0) : 0;
+    return `${started}|${String(setNo).padStart(6, "0")}`;
+  };
 
   const metricRows: string[] = [];
   const scopes: MetricScope[] = ["set", "exercise", "session"];
@@ -167,8 +212,9 @@ export function buildProgressSummary(
   }
 
   for (const { scope, def } of declared) {
-    const values = valuesByKey.get(def.key) ?? [];
-    if (values.length === 0) continue;
+    const unsorted = valuesByKey.get(scopedKey(scope, def.key)) ?? [];
+    if (unsorted.length === 0) continue;
+    const values = [...unsorted].sort((a, b) => metricOrder(a).localeCompare(metricOrder(b)));
 
     const numeric = values
       .map((v) => v.value_num)
@@ -181,7 +227,7 @@ export function buildProgressSummary(
       const first = numeric[0];
       const latest = numeric[numeric.length - 1];
       metricRows.push(
-        `| ${scope} | \`${def.key}\` | ${def.label} | ${numeric.length} | ${formatNum(first ?? 0)} | ${formatNum(latest ?? 0)} | ${formatNum(min)} | ${formatNum(avg)} | ${formatNum(max)} |`,
+        `| ${scope} | \`${def.key}\` | ${cell(def.label)} | ${numeric.length} | ${formatNum(first ?? 0)} | ${formatNum(latest ?? 0)} | ${formatNum(min)} | ${formatNum(avg)} | ${formatNum(max)} |`,
       );
     } else {
       const counts = new Map<string, number>();
@@ -191,10 +237,10 @@ export function buildProgressSummary(
       }
       const distribution = [...counts.entries()]
         .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([text, n]) => `${text} ×${n}`)
+        .map(([text, n]) => `${cell(text)} ×${n}`)
         .join(", ");
       metricRows.push(
-        `| ${scope} | \`${def.key}\` | ${def.label} | ${values.length} | – | – | – | – | ${distribution} |`,
+        `| ${scope} | \`${def.key}\` | ${cell(def.label)} | ${values.length} | – | – | – | – | ${distribution} |`,
       );
     }
   }
@@ -229,13 +275,13 @@ export function buildProgressSummary(
       const workout = workoutById.get(d.workout_id);
       const when = workout ? dateOf(workout.started_at) : "–";
       const note = [
-        d.note ?? "",
+        d.note ? cell(d.note) : "",
         d.substitute_exercise_slug ? `→ \`${d.substitute_exercise_slug}\`` : "",
       ]
         .filter((s) => s.length > 0)
         .join(" ");
       lines.push(
-        `| ${when} | ${workout?.session_key ?? "–"} | \`${d.exercise_slug}\` | ${d.kind} | ${d.reason_code ?? "–"} | ${note || "–"} |`,
+        `| ${when} | ${cell(workout?.session_key ?? "–")} | \`${d.exercise_slug}\` | ${d.kind} | ${cell(d.reason_code ?? "–")} | ${note || "–"} |`,
       );
     }
   }

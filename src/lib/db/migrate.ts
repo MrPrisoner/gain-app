@@ -43,6 +43,13 @@ export function migrate(db: Database, now: Date): void {
 
 /** The highest migration version applied to this database, or 0 for a fresh one. */
 export function appliedSchemaVersion(db: Database): number {
+  // A database that has never been migrated has no tracking table at all, and
+  // querying it would throw rather than answer "0".
+  const tracking = db
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = '_gain_migration'")
+    .get();
+  if (!tracking) return 0;
+
   const row = db.prepare("SELECT MAX(version) AS v FROM _gain_migration").get() as
     { v: number | null } | undefined;
   return row?.v ?? 0;
