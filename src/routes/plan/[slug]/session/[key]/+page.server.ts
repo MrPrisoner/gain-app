@@ -1,0 +1,231 @@
+/**
+ * The session runner's data and actions (phase 4, ARCHITECTURE §9). Loads the resolved
+ * session plus pre-fill data for every exercise in it; every write goes through
+ * `$lib/db/workout`, which is idempotent on the client-generated `client_id` the
+ * runner's Svelte components mint (see Task 6/7's `ulidx` usage) — the server never
+ * mints one, per this plan's Global Constraints.
+ */
+
+import { error, fail, redirect } from "@sveltejs/kit";
+import type { Actions, PageServerLoad } from "./$types";
+import { getUserDbFor } from "$lib/server/app-state";
+import {
+  contractOfVersion,
+  getCurrentVersion,
+  getExerciseDefIdBySlug,
+  getPlanBySlug,
+} from "$lib/db/read";
+import { recentSetLogsForExercise } from "$lib/db/recent-sets";
+import { finishWorkout, logDeviation, logMetric, logSet, startWorkout } from "$lib/db/workout";
+import { pickPrefill } from "$lib/session/prefill";
+import {
+  exerciseMetrics,
+  resolveSession,
+  sessionMetrics,
+  setMetrics,
+} from "$lib/session/session-view";
+import type { DeviationKind } from "$lib/logs/types";
+
+export const load: PageServerLoad = ({ params, locals }) => {
+  if (!locals.user) throw redirect(303, "/login");
+
+  const userDb = getUserDbFor(locals.user.id);
+  const plan = getPlanBySlug(userDb, params.slug);
+  if (!plan) throw error(404, "No such plan");
+
+  const version = getCurrentVersion(userDb, plan.id);
+  if (!version) throw error(404, "This plan has no imported version");
+
+  const contract = contractOfVersion(version);
+  const session = resolveSession(contract, params.key);
+  if (!session) throw error(404, "No such session in the current plan version");
+
+  const prefillByExercise: Record<
+    string,
+    {
+      left?: ReturnType<typeof pickPrefill>;
+      right?: ReturnType<typeof pickPrefill>;
+      none?: ReturnType<typeof pickPrefill>;
+    }
+  > = {};
+
+  for (const block of session.blocks) {
+    if (block.tracking === "checkoff") continue;
+    for (const exercise of block.exercises) {
+      const defId = getExerciseDefIdBySlug(userDb, plan.id, exercise.slug);
+      if (!defId) continue;
+      const rows = recentSetLogsForExercise(userDb, defId);
+      prefillByExercise[exercise.slug] = exercise.perSide
+        ? { left: pickPrefill(rows, "left"), right: pickPrefill(rows, "right") }
+        : { none: pickPrefill(rows, undefined) };
+    }
+  }
+
+  return {
+    planSlug: plan.slug,
+    planVersionId: version.id,
+    session,
+    prefillByExercise,
+    setMetrics: setMetrics(contract),
+    exerciseMetrics: exerciseMetrics(contract),
+    endMetrics: sessionMetrics(contract, "end"),
+  };
+};
+
+export const actions: Actions = {
+  start: async ({ request, params, locals }) => {
+    if (!locals.user) throw redirect(303, "/login");
+    const form = await request.formData();
+    const clientId = requireText(form, "client_id");
+
+    const userDb = getUserDbFor(locals.user.id);
+    const plan = getPlanBySlug(userDb, params.slug);
+    if (!plan) return fail(404, { actionError: "No such plan." });
+    const version = getCurrentVersion(userDb, plan.id);
+    if (!version) return fail(404, { actionError: "This plan has no imported version." });
+
+    const workout = startWorkout(userDb, {
+      planVersionId: version.id,
+      sessionKey: params.key,
+      clientId,
+      now: new Date(),
+    });
+    return { workoutId: workout.id };
+  },
+
+  logSet: async ({ request, params, locals }) => {
+    if (!locals.user) throw redirect(303, "/login");
+    const form = await request.formData();
+    const userDb = getUserDbFor(locals.user.id);
+    const plan = getPlanBySlug(userDb, params.slug);
+    if (!plan) return fail(404, { actionError: "No such plan." });
+
+    const slug = requireText(form, "exercise_slug");
+    const exerciseDefId = getExerciseDefIdBySlug(userDb, plan.id, slug);
+    if (!exerciseDefId) return fail(400, { actionError: `Unknown exercise \`${slug}\`.` });
+
+    const side = optionalText(form, "side");
+    if (side !== undefined && side !== "left" && side !== "right") {
+      return fail(400, { actionError: "Invalid side." });
+    }
+
+    const difficulty = optionalText(form, "difficulty");
+    if (
+      difficulty !== undefined &&
+      difficulty !== "easy" &&
+      difficulty !== "medium" &&
+      difficulty !== "hard"
+    ) {
+      return fail(400, { actionError: "Invalid difficulty." });
+    }
+
+    const result = logSet(userDb, {
+      workoutId: requireText(form, "workout_id"),
+      exerciseDefId,
+      setNo: Number(requireText(form, "set_no")),
+      side,
+      reps: optionalNumber(form, "reps"),
+      weightKg: optionalNumber(form, "weight_kg"),
+      durationS: optionalNumber(form, "duration_s"),
+      difficulty,
+      clientId: requireText(form, "client_id"),
+    });
+    return { setLogId: result.id };
+  },
+
+  logMetric: async ({ request, params, locals }) => {
+    if (!locals.user) throw redirect(303, "/login");
+    const form = await request.formData();
+    const userDb = getUserDbFor(locals.user.id);
+
+    const scope = requireText(form, "scope");
+    if (scope !== "set" && scope !== "exercise" && scope !== "session") {
+      return fail(400, { actionError: "Invalid metric scope." });
+    }
+
+    let exerciseDefId: string | undefined;
+    const exerciseSlug = optionalText(form, "exercise_slug");
+    if (exerciseSlug !== undefined) {
+      const plan = getPlanBySlug(userDb, params.slug);
+      exerciseDefId = plan ? getExerciseDefIdBySlug(userDb, plan.id, exerciseSlug) : undefined;
+    }
+
+    const result = logMetric(userDb, {
+      scope,
+      setLogId: optionalText(form, "set_log_id"),
+      workoutId: optionalText(form, "workout_id"),
+      exerciseDefId,
+      metricKey: requireText(form, "metric_key"),
+      valueNum: optionalNumber(form, "value_num"),
+      valueText: optionalText(form, "value_text"),
+      clientId: requireText(form, "client_id"),
+    });
+    return { metricValueId: result.id };
+  },
+
+  logDeviation: async ({ request, params, locals }) => {
+    if (!locals.user) throw redirect(303, "/login");
+    const form = await request.formData();
+    const userDb = getUserDbFor(locals.user.id);
+    const plan = getPlanBySlug(userDb, params.slug);
+    if (!plan) return fail(404, { actionError: "No such plan." });
+
+    const slug = requireText(form, "exercise_slug");
+    const exerciseDefId = getExerciseDefIdBySlug(userDb, plan.id, slug);
+    if (!exerciseDefId) return fail(400, { actionError: `Unknown exercise \`${slug}\`.` });
+
+    const kind = requireText(form, "kind") as DeviationKind;
+    const result = logDeviation(userDb, {
+      workoutId: requireText(form, "workout_id"),
+      exerciseDefId,
+      kind,
+      reasonCode: optionalText(form, "reason_code"),
+      note: optionalText(form, "note"),
+      substituteExerciseSlug: optionalText(form, "substitute_exercise_slug"),
+      clientId: requireText(form, "client_id"),
+    });
+    return { deviationId: result.id };
+  },
+
+  finish: async ({ request, locals }) => {
+    if (!locals.user) throw redirect(303, "/login");
+    const form = await request.formData();
+    const userDb = getUserDbFor(locals.user.id);
+
+    const status = requireText(form, "status");
+    if (status !== "completed" && status !== "partial" && status !== "stopped") {
+      return fail(400, { actionError: "Invalid workout status." });
+    }
+
+    finishWorkout(userDb, {
+      workoutId: requireText(form, "workout_id"),
+      status,
+      note: optionalText(form, "note"),
+      now: new Date(),
+    });
+    return { finished: true };
+  },
+};
+
+function formText(form: FormData, name: string): string {
+  const value = form.get(name);
+  return typeof value === "string" ? value : "";
+}
+
+function requireText(form: FormData, name: string): string {
+  const value = formText(form, name).trim();
+  if (!value) throw new Error(`missing required form field \`${name}\``);
+  return value;
+}
+
+function optionalText(form: FormData, name: string): string | undefined {
+  const value = formText(form, name).trim();
+  return value === "" ? undefined : value;
+}
+
+function optionalNumber(form: FormData, name: string): number | undefined {
+  const value = optionalText(form, name);
+  if (value === undefined) return undefined;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : undefined;
+}
