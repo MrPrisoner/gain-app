@@ -1,14 +1,25 @@
 <script lang="ts">
   import { ulid } from "ulidx";
-  import { enhance } from "$app/forms";
+  import { applyAction, enhance } from "$app/forms";
+  import type { ActionResult } from "@sveltejs/kit";
 
   let {
     exerciseSlug,
     substitutes,
     workoutId,
     onClose,
-  }: { exerciseSlug: string; substitutes: string[]; workoutId: string; onClose: () => void } =
-    $props();
+    onRedFlagStop,
+  }: {
+    exerciseSlug: string;
+    substitutes: string[];
+    workoutId: string;
+    onClose: () => void;
+    onRedFlagStop: (note: string | undefined) => void;
+  } = $props();
+
+  // Set from a failed `?/logDeviation` submission so the sheet can surface the error
+  // instead of silently sitting there (this component has no page-level `form` prop).
+  let sheetForm = $state<{ actionError?: string } | undefined>(undefined);
 
   const reasons = [
     { code: "pain", label: "Symptoms" },
@@ -22,6 +33,7 @@
   let kind = $state<"skip" | "substitute" | "add_set" | "drop_set" | "stop_red_flag">("skip");
   let reasonCode = $state<string>("pain");
   let substituteSlug = $state<string | undefined>(substitutes[0]);
+  let note = $state("");
 </script>
 
 <div class="sheet-backdrop" onclick={onClose} role="presentation">
@@ -31,8 +43,17 @@
     class="sheet"
     onclick={(e) => e.stopPropagation()}
     use:enhance={() => {
-      return ({ result }) => {
-        if (result.type === "success") onClose();
+      return async ({ result }: { result: ActionResult }) => {
+        await applyAction(result);
+        if (result.type === "success") {
+          if (kind === "stop_red_flag") {
+            onRedFlagStop(note || undefined);
+          } else {
+            onClose();
+          }
+        } else if (result.type === "failure") {
+          sheetForm = result.data as { actionError?: string } | undefined;
+        }
       };
     }}
   >
@@ -75,8 +96,14 @@
       {/each}
     </div>
 
-    <textarea name="note" placeholder="Optional note — exported as signal for the revising AI."
-    ></textarea>
+    <textarea
+      name="note"
+      placeholder="Optional note — exported as signal for the revising AI."
+      bind:value={note}></textarea>
+
+    {#if sheetForm?.actionError}
+      <p class="action-error">{sheetForm.actionError}</p>
+    {/if}
 
     <div class="sheet-actions">
       <button type="button" class="secondary" onclick={onClose}>Cancel</button>
@@ -139,5 +166,10 @@
     background: var(--raised);
     border: 1px solid var(--line);
     color: var(--text);
+  }
+  .action-error {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin: 0;
   }
 </style>
