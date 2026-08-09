@@ -304,6 +304,7 @@
                       {/if}
                     {/if}
                     {#if exercise.note}<p class="cue">{exercise.note}</p>{/if}
+                    {#if exercise.load?.note}<p class="cue">{exercise.load.note}</p>{/if}
 
                     {#each isRounds ? [currentRound] : Array.from({ length: visible.shown }, (_, i) => i + 1) as setNo (setNo)}
                       {#each sides as side (side ?? "single")}
@@ -354,14 +355,21 @@
                               step="1"
                               disabled={!!logged}
                             />
-                            <input
-                              type="number"
-                              name="weight_kg"
-                              class="tabular"
-                              value={fill.weightKg ?? ""}
-                              step="1"
-                              disabled={!!logged}
-                            />
+                            {#if !exercise.load?.isBodyweight}
+                              <div class="weight-field">
+                                <input
+                                  type="number"
+                                  name="weight_kg"
+                                  class="tabular"
+                                  value={fill.weightKg ?? ""}
+                                  step="1"
+                                  disabled={!!logged}
+                                />
+                                {#if exercise.load?.label}
+                                  <span class="load-label">{exercise.load.label}</span>
+                                {/if}
+                              </div>
+                            {/if}
                           {/if}
 
                           <div class="effort">
@@ -686,6 +694,14 @@
   }
   .set-row input:disabled {
     opacity: 0.6;
+  }
+  .weight-field {
+    display: grid;
+    gap: 0.15rem;
+  }
+  .load-label {
+    font-size: 0.7rem;
+    color: var(--muted);
   }
   .effort {
     display: flex;

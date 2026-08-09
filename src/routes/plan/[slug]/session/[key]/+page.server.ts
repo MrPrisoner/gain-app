@@ -55,9 +55,13 @@ export const load: PageServerLoad = ({ params, locals }) => {
       const defId = getExerciseDefIdBySlug(userDb, plan.id, exercise.slug);
       if (!defId) continue;
       const rows = recentSetLogsForExercise(userDb, defId);
+      const defaultKg = exercise.load?.defaultKg;
       prefillByExercise[exercise.slug] = exercise.perSide
-        ? { left: pickPrefill(rows, "left"), right: pickPrefill(rows, "right") }
-        : { none: pickPrefill(rows, undefined) };
+        ? {
+            left: pickPrefill(rows, "left", defaultKg),
+            right: pickPrefill(rows, "right", defaultKg),
+          }
+        : { none: pickPrefill(rows, undefined, defaultKg) };
     }
   }
 

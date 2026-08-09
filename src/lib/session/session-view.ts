@@ -23,6 +23,20 @@ export type ResolvedExercise = {
   type: "reps" | "time";
   perSide: boolean;
   loadRef: string | undefined;
+  /**
+   * The resolved load configuration (CONTRACT `loads`), or `undefined` when this
+   * exercise declares no `load` ref at all. UI-DECISIONS §3, Settled 2026-08-10: a
+   * paired lift (e.g. floor press) would ideally show `12 kg` with a `2 × 6` sub-line
+   * beneath it, but the contract has no field that means "this movement is paired" —
+   * `per_side` doesn't mean it (goblet squat is single-dumbbell and not `per_side`;
+   * floor press is paired and not `per_side`) — and adding a `paired` field was
+   * decided not worth the `docs/CONTRACT.md`/export surface it would need. So
+   * `weight_kg` is always the total being lifted and the `2 × N` sub-line is
+   * intentionally not built; this is a settled decision, not a gap.
+   */
+  load:
+    | { ref: string; label?: string; defaultKg?: number; isBodyweight: boolean; note?: string }
+    | undefined;
   restSec: IntOrRange | undefined;
   conditional: boolean;
   condition: string | undefined;
@@ -67,11 +81,15 @@ export function resolveSession(
     name: session.name,
     order: session.order,
     note: session.note,
-    blocks: session.blocks.map((block) => resolveBlock(block, catalogue)),
+    blocks: session.blocks.map((block) => resolveBlock(block, catalogue, contract)),
   };
 }
 
-function resolveBlock(block: Block, catalogue: ReadonlyMap<string, ExerciseDef>): ResolvedBlock {
+function resolveBlock(
+  block: Block,
+  catalogue: ReadonlyMap<string, ExerciseDef>,
+  contract: GainContract,
+): ResolvedBlock {
   return {
     key: block.key,
     name: block.name,
@@ -80,13 +98,14 @@ function resolveBlock(block: Block, catalogue: ReadonlyMap<string, ExerciseDef>)
     restSec: block.rest_sec,
     tracking: block.tracking ?? "full",
     note: block.note,
-    exercises: block.exercises.map((rx) => resolveExercise(rx, catalogue)),
+    exercises: block.exercises.map((rx) => resolveExercise(rx, catalogue, contract)),
   };
 }
 
 function resolveExercise(
   rx: Prescription,
   catalogue: ReadonlyMap<string, ExerciseDef>,
+  contract: GainContract,
 ): ResolvedExercise {
   const def = catalogue.get(rx.id);
   if (!def) {
@@ -95,12 +114,24 @@ function resolveExercise(
     );
   }
 
+  const loadRef = rx.load ?? def.load;
+  const loadConfig = resolveLoad(contract, loadRef);
+
   return {
     slug: rx.id,
     name: def.name ?? deriveExerciseName(rx.id),
     type: def.type ?? "reps",
     perSide: def.per_side === true,
-    loadRef: rx.load ?? def.load,
+    loadRef,
+    load: loadConfig
+      ? {
+          ref: loadConfig.ref,
+          label: loadConfig.label,
+          defaultKg: loadConfig.default_kg,
+          isBodyweight: loadConfig.is_bodyweight === true,
+          note: loadConfig.note,
+        }
+      : undefined,
     restSec: rx.rest_sec ?? def.rest_sec,
     conditional: rx.conditional ?? def.conditional ?? false,
     condition: rx.condition ?? def.condition,

@@ -85,6 +85,47 @@ describe("resolveSession", () => {
   });
 });
 
+describe("resolveExercise — load resolution (UI-DECISIONS §3)", () => {
+  it("resolves a weighted exercise's load configuration onto the exercise", () => {
+    const session = resolveSession(fixtureContract(), "A");
+    const main = session?.blocks.find((b) => b.key === "main");
+    const squat = main?.exercises.find((e) => e.slug === "goblet-squat");
+    expect(squat?.load?.ref).toBe("heavy");
+    expect(squat?.load?.label).toBe("Heavy configuration");
+    expect(squat?.load?.defaultKg).toBe(6);
+    expect(squat?.load?.isBodyweight).toBe(false);
+    expect(squat?.load?.note).toBeTruthy();
+  });
+
+  it("resolves a bodyweight exercise's load configuration with isBodyweight true and no default_kg", () => {
+    const session = resolveSession(fixtureContract(), "A");
+    const warmup = session?.blocks.find((b) => b.key === "warmup");
+    const squat = warmup?.exercises.find((e) => e.slug === "bodyweight-squat");
+    expect(squat?.load?.ref).toBe("bodyweight");
+    expect(squat?.load?.isBodyweight).toBe(true);
+    expect(squat?.load?.defaultKg).toBeUndefined();
+  });
+
+  it("leaves load undefined when the exercise declares no load ref at all", () => {
+    // Every occurrence of every exercise in the fixture happens to set a `load` ref
+    // somewhere (catalogue or prescription), so this strips one by hand to exercise
+    // the no-ref path.
+    const contract = structuredClone(fixtureContract());
+    const def = contract.exercises.find((e) => e.id === "supported-one-arm-row");
+    delete def?.load;
+    const main = contract.sessions.find((s) => s.key === "A")?.blocks.find((b) => b.key === "main");
+    const rx = main?.exercises.find((e) => e.id === "supported-one-arm-row");
+    delete rx?.load;
+
+    const session = resolveSession(contract, "A");
+    const row = session?.blocks
+      .find((b) => b.key === "main")
+      ?.exercises.find((e) => e.slug === "supported-one-arm-row");
+    expect(row?.loadRef).toBeUndefined();
+    expect(row?.load).toBeUndefined();
+  });
+});
+
 describe("resolveLoad", () => {
   it("resolves a declared load ref", () => {
     const load = resolveLoad(fixtureContract(), "heavy");

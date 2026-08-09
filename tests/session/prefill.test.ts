@@ -70,3 +70,41 @@ describe("pickPrefill", () => {
     expect(pickPrefill(rows, "left")).toBeUndefined();
   });
 });
+
+describe("pickPrefill — default_kg fallback (UI-DECISIONS §3)", () => {
+  it("falls back to default_kg for weight when nothing has ever been logged", () => {
+    expect(pickPrefill([], undefined, 6)).toEqual({
+      reps: undefined,
+      weightKg: 6,
+      durationS: undefined,
+    });
+  });
+
+  it("still returns undefined with no rows and no default_kg supplied", () => {
+    expect(pickPrefill([], undefined, undefined)).toBeUndefined();
+  });
+
+  it("prefers the last matching performance's weight over default_kg", () => {
+    expect(pickPrefill(rows, undefined, 99)).toEqual({
+      reps: 11,
+      weightKg: 12,
+      durationS: undefined,
+    });
+  });
+
+  it("falls back to default_kg when the matching row logged no weight", () => {
+    expect(pickPrefill(perSideRows, "left", 6)).toEqual({
+      reps: 9,
+      weightKg: 6,
+      durationS: undefined,
+    });
+  });
+
+  it("falls back to default_kg (not blank) when no row matches the requested side", () => {
+    expect(pickPrefill(rows, "left", 6)).toEqual({
+      reps: undefined,
+      weightKg: 6,
+      durationS: undefined,
+    });
+  });
+});
