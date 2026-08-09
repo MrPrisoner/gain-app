@@ -4,15 +4,21 @@ import { describe, expect, it } from "vitest";
 import { parsePlanDocument } from "../../src/lib/parse/parser";
 import {
   exerciseMetrics,
+  formatLoggedSet,
   formatRange,
   formatRepsOrDuration,
+  formatSlotContext,
+  formatSlotLabel,
   formatTarget,
+  nextUnloggedSlot,
   resolveLoad,
   resolveSession,
   restBetweenRounds,
   restForSet,
   sessionMetrics,
+  setLogKey,
   setMetrics,
+  setSlotsFor,
   visibleSetCount,
 } from "../../src/lib/session/session-view";
 
@@ -192,6 +198,143 @@ describe("restForSet / restBetweenRounds", () => {
     const main = session?.blocks.find((b) => b.key === "main");
     const squat = main?.exercises.find((e) => e.slug === "goblet-squat");
     expect(main && squat && restForSet(main, squat)).toEqual([75, 90]);
+  });
+});
+
+describe("setLogKey", () => {
+  it("keys by block, exercise, set number and side", () => {
+    expect(setLogKey("main", "goblet-squat", 2)).toBe("main:goblet-squat:2:");
+    expect(setLogKey("main", "side-plank", 2, "left")).toBe("main:side-plank:2:left");
+  });
+
+  // Regression (ca63250): the same exercise slug appears in more than one block of a
+  // session, and a rounds block reuses `set_no` per round — dropping either from the key
+  // collapses distinct sets onto one another.
+  it("never collapses the same slug in two different blocks", () => {
+    expect(setLogKey("main", "dead-bug", 1)).not.toBe(setLogKey("core", "dead-bug", 1));
+  });
+});
+
+describe("setSlotsFor", () => {
+  const block = { key: "main", type: "sequence" as const };
+  const roundsBlock = { key: "ab-finisher", type: "rounds" as const };
+
+  it("draws one slot per set for a plain exercise", () => {
+    const slots = setSlotsFor(
+      block,
+      { slug: "goblet-squat", perSide: false },
+      {
+        shownSets: 3,
+        currentRound: 1,
+      },
+    );
+    expect(slots.map((s) => s.setNo)).toEqual([1, 2, 3]);
+    expect(slots.every((s) => s.side === undefined)).toBe(true);
+    expect(slots[0]?.key).toBe("main:goblet-squat:1:");
+  });
+
+  // UI-DECISIONS §6: one ledger row per side, in the order performed — left then right
+  // within a set, not all the lefts and then all the rights.
+  it("draws left then right within each set for a per_side exercise", () => {
+    const slots = setSlotsFor(
+      block,
+      { slug: "side-plank", perSide: true },
+      {
+        shownSets: 2,
+        currentRound: 1,
+      },
+    );
+    expect(slots.map((s) => `${s.setNo}${s.side}`)).toEqual(["1left", "1right", "2left", "2right"]);
+  });
+
+  // UI-DECISIONS §6: a rounds block is not repeated per round; `set_no` *is* the round.
+  it("offers only the current round inside a rounds block, whatever shownSets says", () => {
+    const slots = setSlotsFor(
+      roundsBlock,
+      { slug: "dead-bug", perSide: false },
+      {
+        shownSets: 4,
+        currentRound: 2,
+      },
+    );
+    expect(slots).toHaveLength(1);
+    expect(slots[0]?.setNo).toBe(2);
+  });
+
+  it("draws nothing when no sets are shown", () => {
+    expect(
+      setSlotsFor(block, { slug: "x", perSide: false }, { shownSets: 0, currentRound: 1 }),
+    ).toEqual([]);
+  });
+});
+
+describe("nextUnloggedSlot", () => {
+  const slots = setSlotsFor(
+    { key: "main", type: "sequence" },
+    { slug: "row", perSide: true },
+    {
+      shownSets: 2,
+      currentRound: 1,
+    },
+  );
+
+  it("is the first slot when nothing is logged", () => {
+    expect(nextUnloggedSlot(slots, new Set())?.key).toBe("main:row:1:left");
+  });
+
+  it("skips past logged slots in performed order", () => {
+    const logged = new Set(["main:row:1:left", "main:row:1:right"]);
+    expect(nextUnloggedSlot(slots, logged)?.key).toBe("main:row:2:left");
+  });
+
+  it("is undefined once every offered slot is logged", () => {
+    expect(nextUnloggedSlot(slots, new Set(slots.map((s) => s.key)))).toBeUndefined();
+  });
+});
+
+describe("formatSlotContext / formatSlotLabel", () => {
+  const sequence = { type: "sequence" as const, rounds: undefined };
+  const rounds = { type: "rounds" as const, rounds: 2 };
+  const slot = (setNo: number, side?: "left" | "right") => ({ setNo, side, key: "k" });
+
+  it("counts sets in a sequence block", () => {
+    expect(formatSlotContext(sequence, slot(2), 3)).toBe("Set 2 of 3");
+  });
+
+  it("names the side of a per_side slot", () => {
+    expect(formatSlotContext(sequence, slot(1, "right"), 2)).toBe("Set 1 of 2 — right");
+  });
+
+  it("counts rounds, not sets, in a rounds block", () => {
+    expect(formatSlotContext(rounds, slot(1), 1)).toBe("Round 1 of 2");
+  });
+
+  it("labels ledger rows by set number, or round, with a side initial", () => {
+    expect(formatSlotLabel(sequence, slot(2))).toBe("2");
+    expect(formatSlotLabel(sequence, slot(2, "left"))).toBe("2 L");
+    expect(formatSlotLabel(rounds, slot(1))).toBe("Round 1");
+  });
+});
+
+describe("formatLoggedSet", () => {
+  it("renders reps and total load", () => {
+    expect(formatLoggedSet({ reps: 11, weightKg: 12 })).toBe("11 · 12 kg");
+  });
+
+  it("renders reps alone for a bodyweight movement", () => {
+    expect(formatLoggedSet({ reps: 10 })).toBe("10");
+  });
+
+  it("renders a held duration", () => {
+    expect(formatLoggedSet({ durationS: 30 })).toBe("30 sec");
+  });
+
+  it("says something rather than nothing when a set carries no figures", () => {
+    expect(formatLoggedSet({ difficulty: "hard" })).toBe("Logged");
+  });
+
+  it("renders a zero rather than dropping it", () => {
+    expect(formatLoggedSet({ reps: 0, weightKg: 0 })).toBe("0 · 0 kg");
   });
 });
 

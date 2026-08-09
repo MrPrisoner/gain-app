@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { pickPrefill, type RecentSetRow } from "../../src/lib/session/prefill";
+import {
+  formatLastPerformance,
+  pickPrefill,
+  type RecentSetRow,
+} from "../../src/lib/session/prefill";
 
 const rows: RecentSetRow[] = [
   {
@@ -106,5 +110,35 @@ describe("pickPrefill — default_kg fallback (UI-DECISIONS §3)", () => {
       weightKg: 6,
       durationS: undefined,
     });
+  });
+});
+
+describe("formatLastPerformance — the log strip's last-performance line (UI-DECISIONS §2)", () => {
+  it("names reps and total load", () => {
+    expect(formatLastPerformance(pickPrefill(rows, undefined), "reps")).toBe(
+      "Last time 11 at 12 kg",
+    );
+  });
+
+  it("names reps alone when the movement carries no load", () => {
+    expect(formatLastPerformance(pickPrefill(perSideRows, "left"), "reps")).toBe("Last time 9");
+  });
+
+  it("names a held duration for a time exercise", () => {
+    expect(formatLastPerformance({ durationS: 30 }, "time")).toBe("Last time 30 sec");
+  });
+
+  // A `default_kg` fallback carries a weight and nothing else, so it is named as the
+  // starting suggestion it is rather than dressed up as a performance that never happened.
+  it("does not pass off a default_kg fallback as history", () => {
+    expect(formatLastPerformance(pickPrefill([], undefined, 6), "reps")).toBe(
+      "No history — starting at 6 kg",
+    );
+  });
+
+  it("says so plainly when there is nothing at all", () => {
+    expect(formatLastPerformance(undefined, "reps")).toBe("No history yet");
+    expect(formatLastPerformance(undefined, "time")).toBe("No history yet");
+    expect(formatLastPerformance({ reps: 8 }, "time")).toBe("No history yet");
   });
 });

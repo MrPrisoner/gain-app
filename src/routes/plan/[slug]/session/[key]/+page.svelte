@@ -5,14 +5,26 @@
   import type { ActionResult } from "@sveltejs/kit";
   import type { ActionData, PageData } from "./$types";
   import {
+    formatLoggedSet,
     formatRepsOrDuration,
+    formatSlotContext,
+    formatSlotLabel,
     formatTarget,
+    nextUnloggedSlot,
     restForSet,
     restBetweenRounds,
+    setLogKey,
+    setSlotsFor,
     visibleSetCount,
+    type LoggedSet,
+    type ResolvedBlock,
+    type ResolvedExercise,
+    type SetSlot,
   } from "$lib/session/session-view";
+  import { formatLastPerformance } from "$lib/session/prefill";
   import RestTimer from "./RestTimer.svelte";
   import DeviationSheet from "./DeviationSheet.svelte";
+  import LogStrip from "./LogStrip.svelte";
   import { restSpecFrom, type RestSpec } from "$lib/session/rest-timer";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -88,15 +100,10 @@
     return undefined;
   }
 
-  // Logged sets this workout, keyed by `${block.key}:${slug}:${setNo}:${side ?? ""}`.
-  // The block key and set number (round number, for `type: rounds` blocks) are both
-  // required: the same exercise slug can appear in multiple blocks of a session, and a
-  // rounds block reuses `set_no` per round, so omitting either collapses distinct sets
-  // onto the same key.
-  const loggedSets = new SvelteMap<
-    string,
-    { reps?: number; weightKg?: number; difficulty?: string }
-  >();
+  // Logged sets this workout, keyed by `setLogKey`, holding what was actually submitted
+  // (never the pre-fill it started from — the ledger reads from this). Keys are the
+  // shape a resumed workout would rebuild from persisted `set_log` rows.
+  const loggedSets = new SvelteMap<string, LoggedSet>();
 
   // Optional sets added beyond a ranged prescription's minimum, keyed by `${block.key}:${slug}`.
   const addedSets = new SvelteMap<string, number>();
@@ -122,10 +129,6 @@
   // display only; each tap fires its own `?/logMetric` submission (UI-DECISIONS §8).
   const sessionMetricValues = new SvelteMap<string, number | string>();
 
-  function setKey(blockKey: string, slug: string, setNo: number, side?: "left" | "right"): string {
-    return `${blockKey}:${slug}:${setNo}:${side ?? ""}`;
-  }
-
   function prefillFor(
     slug: string,
     perSide: boolean,
@@ -135,6 +138,53 @@
     if (!entry) return {};
     if (perSide) return (side === "left" ? entry.left : entry.right) ?? {};
     return entry.none ?? {};
+  }
+
+  /** How many sets the exercise currently offers — its ranged minimum plus any optional
+   * set the user has added, or exactly the current round inside a rounds block. */
+  function shownSetsFor(block: ResolvedBlock, exercise: ResolvedExercise): number {
+    if (block.type === "rounds") return 1;
+    return visibleSetCount(exercise.sets, addedSets.get(`${block.key}:${exercise.slug}`) ?? 0)
+      .shown;
+  }
+
+  function currentRoundOf(blockKey: string): number {
+    return (completedRounds.get(blockKey) ?? 0) + 1;
+  }
+
+  /**
+   * Everything the pinned strip needs about the one open exercise (UI-DECISIONS §1: one
+   * exercise open, §2: the strip logs exactly one set). `next` is `undefined` once every
+   * offered set is logged — the strip then shows its finished state rather than
+   * vanishing, so the ledger's reserved bottom padding stays honest.
+   */
+  const openContext = $derived.by(() => {
+    if (!openSlug) return undefined;
+    for (const block of data.session.blocks) {
+      if (block.tracking === "checkoff") continue;
+      for (const exercise of block.exercises) {
+        if (`${block.key}:${exercise.slug}` !== openSlug) continue;
+        const shownSets = shownSetsFor(block, exercise);
+        const slots = setSlotsFor(block, exercise, {
+          shownSets,
+          currentRound: currentRoundOf(block.key),
+        });
+        return { block, exercise, shownSets, next: nextUnloggedSlot(slots, loggedSets) };
+      }
+    }
+    return undefined;
+  });
+
+  /** The strip's real rendered height, so `.blocks` can reserve exactly that much
+   * scroll padding — the last block must never be trapped underneath it. */
+  let stripHeight = $state(0);
+
+  function onSetLogged(slot: SetSlot, logged: LoggedSet): void {
+    loggedSets.set(slot.key, logged);
+    const context = openContext;
+    if (!context) return;
+    const rest = restForSet(context.block, context.exercise);
+    if (rest) activeRest = restSpecFrom(rest);
   }
 </script>
 
@@ -207,7 +257,12 @@
        a quiet "starting" state beats a live-looking strip that 400s on every tap. -->
   <p class="starting">Starting your session…</p>
 {:else}
-  <div class="blocks">
+  <!-- The strip is `position: fixed`, so the scroll area has to reserve its measured
+       height or the last block sits underneath it forever. -->
+  <div
+    class="blocks"
+    style:padding-bottom={stripHeight > 0 ? `calc(${stripHeight}px + 1rem)` : undefined}
+  >
     {#each data.session.blocks as block (block.key)}
       <section class="block">
         <div class="block-head">
@@ -221,7 +276,7 @@
           <!-- UI-DECISIONS §9: pills, no set rows, excluded from progression. -->
           <div class="checkoff-pills">
             {#each block.exercises as exercise (exercise.slug)}
-              {@const key = setKey(block.key, exercise.slug, 1)}
+              {@const key = setLogKey(block.key, exercise.slug, 1)}
               <button
                 type="button"
                 class="pill"
@@ -241,11 +296,7 @@
             {#each block.exercises as exercise (exercise.slug)}
               {@const exerciseKey = `${block.key}:${exercise.slug}`}
               {@const isOpen = openSlug === exerciseKey}
-              {@const sides = exercise.perSide
-                ? (["left", "right"] as const)
-                : ([undefined] as const)}
               {@const isRounds = block.type === "rounds"}
-              {@const currentRound = (completedRounds.get(block.key) ?? 0) + 1}
               {@const visible = isRounds
                 ? { shown: 1, canAddMore: false }
                 : visibleSetCount(exercise.sets, addedSets.get(exerciseKey) ?? 0)}
@@ -262,6 +313,11 @@
                 </button>
 
                 {#if isOpen}
+                  {@const slots = setSlotsFor(block, exercise, {
+                    shownSets: visible.shown,
+                    currentRound: currentRoundOf(block.key),
+                  })}
+                  {@const nextSlot = nextUnloggedSlot(slots, loggedSets)}
                   <div class="exercise-body">
                     {#if exercise.conditional && !dismissedConditions.has(exerciseKey)}
                       {@const substitutedWith = substitutedExercises.get(exerciseKey)}
@@ -306,91 +362,43 @@
                     {#if exercise.note}<p class="cue">{exercise.note}</p>{/if}
                     {#if exercise.load?.note}<p class="cue">{exercise.load.note}</p>{/if}
 
-                    {#each isRounds ? [currentRound] : Array.from({ length: visible.shown }, (_, i) => i + 1) as setNo (setNo)}
-                      {#each sides as side (side ?? "single")}
-                        {@const key = setKey(block.key, exercise.slug, setNo, side)}
-                        {@const logged = loggedSets.get(key)}
-                        {@const fill = prefillFor(exercise.slug, exercise.perSide, side)}
-                        <form
-                          method="POST"
-                          action="?/logSet"
-                          use:enhance={() => {
-                            return async ({ result }) => {
-                              await applyAction(result);
-                              afterAction(result);
-                              if (result.type === "success") {
-                                loggedSets.set(key, {
-                                  reps: fill.reps,
-                                  weightKg: fill.weightKg,
-                                });
-                                const rest = restForSet(block, exercise);
-                                if (rest) activeRest = restSpecFrom(rest);
-                              }
-                            };
-                          }}
-                          class="set-row"
+                    <!-- The read-only set ledger. Every input that used to live here is
+                         now in the pinned strip, which logs one set at a time — so these
+                         rows are text, and text reflows at 360px where a four-track input
+                         grid could not. -->
+                    <ul class="ledger">
+                      {#each slots as slot (slot.key)}
+                        {@const logged = loggedSets.get(slot.key)}
+                        <li
+                          class="ledger-row"
+                          class:logged={!!logged}
+                          class:next={slot.key === nextSlot?.key}
                         >
-                          <input type="hidden" name="workout_id" value={workoutId ?? ""} />
-                          <input type="hidden" name="exercise_slug" value={exercise.slug} />
-                          <input type="hidden" name="set_no" value={setNo} />
-                          {#if side}<input type="hidden" name="side" value={side} />{/if}
-                          <input type="hidden" name="client_id" value={ulid()} />
-
-                          <span class="set-no tabular">{setNo}{side ? ` (${side})` : ""}</span>
-
-                          {#if exercise.type === "time"}
-                            <input
-                              type="number"
-                              name="duration_s"
-                              class="tabular"
-                              value={fill.durationS ?? ""}
-                              disabled={!!logged}
-                            />
-                          {:else}
-                            <input
-                              type="number"
-                              name="reps"
-                              class="tabular"
-                              value={fill.reps ?? ""}
-                              step="1"
-                              disabled={!!logged}
-                            />
-                            {#if !exercise.load?.isBodyweight}
-                              <div class="weight-field">
-                                <input
-                                  type="number"
-                                  name="weight_kg"
-                                  class="tabular"
-                                  value={fill.weightKg ?? ""}
-                                  step="1"
-                                  disabled={!!logged}
-                                />
-                                {#if exercise.load?.label}
-                                  <span class="load-label">{exercise.load.label}</span>
-                                {/if}
-                              </div>
-                            {/if}
-                          {/if}
-
-                          <div class="effort">
-                            {#each ["easy", "medium", "hard"] as const as level, i (level)}
-                              <button
-                                type="submit"
-                                name="difficulty"
-                                value={level}
-                                class="effort-key"
-                                disabled={!!logged}
-                                aria-label={level}
-                              >
-                                {#each [0, 1, 2] as seg (seg)}
-                                  <i class:on={seg <= i}></i>
+                          <span class="led-set tabular">{formatSlotLabel(block, slot)}</span>
+                          <span class="led-target tabular">{formatRepsOrDuration(exercise)}</span>
+                          {#if logged}
+                            <span class="led-actual tabular">{formatLoggedSet(logged)}</span>
+                            {#if logged.difficulty}
+                              {@const filled =
+                                logged.difficulty === "easy"
+                                  ? 1
+                                  : logged.difficulty === "medium"
+                                    ? 2
+                                    : 3}
+                              <span class="led-effort" aria-label="Felt {logged.difficulty}">
+                                {#each [1, 2, 3] as seg (seg)}
+                                  <i class:on={seg <= filled}></i>
                                 {/each}
-                              </button>
-                            {/each}
-                          </div>
-                        </form>
+                              </span>
+                            {/if}
+                          {:else}
+                            <span class="led-actual led-pending"
+                              >{slot.key === nextSlot?.key ? "Up next" : "Not logged"}</span
+                            >
+                          {/if}
+                        </li>
                       {/each}
-                    {/each}
+                    </ul>
 
                     {#if visible.canAddMore}
                       <button
@@ -402,14 +410,6 @@
                         Add the optional set
                       </button>
                     {/if}
-
-                    <button
-                      type="button"
-                      class="deviate"
-                      onclick={() => (deviationFor = exercise.slug)}
-                    >
-                      Change this set
-                    </button>
                   </div>
                 {/if}
               </li>
@@ -434,6 +434,24 @@
       </section>
     {/each}
   </div>
+{/if}
+
+{#if workoutId && openContext}
+  {@const ctx = openContext}
+  {@const slot = ctx.next}
+  {@const fill = prefillFor(ctx.exercise.slug, ctx.exercise.perSide, slot?.side)}
+  <LogStrip
+    bind:height={stripHeight}
+    {workoutId}
+    exercise={ctx.exercise}
+    {slot}
+    context={slot ? formatSlotContext(ctx.block, slot, ctx.shownSets) : "All sets logged"}
+    lastPerformance={formatLastPerformance(fill, ctx.exercise.type)}
+    prefill={fill}
+    onLogged={onSetLogged}
+    onResult={afterAction}
+    onDeviate={() => (deviationFor = ctx.exercise.slug)}
+  />
 {/if}
 
 {#if activeRest}
@@ -571,7 +589,9 @@
   .blocks {
     display: grid;
     gap: 1rem;
-    padding-bottom: 6rem; /* keeps the last block clear of mobile browser chrome */
+    /* Replaced at runtime by the strip's measured height (see the `style:` binding
+       above); this is only what SSR renders before the measurement lands. */
+    padding-bottom: 15rem;
   }
   .block {
     background: var(--surface);
@@ -679,54 +699,67 @@
     color: var(--muted);
     font-size: 0.85rem;
   }
-  .set-row {
-    display: grid;
-    grid-template-columns: 3rem 1fr 1fr auto;
+  /* The read-only set ledger. Flex with wrap rather than a fixed grid: at 360px the
+     actual/effort pair drops to its own line instead of forcing the row wider than the
+     card, which is the whole reason the inputs moved to the strip. */
+  .ledger {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .ledger-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
     gap: 0.5rem;
-    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--line-soft);
+    font-size: 0.9rem;
   }
-  .set-row input {
-    padding: 0.5rem;
-    border-radius: var(--r-xs);
-    border: 1px solid var(--line);
-    background: var(--raised);
-    color: var(--text);
+  .ledger-row:last-child {
+    border-bottom: none;
   }
-  .set-row input:disabled {
-    opacity: 0.6;
-  }
-  .weight-field {
-    display: grid;
-    gap: 0.15rem;
-  }
-  .load-label {
-    font-size: 0.7rem;
+  .led-set {
+    flex: none;
+    font-weight: 600;
     color: var(--muted);
   }
-  .effort {
-    display: flex;
-    gap: 0.3rem;
+  /* Three states, by luminance and the one accent hue only (UI-DECISIONS §5): a logged
+     row reads at full strength, the row the strip is about to write is accented, and a
+     set still to come stays quiet. */
+  .ledger-row.logged .led-set {
+    color: var(--text);
   }
-  .effort-key {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-    min-width: 2.75rem;
-    min-height: 2.75rem;
-    border: 1px solid var(--line);
-    background: var(--raised);
-    border-radius: var(--r-xs);
-    padding: 0.4rem 0.6rem;
+  .ledger-row.next .led-set {
+    color: var(--accent);
   }
-  .effort-key i {
-    width: 4px;
-    height: 1rem;
+  .led-target {
+    color: var(--dim);
+    font-size: 0.85rem;
+  }
+  .led-actual {
+    margin-left: auto;
+    font-weight: 600;
+  }
+  .led-pending {
+    font-weight: 400;
+    color: var(--dim);
+    font-size: 0.85rem;
+  }
+  .led-effort {
+    flex: none;
+    display: inline-flex;
+    align-self: center;
+    gap: 3px;
+  }
+  .led-effort i {
+    display: block;
+    width: 5px;
+    height: 0.75rem;
     border-radius: 2px;
     background: var(--line);
-    display: block;
   }
-  .effort-key i.on {
+  .led-effort i.on {
     background: var(--accent);
   }
   .add-set {
@@ -769,15 +802,6 @@
     color: var(--muted);
     text-align: center;
     padding: 3rem 0;
-  }
-  .deviate {
-    justify-self: start;
-    border: none;
-    background: none;
-    color: var(--muted);
-    font-size: 0.8rem;
-    text-decoration: underline;
-    padding: 0;
   }
   .end-session {
     margin-top: 0.5rem;

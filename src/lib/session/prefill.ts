@@ -52,3 +52,33 @@ export function pickPrefill(
     durationS: match.durationS ?? undefined,
   };
 }
+
+/**
+ * The log strip's last-performance line (UI-DECISIONS §2) — "Last time 11 at 12 kg".
+ * It renders the same data the steppers pre-fill from, so the number the user is about
+ * to commit and the number it came from are never in disagreement.
+ *
+ * `pickPrefill` cannot distinguish a matched row's weight from the `default_kg`
+ * fallback it substitutes when nothing matched, but it *can* be inferred: a fallback
+ * result carries a weight and nothing else, since `default_kg` is the only
+ * contract-declared default there is (UI-DECISIONS §3). That case is named honestly as
+ * a starting suggestion rather than dressed up as history.
+ */
+export function formatLastPerformance(
+  prefill: { reps?: number; weightKg?: number; durationS?: number } | undefined,
+  type: "reps" | "time",
+): string {
+  if (type === "time") {
+    return prefill?.durationS === undefined
+      ? "No history yet"
+      : `Last time ${prefill.durationS} sec`;
+  }
+  if (prefill?.reps === undefined) {
+    return prefill?.weightKg === undefined
+      ? "No history yet"
+      : `No history — starting at ${prefill.weightKg} kg`;
+  }
+  return prefill.weightKg === undefined
+    ? `Last time ${prefill.reps}`
+    : `Last time ${prefill.reps} at ${prefill.weightKg} kg`;
+}

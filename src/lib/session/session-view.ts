@@ -210,6 +210,129 @@ export function restBetweenRounds(
 }
 
 /**
+ * One loggable set of one exercise, in prescribed order: the set number (the *round*
+ * number in a `type: rounds` block, where `set_no` restarts per round), the side for a
+ * `per_side` exercise, and the client-side identity both the ledger and the log strip
+ * key off.
+ */
+export type SetSlot = {
+  setNo: number;
+  side: "left" | "right" | undefined;
+  key: string;
+};
+
+/** What was actually logged for a slot — never the pre-fill it started from. */
+export type LoggedSet = {
+  reps?: number;
+  weightKg?: number;
+  durationS?: number;
+  difficulty?: "easy" | "medium" | "hard";
+};
+
+/**
+ * The identity of one logged set within a workout. The block key and the set number
+ * (round number, in a `type: rounds` block) are both required: the same exercise slug
+ * can appear in more than one block of a session, and a rounds block reuses `set_no`
+ * per round, so omitting either collapses distinct sets onto the same key.
+ *
+ * Deliberately derivable from a stored `set_log` row alone (block key aside, which the
+ * resolved session supplies) so a resumed workout can rebuild the same keys from the
+ * server rather than only from a client-side map that starts empty.
+ */
+export function setLogKey(
+  blockKey: string,
+  exerciseSlug: string,
+  setNo: number,
+  side?: "left" | "right",
+): string {
+  return `${blockKey}:${exerciseSlug}:${setNo}:${side ?? ""}`;
+}
+
+/**
+ * Every slot the open exercise currently offers, in the order they are performed:
+ * set by set, and within a set left then right for a `per_side` exercise
+ * (UI-DECISIONS §6 — one ledger row per side, because differing between sides is the
+ * entire reason the flag exists).
+ *
+ * `shownSets` is `visibleSetCount(...).shown` — a ranged prescription draws its minimum
+ * until the user adds the optional set. A `type: rounds` block ignores it and offers
+ * exactly the current round, which is what its `set_no` means.
+ */
+export function setSlotsFor(
+  block: Pick<ResolvedBlock, "key" | "type">,
+  exercise: Pick<ResolvedExercise, "slug" | "perSide">,
+  opts: { shownSets: number; currentRound: number },
+): SetSlot[] {
+  const setNumbers =
+    block.type === "rounds"
+      ? [opts.currentRound]
+      : Array.from({ length: Math.max(0, opts.shownSets) }, (_, i) => i + 1);
+  const sides: readonly ("left" | "right" | undefined)[] = exercise.perSide
+    ? ["left", "right"]
+    : [undefined];
+
+  return setNumbers.flatMap((setNo) =>
+    sides.map((side) => ({
+      setNo,
+      side,
+      key: setLogKey(block.key, exercise.slug, setNo, side),
+    })),
+  );
+}
+
+/**
+ * The one set the log strip is about to write (UI-DECISIONS §2: the strip logs exactly
+ * one set at a time), or `undefined` when every slot on offer is already logged.
+ *
+ * `logged` is anything that can answer "is this key logged" — the runner's client-side
+ * map today, a set rebuilt from persisted `set_log` rows on resume.
+ */
+export function nextUnloggedSlot(
+  slots: readonly SetSlot[],
+  logged: { has(key: string): boolean },
+): SetSlot | undefined {
+  return slots.find((slot) => !logged.has(slot.key));
+}
+
+/**
+ * The log strip's context line (UI-DECISIONS §2) — names exactly what the next tap
+ * writes. A rounds block counts rounds, not sets, because that is what its `set_no` is.
+ */
+export function formatSlotContext(
+  block: Pick<ResolvedBlock, "type" | "rounds">,
+  slot: SetSlot,
+  totalSets: number,
+): string {
+  const core =
+    block.type === "rounds"
+      ? `Round ${slot.setNo}${block.rounds === undefined ? "" : ` of ${block.rounds}`}`
+      : `Set ${slot.setNo} of ${totalSets}`;
+  return slot.side === undefined ? core : `${core} — ${slot.side}`;
+}
+
+/**
+ * The set-number cell of a ledger row. A rounds block names the round, since its rows
+ * are rounds; everything else is a set number with the side appended for `per_side`.
+ */
+export function formatSlotLabel(block: Pick<ResolvedBlock, "type">, slot: SetSlot): string {
+  const core = block.type === "rounds" ? `Round ${slot.setNo}` : `${slot.setNo}`;
+  return slot.side === undefined ? core : `${core} ${slot.side === "left" ? "L" : "R"}`;
+}
+
+/**
+ * What a logged set actually was, for its read-only ledger row — `11 · 12 kg`,
+ * `30 sec`, or `Logged` when the row carries no figures at all (a checkoff-style write,
+ * or a set logged with the steppers cleared).
+ */
+export function formatLoggedSet(logged: LoggedSet): string {
+  const parts: string[] = [];
+  if (logged.durationS !== undefined) parts.push(`${logged.durationS} sec`);
+  if (logged.reps !== undefined) parts.push(`${logged.reps}`);
+  if (logged.weightKg !== undefined) parts.push(`${logged.weightKg} kg`);
+  return parts.length > 0 ? parts.join(" · ") : "Logged";
+}
+
+/**
  * Renders an `IntOrRange` for display: a fixed value as-is, a `[min, max]` pair as
  * `min–max` (en dash, U+2013 — not a hyphen, and never the raw `min,max` you get from
  * interpolating a tuple directly). An optional unit is appended after the number(s),
