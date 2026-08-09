@@ -23,7 +23,8 @@ Commands (Node 24 LTS — see `.nvmrc` and the `engines` field):
 - `npm run format` / `npm run format:check` — Prettier. `docs/`, `fixtures/`,
   `templates/` and `design/` are byte-sensitive and excluded from formatting; never
   remove them from `.prettierignore`
-- `npm run verify` — all four in CI's order, about three seconds. Run this before
+- `npm run check:chars` — rejects literal control characters in tracked text files
+- `npm run verify` — all of the above in CI's order, about three seconds. Run this before
   saying work is done rather than reasoning about whether it would pass. It
   short-circuits, so a lint failure means the tests never ran
 
@@ -55,21 +56,45 @@ changing schema code, rather than trusting recall. If a docs lookup is available
 
 ### Agent tooling
 
-Committed so every agent gets the same setup:
+Committed so every agent gets the same setup. It is a convenience, not the contract:
+`npm run verify` is the contract, and it is what CI runs.
 
-- `.mcp.json` — a documentation server (Context7), for exactly the version problem
-  above. Optional: set `CONTEXT7_API_KEY` for higher rate limits. Cline reads its own MCP
-  settings file rather than this one, so add it there separately.
-- `.claude/settings.json` — a `PostToolUse` hook that runs Prettier on the edited file
-  and `tsc --noEmit` across the project after every TypeScript edit, and reports type
-  errors straight back. Claude Code only.
-- `.claude/commands/verify.md` — `/verify`, a thin wrapper over `npm run verify`.
+- `.mcp.json` — a documentation server (Context7), for exactly the version problem above.
+  Claude Code picks it up automatically. Cline and others read their own MCP settings
+  file; the server is `npx -y @upstash/context7-mcp` over stdio. `CONTEXT7_API_KEY` is
+  optional and only raises rate limits.
+- `.claude/settings.json` — a `PostToolUse` hook that runs Prettier on the file just
+  edited and `tsc --noEmit` across the project, and feeds any type errors straight back.
+  Claude Code only.
+- `.claude/commands/verify.md` — `/verify`, a thin wrapper over `npm run verify`. Claude
+  Code only.
 - `.vscode/settings.json` — pins Prettier as the formatter for every language it handles,
   so format-on-save cannot reformat a byte-sensitive file behind `.prettierignore`, and
   points the editor at the repo's TypeScript rather than the bundled one.
 
-The tooling is a convenience, not the contract. `npm run verify` is the contract, and it
-is what CI runs.
+**Without hooks or slash commands, do the same thing by hand.** Run
+`npx prettier --write <file>` after editing a TypeScript file, and `npm run verify`
+before saying the work is done. That is all the hook and `/verify` automate, and an agent
+that does it manually is in exactly the same position as one that does not have to.
+
+**Where the hook changes what you see.** It rewrites the file after your edit, so a
+follow-up edit whose target region was reformatted will not match — read the file back
+first. It also typechecks the whole project on every edit, so during a multi-file
+refactor it reports errors from files you have not reached yet. That is expected, not a
+signal to stop and not a reason to revert.
+
+**`npm run lint` is type-aware**, so it needs the TypeScript project to resolve and fails
+differently from a syntax-only pass.
+
+**Never write a literal control character — write the escape.** `\u0000`, not the
+character itself. Two checks enforce this: the `gain/no-control-characters` ESLint rule
+covers TypeScript, and `npm run check:chars` covers every tracked text file, Markdown and
+JSON included. If either fires, fix the character; do not reach for an `eslint-disable`
+or narrow the glob. It is worth two checks because it is easy to do by accident and
+invisible once done — three literal NULs sat in `src/lib/export/bundle.ts` through an
+entire commit with prettier, eslint and tsc all reporting clean, git treated the file as
+binary, and no diff was shown for anyone to review. It has since happened twice more,
+once to this file, which is why the check is not limited to source.
 
 ### How to report back
 

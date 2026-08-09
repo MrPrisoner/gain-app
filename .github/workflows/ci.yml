@@ -26,6 +26,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Control characters
+        run: npm run check:chars
+
       - name: Prettier
         run: npm run format:check
 
