@@ -226,6 +226,17 @@ export type IdTokenClaims = {
   [claim: string]: unknown;
 };
 
+/**
+ * A JWKS resolver, as returned by `createRemoteJWKSet`. Hold one per issuer and
+ * reuse it: the instance owns the key cache, so a fresh one per verification
+ * turns every login and every token refresh into a JWKS fetch.
+ */
+export type JwksResolver = ReturnType<typeof createRemoteJWKSet>;
+
+export function createJwks(jwksUri: string): JwksResolver {
+  return createRemoteJWKSet(new URL(jwksUri));
+}
+
 export type VerifyIdTokenInput = {
   issuer: string;
   clientId: string;
@@ -233,8 +244,8 @@ export type VerifyIdTokenInput = {
   expectedNonce?: string | null;
   /** Injected clock. */
   now?: Date;
-  /** Verification key. Defaults to the remote JWKS at `jwksUri`. */
-  key?: KeyInput;
+  /** Verification key or JWKS resolver. Defaults to a fresh JWKS at `jwksUri`. */
+  key?: KeyInput | JwksResolver;
   jwksUri?: string;
   fetchImpl?: FetchImpl;
 };
@@ -243,11 +254,11 @@ export async function verifyIdToken(
   idToken: string,
   input: VerifyIdTokenInput,
 ): Promise<IdTokenClaims> {
-  let key: KeyInput | ReturnType<typeof createRemoteJWKSet>;
+  let key: KeyInput | JwksResolver;
   if (input.key !== undefined) {
     key = input.key;
   } else if (input.jwksUri) {
-    key = createRemoteJWKSet(new URL(input.jwksUri));
+    key = createJwks(input.jwksUri);
   } else {
     throw new OidcError("verifyIdToken needs either a key or a jwksUri", "verify_misconfigured");
   }
@@ -300,23 +311,28 @@ export function hasRequiredGroup(groups: readonly string[], requiredGroup: strin
 
 /**
  * Fallback for IdPs that do not put `groups` in the ID token: ask the userinfo
- * endpoint with the access token. Returns [] when the endpoint is unknown or
- * the request fails — the gate then denies, which is the safe direction.
+ * endpoint with the access token.
+ *
+ * Returns `null` — not `[]` — when the endpoint could not be reached or did not
+ * answer. "The IdP says you are in no groups" and "GAIN could not ask the IdP"
+ * are different facts, and callers make different decisions on them: a login
+ * denies on either, but a mid-session re-check must not evict a user over a
+ * network blip (§4).
  */
 export async function fetchUserinfoGroups(
   userinfoEndpoint: string,
   accessToken: string,
   fetchImpl: FetchImpl = fetch,
-): Promise<string[]> {
+): Promise<string[] | null> {
   try {
     const response = await fetchImpl(userinfoEndpoint, {
       headers: { authorization: `Bearer ${accessToken}`, accept: "application/json" },
     });
-    if (!response.ok) return [];
+    if (!response.ok) return null;
     const data = (await response.json()) as Record<string, unknown>;
     return extractGroups(data);
   } catch {
-    return [];
+    return null;
   }
 }
 

@@ -39,9 +39,18 @@ jobs:
       - name: Test
         run: npm test
 
+      # The production build is part of `npm run verify` for the same reason it
+      # is here: typecheck and svelte-check do not exercise the adapter, the
+      # `?raw` asset imports or the Vite config, and discovering that at tag
+      # time means discovering it too late.
+      - name: Build
+        run: npm run build
+
+  # The image is only pushed on a tag, but it is built on every change — a
+  # Dockerfile that stopped working should fail the PR that broke it, not the
+  # release that needed it.
   image:
-    name: Build and push image
-    if: startsWith(github.ref, 'refs/tags/v')
+    name: Build image${{ startsWith(github.ref, 'refs/tags/v') && ' and push' || '' }}
     needs: check
     runs-on: ubuntu-latest
     permissions:
@@ -53,6 +62,7 @@ jobs:
       - uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -64,13 +74,51 @@ jobs:
         run: |
           owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')
           echo "name=ghcr.io/$owner/gain" >> "$GITHUB_OUTPUT"
-          echo "version=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          # On a tag the version is the tag. Off a tag, GITHUB_REF is something
+          # like refs/pull/7/merge, and the slashes make it an invalid image
+          # tag — this build is never pushed, so a fixed label will do.
+          case "$GITHUB_REF" in
+            refs/tags/*) version="${GITHUB_REF#refs/tags/}" ;;
+            *)           version="ci" ;;
+          esac
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
-      - name: Build and push
+      - name: Build${{ startsWith(github.ref, 'refs/tags/v') && ' and push' || '' }}
         uses: docker/build-push-action@v6
         with:
           context: .
-          push: true
+          push: ${{ startsWith(github.ref, 'refs/tags/v') }}
+          load: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           tags: |
             ${{ steps.image.outputs.name }}:${{ steps.image.outputs.version }}
             ${{ steps.image.outputs.name }}:latest
+
+      # The image is only useful if it actually boots. A missing runtime
+      # dependency or a broken CMD is invisible to `docker build`.
+      #
+      # Non-tag builds only, because those are the ones loaded into the local
+      # daemon rather than pushed straight to the registry. A tag is cut from a
+      # commit that already went through this on its way to main.
+      - name: Smoke-test the image
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          docker run -d --name gain-smoke \
+            -e ORIGIN=http://localhost:3000 \
+            -e SESSION_SECRET=ci-smoke-test-secret \
+            -e OIDC_ISSUER=https://auth.example.com/application/o/gain/ \
+            -e OIDC_CLIENT_ID=gain \
+            -e OIDC_CLIENT_SECRET=secret \
+            -e OIDC_REQUIRED_GROUP=gain-users \
+            -p 3000:3000 '${{ steps.image.outputs.name }}:latest'
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:3000/healthz; then healthy=1; break; fi
+            sleep 1
+          done
+          echo
+          docker logs gain-smoke
+          # The container must also be running as a non-root user.
+          test "$(docker exec gain-smoke id -u)" != "0"
+          docker rm -f gain-smoke
+          test -n "$healthy"

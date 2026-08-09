@@ -5,28 +5,37 @@ else that reads this file. It is the single source of truth; `CLAUDE.md` points 
 
 ## Current state
 
-**Phases 1–2 are done.** Phase 1 is the pure round-trip core: contract schema
+**Phases 1–3 are done.** Phase 1 is the pure round-trip core: contract schema
 (`src/lib/contract/`), parser (`src/lib/parse/`), diff engine (`src/lib/diff/`), export
 generator (`src/lib/export/`) and both prompt templates (`src/lib/templates/`) — pure
 functions over plain data, no I/O. Phase 2 is the storage layer (`src/lib/db/`): the
 reconciled domain model as migration 001, per-user provisioning, the import writer and
 import review — import writes a version, and a second import produces a correct diff.
-No UI and no HTTP yet; phases 3–7 have not started, and the build-order table in
-ARCHITECTURE §12 is the map.
+Phase 3 is the web app: SvelteKit scaffolded at the repo root, OIDC auth against
+Authentik with the group gate, sessions in `control.db`, the container (`Dockerfile`,
+`compose.yaml`), and first run — empty state → bootstrap prompt out → paste a plan in →
+commit. The session runner (phase 4) is next; phases 4–7 have not started, and the
+build-order table in ARCHITECTURE §12 is the map.
 
 Commands (Node 24 LTS — see `.nvmrc` and the `engines` field):
 
 - `npm install` — dependencies
 - `npm test` — Vitest; includes the golden round-trip test, the project's spine
-- `npm run typecheck` — strict TypeScript, `tsc --noEmit`
+- `npm run typecheck` — strict TypeScript, `tsc --noEmit`; `tsc` never sees `.svelte`
+- `npm run check` — `svelte-check` covers the `.svelte` files typecheck cannot
+- `npm run dev` / `npm run build` — Vite dev server / adapter-node production build
+  (`node build` serves it; `ORIGIN` required outside dev)
 - `npm run lint` — ESLint
 - `npm run format` / `npm run format:check` — Prettier. `docs/`, `fixtures/`,
   `templates/` and `design/` are byte-sensitive and excluded from formatting; never
   remove them from `.prettierignore`
 - `npm run check:chars` — rejects literal control characters in tracked text files
-- `npm run verify` — all of the above in CI's order, about three seconds. Run this before
-  saying work is done rather than reasoning about whether it would pass. It
-  short-circuits, so a lint failure means the tests never ran
+- `npm run verify` — all of the above in CI's order, then `npm run build`. A few seconds.
+  Run this before saying work is done rather than reasoning about whether it would pass.
+  It short-circuits, so a lint failure means the tests never ran. The build is in there
+  because typecheck and `svelte-check` do not exercise the adapter, the `?raw` asset
+  imports or the Vite config — code that passes both and still cannot ship is a real
+  failure mode, not a hypothetical one
 
 **One agent at a time.** Agents do not work concurrently in this repository. If you find
 uncommitted changes you did not make, stop and ask rather than committing around them.
@@ -42,7 +51,9 @@ behaves; read it before touching anything user-facing.
 
 TypeScript + SvelteKit, single Node container, SQLite via `better-sqlite3`, Zod for
 contract validation, Vitest for tests. One image, one port, one volume. The phase-1/2
-core is plain TypeScript with no framework — SvelteKit arrives with phase 3.
+core is plain TypeScript with no framework, and since phase 3 it doubles as the
+SvelteKit app's `$lib` — the app imports the core directly, and the core's tests still
+run without the framework.
 
 Node version, package manager, lint/format and CI are settled in ARCHITECTURE §12,
 "Toolchain, settled". Implement those choices; do not make them again.
@@ -168,7 +179,9 @@ wrong number rather than failing.
 Each user gets their own `gain.db` and their own directory under `/data/users/<id>/`.
 There is no cross-user query because there is no cross-user database. There is no admin
 role and no code path by which one user reads another's data. Do not introduce a shared
-table keyed by `user_id`.
+table keyed by `user_id`. The one shared database is `control.db` — the OIDC `sub` →
+user id mapping and server-side sessions — and it stays that way: nothing personal in
+it, no names, no emails.
 
 ### Offline is a hard requirement, not a nicety
 
@@ -268,6 +281,42 @@ Phase 2 reconciled ARCHITECTURE §5 with the exercise catalogue before writing a
 the five gaps listed there are closed by `src/lib/db/schema.ts`, which is now the
 schema's specification. `source_md` lives on disk at `plans/<plan.slug>/v<N>.md`; the DB
 stores the path, never a second copy of the document.
+
+Phase 3 scaffolded SvelteKit at the repo root rather than beside it: SvelteKit's `$lib`
+alias maps onto the existing `src/lib`, so the app imports the pure core unchanged. The
+server layer (`src/lib/server/`) keeps the deterministic rule where it can — config
+loading, `control.db`, the OIDC module and the cookie signing are injectable and
+unit-tested without a live IdP, with real signed JWTs in the tests. The dev bypass
+(`GAIN_DEV_USER`) exists so the UI can be built without Authentik, and a production
+build refuses to start with it set.
+
+### What the phase-3 review changed
+
+Four of these are worth carrying forward as rules rather than as fixes.
+
+**Every form gets `use:enhance`.** Without it a form action is a full navigation, the
+component remounts, and component state is gone. The first-run paste box lost the user's
+pasted plan on every failed import that way — the error was displayed above an empty
+box, which is precisely the wall UI-DECISIONS §11 says a failed import must not be. The
+server action echoes `source` back as well, so the no-JS path also refills.
+
+**An unevaluable check is not a failed check.** The group gate is re-checked on every
+token refresh (§4), and the first implementation treated "GAIN could not establish
+membership" the same as "the IdP says no" — so an IdP that omits `id_token` from a
+refresh response, plus one blip at the userinfo endpoint, evicted a legitimate user
+mid-session. `fetchUserinfoGroups` now returns `null` for "could not tell", distinct
+from `[]`, and the mid-session re-check keeps the session on `null` while a login still
+denies. Same rule for the token endpoint: unreachable keeps the session, an explicit
+rejection ends it. Expect this distinction anywhere a remote answer gates access.
+
+**An expired session must not turn a POST into a GET.** The gate redirects navigations
+to `/login` and answers everything else with 401 (`src/lib/server/gate.ts`). A 303 replays
+a POST as a GET and discards the body — survivable for a form, fatal for the phase-5 sync
+queue, which §4 requires to keep its data across a 401.
+
+**CI builds the image on every change**, and smoke-tests that it boots, answers
+`/healthz` and runs as non-root. It is only pushed on a tag. A Dockerfile that stopped
+working should fail the PR that broke it, not the release that needed it.
 
 ## Non-goals
 

@@ -9,7 +9,7 @@
 
 import { error, redirect, type RequestHandler } from "@sveltejs/kit";
 import { forbiddenMessage, setSessionCookie } from "$lib/server/auth";
-import { getControlDb, getOidcEndpoints, getUserDbFor } from "$lib/server/app-state";
+import { getControlDb, getJwksFor, getOidcEndpoints, getUserDbFor } from "$lib/server/app-state";
 import { getConfig } from "$lib/server/config";
 import {
   createSession,
@@ -18,6 +18,7 @@ import {
   takeOidcState,
   touchUserLogin,
 } from "$lib/server/control-db";
+import { safeReturnTo } from "$lib/server/gate";
 import {
   exchangeCode,
   extractGroups,
@@ -72,7 +73,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
       issuer: endpoints.issuer,
       clientId: oidc.clientId,
       expectedNonce: stored.nonce,
-      jwksUri: endpoints.jwks_uri,
+      key: getJwksFor(endpoints.jwks_uri),
     });
   } catch {
     throw redirect(303, "/login?error=bad_id_token");
@@ -80,9 +81,13 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 
   // The group gate (§4). The ID token carries `groups` when the Authentik
   // provider maps the scope; userinfo is the fallback when it does not.
+  //
+  // Unlike the mid-session re-check, a login denies when membership cannot be
+  // established at all: there is no established session to protect here, and
+  // admitting an unverified user is the wrong direction to fail in.
   let groups = extractGroups(claims);
   if (groups.length === 0 && endpoints.userinfo_endpoint) {
-    groups = await fetchUserinfoGroups(endpoints.userinfo_endpoint, tokens.access_token);
+    groups = (await fetchUserinfoGroups(endpoints.userinfo_endpoint, tokens.access_token)) ?? [];
   }
   if (!hasRequiredGroup(groups, oidc.requiredGroup)) {
     throw error(403, forbiddenMessage(oidc.requiredGroup));
@@ -114,5 +119,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
   });
 
   setSessionCookie(cookies, config, session.id);
-  throw redirect(303, stored.return_to || "/");
+  // Re-validated on the way out as well as on the way in: the redirect target
+  // is the one value here that came from a URL the user was handed.
+  throw redirect(303, safeReturnTo(stored.return_to));
 };

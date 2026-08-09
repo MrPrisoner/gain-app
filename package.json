@@ -20,7 +20,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "check:chars": "if git ls-files -z '*.ts' '*.js' '*.md' '*.json' '*.yml' '*.yaml' '*.css' '*.html' '*.svelte' | xargs -0 grep -laP '[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F]'; then echo 'Literal control characters in the files above. Write them as escapes (\\u0000) — a raw one makes git treat the file as binary, and a file with no reviewable diff is a file nobody reviews.' >&2; exit 1; fi",
-    "verify": "npm run typecheck && npm run check && npm run lint && npm run check:chars && npm run format:check && npm test",
+    "verify": "npm run typecheck && npm run check && npm run lint && npm run check:chars && npm run format:check && npm test && npm run build",
     "prepare": "svelte-kit sync"
   },
   "license": "AGPL-3.0-or-later",

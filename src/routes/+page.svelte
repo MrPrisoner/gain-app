@@ -1,13 +1,23 @@
 <script lang="ts">
+  import { untrack } from "svelte";
+  import { enhance } from "$app/forms";
   import { copyText, downloadText } from "$lib/copy";
   import type { ActionData, PageData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
-  // Local state, not a prop: the component instance survives same-page form
-  // actions, so bind:value keeps the pasted text in place across a failed
-  // import (UI-DECISIONS §11) without re-seeding from `form`.
-  let pasted = $state("");
+  // Every form here is enhanced, which is what makes the local state work: the
+  // component instance survives the action, so `bind:value` keeps the pasted
+  // text in place across a failed import (UI-DECISIONS §11). Without
+  // `use:enhance` the POST is a full navigation, the component remounts, and
+  // the user is staring at an empty box holding the error for a document they
+  // now have to paste again.
+  //
+  // The seed is the no-JS path, and is read once on purpose: there, the action
+  // does re-render the page, and the server's echo of `source` is what puts
+  // the document back in the box. Once mounted, `pasted` is the live value and
+  // must never be clobbered by a later `form` update.
+  let pasted = $state(untrack(() => form?.source ?? ""));
   let copied = $state<"prompt" | "report" | null>(null);
   let copyTimer: ReturnType<typeof setTimeout> | undefined = $state(undefined);
 
@@ -60,7 +70,7 @@
       Four optional questions, all skippable — anything you leave out is something the AI will ask
       about. Nothing you write here is stored.
     </p>
-    <form method="POST" action="?/generatePrompt" class="questions">
+    <form method="POST" action="?/generatePrompt" class="questions" use:enhance>
       <label>
         Equipment you have
         <input type="text" name="equipment" placeholder="e.g. two adjustable dumbbells to 24 kg" />
@@ -111,7 +121,7 @@
     <p class="muted">
       The whole document — prose and contract block. GAIN checks it before writing anything.
     </p>
-    <form method="POST" action="?/import">
+    <form method="POST" action="?/import" use:enhance>
       <textarea
         class="doc"
         name="source_md"
@@ -147,7 +157,7 @@
       Paste a new plan or a revised version. GAIN checks it and shows what would change before
       writing anything.
     </p>
-    <form method="POST" action="?/import">
+    <form method="POST" action="?/import" use:enhance>
       <textarea
         class="doc"
         name="source_md"
@@ -162,19 +172,35 @@
 {/if}
 
 {#if form?.importFailure}
-  <section class="card report-card">
-    <h2>Nothing was imported</h2>
-    <p class="muted">
-      This report is written for your AI, not for you — copy it back into the chat and the AI will
-      fix the plan and hand you a new document.
-    </p>
-    <pre class="report">{form.importFailure.report}</pre>
-    <div class="actions">
-      <button type="button" class="primary" onclick={copyReport}>
-        {copied === "report" ? "Copied" : "Copy report for the AI"}
-      </button>
-    </div>
-  </section>
+  {#if form.importFailure.kind === "export_bundle"}
+    <!--
+      A pasted bundle is a wrong-document error, not a parse failure
+      (UI-DECISIONS §11). The fix belongs to the user, not to the AI, so this
+      case gets no field paths and no copy-for-the-AI action — sending a
+      bundle back to the chat would only confuse it.
+    -->
+    <section class="card report-card">
+      <h2>That is a GAIN export, not a plan</h2>
+      <p>
+        Export bundles are what GAIN hands <em>to</em> an AI. Paste what your AI gave you back: the
+        prose plus one <code>gain-plan</code> block.
+      </p>
+    </section>
+  {:else}
+    <section class="card report-card">
+      <h2>Nothing was imported</h2>
+      <p class="muted">
+        This report is written for your AI, not for you — copy it back into the chat and the AI will
+        fix the plan and hand you a new document.
+      </p>
+      <pre class="report">{form.importFailure.report}</pre>
+      <div class="actions">
+        <button type="button" class="primary" onclick={copyReport}>
+          {copied === "report" ? "Copied" : "Copy report for the AI"}
+        </button>
+      </div>
+    </section>
+  {/if}
 {/if}
 
 {#if form?.importError}
@@ -201,7 +227,7 @@
         writes the new version and keeps the old one.
       </p>
     {/if}
-    <form method="POST" action="?/confirmImport">
+    <form method="POST" action="?/confirmImport" use:enhance>
       <input type="hidden" name="source_md" value={form.source ?? ""} />
       <div class="actions">
         <button type="submit" class="primary">Commit import</button>

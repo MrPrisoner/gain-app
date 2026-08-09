@@ -368,10 +368,23 @@ describe("the group gate", () => {
     expect(groups).toEqual(["gain-users"]);
   });
 
-  it("fails closed when userinfo is unreachable", async () => {
+  // `null`, not `[]`: "the IdP says no groups" and "GAIN could not ask" are
+  // different facts. A login denies on either; a mid-session re-check must not
+  // evict a legitimate user over a network blip (see auth.test.ts).
+  it("reports 'could not tell' when userinfo is unreachable", async () => {
     const fetchImpl = mockFetch(() => {
       throw new Error("boom");
     });
+    expect(await fetchUserinfoGroups(`${ISSUER}userinfo/`, "at", fetchImpl)).toBeNull();
+  });
+
+  it("reports 'could not tell' when userinfo refuses the token", async () => {
+    const fetchImpl = mockFetch(() => jsonResponse({ error: "invalid_token" }, 401));
+    expect(await fetchUserinfoGroups(`${ISSUER}userinfo/`, "at", fetchImpl)).toBeNull();
+  });
+
+  it("reports an empty list when the IdP answers with no groups", async () => {
+    const fetchImpl = mockFetch(() => jsonResponse({ sub: "abc" }));
     expect(await fetchUserinfoGroups(`${ISSUER}userinfo/`, "at", fetchImpl)).toEqual([]);
   });
 });

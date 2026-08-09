@@ -11,7 +11,7 @@ import { openUserDb, type UserDb } from "../db/user-db";
 import { defaultInstructionsTemplate } from "./assets";
 import { getConfig } from "./config";
 import { openControlDb, type ControlDb } from "./control-db";
-import { discoverEndpoints, type OidcEndpoints } from "./oidc";
+import { createJwks, discoverEndpoints, type JwksResolver, type OidcEndpoints } from "./oidc";
 
 let controlDb: ControlDb | null = null;
 
@@ -78,6 +78,22 @@ export function getOidcEndpoints(): Promise<OidcEndpoints> {
   return endpointsInFlight;
 }
 
+const jwksByUri = new Map<string, JwksResolver>();
+
+/**
+ * The JWKS resolver for this issuer, created once. The resolver owns the key
+ * cache, so a fresh one per verification would turn every login and every
+ * token refresh into a JWKS fetch.
+ */
+export function getJwksFor(jwksUri: string): JwksResolver {
+  let jwks = jwksByUri.get(jwksUri);
+  if (!jwks) {
+    jwks = createJwks(jwksUri);
+    jwksByUri.set(jwksUri, jwks);
+  }
+  return jwks;
+}
+
 /** Test hook — close handles and drop every cache. */
 export function resetAppStateForTests(): void {
   for (const userDb of userDbs.values()) userDb.close();
@@ -86,4 +102,5 @@ export function resetAppStateForTests(): void {
   controlDb = null;
   endpointsCache = null;
   endpointsInFlight = null;
+  jwksByUri.clear();
 }

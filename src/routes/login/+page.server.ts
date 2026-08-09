@@ -3,6 +3,7 @@ import type { PageServerLoad } from "./$types";
 import { getControlDb, getOidcEndpoints } from "$lib/server/app-state";
 import { getConfig } from "$lib/server/config";
 import { purgeOidcState, putOidcState } from "$lib/server/control-db";
+import { safeReturnTo } from "$lib/server/gate";
 import { buildAuthorizationUrl, generatePkce, randomToken } from "$lib/server/oidc";
 
 /** Scopes per ARCHITECTURE §4. */
@@ -44,7 +45,9 @@ export const load: PageServerLoad = async ({ url }) => {
     state,
     codeVerifier: pkce.verifier,
     nonce,
-    returnTo: "/",
+    // Where the gate turned this request away from, so a deep link survives
+    // the sign-in round trip. Validated — only a same-origin path is stored.
+    returnTo: safeReturnTo(url.searchParams.get("return_to")),
     now,
   });
 

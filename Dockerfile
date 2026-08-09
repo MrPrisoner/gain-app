@@ -41,16 +41,31 @@ ENV NODE_ENV=production \
 
 # Production dependencies (better-sqlite3 loads its bundled prebuild at
 # runtime), the package manifest, and the built server.
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/package.json ./package.json
-COPY --from=build /app/build ./build
+COPY --from=build --chown=node:node /app/node_modules ./node_modules
+COPY --from=build --chown=node:node /app/package.json ./package.json
+COPY --from=build --chown=node:node /app/build ./build
 
 # Everything mutable lives under /data: control.db, users/<id>/gain.db, the
 # verbatim plan documents and generated exports. A single volume snapshot is a
 # complete backup (§3).
+#
+# Created and chowned before the VOLUME declaration on purpose: Docker seeds a
+# named volume from the image's directory, ownership included, so `node` owns
+# its data from the first boot. A *bind* mount keeps the host's ownership
+# instead — chown the host directory to uid 1000, or the container cannot
+# write its database.
+RUN mkdir -p /data && chown node:node /data
 VOLUME ["/data"]
 
+# Nothing here needs root: the app writes only under /data and listens on an
+# unprivileged port. The node images ship this user at uid 1000.
+USER node
+
 EXPOSE 3000
+
+# The same check compose runs, so a bare `docker run` is also observable (§3).
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD node -e "fetch('http://localhost:3000/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 # adapter-node serves the app. ORIGIN, OIDC_*, SESSION_SECRET and TZ arrive
 # from the compose environment.

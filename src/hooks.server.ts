@@ -16,6 +16,7 @@ import { checkSession, ensureBypassUser, setSessionCookie } from "$lib/server/au
 import { getControlDb } from "$lib/server/app-state";
 import { getConfig } from "$lib/server/config";
 import { purgeExpiredSessions } from "$lib/server/control-db";
+import { isNavigationRequest, isPublicPath, loginUrlFor } from "$lib/server/gate";
 
 let started = false;
 
@@ -44,8 +45,8 @@ export const handle: Handle = async ({ event, resolve }) => {
   startup();
   event.locals.user = null;
 
-  const { pathname } = event.url;
-  if (pathname === "/healthz" || pathname === "/login" || pathname.startsWith("/auth/")) {
+  const { pathname, search } = event.url;
+  if (isPublicPath(pathname)) {
     return resolve(event);
   }
 
@@ -59,7 +60,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 
   const check = await checkSession(event.cookies, config, config.auth.oidc, now);
   if (check.status === "anonymous") {
-    throw redirect(303, "/login");
+    // A navigation goes to the login page and comes back to where it was
+    // headed; anything else gets a 401 it can act on, because a 303 would
+    // replay a POST as a GET and discard the body (§4).
+    if (!isNavigationRequest(event.request)) {
+      throw error(401, "Your session has expired. Sign in again to continue.");
+    }
+    throw redirect(303, loginUrlFor(pathname, search));
   }
   if (check.status === "forbidden") {
     throw error(403, check.message);

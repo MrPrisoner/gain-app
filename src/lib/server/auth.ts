@@ -16,13 +16,16 @@ import {
   getSession,
   storeRefreshedTokens,
 } from "./control-db";
-import { getControlDb, getOidcEndpoints, getUserDbFor } from "./app-state";
+import { getControlDb, getJwksFor, getOidcEndpoints, getUserDbFor } from "./app-state";
 import {
+  OidcError,
   extractGroups,
   fetchUserinfoGroups,
   hasRequiredGroup,
   refreshTokens,
   verifyIdToken,
+  type FetchImpl,
+  type JwksResolver,
   type OidcEndpoints,
   type TokenResponse,
 } from "./oidc";
@@ -30,6 +33,28 @@ import { SESSION_COOKIE, signSessionId, verifySessionCookie } from "./session-co
 
 /** Refresh a token this long before it actually expires. */
 const REFRESH_MARGIN_MS = 60_000;
+
+/**
+ * The I/O `checkSession` needs. Defaults come from the process-wide singletons;
+ * tests pass their own so the whole flow — refresh, ID-token verification, the
+ * group re-check — runs against real signed JWTs and no live IdP.
+ */
+export type AuthDeps = {
+  control: ControlDb;
+  getEndpoints: () => Promise<OidcEndpoints>;
+  /** ID-token verification key. Defaults to the cached JWKS for the issuer. */
+  getKey: (endpoints: OidcEndpoints) => Promise<JwksResolver> | JwksResolver;
+  fetchImpl: FetchImpl;
+};
+
+function defaultDeps(): AuthDeps {
+  return {
+    control: getControlDb(),
+    getEndpoints: getOidcEndpoints,
+    getKey: (endpoints) => getJwksFor(endpoints.jwks_uri),
+    fetchImpl: fetch,
+  };
+}
 
 export function forbiddenMessage(requiredGroup: string): string {
   return (
@@ -81,14 +106,15 @@ export async function checkSession(
   config: GainConfig,
   oidc: OidcConfig,
   now: Date,
+  deps: AuthDeps = defaultDeps(),
 ): Promise<SessionCheck> {
-  const control = getControlDb();
+  const control = deps.control;
   const cookieValue = cookies.get(SESSION_COOKIE);
   const sessionId = cookieValue ? verifySessionCookie(config.sessionSecret, cookieValue) : null;
   const session = sessionId ? getSession(control, sessionId, now) : undefined;
   if (!session) return { status: "anonymous" };
 
-  const refresh = await refreshIfDue(control, session, oidc, now);
+  const refresh = await refreshIfDue(session, oidc, now, deps);
   if (refresh === "failed") return { status: "anonymous" };
   if (refresh === "forbidden") {
     return { status: "forbidden", message: forbiddenMessage(oidc.requiredGroup) };
@@ -109,16 +135,30 @@ export async function checkSession(
 type RefreshOutcome = "ok" | "failed" | "forbidden";
 
 /**
+ * Group membership as of the refresh, or `null` when GAIN could not establish
+ * it at all — see `resolveGroups`.
+ */
+type GroupsOrUnknown = string[] | null;
+
+/**
  * The group gate is re-checked on every token refresh, not just first login
  * (§4). A refresh that fails logs the user out; a refresh that shows the
  * required group is gone ends in a 403.
+ *
+ * The third case is the one worth being careful about: GAIN asked and got no
+ * usable answer. An IdP that omits `id_token` from a refresh response (the
+ * spec allows it) combined with a userinfo endpoint that blips would otherwise
+ * read exactly like "removed from the group", and evict a legitimate user
+ * mid-session. An unevaluable gate keeps the session and is re-checked on the
+ * next refresh; only a definite "not a member" revokes.
  */
 async function refreshIfDue(
-  control: ControlDb,
   session: SessionRow,
   oidc: OidcConfig,
   now: Date,
+  deps: AuthDeps,
 ): Promise<RefreshOutcome> {
+  const control = deps.control;
   const accessExpiry = session.access_expires_at ? Date.parse(session.access_expires_at) : null;
   if (accessExpiry === null || now.getTime() < accessExpiry - REFRESH_MARGIN_MS) return "ok";
   if (!session.refresh_token) {
@@ -129,42 +169,35 @@ async function refreshIfDue(
 
   let endpoints: OidcEndpoints;
   try {
-    endpoints = await getOidcEndpoints();
+    endpoints = await deps.getEndpoints();
   } catch {
-    return "failed";
+    // The IdP is unreachable. That is an outage, not a revocation — the
+    // session stays valid and the refresh is retried on the next request.
+    return "ok";
   }
 
   let tokens: TokenResponse;
   try {
-    tokens = await refreshTokens(endpoints, {
-      clientId: oidc.clientId,
-      clientSecret: oidc.clientSecret,
-      refreshToken: session.refresh_token,
-    });
-  } catch {
+    tokens = await refreshTokens(
+      endpoints,
+      {
+        clientId: oidc.clientId,
+        clientSecret: oidc.clientSecret,
+        refreshToken: session.refresh_token,
+      },
+      deps.fetchImpl,
+    );
+  } catch (err) {
+    // Same distinction as the gate itself: a token endpoint that could not be
+    // reached says nothing about this user, but one that answered "no" has
+    // revoked the grant and the session goes with it.
+    if (err instanceof OidcError && err.cause_ === "token_unreachable") return "ok";
     deleteSession(control, session.id);
     return "failed";
   }
 
-  let groups: string[] = [];
-  if (tokens.id_token) {
-    try {
-      const claims = await verifyIdToken(tokens.id_token, {
-        issuer: endpoints.issuer,
-        clientId: oidc.clientId,
-        jwksUri: endpoints.jwks_uri,
-        now,
-      });
-      groups = extractGroups(claims);
-    } catch {
-      groups = [];
-    }
-  }
-  if (groups.length === 0 && endpoints.userinfo_endpoint) {
-    groups = await fetchUserinfoGroups(endpoints.userinfo_endpoint, tokens.access_token);
-  }
-
-  if (!hasRequiredGroup(groups, oidc.requiredGroup)) {
+  const groups = await resolveGroups(tokens, endpoints, oidc, now, deps);
+  if (groups !== null && !hasRequiredGroup(groups, oidc.requiredGroup)) {
     deleteSession(control, session.id);
     return "forbidden";
   }
@@ -179,6 +212,46 @@ async function refreshIfDue(
     id_token: tokens.id_token ?? session.id_token,
   });
   return "ok";
+}
+
+/**
+ * Membership as of this refresh: the `groups` claim of a freshly verified ID
+ * token, else the userinfo endpoint, else `null` for "could not tell".
+ *
+ * An ID token that verifies is authoritative even when it lists no groups —
+ * that is the IdP saying "none". `null` is reserved for the cases where no
+ * source answered: no ID token in the refresh response and no reachable
+ * userinfo endpoint.
+ */
+async function resolveGroups(
+  tokens: TokenResponse,
+  endpoints: OidcEndpoints,
+  oidc: OidcConfig,
+  now: Date,
+  deps: AuthDeps,
+): Promise<GroupsOrUnknown> {
+  if (tokens.id_token) {
+    try {
+      const claims = await verifyIdToken(tokens.id_token, {
+        issuer: endpoints.issuer,
+        clientId: oidc.clientId,
+        key: await deps.getKey(endpoints),
+        now,
+      });
+      const claimed = extractGroups(claims);
+      // A verified token with no `groups` claim at all is not an answer: the
+      // provider simply does not map the scope. Fall through to userinfo.
+      if (claimed.length > 0 || "groups" in claims) return claimed;
+    } catch {
+      // Fall through — an unverifiable refresh token response is not evidence
+      // of lost membership.
+    }
+  }
+
+  if (endpoints.userinfo_endpoint) {
+    return fetchUserinfoGroups(endpoints.userinfo_endpoint, tokens.access_token, deps.fetchImpl);
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------
