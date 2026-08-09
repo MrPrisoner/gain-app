@@ -13,3 +13,6 @@ coverage/
 dist/
 build/
 .svelte-kit/
+
+# Superpowers SDD workspace — planning artifacts, git-ignored, not shipped code.
+.superpowers/

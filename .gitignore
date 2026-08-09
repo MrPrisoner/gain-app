@@ -26,3 +26,6 @@ data/
 # Personal agent overrides. .claude/settings.json IS committed — it carries the shared
 # hook — but local overrides and MCP auth are per-developer.
 .claude/settings.local.json
+
+# Superpowers subagent-driven-development scratch workspace (ledgers, briefs, reports).
+.superpowers/
