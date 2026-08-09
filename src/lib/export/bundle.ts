@@ -83,11 +83,14 @@ export function filterLogsToWindow(logs: Logs, window: ExportWindow): Logs {
 // ---------------------------------------------------------------------------
 
 /**
- * Composite map-key separator. Written as an escape, never as a literal NUL: a raw
- * U+0000 in the source makes git treat the whole file as binary, and a file with no
- * reviewable diff is a file nobody reviews.
+ * Composite map-key separator, matching `scopedKey` in ./summary.ts.
+ *
+ * A colon is safe for every key built with it: the halves are a ULID (Crockford
+ * base32, letters and digits only) and a catalogue slug (`SLUG_REGEX` — lowercase
+ * alphanumerics and single hyphens). Neither can contain one, so `a` + `b:c` cannot
+ * collide with `a:b` + `c`, and reading the wrong workout's metrics is not reachable.
  */
-const SEP = "\u0000";
+const SEP = ":";
 
 function metricValueText(v: MetricValue | undefined): string {
   if (!v) return "";
