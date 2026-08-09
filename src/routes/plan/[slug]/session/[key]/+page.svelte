@@ -3,7 +3,13 @@
   import { ulid } from "ulidx";
   import { applyAction, enhance } from "$app/forms";
   import type { ActionData, PageData } from "./$types";
-  import { restForSet, restBetweenRounds, visibleSetCount } from "$lib/session/session-view";
+  import {
+    formatRange,
+    formatTarget,
+    restForSet,
+    restBetweenRounds,
+    visibleSetCount,
+  } from "$lib/session/session-view";
   import RestTimer from "./RestTimer.svelte";
   import DeviationSheet from "./DeviationSheet.svelte";
   import { restSpecFrom, type RestSpec } from "$lib/session/rest-timer";
@@ -188,7 +194,9 @@
             >
               {exercise.name}
               <span class="pill-target tabular"
-                >{exercise.type === "time" ? `${exercise.durationSec}s` : exercise.reps}</span
+                >{exercise.type === "time"
+                  ? formatRange(exercise.durationSec ?? 0, "sec")
+                  : formatRange(exercise.reps ?? 0)}</span
               >
             </button>
           {/each}
@@ -210,8 +218,7 @@
               <button type="button" class="exercise-head" onclick={() => (openSlug = exerciseKey)}>
                 <span class="exercise-name">{exercise.name}</span>
                 <span class="exercise-meta tabular">
-                  {exercise.type === "time" ? `${exercise.durationSec}s` : exercise.reps}
-                  {#if exercise.perSide}· per side{/if}
+                  {formatTarget(exercise)}
                 </span>
               </button>
 

@@ -177,3 +177,38 @@ export function restBetweenRounds(
   if (block.rounds !== undefined && completedRound >= block.rounds) return undefined;
   return block.restSec;
 }
+
+/**
+ * Renders an `IntOrRange` for display: a fixed value as-is, a `[min, max]` pair as
+ * `min–max` (en dash, U+2013 — not a hyphen, and never the raw `min,max` you get from
+ * interpolating a tuple directly). An optional unit is appended after the number(s),
+ * e.g. `formatRange([20, 40], "sec")` → `"20–40 sec"`.
+ */
+export function formatRange(value: IntOrRange, unit?: string): string {
+  const core = typeof value === "number" ? `${value}` : `${value[0]}–${value[1]}`;
+  return unit ? `${core} ${unit}` : core;
+}
+
+/**
+ * The full prescription target line shown wherever an exercise's set/rep (or
+ * set/duration) target is displayed — `3 × 8–12`, `2 × 20–40 sec per side`,
+ * `2–3 × 10–15`. CONTRACT (schema.ts): a type `reps` exercise always has `reps` set
+ * and a type `time` exercise always has `durationSec` set — the contract validator
+ * rejects any document where that's not true — so it's an error to reach here without
+ * the relevant field.
+ */
+export function formatTarget(
+  exercise: Pick<ResolvedExercise, "type" | "sets" | "reps" | "durationSec" | "perSide">,
+): string {
+  const targetValue = exercise.type === "time" ? exercise.durationSec : exercise.reps;
+  if (targetValue === undefined) {
+    throw new Error(
+      `formatTarget: a type \`${exercise.type}\` exercise must have its ` +
+        `${exercise.type === "time" ? "duration_sec" : "reps"} set — the contract ` +
+        `validator should already have rejected this document`,
+    );
+  }
+  const target = formatRange(targetValue, exercise.type === "time" ? "sec" : undefined);
+  const line = `${formatRange(exercise.sets)} × ${target}`;
+  return exercise.perSide ? `${line} per side` : line;
+}

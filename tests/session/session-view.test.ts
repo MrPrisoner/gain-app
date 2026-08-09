@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 import { parsePlanDocument } from "../../src/lib/parse/parser";
 import {
   exerciseMetrics,
+  formatRange,
+  formatTarget,
   resolveLoad,
   resolveSession,
   restBetweenRounds,
@@ -148,5 +150,55 @@ describe("restForSet / restBetweenRounds", () => {
     const main = session?.blocks.find((b) => b.key === "main");
     const squat = main?.exercises.find((e) => e.slug === "goblet-squat");
     expect(main && squat && restForSet(main, squat)).toEqual([75, 90]);
+  });
+});
+
+describe("formatRange", () => {
+  it("renders a fixed value as-is", () => {
+    expect(formatRange(8)).toBe("8");
+  });
+
+  it("renders a range with an en dash, not a hyphen", () => {
+    expect(formatRange([8, 12])).toBe("8–12");
+    expect(formatRange([8, 12])).toContain("–");
+  });
+
+  it("appends a unit after a range", () => {
+    expect(formatRange([20, 40], "sec")).toBe("20–40 sec");
+  });
+});
+
+describe("formatTarget", () => {
+  it("formats a fixed-set, ranged-reps exercise as `sets × reps`", () => {
+    const session = resolveSession(fixtureContract(), "A");
+    const main = session?.blocks.find((b) => b.key === "main");
+    const squat = main?.exercises.find((e) => e.slug === "goblet-squat");
+    expect(squat && formatTarget(squat)).toBe("3 × 8–12");
+  });
+
+  it("formats a per-side, ranged-duration exercise with the per-side suffix", () => {
+    const session = resolveSession(fixtureContract(), "A");
+    const core = session?.blocks.find((b) => b.key === "core");
+    const sidePlank = core?.exercises.find((e) => e.slug === "side-plank");
+    expect(sidePlank?.perSide).toBe(true);
+    expect(sidePlank && formatTarget(sidePlank)).toBe("2 × 20–40 sec per side");
+  });
+
+  it("formats a ranged-set exercise as `min–max × reps`", () => {
+    const session = resolveSession(fixtureContract(), "B");
+    const main = session?.blocks.find((b) => b.key === "main");
+    const lateralRaise = main?.exercises.find((e) => e.slug === "lateral-raise");
+    expect(lateralRaise?.sets).toEqual([2, 3]);
+    expect(lateralRaise && formatTarget(lateralRaise)).toBe("2–3 × 10–15");
+  });
+
+  it("formats a fixed single (no ranges anywhere) plainly", () => {
+    const session = resolveSession(fixtureContract(), "A");
+    const warmup = session?.blocks.find((b) => b.key === "warmup");
+    const squat = warmup?.exercises.find((e) => e.slug === "bodyweight-squat");
+    expect(squat?.sets).toBe(1);
+    expect(squat?.reps).toBe(8);
+    expect(squat?.perSide).toBe(false);
+    expect(squat && formatTarget(squat)).toBe("1 × 8");
   });
 });
