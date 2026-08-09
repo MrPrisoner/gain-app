@@ -1,0 +1,43 @@
+# GAIN — Portainer stack (ARCHITECTURE §3).
+# One image, one container, one port, one volume. The reverse proxy terminates
+# TLS and forwards to the container's fixed internal port 3000; GAIN_PORT is
+# the host-side knob.
+#
+# Copy .env.example to .env beside this file and fill in the values.
+
+services:
+  gain:
+    image: ghcr.io/mrprisoner/gain:latest
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${GAIN_PORT:-8420}:3000" # reverse proxy terminates TLS and forwards here
+    volumes:
+      - gain-data:/data
+    environment:
+      ORIGIN: ${ORIGIN} # public HTTPS URL — required by SvelteKit for CSRF + OIDC redirect
+      OIDC_ISSUER: ${OIDC_ISSUER} # e.g. https://auth.example.com/application/o/gain/
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET}
+      OIDC_REQUIRED_GROUP: ${OIDC_REQUIRED_GROUP:-gain-users}
+      SESSION_SECRET: ${SESSION_SECRET}
+      DATA_DIR: /data
+      TZ: ${TZ:-Africa/Johannesburg}
+      # Behind a reverse proxy: trust X-Forwarded-* for the client address.
+      ADDRESS_HEADER: X-Forwarded-For
+      XFF_DEPTH: ${XFF_DEPTH:-1}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3000/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  gain-data:

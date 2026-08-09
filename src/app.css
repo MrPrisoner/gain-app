@@ -1,0 +1,160 @@
+/*
+ * Design tokens (UI-DECISIONS §10). One family — Plus Jakarta Sans, self-hosted —
+ * tabular numerals wherever figures are compared, no monospace anywhere. Colour is
+ * reserved for meaning: green/amber/red belong to the plan's symptom framework, one
+ * accent hue carries interactivity, everything else is neutral.
+ *
+ * Dark is the default; light follows prefers-color-scheme, and an explicit
+ * data-theme attribute on <html> overrides both.
+ */
+
+@font-face {
+  font-family: "Jakarta";
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: block;
+  src: url("/fonts/plus-jakarta-sans-latin.woff2") format("woff2");
+}
+
+:root {
+  --ground: #0b0d10;
+  --surface: #14171c;
+  --raised: #1b1f26;
+  --hover: #232831;
+  --line: #272d36;
+  --line-soft: #1e232b;
+  --text: #f2f5f8;
+  --muted: #99a3b0;
+  --dim: #6b7480;
+  --accent: #5b8def;
+  --accent-in: #0b0d10;
+  --accent-soft: rgba(91, 141, 239, 0.15);
+  --green: #3fa96a;
+  --amber: #d9a23f;
+  --amber-soft: rgba(217, 162, 63, 0.12);
+  --red: #e0655b;
+
+  --font: "Jakarta", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --r-xs: 8px;
+  --r-sm: 12px;
+  --r-md: 16px;
+  --r-lg: 22px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --ground: #f4f6f8;
+    --surface: #ffffff;
+    --raised: #f8fafb;
+    --hover: #eff2f5;
+    --line: #e3e7ec;
+    --line-soft: #edf0f4;
+    --text: #0f1319;
+    --muted: #5c6672;
+    --dim: #8b95a1;
+    --accent: #2c6be0;
+    --accent-in: #ffffff;
+    --accent-soft: rgba(44, 107, 224, 0.1);
+    --green: #2e8b52;
+    --amber: #9c7218;
+    --amber-soft: rgba(156, 114, 24, 0.1);
+    --red: #c94a40;
+  }
+}
+
+:root[data-theme="light"] {
+  --ground: #f4f6f8;
+  --surface: #ffffff;
+  --raised: #f8fafb;
+  --hover: #eff2f5;
+  --line: #e3e7ec;
+  --line-soft: #edf0f4;
+  --text: #0f1319;
+  --muted: #5c6672;
+  --dim: #8b95a1;
+  --accent: #2c6be0;
+  --accent-in: #ffffff;
+  --accent-soft: rgba(44, 107, 224, 0.1);
+  --green: #2e8b52;
+  --amber: #9c7218;
+  --amber-soft: rgba(156, 114, 24, 0.1);
+  --red: #c94a40;
+}
+
+:root[data-theme="dark"] {
+  --ground: #0b0d10;
+  --surface: #14171c;
+  --raised: #1b1f26;
+  --hover: #232831;
+  --line: #272d36;
+  --line-soft: #1e232b;
+  --text: #f2f5f8;
+  --muted: #99a3b0;
+  --dim: #6b7480;
+  --accent: #5b8def;
+  --accent-in: #0b0d10;
+  --accent-soft: rgba(91, 141, 239, 0.15);
+  --green: #3fa96a;
+  --amber: #d9a23f;
+  --amber-soft: rgba(217, 162, 63, 0.12);
+  --red: #e0655b;
+}
+
+/* ---------------------------------------------------------------------------
+ * Base elements
+ * ------------------------------------------------------------------------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark light;
+}
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Every figure that can be compared vertically (UI-DECISIONS §10). */
+input,
+button,
+textarea,
+select,
+table,
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+textarea {
+  font: inherit;
+}

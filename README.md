@@ -4,9 +4,12 @@ Self-hosted training tracker for AI-authored exercise plans. Import a plan as
 Markdown, run and log sessions from an offline-capable PWA, then export your full
 plan and progress for an AI to review and revise.
 
-> **Status: design stage.** This repository currently contains the architecture, the
-> plan specification, the settled UI design, a reference fixture and two prompt templates.
-> There is no application code yet and nothing to deploy.
+> **Status: phase 3 of 7.** The round-trip core (contract parser, diff engine, export
+> generator, prompt templates), the per-user storage layer and the web app's shell are
+> built: OIDC sign-in against Authentik, the container, and first run — copy a bootstrap
+> prompt into any AI chat, paste the plan back, and it imports. The session runner,
+> offline sync, progress charts and revision diff review are still ahead — see
+> [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §12.
 
 ---
 
@@ -75,6 +78,24 @@ and their own directory — isolation is physical, not a `WHERE` clause, and the
 admin role that can read anyone's training data.
 
 TypeScript, SvelteKit, SQLite. One image, one port, one volume.
+
+## Running it
+
+One image, one container, one port, one volume:
+
+```bash
+cp .env.example .env # fill in ORIGIN, the OIDC_* values and SESSION_SECRET
+docker compose up -d --build
+```
+
+Register `${ORIGIN}/auth/callback` as the redirect URI of the Authentik
+OAuth2/OpenID provider, and gate access with the group named by
+`OIDC_REQUIRED_GROUP`. `/healthz` answers without authentication for uptime
+checks, and the container logs the effective origin and redirect URI at
+startup so a proxy misconfiguration is easy to spot.
+
+For local development without an IdP, `GAIN_DEV_USER=you npm run dev` bypasses
+authentication — a production build refuses to start with that variable set.
 
 ## Documentation
 

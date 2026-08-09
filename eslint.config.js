@@ -1,6 +1,8 @@
 // @ts-check
 import js from "@eslint/js";
 import prettier from "eslint-config-prettier";
+import globals from "globals";
+import svelte from "eslint-plugin-svelte";
 import tseslint from "typescript-eslint";
 
 /**
@@ -45,11 +47,37 @@ const noControlCharacters = {
 
 export default tseslint.config(
   {
-    ignores: ["node_modules/**", "dist/**", "build/**", "coverage/**", ".svelte-kit/**"],
+    ignores: [
+      "node_modules/**",
+      "dist/**",
+      "build/**",
+      "coverage/**",
+      ".svelte-kit/**",
+      "static/**",
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
+  ...svelte.configs["flat/recommended"],
   prettier,
+  // Svelte's prettier-compat set must come after `prettier` so it only turns
+  // the svelte-specific stylistic rules back off, never the core ones on.
+  ...svelte.configs["flat/prettier"],
+  {
+    // TypeScript inside <script lang="ts"> blocks, plus the browser globals a
+    // component legitimately reaches for (timers, clipboard, document).
+    files: ["**/*.svelte"],
+    languageOptions: {
+      globals: globals.browser,
+      parserOptions: { parser: tseslint.parser },
+    },
+    rules: {
+      // GAIN deploys at the domain root — no `paths.base`, no parameterised
+      // routes (ARCHITECTURE §3) — so a root-relative href is already the
+      // resolved URL and `resolve()` from $app/paths would be a no-op.
+      "svelte/no-navigation-without-resolve": ["error", { ignoreLinks: true }],
+    },
+  },
   {
     plugins: { gain: { rules: { "no-control-characters": noControlCharacters } } },
     rules: {
@@ -82,5 +110,17 @@ export default tseslint.config(
       "@typescript-eslint/no-unsafe-argument": "off",
       "@typescript-eslint/no-unsafe-call": "off",
     },
+  },
+  {
+    // The phase-1 no-console rule stands for the pure core; the server layer logs
+    // deliberately — the startup origin/redirect-URI line is a §14 mitigation.
+    files: ["src/lib/server/**/*.ts", "src/hooks.server.ts"],
+    rules: { "no-console": "off" },
+  },
+  {
+    // SvelteKit control flow throws `redirect()` and `error()` results, which
+    // are not Error objects — that is the framework's idiom, not a bug.
+    files: ["src/hooks.server.ts", "src/routes/**/*.ts"],
+    rules: { "@typescript-eslint/only-throw-error": "off" },
   },
 );

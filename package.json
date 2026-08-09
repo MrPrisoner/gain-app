@@ -8,31 +8,47 @@
     "node": ">=24.0.0"
   },
   "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
     "typecheck": "tsc --noEmit",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "check:chars": "if git ls-files -z '*.ts' '*.js' '*.md' '*.json' '*.yml' '*.yaml' '*.css' '*.html' '*.svelte' | xargs -0 grep -laP '[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F]'; then echo 'Literal control characters in the files above. Write them as escapes (\\u0000) — a raw one makes git treat the file as binary, and a file with no reviewable diff is a file nobody reviews.' >&2; exit 1; fi",
-    "verify": "npm run typecheck && npm run lint && npm run check:chars && npm run format:check && npm test"
+    "verify": "npm run typecheck && npm run check && npm run lint && npm run check:chars && npm run format:check && npm test",
+    "prepare": "svelte-kit sync"
   },
   "license": "AGPL-3.0-or-later",
   "dependencies": {
     "better-sqlite3": "^13.0.3",
+    "jose": "^6.2.8",
     "ulidx": "^2.4.1",
     "yaml": "^2.9.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@sveltejs/adapter-node": "^5.5.7",
+    "@sveltejs/kit": "^2.70.2",
+    "@sveltejs/vite-plugin-svelte": "^7.3.0",
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^26.2.0",
     "eslint": "^10.8.1",
     "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-svelte": "^3.22.0",
+    "globals": "^17.9.0",
     "prettier": "^3.9.6",
+    "prettier-plugin-svelte": "^4.1.1",
+    "svelte": "^5.56.8",
+    "svelte-check": "^4.7.5",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.66.0",
+    "vite": "^8.2.1",
     "vitest": "^4.1.10"
   }
 }

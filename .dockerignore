@@ -1,0 +1,40 @@
+# Version control and agent tooling
+.git
+.gitignore
+.claude
+.vscode
+.mcp.json
+AGENTS.md
+CLAUDE.md
+
+# Dependencies and build output — rebuilt inside the image
+node_modules
+build
+.svelte-kit
+dist
+coverage
+
+# Runtime data — never bake user training data into the image
+data
+*.db
+*.db-shm
+*.db-wal
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Tests and design assets are not needed at runtime
+tests
+design
+
+# Docker artifacts themselves
+Dockerfile
+compose.yaml
+.dockerignore
+
+# Editor and OS noise
+.DS_Store
+*.swp
+*~
