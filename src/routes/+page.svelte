@@ -147,7 +147,15 @@
           <li><span class="key">{session.key}</span> {session.name}</li>
         {/each}
       </ul>
-      <p class="muted">Running and logging sessions arrives with the session runner.</p>
+      <ul class="session-links">
+        {#each plan.sessions as session (session.key)}
+          <li>
+            <a href={`/plan/${plan.slug}/session/${session.key}`} class="session-link">
+              Start {session.name}
+            </a>
+          </li>
+        {/each}
+      </ul>
     </section>
   {/each}
 
@@ -354,6 +362,20 @@
     min-width: 1.6em;
     font-weight: 800;
     color: var(--accent);
+  }
+
+  .session-links {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.4rem;
+  }
+
+  .session-link {
+    display: inline-block;
+    color: var(--accent);
+    font-weight: 700;
   }
 
   .report-card {

@@ -62,6 +62,12 @@
   // The exercise slug the deviation sheet is open for, or undefined when closed.
   let deviationFor = $state<string | undefined>(undefined);
 
+  // Whether the end-of-session wrap-up sheet is showing.
+  let showWrapUp = $state(false);
+  // Tap-to-select values for session-scope metrics, keyed by metric key — held here for
+  // display only; each tap fires its own `?/logMetric` submission (UI-DECISIONS §8).
+  const sessionMetricValues = new SvelteMap<string, number | string>();
+
   function setKey(slug: string, setNo: number, side?: "left" | "right"): string {
     return `${slug}:${setNo}:${side ?? ""}`;
   }
@@ -102,6 +108,7 @@
 <header class="runner-head">
   <h1>{data.session.name}</h1>
   {#if data.session.note}<p class="note">{data.session.note}</p>{/if}
+  <button type="button" class="end-session" onclick={() => (showWrapUp = true)}>End session</button>
 </header>
 
 <div class="blocks">
@@ -315,6 +322,101 @@
   />
 {/if}
 
+{#if showWrapUp && workoutId}
+  <div class="sheet-backdrop" role="presentation">
+    <div class="sheet">
+      <h3>How did it go?</h3>
+
+      {#each data.endMetrics as metric (metric.key)}
+        {#if metric.type === "scale" || metric.type === "number"}
+          <label>
+            {metric.label}
+            <div class="scale-row">
+              {#each Array.from({ length: (metric.max ?? 0) - (metric.min ?? 0) + 1 }, (_, i) => (metric.min ?? 0) + i) as value (value)}
+                <form
+                  method="POST"
+                  action="?/logMetric"
+                  use:enhance={() => {
+                    return async ({ result }) => {
+                      await applyAction(result);
+                      if (result.type === "success") sessionMetricValues.set(metric.key, value);
+                    };
+                  }}
+                >
+                  <input type="hidden" name="scope" value="session" />
+                  <input type="hidden" name="workout_id" value={workoutId ?? ""} />
+                  <input type="hidden" name="metric_key" value={metric.key} />
+                  <input type="hidden" name="value_num" {value} />
+                  <input type="hidden" name="client_id" value={ulid()} />
+                  <button
+                    type="submit"
+                    class="scale-cell"
+                    class:selected={sessionMetricValues.get(metric.key) === value}
+                  >
+                    {value}
+                  </button>
+                </form>
+              {/each}
+            </div>
+          </label>
+        {:else if metric.type === "enum"}
+          <label>
+            {metric.label}
+            <div class="scale-row">
+              {#each metric.options ?? [] as option (option)}
+                <form
+                  method="POST"
+                  action="?/logMetric"
+                  use:enhance={() => {
+                    return async ({ result }) => {
+                      await applyAction(result);
+                      if (result.type === "success") sessionMetricValues.set(metric.key, option);
+                    };
+                  }}
+                >
+                  <input type="hidden" name="scope" value="session" />
+                  <input type="hidden" name="workout_id" value={workoutId ?? ""} />
+                  <input type="hidden" name="metric_key" value={metric.key} />
+                  <input type="hidden" name="value_text" value={option} />
+                  <input type="hidden" name="client_id" value={ulid()} />
+                  <button
+                    type="submit"
+                    class="scale-cell"
+                    class:selected={sessionMetricValues.get(metric.key) === option}
+                  >
+                    {option}
+                  </button>
+                </form>
+              {/each}
+            </div>
+          </label>
+        {/if}
+      {/each}
+
+      <form
+        method="POST"
+        action="?/finish"
+        use:enhance={() => {
+          return async ({ result }) => {
+            await applyAction(result);
+            if (result.type === "success") {
+              sessionStorage.removeItem(storageKey);
+              window.location.href = "/";
+            }
+          };
+        }}
+      >
+        <input type="hidden" name="workout_id" value={workoutId} />
+        <input type="hidden" name="status" value="completed" />
+        <div class="sheet-actions">
+          <button type="button" class="secondary" onclick={() => (showWrapUp = false)}>Back</button>
+          <button type="submit" class="primary">Finish session</button>
+        </div>
+      </form>
+    </div>
+  </div>
+{/if}
+
 <style>
   .runner-head {
     padding: 1rem 0 0.5rem;
@@ -496,5 +598,68 @@
     font-size: 0.8rem;
     text-decoration: underline;
     padding: 0;
+  }
+  .end-session {
+    margin-top: 0.5rem;
+    border: 1px solid var(--line);
+    background: var(--raised);
+    color: var(--text);
+    border-radius: var(--r-sm);
+    padding: 0.5rem 1rem;
+  }
+  .sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: flex-end;
+    z-index: 60;
+  }
+  .sheet {
+    width: 100%;
+    background: var(--surface);
+    border-top-left-radius: var(--r-lg);
+    border-top-right-radius: var(--r-lg);
+    padding: 1.25rem;
+    display: grid;
+    gap: 0.75rem;
+  }
+  .sheet-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.6rem;
+  }
+  .sheet-actions button {
+    border: none;
+    border-radius: var(--r-sm);
+    padding: 0.7rem 1.25rem;
+    font-weight: 700;
+  }
+  .primary {
+    background: var(--accent);
+    color: var(--accent-in);
+  }
+  .secondary {
+    background: var(--raised);
+    border: 1px solid var(--line);
+    color: var(--text);
+  }
+  .scale-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.3rem;
+  }
+  .scale-cell {
+    border: 1px solid var(--line);
+    background: var(--raised);
+    color: var(--text);
+    border-radius: var(--r-xs);
+    padding: 0.4rem 0.7rem;
+    min-width: 2.5rem;
+  }
+  .scale-cell.selected {
+    background: var(--accent-soft);
+    border-color: var(--accent);
   }
 </style>
