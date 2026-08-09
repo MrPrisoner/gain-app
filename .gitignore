@@ -23,6 +23,11 @@ data/
 *.swp
 *~
 
+# Playwright — the e2e harness (Task 0). Screenshots and traces are run
+# artifacts, never checked in.
+test-results/
+playwright-report/
+
 # Personal agent overrides. .claude/settings.json IS committed — it carries the shared
 # hook — but local overrides and MCP auth are per-developer.
 .claude/settings.local.json
