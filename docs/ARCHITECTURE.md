@@ -2,7 +2,7 @@
 
 A self-hosted web app for running and tracking AI-authored exercise plans.
 
-**Status:** design agreed, not yet implemented.
+**Status:** design agreed; phases 1–2 implemented (pure round-trip core, storage layer).
 **Audience:** the AI agents that will build this, and the human reviewing their work.
 
 ---
@@ -144,7 +144,7 @@ Notes:
     <user_id>/
       gain.db                    # ALL of this user's training data
       plans/
-        <plan_id>/
+        <plan_slug>/             # plan.slug is stable across versions (§5 contract rule 5)
           v1.md                  # verbatim original import, never modified
           v2.md
       exports/
@@ -182,53 +182,68 @@ Authentik. No user can read another user's data through any code path.
 
 ## 5. Domain model
 
-Per-user `gain.db`. IDs are ULIDs unless noted.
+Per-user `gain.db`. IDs are ULIDs. The DDL in `src/lib/db/schema.ts` is the
+specification (schema-first, §12); the tables below summarise it.
 
 ```
-plan                 id, slug, name, created_at, archived_at
+plan                 id, slug (UNIQUE), name, created_at, archived_at
 plan_version         id, plan_id, version_no, based_on_version,
-                          source_md (verbatim), context_md, contract_json,
-                          imported_at, changelog, is_current
-exercise_def              id, plan_id, slug (STABLE ACROSS VERSIONS),
-                          name, first_seen_version, last_seen_version
-version_exercise          plan_version_id, session_key, block_key, exercise_def_id,
-                          order_no, type, sets, reps_min, reps_max, duration_min_s,
-                          duration_max_s, per_side, load_ref, rest_min_s, rest_max_s,
+                          source_path, context_md, contract_json,
+                          changelog_json, block_length_weeks, session_target_min,
+                          scheduling_json, progression_json, safety_json,
+                          imported_at, is_current
+exercise_def         id, plan_id, slug (STABLE ACROSS VERSIONS), name,
+                          first_seen_version, last_seen_version
+version_exercise     plan_version_id, exercise_def_id, name, type, per_side,
+                          load_ref, rest_min_s, rest_max_s, note,
                           conditional, condition_text, substitutes_json
-load_config               plan_version_id, ref, label, default_kg, is_bodyweight
-metric_def                plan_version_id, scope (set|exercise|session),
+version_session      plan_version_id, key, name, order_no, note
+version_block        plan_version_id, session_key, key, name, type, rounds,
+                          rest_min_s, rest_max_s, tracking, note, order_no
+prescription         id, plan_version_id, session_key, block_key, exercise_def_id,
+                          order_no, sets_min, sets_max, reps_min, reps_max,
+                          duration_min_s, duration_max_s, load_ref,
+                          rest_min_s, rest_max_s, note,
+                          conditional, condition_text, substitutes_json
+load_config          plan_version_id, ref, label, default_kg, is_bodyweight, note
+metric_def           plan_version_id, scope (set|exercise|session),
                           key, label, type, min, max, options_json, prompt_when, optional
 
-workout                   id, plan_version_id, session_key, started_at,
-                          completed_at, status, client_id (idempotency), notes
-set_log                   id, workout_id, exercise_def_id, set_no, side,
+workout              id, plan_version_id, session_key, started_at,
+                          completed_at, status, note, client_id (idempotency)
+set_log              id, workout_id, exercise_def_id, set_no, side,
                           reps, weight_kg, duration_s, difficulty, client_id
-metric_value              id, scope_ref (set_log|workout|exercise-in-workout),
-                          metric_key, value_num, value_text
-deviation                 id, workout_id, exercise_def_id, kind (skip|substitute|
+metric_value         id, scope (set|exercise|session), set_log_id, workout_id,
+                          exercise_def_id, metric_key, value_num, value_text
+deviation            id, workout_id, exercise_def_id, kind (skip|substitute|
                           add_set|drop_set|stop_red_flag), reason_code, note,
-                          substitute_exercise_slug
-activity                  id, kind (free-form slug, user's own vocabulary),
-                          occurred_at, duration_min, intensity, note
-ai_template               id, name, body_md, is_default, updated_at
+                          substitute_exercise_slug, client_id
+activity             id, kind (free-form slug, user's own vocabulary),
+                          occurred_at, duration_min, intensity, note, client_id
+ai_template          id, name, body_md, is_default, updated_at
 ```
 
-> **This model predates the exercise catalogue and must be reconciled before phase 2
-> starts.** It is still right about identity and logging, and out of date about structure.
-> The gaps, all introduced when `exercises` became a top-level catalogue:
->
-> - **No block table.** `tracking`, `type: rounds`, `rounds` and block `name` / `note`
->   have nowhere to live, and neither do session `name`, `note` and `order`.
-> - **`version_exercise.sets` is one column**, but `sets` accepts `[min, max]`.
-> - **No `note` column**, though notes now exist at both catalogue and prescription level
->   and one resolves over the other.
-> - **`load_config` has no `note`**, which the fixture uses on every configuration.
-> - **Movement-level properties have no home.** `type`, `per_side`, `conditional`,
->   `condition` and `substitutes` are catalogue properties now. They belong in a
->   per-version catalogue table, not smeared across `version_exercise` rows where three
->   prescriptions of one movement could disagree about what it is.
->
-> Phase 1 is unaffected — it is pure functions over plain data and never opens SQLite.
+The model is split along the same line as the contract: **identity is plan-scoped,
+structure is version-scoped, and logs bind to the version they were recorded under.**
+
+- **The catalogue split.** `exercise_def` carries what must survive a revision — one
+  row per movement per plan, keyed by the slug that charts join on.
+  `version_exercise` carries what a revision may change — the movement's properties
+  as of that version. Three prescriptions of one movement can no longer disagree
+  about what the movement is: they reference one catalogue row.
+- **Sessions and blocks are tables.** Session `name`/`note`/`order` and block
+  `name`/`note`/`tracking`/`type`/`rounds`/`rest_sec` all have homes.
+- **Ranges are min/max column pairs** — including `sets`.
+- **Notes exist at both levels.** A NULL `prescription.note` means the catalogue
+  note applies; the same NULL-means-inherit convention covers prescription-level
+  `conditional`/`condition_text`/`substitutes_json` overrides.
+- **`source_md` lives on disk, not in the DB.** `plan_version.source_path` points at
+  `plans/<plan.slug>/v<N>.md` (§3), written verbatim at import and copied from there
+  as Section 1 of every export (§11). The DB keeps `context_md` and `contract_json`
+  for diffing and never a second copy of the document.
+- **`scheduling`/`progression`/`safety` are JSON columns on `plan_version`.** GAIN
+  surfaces them but does not act on them, except `scheduling.sequence`, which drives
+  the suggested next session.
 
 ### Why `exercise_def.slug` is load-bearing
 

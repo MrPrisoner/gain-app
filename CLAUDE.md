@@ -4,11 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-**Phase 1 is done: the pure round-trip core.** Contract schema (`src/lib/contract/`),
-parser (`src/lib/parse/`), diff engine (`src/lib/diff/`), export generator
-(`src/lib/export/`) and both prompt templates (`src/lib/templates/`) — pure functions
-over plain data, no UI, no SQLite, no HTTP. Phases 2–7 have not started; the build-order
-table in ARCHITECTURE §12 is the map.
+**Phases 1–2 are done.** Phase 1 is the pure round-trip core: contract schema
+(`src/lib/contract/`), parser (`src/lib/parse/`), diff engine (`src/lib/diff/`), export
+generator (`src/lib/export/`) and both prompt templates (`src/lib/templates/`) — pure
+functions over plain data, no I/O. Phase 2 is the storage layer (`src/lib/db/`): the
+reconciled domain model as migration 001, per-user provisioning, the import writer and
+import review — import writes a version, and a second import produces a correct diff.
+No UI and no HTTP yet; phases 3–7 have not started, and the build-order table in
+ARCHITECTURE §12 is the map.
 
 Commands (Node 24 LTS — see `.nvmrc` and the `engines` field):
 
@@ -172,7 +175,13 @@ Everything else is built on that guarantee, so it comes first. Full phase table 
 ARCHITECTURE §12.
 
 Parsing, diffing, progression logic and export generation are pure functions over plain
-data — no I/O, and the clock is injected so they stay deterministic.
+data — no I/O, and the clock is injected so they stay deterministic. The database layer
+follows the same rule where it can: provisioning and import take an injected `now`.
+
+Phase 2 reconciled ARCHITECTURE §5 with the exercise catalogue before writing any DDL —
+the five gaps listed there are closed by `src/lib/db/schema.ts`, which is now the
+schema's specification. `source_md` lives on disk at `plans/<plan.slug>/v<N>.md`; the DB
+stores the path, never a second copy of the document.
 
 ## Non-goals
 

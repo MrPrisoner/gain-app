@@ -1,0 +1,439 @@
+/**
+ * The import writer (ARCHITECTURE §8): a validated plan document becomes an
+ * immutable `plan_version` plus the structured rows that drive the app.
+ *
+ * - The verbatim `source_md` goes to disk at `plans/<plan.slug>/v<N>.md` and is
+ *   never modified afterwards; the DB stores the relative path (§3, §11).
+ * - The contract is stored as `contract_json` — the faithful serialization of the
+ *   validated contract — and the structured tables are derived from it.
+ * - `exercise_def` identity is stable across versions: known slugs keep their id,
+ *   new slugs get one. Charts join on `exercise_def_id` (§5).
+ * - Everything happens in one transaction. The version guard (CONTRACT §7:
+ *   `version` must be greater than the current stored version) is checked first.
+ */
+
+import fs from "node:fs";
+import path from "node:path";
+import Database from "better-sqlite3";
+import type {
+  ExerciseDef,
+  GainContract,
+  IntOrRange,
+  LoadConfig,
+  MetricDef,
+  MetricScope,
+  Prescription,
+} from "../contract/schema";
+import { deriveExerciseName } from "../contract/schema";
+import type { ParsedPlan } from "../parse/parser";
+import { newId } from "./ulid";
+import type { UserDb } from "./user-db";
+
+export type ImportCounts = {
+  sessions: number;
+  blocks: number;
+  exercises: number;
+  prescriptions: number;
+  loads: number;
+  metrics: number;
+};
+
+export type ImportPlanSuccess = {
+  ok: true;
+  plan_id: string;
+  plan_version_id: string;
+  plan_slug: string;
+  version_no: number;
+  /** True when this plan slug had no previous version in this database. */
+  first_import: boolean;
+  /** Absolute path of the verbatim source document on disk. */
+  source_path: string;
+  counts: ImportCounts;
+};
+
+export type ImportPlanFailure = {
+  ok: false;
+  kind: "version_not_newer";
+  message: string;
+  current_version: number;
+  incoming_version: number;
+};
+
+export type ImportPlanResult = ImportPlanSuccess | ImportPlanFailure;
+
+export type ImportPlanInput = {
+  /** A successfully parsed plan document (`parsePlanDocument` returned ok). */
+  parsed: ParsedPlan;
+  /** Injected clock — the deterministic-core rule. */
+  now: Date;
+};
+
+/** Relative to the user directory; matches the §3 layout. */
+export function sourceRelPath(planSlug: string, versionNo: number): string {
+  return path.join("plans", planSlug, `v${versionNo}.md`);
+}
+
+/**
+ * Write a parsed plan into the user's database and file tree.
+ *
+ * All-or-nothing: on any failure after the version guard, nothing is written
+ * (the file write happens inside the transaction; a leftover file can only
+ * occur if the database itself fails mid-write, and is overwritten by a retry).
+ */
+export function importPlan(userDb: UserDb, input: ImportPlanInput): ImportPlanResult {
+  const { db } = userDb;
+  const contract = input.parsed.contract;
+  const { plan } = contract;
+  const nowIso = input.now.toISOString();
+
+  // -- Resolve or create the plan row.
+  const existingPlan = db
+    .prepare("SELECT id, slug, name FROM plan WHERE slug = ?")
+    .get(plan.slug) as { id: string; slug: string; name: string } | undefined;
+
+  const planId = existingPlan?.id ?? newId();
+
+  // -- Version guard (CONTRACT §7).
+  if (existingPlan) {
+    const row = db
+      .prepare("SELECT MAX(version_no) AS v FROM plan_version WHERE plan_id = ?")
+      .get(planId) as { v: number | null };
+    const currentVersion = row.v ?? 0;
+    if (plan.version <= currentVersion) {
+      return {
+        ok: false,
+        kind: "version_not_newer",
+        message: `incoming version ${plan.version} is not greater than the stored version ${currentVersion} of plan \`${plan.slug}\` — a revision must increment \`version\` (CONTRACT §5 rule 6)`,
+        current_version: currentVersion,
+        incoming_version: plan.version,
+      };
+    }
+  }
+
+  const planVersionId = newId();
+  const relPath = sourceRelPath(plan.slug, plan.version);
+  const absPath = path.join(userDb.userDir, relPath);
+
+  const counts = countRows(contract);
+
+  db.transaction(() => {
+    // -- Verbatim source to disk, byte-for-byte.
+    fs.mkdirSync(path.dirname(absPath), { recursive: true });
+    fs.writeFileSync(absPath, input.parsed.source_md, "utf8");
+
+    // -- Plan row.
+    if (existingPlan) {
+      db.prepare("UPDATE plan SET name = ? WHERE id = ?").run(plan.name, planId);
+    } else {
+      db.prepare("INSERT INTO plan (id, slug, name, created_at) VALUES (?, ?, ?, ?)").run(
+        planId,
+        plan.slug,
+        plan.name,
+        nowIso,
+      );
+    }
+
+    // -- Flip is_current, then insert the new version.
+    db.prepare("UPDATE plan_version SET is_current = 0 WHERE plan_id = ?").run(planId);
+    db.prepare(
+      `INSERT INTO plan_version (
+         id, plan_id, version_no, based_on_version, source_path, context_md,
+         contract_json, changelog_json, block_length_weeks, session_target_min,
+         scheduling_json, progression_json, safety_json, imported_at, is_current
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+    ).run(
+      planVersionId,
+      planId,
+      plan.version,
+      plan.based_on_version,
+      relPath,
+      input.parsed.context_md,
+      JSON.stringify(contract),
+      plan.changelog ? JSON.stringify(plan.changelog) : null,
+      plan.block_length_weeks ?? null,
+      plan.session_target_min ?? null,
+      contract.scheduling ? JSON.stringify(contract.scheduling) : null,
+      contract.progression ? JSON.stringify(contract.progression) : null,
+      contract.safety ? JSON.stringify(contract.safety) : null,
+      nowIso,
+    );
+
+    // -- Catalogue identity: stable exercise_defs, then per-version properties.
+    const defIdBySlug = upsertExerciseDefs(db, planId, plan.version, contract.exercises);
+    insertVersionExercises(db, planVersionId, defIdBySlug, contract.exercises);
+
+    // -- Sessions → blocks → prescriptions.
+    insertSessions(db, planVersionId, contract);
+
+    // -- Loads and metrics.
+    insertLoads(db, planVersionId, contract.loads);
+    insertMetrics(db, planVersionId, contract);
+  })();
+
+  return {
+    ok: true,
+    plan_id: planId,
+    plan_version_id: planVersionId,
+    plan_slug: plan.slug,
+    version_no: plan.version,
+    first_import: !existingPlan,
+    source_path: absPath,
+    counts,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Writers
+// ---------------------------------------------------------------------------
+
+function upsertExerciseDefs(
+  db: UserDb["db"],
+  planId: string,
+  versionNo: number,
+  exercises: readonly ExerciseDef[],
+): Map<string, string> {
+  const select = db.prepare("SELECT id FROM exercise_def WHERE plan_id = ? AND slug = ?");
+  const insert = db.prepare(
+    `INSERT INTO exercise_def (id, plan_id, slug, name, first_seen_version, last_seen_version)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  );
+  const update = db.prepare("UPDATE exercise_def SET name = ?, last_seen_version = ? WHERE id = ?");
+
+  const defIdBySlug = new Map<string, string>();
+
+  for (const exercise of exercises) {
+    const displayName = exercise.name ?? deriveExerciseName(exercise.id);
+    const existing = select.get(planId, exercise.id) as { id: string } | undefined;
+
+    if (existing) {
+      update.run(displayName, versionNo, existing.id);
+      defIdBySlug.set(exercise.id, existing.id);
+    } else {
+      const id = newId();
+      insert.run(id, planId, exercise.id, displayName, versionNo, versionNo);
+      defIdBySlug.set(exercise.id, id);
+    }
+  }
+
+  return defIdBySlug;
+}
+
+function insertVersionExercises(
+  db: UserDb["db"],
+  planVersionId: string,
+  defIdBySlug: Map<string, string>,
+  exercises: readonly ExerciseDef[],
+): void {
+  const insert = db.prepare(
+    `INSERT INTO version_exercise (
+       plan_version_id, exercise_def_id, name, type, per_side, load_ref,
+       rest_min_s, rest_max_s, note, conditional, condition_text, substitutes_json
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+
+  for (const exercise of exercises) {
+    const defId = defIdBySlug.get(exercise.id);
+    if (!defId) throw new Error(`unreachable: no exercise_def id for slug ${exercise.id}`);
+
+    const rest = rangeParts(exercise.rest_sec);
+    insert.run(
+      planVersionId,
+      defId,
+      exercise.name ?? null,
+      exercise.type ?? "reps",
+      exercise.per_side ? 1 : 0,
+      exercise.load ?? null,
+      rest.min,
+      rest.max,
+      exercise.note ?? null,
+      exercise.conditional ? 1 : 0,
+      exercise.condition ?? null,
+      exercise.substitutes ? JSON.stringify(exercise.substitutes) : null,
+    );
+  }
+}
+
+function insertSessions(db: UserDb["db"], planVersionId: string, contract: GainContract): void {
+  const insertSession = db.prepare(
+    `INSERT INTO version_session (plan_version_id, key, name, order_no, note)
+     VALUES (?, ?, ?, ?, ?)`,
+  );
+  const insertBlock = db.prepare(
+    `INSERT INTO version_block (
+       plan_version_id, session_key, key, name, type, rounds,
+       rest_min_s, rest_max_s, tracking, note, order_no
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+  const insertPrescription = db.prepare(
+    `INSERT INTO prescription (
+       id, plan_version_id, session_key, block_key, exercise_def_id, order_no,
+       sets_min, sets_max, reps_min, reps_max, duration_min_s, duration_max_s,
+       load_ref, rest_min_s, rest_max_s, note,
+       conditional, condition_text, substitutes_json
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+
+  const defIdBySlug = new Map<string, string>(
+    (
+      db
+        .prepare(
+          `SELECT e.slug AS slug, e.id AS id
+           FROM exercise_def e
+           JOIN version_exercise ve ON ve.exercise_def_id = e.id
+           WHERE ve.plan_version_id = ?`,
+        )
+        .all(planVersionId) as { slug: string; id: string }[]
+    ).map((row) => [row.slug, row.id]),
+  );
+
+  for (const session of contract.sessions) {
+    insertSession.run(
+      planVersionId,
+      session.key,
+      session.name,
+      session.order,
+      session.note ?? null,
+    );
+
+    session.blocks.forEach((block, blockIndex) => {
+      const rest = rangeParts(block.rest_sec);
+      insertBlock.run(
+        planVersionId,
+        session.key,
+        block.key,
+        block.name,
+        block.type ?? "sequence",
+        block.rounds ?? null,
+        rest.min,
+        rest.max,
+        block.tracking ?? "full",
+        block.note ?? null,
+        blockIndex + 1,
+      );
+
+      block.exercises.forEach((prescription: Prescription, prescriptionIndex: number) => {
+        const defId = defIdBySlug.get(prescription.id);
+        if (!defId) {
+          throw new Error(`unreachable: prescription references unknown slug ${prescription.id}`);
+        }
+
+        const sets = rangeParts(prescription.sets);
+        const reps = rangeParts(prescription.reps);
+        const duration = rangeParts(prescription.duration_sec);
+        const prescriptionRest = rangeParts(prescription.rest_sec);
+
+        insertPrescription.run(
+          newId(),
+          planVersionId,
+          session.key,
+          block.key,
+          defId,
+          prescriptionIndex + 1,
+          sets.min,
+          sets.max,
+          reps.min,
+          reps.max,
+          duration.min,
+          duration.max,
+          prescription.load ?? null,
+          prescriptionRest.min,
+          prescriptionRest.max,
+          prescription.note ?? null,
+          prescription.conditional === undefined ? null : prescription.conditional ? 1 : 0,
+          prescription.condition ?? null,
+          prescription.substitutes ? JSON.stringify(prescription.substitutes) : null,
+        );
+      });
+    });
+  }
+}
+
+function insertLoads(db: UserDb["db"], planVersionId: string, loads: readonly LoadConfig[]): void {
+  const insert = db.prepare(
+    `INSERT INTO load_config (plan_version_id, ref, label, default_kg, is_bodyweight, note)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  );
+
+  for (const load of loads) {
+    insert.run(
+      planVersionId,
+      load.ref,
+      load.label,
+      load.default_kg ?? null,
+      load.is_bodyweight ? 1 : 0,
+      load.note ?? null,
+    );
+  }
+}
+
+function insertMetrics(db: UserDb["db"], planVersionId: string, contract: GainContract): void {
+  if (!contract.metrics) return;
+
+  const insert = db.prepare(
+    `INSERT INTO metric_def (
+       plan_version_id, scope, key, label, type, min, max, options_json, prompt_when, optional
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+
+  for (const scope of ["set", "exercise", "session"] as const satisfies readonly MetricScope[]) {
+    const list = contract.metrics[scope];
+    if (!list) continue;
+    for (const metric of list) {
+      insertMetric(insert, planVersionId, scope, metric);
+    }
+  }
+}
+
+function insertMetric(
+  insert: Database.Statement,
+  planVersionId: string,
+  scope: MetricScope,
+  metric: MetricDef,
+): void {
+  insert.run(
+    planVersionId,
+    scope,
+    metric.key,
+    metric.label,
+    metric.type,
+    metric.min ?? null,
+    metric.max ?? null,
+    metric.options ? JSON.stringify(metric.options) : null,
+    metric.prompt_when ?? null,
+    metric.optional ? 1 : 0,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function rangeParts(value: IntOrRange | undefined): { min: number | null; max: number | null } {
+  if (value === undefined) return { min: null, max: null };
+  if (typeof value === "number") return { min: value, max: value };
+  return { min: value[0], max: value[1] };
+}
+
+function countRows(contract: GainContract): ImportCounts {
+  let blocks = 0;
+  let prescriptions = 0;
+  for (const session of contract.sessions) {
+    blocks += session.blocks.length;
+    for (const block of session.blocks) prescriptions += block.exercises.length;
+  }
+
+  const metrics = contract.metrics
+    ? (contract.metrics.set?.length ?? 0) +
+      (contract.metrics.exercise?.length ?? 0) +
+      (contract.metrics.session?.length ?? 0)
+    : 0;
+
+  return {
+    sessions: contract.sessions.length,
+    blocks,
+    exercises: contract.exercises.length,
+    prescriptions,
+    loads: contract.loads.length,
+    metrics,
+  };
+}
