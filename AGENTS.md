@@ -20,9 +20,9 @@ Commands (Node 24 LTS — see `.nvmrc` and the `engines` field):
 - `npm test` — Vitest; includes the golden round-trip test, the project's spine
 - `npm run typecheck` — strict TypeScript, `tsc --noEmit`
 - `npm run lint` — ESLint
-- `npm run format` / `npm run format:check` — Prettier. `docs/`, `fixtures/` and
-  `templates/` are byte-sensitive and excluded from formatting; never remove them from
-  `.prettierignore`
+- `npm run format` / `npm run format:check` — Prettier. `docs/`, `fixtures/`,
+  `templates/` and `design/` are byte-sensitive and excluded from formatting; never
+  remove them from `.prettierignore`
 
 Read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) first, then
 [`docs/CONTRACT.md`](docs/CONTRACT.md), before doing anything substantive. The twelve
@@ -101,6 +101,12 @@ Three defences, all of which must survive refactors: ID-preservation rules resta
 every export, rename detection in the import diff, and never silently minting a slug that
 closely resembles an existing one.
 
+Metric keys are the exception to "unique identifier": they are unique **within a scope**,
+not across scopes, so a plan may legally declare `rpe` at both set and session scope.
+Anything that indexes metric values — summaries, charts, CSV columns — must key on
+`(scope, key)`. Keying on the bare key merges two unrelated series and reports a plausible
+wrong number rather than failing.
+
 ### Isolation is physical, not a WHERE clause
 
 Each user gets their own `gain.db` and their own directory under `/data/users/<id>/`.
@@ -115,26 +121,39 @@ client-generated ULID and are idempotent server-side, so replaying the sync queu
 never duplicate a set. A workout must survive connection loss, phone lock, browser kill,
 container restart, and an expired session — a 401 must never discard queued local data.
 
+That idempotency is physical: every table the client writes to — `workout`, `set_log`,
+`metric_value`, `deviation`, `activity` — carries a `client_id TEXT UNIQUE`, and any new
+log table needs one. A log table without that column looks fine until the day a queue is
+replayed, and then it silently doubles someone's history.
+
 ## Invariants
 
 These break things quietly. The test suite catches some of them — the golden round-trip
-asserts byte-identity through import → export → re-import, and the db tests assert
-all-or-nothing at the version guard — but the rest are yours to protect:
+asserts byte-identity through import → export → re-import, `tests/parse.test.ts` asserts
+every parser failure path produces a pasteable report, and the db tests assert
+all-or-nothing at the version guard and across both stores — but the rest are yours to
+protect:
 
 - **`context_md` is byte-identical** through import → storage → export → re-import. The
   export replays `source_md` verbatim as Section 1, so the plan document is copied, never
   reassembled from `context_md` plus a block. The bundle itself is **not** re-importable —
   an AI reads a bundle and returns a plan document, and a pasted bundle gets an explanation
   rather than a second supported input format. See ARCHITECTURE §11.
-- **Import is all-or-nothing.** On any validation failure, report the failing field and
-  write nothing. Never partially import.
+- **Import is all-or-nothing, across two stores.** On any validation failure, report the
+  failing field and write nothing. Never partially import. The catch is that an import
+  writes to SQLite _and_ to the file tree, and only one of them can roll back: the
+  verbatim document is staged beside its destination and renamed in after the transaction
+  commits, never written straight to `plans/<slug>/v<N>.md`. The version guard reads
+  `MAX(version_no)` and the insert depends on it, so the transaction is `IMMEDIATE`.
 - **`docs/CONTRACT.md` is shipped output, not internal documentation.** It is reproduced
   verbatim in **both** outbound templates — Section 4 of every export and Section 2 of the
   bootstrap prompt — so editing it changes the instructions every AI receives, whether it
   is authoring a first plan or revising one.
-- **Validation errors are written for an AI to read.** Field path, expected, found,
-  copy-pasteable. The user's recovery from a bad import is pasting the error back into
-  their chat, never hand-editing YAML.
+- **Every failed import produces a pasteable report — not just contract violations.**
+  Field path, expected, found, written for an AI to read. The user's recovery from a bad
+  import is pasting the error back into their chat, never hand-editing YAML, so a failure
+  path that returns an empty report is as broken as one that returns no error at all.
+  Malformed YAML is the likeliest failure of all and gets the same treatment.
 - **Both outbound templates instruct the AI to ask rather than assume**, with worked
   examples. "I have dumbbells" must produce a question about plates and increments, not a
   guessed weight. A wrong assumption is silent: it becomes a prescription the user cannot
@@ -143,6 +162,14 @@ all-or-nothing at the version guard — but the rest are yours to protect:
   estimates in the prose.
 - **Contract changes touch three places together:** `docs/CONTRACT.md`, the Zod schema,
   and the fixture. A spec change that leaves the fixture stale is a broken change.
+- **The export's progress summary is arithmetic the AI will trust and not check.** It
+  exists so the reviewing AI reads "goblet squat: 6 kg, 12/12/12" instead of deriving it
+  from 400 CSV rows, which means a wrong number there becomes a wrong prescription, and
+  nothing in the loop catches it. Load is per set, so a single hoisted weight is only
+  correct when every set carried it; "first" and "latest" must be chronological, not
+  whatever order the rows arrived in. The summary is Markdown tables built by string
+  concatenation, so every free-text value — session names, metric labels, user notes —
+  gets its `|` escaped or it eats the rest of the row.
 - **The contract key is `plan`, and synonyms are not accepted.** `plan.slug`,
   `plan_version`, `plan_id`. The word was chosen partly because it is spelled
   identically in every variety of English, unlike `programme`/`program` — but a revising
