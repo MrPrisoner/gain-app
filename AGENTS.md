@@ -23,6 +23,12 @@ Commands (Node 24 LTS — see `.nvmrc` and the `engines` field):
 - `npm run format` / `npm run format:check` — Prettier. `docs/`, `fixtures/`,
   `templates/` and `design/` are byte-sensitive and excluded from formatting; never
   remove them from `.prettierignore`
+- `npm run verify` — all four in CI's order, about three seconds. Run this before
+  saying work is done rather than reasoning about whether it would pass. It
+  short-circuits, so a lint failure means the tests never ran
+
+**One agent at a time.** Agents do not work concurrently in this repository. If you find
+uncommitted changes you did not make, stop and ask rather than committing around them.
 
 Read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) first, then
 [`docs/CONTRACT.md`](docs/CONTRACT.md), before doing anything substantive. The twelve
@@ -39,6 +45,31 @@ core is plain TypeScript with no framework — SvelteKit arrives with phase 3.
 
 Node version, package manager, lint/format and CI are settled in ARCHITECTURE §12,
 "Toolchain, settled". Implement those choices; do not make them again.
+
+**Every dependency here is on a current major, and probably a newer one than you
+remember.** Zod 4, TypeScript 6, ESLint 10, Vitest 4, Node 24, better-sqlite3 13. Zod is
+the one that bites: this repo uses `z.strictObject`, `z.looseObject` and `error:`, and a
+model reaching for Zod 3 from memory writes `z.object().strict()` and `message:` — then
+"fixes" correct code into broken code. Check `package.json` and the real API before
+changing schema code, rather than trusting recall. If a docs lookup is available, use it.
+
+### Agent tooling
+
+Committed so every agent gets the same setup:
+
+- `.mcp.json` — a documentation server (Context7), for exactly the version problem
+  above. Optional: set `CONTEXT7_API_KEY` for higher rate limits. Cline reads its own MCP
+  settings file rather than this one, so add it there separately.
+- `.claude/settings.json` — a `PostToolUse` hook that runs Prettier on the edited file
+  and `tsc --noEmit` across the project after every TypeScript edit, and reports type
+  errors straight back. Claude Code only.
+- `.claude/commands/verify.md` — `/verify`, a thin wrapper over `npm run verify`.
+- `.vscode/settings.json` — pins Prettier as the formatter for every language it handles,
+  so format-on-save cannot reformat a byte-sensitive file behind `.prettierignore`, and
+  points the editor at the repo's TypeScript rather than the bundled one.
+
+The tooling is a convenience, not the contract. `npm run verify` is the contract, and it
+is what CI runs.
 
 ### How to report back
 

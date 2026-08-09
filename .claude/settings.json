@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "statusMessage": "Formatting and typechecking",
+            "timeout": 60,
+            "command": "jq -r '.tool_input.file_path // .tool_response.filePath // empty' | { read -r f || exit 0; case \"$f\" in *.ts|*.tsx|*.mts|*.cts) ;; *) exit 0 ;; esac; cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 0; npx prettier --write --ignore-unknown \"$f\" >/dev/null 2>&1; out=$(npx tsc --noEmit 2>&1) || printf '{\"hookSpecificOutput\":{\"hookEventName\":\"PostToolUse\",\"additionalContext\":%s}}\\n' \"$(printf 'tsc --noEmit reported errors after this edit. Fix them before moving on:\\n%s' \"$out\" | jq -Rs .)\"; }"
+          }
+        ]
+      }
+    ]
+  }
+}

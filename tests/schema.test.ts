@@ -116,7 +116,7 @@ describe("contract schema", () => {
   // -- Rounds blocks.
 
   it("rejects `sets` inside a rounds block", () => {
-    const data = clone() as any;
+    const data = clone();
     data.sessions[0].blocks[0].type = "rounds";
     data.sessions[0].blocks[0].rounds = 2;
     const issues = issuesOf(data).join("\n");
@@ -125,21 +125,21 @@ describe("contract schema", () => {
   });
 
   it("requires `rounds` on rounds blocks and rejects it elsewhere", () => {
-    const missing = clone() as any;
+    const missing = clone();
     missing.sessions[0].blocks[0].type = "rounds";
     expect(issuesOf(missing).join("\n")).toContain("rounds");
 
-    const extra = clone() as any;
+    const extra = clone();
     extra.sessions[0].blocks[0].rounds = 2; // no type: rounds
     expect(issuesOf(extra).join("\n")).toContain("rounds");
   });
 
   it("allows block-level rest_sec only on rounds blocks", () => {
-    const bad = clone() as any;
+    const bad = clone();
     bad.sessions[0].blocks[0].rest_sec = [45, 60];
     expect(issuesOf(bad).join("\n")).toContain("rest_sec");
 
-    const good = clone() as any;
+    const good = clone();
     good.sessions[0].blocks[0].type = "rounds";
     good.sessions[0].blocks[0].rounds = 2;
     good.sessions[0].blocks[0].rest_sec = [45, 60];
@@ -150,25 +150,25 @@ describe("contract schema", () => {
   // -- References.
 
   it("rejects a load referencing an undeclared ref", () => {
-    const data = clone() as any;
+    const data = clone();
     data.sessions[0].blocks[0].exercises[0].load = "heavy";
     expect(issuesOf(data).join("\n")).toContain("heavy");
   });
 
   it("rejects a session exercise id missing from the catalogue", () => {
-    const data = clone() as any;
+    const data = clone();
     data.sessions[0].blocks[0].exercises[0].id = "not-declared";
     expect(issuesOf(data).join("\n")).toContain("not-declared");
   });
 
   it("rejects substitutes not declared in the catalogue", () => {
-    const data = clone() as any;
+    const data = clone();
     data.exercises[0].substitutes = ["ghost-movement"];
     expect(issuesOf(data).join("\n")).toContain("ghost-movement");
   });
 
   it("rejects scheduling.sequence referencing an undeclared session key", () => {
-    const data = clone() as any;
+    const data = clone();
     data.scheduling = { sequence: ["A", "Z"] };
     expect(issuesOf(data).join("\n")).toContain("scheduling.sequence.1");
   });
@@ -178,7 +178,7 @@ describe("contract schema", () => {
     dupId.exercises.push({ id: "goblet-squat" });
     expect(issuesOf(dupId).join("\n")).toContain("duplicate exercise id");
 
-    const dupKey = clone() as any;
+    const dupKey = clone();
     dupKey.sessions.push({ ...dupKey.sessions[0] });
     expect(issuesOf(dupKey).join("\n")).toContain("duplicate session key");
   });
@@ -186,11 +186,11 @@ describe("contract schema", () => {
   // -- Type-driven requirements.
 
   it("requires reps for type reps and duration_sec for type time", () => {
-    const missingReps = clone() as any;
+    const missingReps = clone();
     missingReps.sessions[0].blocks[0].exercises[0] = { id: "goblet-squat" };
     expect(issuesOf(missingReps).join("\n")).toContain("reps");
 
-    const timeNoDuration = clone() as any;
+    const timeNoDuration = clone();
     timeNoDuration.exercises[0].type = "time";
     timeNoDuration.sessions[0].blocks[0].exercises[0] = { id: "goblet-squat", reps: 8 };
     const issues = issuesOf(timeNoDuration).join("\n");
@@ -199,7 +199,7 @@ describe("contract schema", () => {
   });
 
   it("accepts bare integers and [min, max] ranges interchangeably", () => {
-    const data = clone() as any;
+    const data = clone();
     data.sessions[0].blocks[0].exercises[0] = {
       id: "goblet-squat",
       sets: [2, 3],
@@ -211,7 +211,7 @@ describe("contract schema", () => {
   });
 
   it("rejects inverted ranges", () => {
-    const data = clone() as any;
+    const data = clone();
     data.sessions[0].blocks[0].exercises[0].reps = [12, 8];
     expect(contractSchema.safeParse(data).success).toBe(false);
   });
@@ -219,7 +219,7 @@ describe("contract schema", () => {
   // -- Metrics.
 
   it("rejects prompt_when on non-session metrics", () => {
-    const data = clone() as any;
+    const data = clone();
     data.metrics = {
       exercise: [
         { key: "rir", label: "RIR", type: "number", min: 0, max: 5, prompt_when: "start" },
@@ -229,19 +229,19 @@ describe("contract schema", () => {
   });
 
   it("requires min/max for number and scale, options for enum", () => {
-    const noBounds = clone() as any;
+    const noBounds = clone();
     noBounds.metrics = { session: [{ key: "k", label: "L", type: "scale", prompt_when: "start" }] };
     const issues = issuesOf(noBounds).join("\n");
     expect(issues).toContain("min");
     expect(issues).toContain("max");
 
-    const noOptions = clone() as any;
+    const noOptions = clone();
     noOptions.metrics = { exercise: [{ key: "q", label: "Q", type: "enum" }] };
     expect(issuesOf(noOptions).join("\n")).toContain("options");
   });
 
   it("rejects duplicate metric keys within a scope", () => {
-    const data = clone() as any;
+    const data = clone();
     data.metrics = {
       session: [
         { key: "energy", label: "Energy", type: "scale", min: 1, max: 10, prompt_when: "start" },

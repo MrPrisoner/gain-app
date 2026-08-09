@@ -35,10 +35,14 @@ function foundAt(data: unknown, path: readonly PropertyKey[]): string {
   }
   if (current === undefined) return "(missing)";
   try {
-    return JSON.stringify(current) ?? String(current);
+    const json = JSON.stringify(current);
+    if (json !== undefined) return json;
   } catch {
-    return String(current);
+    // YAML anchors can produce a cycle, which JSON.stringify refuses.
   }
+  // Never fall back to String(): an object stringifies to "[object Object]", and
+  // `found` is the one field that tells the revising AI what it actually sent.
+  return `(a ${typeof current} GAIN could not serialize — a YAML anchor cycle would do this)`;
 }
 
 function describeIssue(issue: z.ZodIssue): string {

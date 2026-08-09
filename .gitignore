@@ -22,3 +22,7 @@ data/
 .DS_Store
 *.swp
 *~
+
+# Personal agent overrides. .claude/settings.json IS committed — it carries the shared
+# hook — but local overrides and MCP auth are per-developer.
+.claude/settings.local.json

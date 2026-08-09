@@ -29,7 +29,7 @@ function canonicalize(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonicalize);
   if (value !== null && typeof value === "object") {
     const out: Record<string, unknown> = {};
-    for (const key of Object.keys(value as Record<string, unknown>).sort()) {
+    for (const key of Object.keys(value).sort()) {
       out[key] = canonicalize((value as Record<string, unknown>)[key]);
     }
     return out;
@@ -269,22 +269,19 @@ export function diffContracts(before: GainContract, after: GainContract): Contra
         const b = loadsBefore.get(l.ref);
         return (
           b !== undefined &&
-          fieldChanges(
-            b as unknown as Record<string, unknown>,
-            l as unknown as Record<string, unknown>,
-            ["label", "default_kg", "is_bodyweight", "note"],
-          ).length > 0
+          fieldChanges(b, l, ["label", "default_kg", "is_bodyweight", "note"]).length > 0
         );
       })
       .map((l) => {
         const b = loadsBefore.get(l.ref);
         return {
           ref: l.ref,
-          changes: fieldChanges(
-            b as unknown as Record<string, unknown>,
-            l as unknown as Record<string, unknown>,
-            ["label", "default_kg", "is_bodyweight", "note"],
-          ),
+          changes: fieldChanges(b as unknown as Record<string, unknown>, l, [
+            "label",
+            "default_kg",
+            "is_bodyweight",
+            "note",
+          ]),
         };
       }),
   };
@@ -311,24 +308,13 @@ export function diffContracts(before: GainContract, after: GainContract): Contra
   const changedExercises = after.exercises
     .filter((e) => {
       const b = exercisesBefore.get(e.id);
-      return (
-        b !== undefined &&
-        fieldChanges(
-          b as unknown as Record<string, unknown>,
-          e as unknown as Record<string, unknown>,
-          exerciseFields,
-        ).length > 0
-      );
+      return b !== undefined && fieldChanges(b, e, exerciseFields).length > 0;
     })
     .map((e) => {
       const b = exercisesBefore.get(e.id);
       return {
         id: e.id,
-        changes: fieldChanges(
-          b as unknown as Record<string, unknown>,
-          e as unknown as Record<string, unknown>,
-          exerciseFields,
-        ),
+        changes: fieldChanges(b as unknown as Record<string, unknown>, e, exerciseFields),
       };
     });
 
@@ -379,11 +365,7 @@ export function diffContracts(before: GainContract, after: GainContract): Contra
     const beforeSession = sessionsBefore.get(afterSession.key);
     if (!beforeSession) continue;
 
-    const sChanges = fieldChanges(
-      beforeSession as unknown as Record<string, unknown>,
-      afterSession as unknown as Record<string, unknown>,
-      sessionFields,
-    );
+    const sChanges = fieldChanges(beforeSession, afterSession, sessionFields);
     if (sChanges.length > 0) {
       sessionsDiff.changed.push({ key: afterSession.key, changes: sChanges });
     }
@@ -406,11 +388,7 @@ export function diffContracts(before: GainContract, after: GainContract): Contra
     for (const afterBlock of afterSession.blocks) {
       const beforeBlock = blocksBefore.get(afterBlock.key);
       if (!beforeBlock) continue;
-      const bChanges = fieldChanges(
-        beforeBlock as unknown as Record<string, unknown>,
-        afterBlock as unknown as Record<string, unknown>,
-        blockFields,
-      );
+      const bChanges = fieldChanges(beforeBlock, afterBlock, blockFields);
       if (bChanges.length > 0) {
         blockDiff.changed.push({ key: afterBlock.key, changes: bChanges });
       }
@@ -529,11 +507,7 @@ export function diffContracts(before: GainContract, after: GainContract): Contra
     for (const def of afterDefs.values()) {
       const b = beforeDefs.get(def.key);
       if (!b) continue;
-      const changes = fieldChanges(
-        b as unknown as Record<string, unknown>,
-        def as unknown as Record<string, unknown>,
-        metricFields,
-      );
+      const changes = fieldChanges(b, def, metricFields);
       if (changes.length > 0) metricsDiff.changed.push({ scope, key: def.key, changes });
     }
   }
