@@ -3,9 +3,10 @@
   import { ulid } from "ulidx";
   import { applyAction, enhance } from "$app/forms";
   import type { ActionData, PageData } from "./$types";
-  import { visibleSetCount } from "$lib/session/session-view";
-  // `restForSet`/`restBetweenRounds` are Task 7's (rest-timer wiring) — this
-  // component doesn't render rest UI yet, so they aren't imported here.
+  import { restForSet, restBetweenRounds, visibleSetCount } from "$lib/session/session-view";
+  import RestTimer from "./RestTimer.svelte";
+  import DeviationSheet from "./DeviationSheet.svelte";
+  import { restSpecFrom, type RestSpec } from "$lib/session/rest-timer";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -52,6 +53,14 @@
 
   // Optional sets added beyond a ranged prescription's minimum, keyed by slug.
   const addedSets = new SvelteMap<string, number>();
+
+  // Rounds completed so far for a `type: rounds` block, keyed by block key.
+  const completedRounds = new SvelteMap<string, number>();
+
+  // The rest timer overlay's spec, or undefined when no rest is active.
+  let activeRest = $state<RestSpec | undefined>(undefined);
+  // The exercise slug the deviation sheet is open for, or undefined when closed.
+  let deviationFor = $state<string | undefined>(undefined);
 
   function setKey(slug: string, setNo: number, side?: "left" | "right"): string {
     return `${slug}:${setNo}:${side ?? ""}`;
@@ -178,6 +187,8 @@
                                 reps: fill.reps,
                                 weightKg: fill.weightKg,
                               });
+                              const rest = restForSet(block, exercise);
+                              if (rest) activeRest = restSpecFrom(rest);
                             }
                           };
                         }}
@@ -248,11 +259,34 @@
                       Add the optional set
                     </button>
                   {/if}
+
+                  <button
+                    type="button"
+                    class="deviate"
+                    onclick={() => (deviationFor = exercise.slug)}
+                  >
+                    Change this set
+                  </button>
                 </div>
               {/if}
             </li>
           {/each}
         </ul>
+
+        {#if block.type === "rounds"}
+          <button
+            type="button"
+            class="add-set"
+            onclick={() => {
+              const round = (completedRounds.get(block.key) ?? 0) + 1;
+              completedRounds.set(block.key, round);
+              const rest = restBetweenRounds(block, round);
+              if (rest) activeRest = restSpecFrom(rest);
+            }}
+          >
+            Round {(completedRounds.get(block.key) ?? 0) + 1} of {block.rounds} done
+          </button>
+        {/if}
       {/if}
     </section>
   {/each}
@@ -260,6 +294,25 @@
 
 {#if form?.actionError}
   <p class="action-error">{form.actionError}</p>
+{/if}
+
+{#if activeRest}
+  <RestTimer
+    spec={activeRest}
+    onDone={() => (activeRest = undefined)}
+    onSkip={() => (activeRest = undefined)}
+  />
+{/if}
+
+{#if deviationFor && workoutId}
+  <DeviationSheet
+    exerciseSlug={deviationFor}
+    substitutes={data.session.blocks
+      .flatMap((b) => b.exercises)
+      .find((e) => e.slug === deviationFor)?.substitutes ?? []}
+    {workoutId}
+    onClose={() => (deviationFor = undefined)}
+  />
 {/if}
 
 <style>
@@ -434,5 +487,14 @@
   }
   .action-error {
     color: var(--muted);
+  }
+  .deviate {
+    justify-self: start;
+    border: none;
+    background: none;
+    color: var(--muted);
+    font-size: 0.8rem;
+    text-decoration: underline;
+    padding: 0;
   }
 </style>
