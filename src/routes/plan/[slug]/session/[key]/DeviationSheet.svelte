@@ -9,17 +9,18 @@
     workoutId,
     onClose,
     onRedFlagStop,
+    onError,
   }: {
     exerciseSlug: string;
     substitutes: string[];
     workoutId: string;
     onClose: () => void;
     onRedFlagStop: (note: string | undefined) => void;
+    /** Reports a failed `?/logDeviation` submission (or clears a prior one on success) into
+     * the parent page's single shared action-error surface — this sheet has no error UI of
+     * its own (phase-4 remediation Task 2 unifies the two former error mechanisms). */
+    onError: (message: string | undefined) => void;
   } = $props();
-
-  // Set from a failed `?/logDeviation` submission so the sheet can surface the error
-  // instead of silently sitting there (this component has no page-level `form` prop).
-  let sheetForm = $state<{ actionError?: string } | undefined>(undefined);
 
   const reasons = [
     { code: "pain", label: "Symptoms" },
@@ -46,13 +47,17 @@
       return async ({ result }: { result: ActionResult }) => {
         await applyAction(result);
         if (result.type === "success") {
+          onError(undefined);
           if (kind === "stop_red_flag") {
             onRedFlagStop(note || undefined);
           } else {
             onClose();
           }
         } else if (result.type === "failure") {
-          sheetForm = result.data as { actionError?: string } | undefined;
+          const data = result.data as { actionError?: string } | undefined;
+          onError(
+            typeof data?.actionError === "string" ? data.actionError : "Something went wrong.",
+          );
         }
       };
     }}
@@ -100,10 +105,6 @@
       name="note"
       placeholder="Optional note — exported as signal for the revising AI."
       bind:value={note}></textarea>
-
-    {#if sheetForm?.actionError}
-      <p class="action-error">{sheetForm.actionError}</p>
-    {/if}
 
     <div class="sheet-actions">
       <button type="button" class="secondary" onclick={onClose}>Cancel</button>
@@ -166,10 +167,5 @@
     background: var(--raised);
     border: 1px solid var(--line);
     color: var(--text);
-  }
-  .action-error {
-    color: var(--muted);
-    font-size: 0.85rem;
-    margin: 0;
   }
 </style>

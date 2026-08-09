@@ -76,21 +76,26 @@ export const actions: Actions = {
   start: async ({ request, params, locals }) => {
     if (!locals.user) throw redirect(303, "/login");
     const form = await request.formData();
-    const clientId = requireText(form, "client_id");
 
-    const userDb = getUserDbFor(locals.user.id);
-    const plan = getPlanBySlug(userDb, params.slug);
-    if (!plan) return fail(404, { actionError: "No such plan." });
-    const version = getCurrentVersion(userDb, plan.id);
-    if (!version) return fail(404, { actionError: "This plan has no imported version." });
+    try {
+      const clientId = requireText(form, "client_id");
 
-    const workout = startWorkout(userDb, {
-      planVersionId: version.id,
-      sessionKey: params.key,
-      clientId,
-      now: new Date(),
-    });
-    return { workoutId: workout.id };
+      const userDb = getUserDbFor(locals.user.id);
+      const plan = getPlanBySlug(userDb, params.slug);
+      if (!plan) return fail(404, { actionError: "No such plan." });
+      const version = getCurrentVersion(userDb, plan.id);
+      if (!version) return fail(404, { actionError: "This plan has no imported version." });
+
+      const workout = startWorkout(userDb, {
+        planVersionId: version.id,
+        sessionKey: params.key,
+        clientId,
+        now: new Date(),
+      });
+      return { workoutId: workout.id };
+    } catch (err) {
+      return fail(400, { actionError: err instanceof Error ? err.message : "Invalid request." });
+    }
   },
 
   logSet: async ({ request, params, locals }) => {
@@ -100,37 +105,41 @@ export const actions: Actions = {
     const plan = getPlanBySlug(userDb, params.slug);
     if (!plan) return fail(404, { actionError: "No such plan." });
 
-    const slug = requireText(form, "exercise_slug");
-    const exerciseDefId = getExerciseDefIdBySlug(userDb, plan.id, slug);
-    if (!exerciseDefId) return fail(400, { actionError: `Unknown exercise \`${slug}\`.` });
+    try {
+      const slug = requireText(form, "exercise_slug");
+      const exerciseDefId = getExerciseDefIdBySlug(userDb, plan.id, slug);
+      if (!exerciseDefId) return fail(400, { actionError: `Unknown exercise \`${slug}\`.` });
 
-    const side = optionalText(form, "side");
-    if (side !== undefined && side !== "left" && side !== "right") {
-      return fail(400, { actionError: "Invalid side." });
+      const side = optionalText(form, "side");
+      if (side !== undefined && side !== "left" && side !== "right") {
+        return fail(400, { actionError: "Invalid side." });
+      }
+
+      const difficulty = optionalText(form, "difficulty");
+      if (
+        difficulty !== undefined &&
+        difficulty !== "easy" &&
+        difficulty !== "medium" &&
+        difficulty !== "hard"
+      ) {
+        return fail(400, { actionError: "Invalid difficulty." });
+      }
+
+      const result = logSet(userDb, {
+        workoutId: requireText(form, "workout_id"),
+        exerciseDefId,
+        setNo: Number(requireText(form, "set_no")),
+        side,
+        reps: optionalNumber(form, "reps"),
+        weightKg: optionalNumber(form, "weight_kg"),
+        durationS: optionalNumber(form, "duration_s"),
+        difficulty,
+        clientId: requireText(form, "client_id"),
+      });
+      return { setLogId: result.id };
+    } catch (err) {
+      return fail(400, { actionError: err instanceof Error ? err.message : "Invalid request." });
     }
-
-    const difficulty = optionalText(form, "difficulty");
-    if (
-      difficulty !== undefined &&
-      difficulty !== "easy" &&
-      difficulty !== "medium" &&
-      difficulty !== "hard"
-    ) {
-      return fail(400, { actionError: "Invalid difficulty." });
-    }
-
-    const result = logSet(userDb, {
-      workoutId: requireText(form, "workout_id"),
-      exerciseDefId,
-      setNo: Number(requireText(form, "set_no")),
-      side,
-      reps: optionalNumber(form, "reps"),
-      weightKg: optionalNumber(form, "weight_kg"),
-      durationS: optionalNumber(form, "duration_s"),
-      difficulty,
-      clientId: requireText(form, "client_id"),
-    });
-    return { setLogId: result.id };
   },
 
   logMetric: async ({ request, params, locals }) => {
@@ -138,21 +147,20 @@ export const actions: Actions = {
     const form = await request.formData();
     const userDb = getUserDbFor(locals.user.id);
 
-    const scope = requireText(form, "scope");
-    if (scope !== "set" && scope !== "exercise" && scope !== "session") {
-      return fail(400, { actionError: "Invalid metric scope." });
-    }
-
-    let exerciseDefId: string | undefined;
-    const exerciseSlug = optionalText(form, "exercise_slug");
-    if (exerciseSlug !== undefined) {
-      const plan = getPlanBySlug(userDb, params.slug);
-      exerciseDefId = plan ? getExerciseDefIdBySlug(userDb, plan.id, exerciseSlug) : undefined;
-    }
-
-    let result;
     try {
-      result = logMetric(userDb, {
+      const scope = requireText(form, "scope");
+      if (scope !== "set" && scope !== "exercise" && scope !== "session") {
+        return fail(400, { actionError: "Invalid metric scope." });
+      }
+
+      let exerciseDefId: string | undefined;
+      const exerciseSlug = optionalText(form, "exercise_slug");
+      if (exerciseSlug !== undefined) {
+        const plan = getPlanBySlug(userDb, params.slug);
+        exerciseDefId = plan ? getExerciseDefIdBySlug(userDb, plan.id, exerciseSlug) : undefined;
+      }
+
+      const result = logMetric(userDb, {
         scope,
         setLogId: optionalText(form, "set_log_id"),
         workoutId: optionalText(form, "workout_id"),
@@ -162,12 +170,12 @@ export const actions: Actions = {
         valueText: optionalText(form, "value_text"),
         clientId: requireText(form, "client_id"),
       });
+      return { metricValueId: result.id };
     } catch (err) {
       return fail(400, {
         actionError: err instanceof Error ? err.message : "Invalid metric value.",
       });
     }
-    return { metricValueId: result.id };
   },
 
   logDeviation: async ({ request, params, locals }) => {
@@ -177,21 +185,29 @@ export const actions: Actions = {
     const plan = getPlanBySlug(userDb, params.slug);
     if (!plan) return fail(404, { actionError: "No such plan." });
 
-    const slug = requireText(form, "exercise_slug");
-    const exerciseDefId = getExerciseDefIdBySlug(userDb, plan.id, slug);
-    if (!exerciseDefId) return fail(400, { actionError: `Unknown exercise \`${slug}\`.` });
+    try {
+      const slug = requireText(form, "exercise_slug");
+      const exerciseDefId = getExerciseDefIdBySlug(userDb, plan.id, slug);
+      if (!exerciseDefId) return fail(400, { actionError: `Unknown exercise \`${slug}\`.` });
 
-    const kind = requireText(form, "kind") as DeviationKind;
-    const result = logDeviation(userDb, {
-      workoutId: requireText(form, "workout_id"),
-      exerciseDefId,
-      kind,
-      reasonCode: optionalText(form, "reason_code"),
-      note: optionalText(form, "note"),
-      substituteExerciseSlug: optionalText(form, "substitute_exercise_slug"),
-      clientId: requireText(form, "client_id"),
-    });
-    return { deviationId: result.id };
+      const kind = requireText(form, "kind");
+      if (!DEVIATION_KINDS.includes(kind as DeviationKind)) {
+        return fail(400, { actionError: `Invalid deviation kind \`${kind}\`.` });
+      }
+
+      const result = logDeviation(userDb, {
+        workoutId: requireText(form, "workout_id"),
+        exerciseDefId,
+        kind: kind as DeviationKind,
+        reasonCode: optionalText(form, "reason_code"),
+        note: optionalText(form, "note"),
+        substituteExerciseSlug: optionalText(form, "substitute_exercise_slug"),
+        clientId: requireText(form, "client_id"),
+      });
+      return { deviationId: result.id };
+    } catch (err) {
+      return fail(400, { actionError: err instanceof Error ? err.message : "Invalid request." });
+    }
   },
 
   finish: async ({ request, locals }) => {
@@ -199,26 +215,46 @@ export const actions: Actions = {
     const form = await request.formData();
     const userDb = getUserDbFor(locals.user.id);
 
-    const status = requireText(form, "status");
-    if (status !== "completed" && status !== "partial" && status !== "stopped") {
-      return fail(400, { actionError: "Invalid workout status." });
-    }
+    try {
+      const status = requireText(form, "status");
+      if (status !== "completed" && status !== "partial" && status !== "stopped") {
+        return fail(400, { actionError: "Invalid workout status." });
+      }
 
-    finishWorkout(userDb, {
-      workoutId: requireText(form, "workout_id"),
-      status,
-      note: optionalText(form, "note"),
-      now: new Date(),
-    });
-    return { finished: true };
+      finishWorkout(userDb, {
+        workoutId: requireText(form, "workout_id"),
+        status,
+        note: optionalText(form, "note"),
+        now: new Date(),
+      });
+      return { finished: true };
+    } catch (err) {
+      return fail(400, { actionError: err instanceof Error ? err.message : "Invalid request." });
+    }
   },
 };
+
+/** The schema's CHECK constraint on `deviation.kind` (`schema.ts`) — kept in sync by hand
+ * with the `DeviationKind` union it validates against. */
+const DEVIATION_KINDS: DeviationKind[] = [
+  "skip",
+  "substitute",
+  "add_set",
+  "drop_set",
+  "stop_red_flag",
+];
 
 function formText(form: FormData, name: string): string {
   const value = form.get(name);
   return typeof value === "string" ? value : "";
 }
 
+/**
+ * Throws a plain `Error` on a missing/malformed field. Every call site is inside an
+ * action's own `try`/`catch`, which converts that throw into `fail(400, { actionError })`
+ * before it can reach SvelteKit — nothing in `actions` is allowed to throw except
+ * `redirect` (ARCHITECTURE §9 / phase-4 remediation Task 2).
+ */
 function requireText(form: FormData, name: string): string {
   const value = formText(form, name).trim();
   if (!value) throw new Error(`missing required form field \`${name}\``);

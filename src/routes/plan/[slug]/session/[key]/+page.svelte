@@ -2,6 +2,7 @@
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
   import { ulid } from "ulidx";
   import { applyAction, enhance } from "$app/forms";
+  import type { ActionResult } from "@sveltejs/kit";
   import type { ActionData, PageData } from "./$types";
   import {
     formatRepsOrDuration,
@@ -27,6 +28,22 @@
       : ulid(),
   );
   let workoutId = $state<string | undefined>(form?.workoutId);
+
+  // The one action-error surface for the whole runner (phase-4 remediation Task 2) — every
+  // enhanced form on this page, and `DeviationSheet` via its `onError` prop, funnels into
+  // this single piece of state so there is exactly one place an action error renders, one
+  // visual treatment, one dismiss control.
+  let actionError = $state<string | undefined>(form?.actionError);
+
+  function afterAction(result: ActionResult): void {
+    if (result.type === "failure") {
+      const data = result.data as { actionError?: string } | undefined;
+      actionError =
+        typeof data?.actionError === "string" ? data.actionError : "Something went wrong.";
+    } else if (result.type === "success") {
+      actionError = undefined;
+    }
+  }
 
   function mintAndStore(): string {
     const id = ulid();
@@ -132,6 +149,7 @@
   use:enhance={() => {
     return async ({ result }) => {
       await applyAction(result);
+      afterAction(result);
       if (result.type === "success" && result.data?.workoutId) {
         workoutId = result.data.workoutId as string;
       }
@@ -149,6 +167,7 @@
   use:enhance={() => {
     return async ({ result }) => {
       await applyAction(result);
+      afterAction(result);
       if (result.type === "success") {
         sessionStorage.removeItem(storageKey);
         window.location.href = "/";
@@ -168,222 +187,245 @@
   <button type="button" class="end-session" onclick={() => (showWrapUp = true)}>End session</button>
 </header>
 
-<div class="blocks">
-  {#each data.session.blocks as block (block.key)}
-    <section class="block">
-      <div class="block-head">
-        <span class="block-name">{block.name}</span>
-        {#if block.tracking === "checkoff"}<span class="tag">Check off</span>{/if}
-        {#if block.type === "rounds"}<span class="tag">Rounds × {block.rounds}</span>{/if}
-      </div>
-      {#if block.note}<p class="block-note">{block.note}</p>{/if}
+{#if actionError}
+  <div class="action-error" role="alert">
+    <p>{actionError}</p>
+    <button
+      type="button"
+      class="dismiss"
+      onclick={() => (actionError = undefined)}
+      aria-label="Dismiss error"
+    >
+      &times;
+    </button>
+  </div>
+{/if}
 
-      {#if block.tracking === "checkoff"}
-        <!-- UI-DECISIONS §9: pills, no set rows, excluded from progression. -->
-        <div class="checkoff-pills">
-          {#each block.exercises as exercise (exercise.slug)}
-            {@const key = setKey(block.key, exercise.slug, 1)}
-            <button
-              type="button"
-              class="pill"
-              class:done={loggedSets.has(key)}
-              onclick={() => {
-                if (loggedSets.has(key)) loggedSets.delete(key);
-                else loggedSets.set(key, {});
-              }}
-            >
-              {exercise.name}
-              <span class="pill-target tabular">{formatRepsOrDuration(exercise)}</span>
-            </button>
-          {/each}
+{#if !workoutId}
+  <!-- Task 2 (phase-4 remediation): nothing below posts a real workout_id until the
+       async `?/start` round-trip resolves, so no logging control renders until then —
+       a quiet "starting" state beats a live-looking strip that 400s on every tap. -->
+  <p class="starting">Starting your session…</p>
+{:else}
+  <div class="blocks">
+    {#each data.session.blocks as block (block.key)}
+      <section class="block">
+        <div class="block-head">
+          <span class="block-name">{block.name}</span>
+          {#if block.tracking === "checkoff"}<span class="tag">Check off</span>{/if}
+          {#if block.type === "rounds"}<span class="tag">Rounds × {block.rounds}</span>{/if}
         </div>
-      {:else}
-        <ul class="exercises">
-          {#each block.exercises as exercise (exercise.slug)}
-            {@const exerciseKey = `${block.key}:${exercise.slug}`}
-            {@const isOpen = openSlug === exerciseKey}
-            {@const sides = exercise.perSide
-              ? (["left", "right"] as const)
-              : ([undefined] as const)}
-            {@const isRounds = block.type === "rounds"}
-            {@const currentRound = (completedRounds.get(block.key) ?? 0) + 1}
-            {@const visible = isRounds
-              ? { shown: 1, canAddMore: false }
-              : visibleSetCount(exercise.sets, addedSets.get(exerciseKey) ?? 0)}
-            <li class="exercise" class:open={isOpen}>
-              <button type="button" class="exercise-head" onclick={() => (openSlug = exerciseKey)}>
-                <span class="exercise-name">{exercise.name}</span>
-                <span class="exercise-meta tabular">
-                  {formatTarget(exercise)}
-                </span>
+        {#if block.note}<p class="block-note">{block.note}</p>{/if}
+
+        {#if block.tracking === "checkoff"}
+          <!-- UI-DECISIONS §9: pills, no set rows, excluded from progression. -->
+          <div class="checkoff-pills">
+            {#each block.exercises as exercise (exercise.slug)}
+              {@const key = setKey(block.key, exercise.slug, 1)}
+              <button
+                type="button"
+                class="pill"
+                class:done={loggedSets.has(key)}
+                onclick={() => {
+                  if (loggedSets.has(key)) loggedSets.delete(key);
+                  else loggedSets.set(key, {});
+                }}
+              >
+                {exercise.name}
+                <span class="pill-target tabular">{formatRepsOrDuration(exercise)}</span>
               </button>
+            {/each}
+          </div>
+        {:else}
+          <ul class="exercises">
+            {#each block.exercises as exercise (exercise.slug)}
+              {@const exerciseKey = `${block.key}:${exercise.slug}`}
+              {@const isOpen = openSlug === exerciseKey}
+              {@const sides = exercise.perSide
+                ? (["left", "right"] as const)
+                : ([undefined] as const)}
+              {@const isRounds = block.type === "rounds"}
+              {@const currentRound = (completedRounds.get(block.key) ?? 0) + 1}
+              {@const visible = isRounds
+                ? { shown: 1, canAddMore: false }
+                : visibleSetCount(exercise.sets, addedSets.get(exerciseKey) ?? 0)}
+              <li class="exercise" class:open={isOpen}>
+                <button
+                  type="button"
+                  class="exercise-head"
+                  onclick={() => (openSlug = exerciseKey)}
+                >
+                  <span class="exercise-name">{exercise.name}</span>
+                  <span class="exercise-meta tabular">
+                    {formatTarget(exercise)}
+                  </span>
+                </button>
 
-              {#if isOpen}
-                <div class="exercise-body">
-                  {#if exercise.conditional && !dismissedConditions.has(exerciseKey)}
-                    {@const substitutedWith = substitutedExercises.get(exerciseKey)}
-                    <p class="condition">{exercise.condition}</p>
-                    {#if substitutedWith}
-                      <p class="cue">Swapped for: {substitutedWith}</p>
-                    {:else if exercise.substitutes.length > 0}
-                      <div class="substitute-row">
-                        {#each exercise.substitutes as sub (sub)}
-                          <form
-                            method="POST"
-                            action="?/logDeviation"
-                            use:enhance={() => {
-                              return async ({ result }) => {
-                                await applyAction(result);
-                                if (result.type === "success") {
-                                  substitutedExercises.set(exerciseKey, sub);
-                                }
-                              };
-                            }}
-                          >
-                            <input type="hidden" name="workout_id" value={workoutId ?? ""} />
-                            <input type="hidden" name="exercise_slug" value={exercise.slug} />
-                            <input type="hidden" name="kind" value="substitute" />
-                            <input type="hidden" name="reason_code" value="other" />
-                            <input type="hidden" name="substitute_exercise_slug" value={sub} />
-                            <input type="hidden" name="client_id" value={ulid()} />
-                            <button type="submit" class="chip">Swap: {sub}</button>
-                          </form>
-                        {/each}
-                        <button
-                          type="button"
-                          class="chip chip--primary"
-                          onclick={() => dismissedConditions.add(exerciseKey)}
-                        >
-                          Do it
-                        </button>
-                      </div>
-                    {/if}
-                  {/if}
-                  {#if exercise.note}<p class="cue">{exercise.note}</p>{/if}
-
-                  {#each isRounds ? [currentRound] : Array.from({ length: visible.shown }, (_, i) => i + 1) as setNo (setNo)}
-                    {#each sides as side (side ?? "single")}
-                      {@const key = setKey(block.key, exercise.slug, setNo, side)}
-                      {@const logged = loggedSets.get(key)}
-                      {@const fill = prefillFor(exercise.slug, exercise.perSide, side)}
-                      <form
-                        method="POST"
-                        action="?/logSet"
-                        use:enhance={() => {
-                          return async ({ result }) => {
-                            await applyAction(result);
-                            if (result.type === "success") {
-                              loggedSets.set(key, {
-                                reps: fill.reps,
-                                weightKg: fill.weightKg,
-                              });
-                              const rest = restForSet(block, exercise);
-                              if (rest) activeRest = restSpecFrom(rest);
-                            }
-                          };
-                        }}
-                        class="set-row"
-                      >
-                        <input type="hidden" name="workout_id" value={workoutId ?? ""} />
-                        <input type="hidden" name="exercise_slug" value={exercise.slug} />
-                        <input type="hidden" name="set_no" value={setNo} />
-                        {#if side}<input type="hidden" name="side" value={side} />{/if}
-                        <input type="hidden" name="client_id" value={ulid()} />
-
-                        <span class="set-no tabular">{setNo}{side ? ` (${side})` : ""}</span>
-
-                        {#if exercise.type === "time"}
-                          <input
-                            type="number"
-                            name="duration_s"
-                            class="tabular"
-                            value={fill.durationS ?? ""}
-                            disabled={!!logged}
-                          />
-                        {:else}
-                          <input
-                            type="number"
-                            name="reps"
-                            class="tabular"
-                            value={fill.reps ?? ""}
-                            step="1"
-                            disabled={!!logged}
-                          />
-                          <input
-                            type="number"
-                            name="weight_kg"
-                            class="tabular"
-                            value={fill.weightKg ?? ""}
-                            step="1"
-                            disabled={!!logged}
-                          />
-                        {/if}
-
-                        <div class="effort">
-                          {#each ["easy", "medium", "hard"] as const as level, i (level)}
-                            <button
-                              type="submit"
-                              name="difficulty"
-                              value={level}
-                              class="effort-key"
-                              disabled={!!logged}
-                              aria-label={level}
+                {#if isOpen}
+                  <div class="exercise-body">
+                    {#if exercise.conditional && !dismissedConditions.has(exerciseKey)}
+                      {@const substitutedWith = substitutedExercises.get(exerciseKey)}
+                      <p class="condition">{exercise.condition}</p>
+                      {#if substitutedWith}
+                        <p class="cue">Swapped for: {substitutedWith}</p>
+                      {:else if exercise.substitutes.length > 0}
+                        <div class="substitute-row">
+                          {#each exercise.substitutes as sub (sub)}
+                            <form
+                              method="POST"
+                              action="?/logDeviation"
+                              use:enhance={() => {
+                                return async ({ result }) => {
+                                  await applyAction(result);
+                                  afterAction(result);
+                                  if (result.type === "success") {
+                                    substitutedExercises.set(exerciseKey, sub);
+                                  }
+                                };
+                              }}
                             >
-                              {#each [0, 1, 2] as seg (seg)}
-                                <i class:on={seg <= i}></i>
-                              {/each}
-                            </button>
+                              <input type="hidden" name="workout_id" value={workoutId ?? ""} />
+                              <input type="hidden" name="exercise_slug" value={exercise.slug} />
+                              <input type="hidden" name="kind" value="substitute" />
+                              <input type="hidden" name="reason_code" value="other" />
+                              <input type="hidden" name="substitute_exercise_slug" value={sub} />
+                              <input type="hidden" name="client_id" value={ulid()} />
+                              <button type="submit" class="chip">Swap: {sub}</button>
+                            </form>
                           {/each}
+                          <button
+                            type="button"
+                            class="chip chip--primary"
+                            onclick={() => dismissedConditions.add(exerciseKey)}
+                          >
+                            Do it
+                          </button>
                         </div>
-                      </form>
-                    {/each}
-                  {/each}
+                      {/if}
+                    {/if}
+                    {#if exercise.note}<p class="cue">{exercise.note}</p>{/if}
 
-                  {#if visible.canAddMore}
+                    {#each isRounds ? [currentRound] : Array.from({ length: visible.shown }, (_, i) => i + 1) as setNo (setNo)}
+                      {#each sides as side (side ?? "single")}
+                        {@const key = setKey(block.key, exercise.slug, setNo, side)}
+                        {@const logged = loggedSets.get(key)}
+                        {@const fill = prefillFor(exercise.slug, exercise.perSide, side)}
+                        <form
+                          method="POST"
+                          action="?/logSet"
+                          use:enhance={() => {
+                            return async ({ result }) => {
+                              await applyAction(result);
+                              afterAction(result);
+                              if (result.type === "success") {
+                                loggedSets.set(key, {
+                                  reps: fill.reps,
+                                  weightKg: fill.weightKg,
+                                });
+                                const rest = restForSet(block, exercise);
+                                if (rest) activeRest = restSpecFrom(rest);
+                              }
+                            };
+                          }}
+                          class="set-row"
+                        >
+                          <input type="hidden" name="workout_id" value={workoutId ?? ""} />
+                          <input type="hidden" name="exercise_slug" value={exercise.slug} />
+                          <input type="hidden" name="set_no" value={setNo} />
+                          {#if side}<input type="hidden" name="side" value={side} />{/if}
+                          <input type="hidden" name="client_id" value={ulid()} />
+
+                          <span class="set-no tabular">{setNo}{side ? ` (${side})` : ""}</span>
+
+                          {#if exercise.type === "time"}
+                            <input
+                              type="number"
+                              name="duration_s"
+                              class="tabular"
+                              value={fill.durationS ?? ""}
+                              disabled={!!logged}
+                            />
+                          {:else}
+                            <input
+                              type="number"
+                              name="reps"
+                              class="tabular"
+                              value={fill.reps ?? ""}
+                              step="1"
+                              disabled={!!logged}
+                            />
+                            <input
+                              type="number"
+                              name="weight_kg"
+                              class="tabular"
+                              value={fill.weightKg ?? ""}
+                              step="1"
+                              disabled={!!logged}
+                            />
+                          {/if}
+
+                          <div class="effort">
+                            {#each ["easy", "medium", "hard"] as const as level, i (level)}
+                              <button
+                                type="submit"
+                                name="difficulty"
+                                value={level}
+                                class="effort-key"
+                                disabled={!!logged}
+                                aria-label={level}
+                              >
+                                {#each [0, 1, 2] as seg (seg)}
+                                  <i class:on={seg <= i}></i>
+                                {/each}
+                              </button>
+                            {/each}
+                          </div>
+                        </form>
+                      {/each}
+                    {/each}
+
+                    {#if visible.canAddMore}
+                      <button
+                        type="button"
+                        class="add-set"
+                        onclick={() =>
+                          addedSets.set(exerciseKey, (addedSets.get(exerciseKey) ?? 0) + 1)}
+                      >
+                        Add the optional set
+                      </button>
+                    {/if}
+
                     <button
                       type="button"
-                      class="add-set"
-                      onclick={() =>
-                        addedSets.set(exerciseKey, (addedSets.get(exerciseKey) ?? 0) + 1)}
+                      class="deviate"
+                      onclick={() => (deviationFor = exercise.slug)}
                     >
-                      Add the optional set
+                      Change this set
                     </button>
-                  {/if}
+                  </div>
+                {/if}
+              </li>
+            {/each}
+          </ul>
 
-                  <button
-                    type="button"
-                    class="deviate"
-                    onclick={() => (deviationFor = exercise.slug)}
-                  >
-                    Change this set
-                  </button>
-                </div>
-              {/if}
-            </li>
-          {/each}
-        </ul>
-
-        {#if block.type === "rounds"}
-          <button
-            type="button"
-            class="add-set"
-            onclick={() => {
-              const round = (completedRounds.get(block.key) ?? 0) + 1;
-              completedRounds.set(block.key, round);
-              const rest = restBetweenRounds(block, round);
-              if (rest) activeRest = restSpecFrom(rest);
-            }}
-          >
-            Round {(completedRounds.get(block.key) ?? 0) + 1} of {block.rounds} done
-          </button>
+          {#if block.type === "rounds"}
+            <button
+              type="button"
+              class="add-set"
+              onclick={() => {
+                const round = (completedRounds.get(block.key) ?? 0) + 1;
+                completedRounds.set(block.key, round);
+                const rest = restBetweenRounds(block, round);
+                if (rest) activeRest = restSpecFrom(rest);
+              }}
+            >
+              Round {(completedRounds.get(block.key) ?? 0) + 1} of {block.rounds} done
+            </button>
+          {/if}
         {/if}
-      {/if}
-    </section>
-  {/each}
-</div>
-
-{#if form?.actionError}
-  <p class="action-error">{form.actionError}</p>
+      </section>
+    {/each}
+  </div>
 {/if}
 
 {#if activeRest}
@@ -403,6 +445,7 @@
     {workoutId}
     onClose={() => (deviationFor = undefined)}
     {onRedFlagStop}
+    onError={(message) => (actionError = message)}
   />
 {/if}
 
@@ -423,6 +466,7 @@
                   use:enhance={() => {
                     return async ({ result }) => {
                       await applyAction(result);
+                      afterAction(result);
                       if (result.type === "success") sessionMetricValues.set(metric.key, value);
                     };
                   }}
@@ -454,6 +498,7 @@
                   use:enhance={() => {
                     return async ({ result }) => {
                       await applyAction(result);
+                      afterAction(result);
                       if (result.type === "success") sessionMetricValues.set(metric.key, option);
                     };
                   }}
@@ -483,6 +528,7 @@
         use:enhance={() => {
           return async ({ result }) => {
             await applyAction(result);
+            afterAction(result);
             if (result.type === "success") {
               sessionStorage.removeItem(storageKey);
               window.location.href = "/";
@@ -676,7 +722,37 @@
     padding: 0.4rem 0.8rem;
   }
   .action-error {
+    position: sticky;
+    top: 0;
+    z-index: 70;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    background: var(--raised);
+    color: var(--text);
+    font-weight: 700;
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    padding: 0.75rem 1rem;
+    margin: 0.75rem 0;
+  }
+  .action-error p {
+    margin: 0;
+  }
+  .action-error .dismiss {
+    border: none;
+    background: none;
+    color: inherit;
+    font-weight: 700;
+    font-size: 1.2rem;
+    line-height: 1;
+    padding: 0;
+  }
+  .starting {
     color: var(--muted);
+    text-align: center;
+    padding: 3rem 0;
   }
   .deviate {
     justify-self: start;
