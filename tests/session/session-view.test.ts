@@ -5,6 +5,7 @@ import { parsePlanDocument } from "../../src/lib/parse/parser";
 import {
   exerciseMetrics,
   formatRange,
+  formatRepsOrDuration,
   formatTarget,
   resolveLoad,
   resolveSession,
@@ -200,5 +201,55 @@ describe("formatTarget", () => {
     expect(squat?.reps).toBe(8);
     expect(squat?.perSide).toBe(false);
     expect(squat && formatTarget(squat)).toBe("1 × 8");
+  });
+
+  it("throws rather than silently rendering `0` when the type-appropriate field is missing", () => {
+    expect(() =>
+      formatTarget({
+        type: "reps",
+        sets: 1,
+        reps: undefined,
+        durationSec: undefined,
+        perSide: false,
+      }),
+    ).toThrow(/reps/);
+    expect(() =>
+      formatTarget({
+        type: "time",
+        sets: 1,
+        reps: undefined,
+        durationSec: undefined,
+        perSide: false,
+      }),
+    ).toThrow(/duration_sec/);
+  });
+});
+
+describe("formatRepsOrDuration", () => {
+  it("formats the reps side of a checkoff item (no unit)", () => {
+    const session = resolveSession(fixtureContract(), "A");
+    const warmup = session?.blocks.find((b) => b.key === "warmup");
+    const squat = warmup?.exercises.find((e) => e.slug === "bodyweight-squat");
+    expect(squat && formatRepsOrDuration(squat)).toBe("8");
+  });
+
+  it("formats the duration side of a checkoff item with a `sec` unit", () => {
+    const session = resolveSession(fixtureContract(), "A");
+    const warmup = session?.blocks.find((b) => b.key === "warmup");
+    const march = warmup?.exercises.find((e) => e.slug === "march-in-place");
+    expect(march && formatRepsOrDuration(march)).toBe("60 sec");
+  });
+
+  // Regression: the checkoff pill site used to fall back to `?? 0` here instead of
+  // sharing formatTarget's fail-fast behavior — both call sites protect the same
+  // contract invariant (schema.ts:525-553) and must fail the same way, not one loudly
+  // and one with a misleadingly-plausible "0 reps"/"0 sec".
+  it("throws rather than silently rendering `0`, matching formatTarget's fail-fast behavior", () => {
+    expect(() =>
+      formatRepsOrDuration({ type: "reps", reps: undefined, durationSec: undefined }),
+    ).toThrow(/reps/);
+    expect(() =>
+      formatRepsOrDuration({ type: "time", reps: undefined, durationSec: undefined }),
+    ).toThrow(/duration_sec/);
   });
 });

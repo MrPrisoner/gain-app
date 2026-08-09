@@ -190,25 +190,38 @@ export function formatRange(value: IntOrRange, unit?: string): string {
 }
 
 /**
- * The full prescription target line shown wherever an exercise's set/rep (or
- * set/duration) target is displayed — `3 × 8–12`, `2 × 20–40 sec per side`,
- * `2–3 × 10–15`. CONTRACT (schema.ts): a type `reps` exercise always has `reps` set
- * and a type `time` exercise always has `durationSec` set — the contract validator
- * rejects any document where that's not true — so it's an error to reach here without
- * the relevant field.
+ * The type-appropriate reps/duration value for an exercise — `reps` for type `reps`,
+ * `durationSec` for type `time` — formatted with `formatRange` (duration gets a `sec`
+ * unit suffix, reps doesn't). CONTRACT (schema.ts:525-553): a type `reps` exercise
+ * always has `reps` set and a type `time` exercise always has `durationSec` set — the
+ * contract validator rejects any document where that's not true, same precedent as
+ * `resolveExercise`'s catalogue-lookup guard above — so this throws rather than
+ * silently falling back, on the same "unreachable in practice, fail loud if it ever
+ * isn't" basis. Shared by every call site that needs this value, so they can't drift
+ * into inconsistent error handling for the same invariant.
  */
-export function formatTarget(
-  exercise: Pick<ResolvedExercise, "type" | "sets" | "reps" | "durationSec" | "perSide">,
+export function formatRepsOrDuration(
+  exercise: Pick<ResolvedExercise, "type" | "reps" | "durationSec">,
 ): string {
   const targetValue = exercise.type === "time" ? exercise.durationSec : exercise.reps;
   if (targetValue === undefined) {
     throw new Error(
-      `formatTarget: a type \`${exercise.type}\` exercise must have its ` +
+      `formatRepsOrDuration: a type \`${exercise.type}\` exercise must have its ` +
         `${exercise.type === "time" ? "duration_sec" : "reps"} set — the contract ` +
         `validator should already have rejected this document`,
     );
   }
-  const target = formatRange(targetValue, exercise.type === "time" ? "sec" : undefined);
-  const line = `${formatRange(exercise.sets)} × ${target}`;
+  return formatRange(targetValue, exercise.type === "time" ? "sec" : undefined);
+}
+
+/**
+ * The full prescription target line shown wherever an exercise's set/rep (or
+ * set/duration) target is displayed — `3 × 8–12`, `2 × 20–40 sec per side`,
+ * `2–3 × 10–15`.
+ */
+export function formatTarget(
+  exercise: Pick<ResolvedExercise, "type" | "sets" | "reps" | "durationSec" | "perSide">,
+): string {
+  const line = `${formatRange(exercise.sets)} × ${formatRepsOrDuration(exercise)}`;
   return exercise.perSide ? `${line} per side` : line;
 }

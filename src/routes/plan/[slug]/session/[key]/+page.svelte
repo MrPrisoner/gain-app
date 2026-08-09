@@ -4,7 +4,7 @@
   import { applyAction, enhance } from "$app/forms";
   import type { ActionData, PageData } from "./$types";
   import {
-    formatRange,
+    formatRepsOrDuration,
     formatTarget,
     restForSet,
     restBetweenRounds,
@@ -193,11 +193,7 @@
               }}
             >
               {exercise.name}
-              <span class="pill-target tabular"
-                >{exercise.type === "time"
-                  ? formatRange(exercise.durationSec ?? 0, "sec")
-                  : formatRange(exercise.reps ?? 0)}</span
-              >
+              <span class="pill-target tabular">{formatRepsOrDuration(exercise)}</span>
             </button>
           {/each}
         </div>
