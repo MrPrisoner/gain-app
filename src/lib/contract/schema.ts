@@ -365,7 +365,7 @@ const TOP_LEVEL_KEYS = [
 ] as const;
 
 /**
- * CLAUDE.md: the contract key is `plan`, and synonyms are not accepted. A revising AI
+ * AGENTS.md: the contract key is `plan`, and synonyms are not accepted. A revising AI
  * will reach for `program`, `routine` or `workout` — reject them loudly rather than
  * coercing them, and never reintroduce them as aliases.
  */
