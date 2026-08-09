@@ -65,3 +65,15 @@ export function contractOfVersion(version: PlanVersionRow): GainContract {
 export function readSourceMd(userDb: UserDb, version: PlanVersionRow): string {
   return fs.readFileSync(path.join(userDb.userDir, version.source_path), "utf8");
 }
+
+/** The stable `exercise_def.id` for a catalogue slug, or undefined if never imported. */
+export function getExerciseDefIdBySlug(
+  userDb: UserDb,
+  planId: string,
+  slug: string,
+): string | undefined {
+  const row = userDb.db
+    .prepare("SELECT id FROM exercise_def WHERE plan_id = ? AND slug = ?")
+    .get(planId, slug) as { id: string } | undefined;
+  return row?.id;
+}
