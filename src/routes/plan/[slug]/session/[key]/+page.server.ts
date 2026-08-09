@@ -150,16 +150,23 @@ export const actions: Actions = {
       exerciseDefId = plan ? getExerciseDefIdBySlug(userDb, plan.id, exerciseSlug) : undefined;
     }
 
-    const result = logMetric(userDb, {
-      scope,
-      setLogId: optionalText(form, "set_log_id"),
-      workoutId: optionalText(form, "workout_id"),
-      exerciseDefId,
-      metricKey: requireText(form, "metric_key"),
-      valueNum: optionalNumber(form, "value_num"),
-      valueText: optionalText(form, "value_text"),
-      clientId: requireText(form, "client_id"),
-    });
+    let result;
+    try {
+      result = logMetric(userDb, {
+        scope,
+        setLogId: optionalText(form, "set_log_id"),
+        workoutId: optionalText(form, "workout_id"),
+        exerciseDefId,
+        metricKey: requireText(form, "metric_key"),
+        valueNum: optionalNumber(form, "value_num"),
+        valueText: optionalText(form, "value_text"),
+        clientId: requireText(form, "client_id"),
+      });
+    } catch (err) {
+      return fail(400, {
+        actionError: err instanceof Error ? err.message : "Invalid metric value.",
+      });
+    }
     return { metricValueId: result.id };
   },
 
