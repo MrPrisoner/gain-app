@@ -110,6 +110,16 @@ export function logSet(userDb: UserDb, input: LogSetInput): { id: string } {
 }
 
 export function logMetric(userDb: UserDb, input: LogMetricInput): { id: string } {
+  if (input.scope === "set" && !input.setLogId) {
+    throw new Error('logMetric: scope "set" requires setLogId');
+  }
+  if (input.scope === "exercise" && (!input.workoutId || !input.exerciseDefId)) {
+    throw new Error('logMetric: scope "exercise" requires workoutId and exerciseDefId');
+  }
+  if (input.scope === "session" && !input.workoutId) {
+    throw new Error('logMetric: scope "session" requires workoutId');
+  }
+
   const existing = selectByClientId(userDb, "metric_value", input.clientId);
   if (existing) return { id: existing };
 

@@ -206,6 +206,58 @@ describe("workout write layer", () => {
     expect(count.n).toBe(3);
   });
 
+  it("rejects a set-scope metric missing setLogId", () => {
+    expect(() =>
+      logMetric(userDb, {
+        scope: "set",
+        metricKey: "set_symptom",
+        valueNum: 0,
+        clientId: "mv-client-bad-set",
+      }),
+    ).toThrow();
+  });
+
+  it("rejects an exercise-scope metric missing workoutId or exerciseDefId", () => {
+    const workout = startWorkout(userDb, {
+      planVersionId,
+      sessionKey: "A",
+      clientId: "wk-client-4b",
+      now: NOW,
+    });
+    const exerciseDefId = getExerciseDefIdBySlug(userDb, planId, "goblet-squat");
+    if (!exerciseDefId) throw new Error("expected goblet-squat in the catalogue");
+
+    expect(() =>
+      logMetric(userDb, {
+        scope: "exercise",
+        exerciseDefId,
+        metricKey: "rir",
+        valueNum: 2,
+        clientId: "mv-client-bad-exercise-1",
+      }),
+    ).toThrow();
+    expect(() =>
+      logMetric(userDb, {
+        scope: "exercise",
+        workoutId: workout.id,
+        metricKey: "rir",
+        valueNum: 2,
+        clientId: "mv-client-bad-exercise-2",
+      }),
+    ).toThrow();
+  });
+
+  it("rejects a session-scope metric missing workoutId", () => {
+    expect(() =>
+      logMetric(userDb, {
+        scope: "session",
+        metricKey: "energy_after",
+        valueNum: 6,
+        clientId: "mv-client-bad-session",
+      }),
+    ).toThrow();
+  });
+
   it("logs a deviation with a substitute slug, idempotently", () => {
     const workout = startWorkout(userDb, {
       planVersionId,
