@@ -1,0 +1,15 @@
+# Deliberate prose — the spec, the fixture and the outbound templates are written
+# for AI agents and a human reviewer, and are byte-sensitive (CONTRACT.md ships
+# verbatim in every export; the fixture is the golden-test spine). Prettier must
+# never touch them.
+docs/
+fixtures/
+templates/
+design/
+
+# Generated / vendored
+package-lock.json
+coverage/
+dist/
+build/
+.svelte-kit/

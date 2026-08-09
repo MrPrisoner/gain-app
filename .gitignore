@@ -5,6 +5,7 @@ node_modules/
 build/
 dist/
 .svelte-kit/
+coverage/
 
 # Environment and secrets
 .env

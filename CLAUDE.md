@@ -4,12 +4,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-**This repository contains no code yet.** It holds an agreed design, a specification, a
-settled UI design, a test fixture and two prompt templates. Phase 1 has not started.
+**Phase 1 is done: the pure round-trip core.** Contract schema (`src/lib/contract/`),
+parser (`src/lib/parse/`), diff engine (`src/lib/diff/`), export generator
+(`src/lib/export/`) and both prompt templates (`src/lib/templates/`) — pure functions
+over plain data, no UI, no SQLite, no HTTP. Phases 2–7 have not started; the build-order
+table in ARCHITECTURE §12 is the map.
 
-There are therefore **no build, test, lint or run commands** — do not invent them, and do
-not report a command as having been run. `package.json` and the toolchain arrive with
-phase 1.
+Commands (Node 24 LTS — see `.nvmrc` and the `engines` field):
+
+- `npm install` — dependencies
+- `npm test` — Vitest; includes the golden round-trip test, the project's spine
+- `npm run typecheck` — strict TypeScript, `tsc --noEmit`
+- `npm run lint` — ESLint
+- `npm run format` / `npm run format:check` — Prettier. `docs/`, `fixtures/` and
+  `templates/` are byte-sensitive and excluded from formatting; never remove them from
+  `.prettierignore`
 
 Read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) first, then
 [`docs/CONTRACT.md`](docs/CONTRACT.md), before doing anything substantive. The twelve
@@ -18,10 +27,11 @@ relitigating them. The same applies to
 [`docs/UI-DECISIONS.md`](docs/UI-DECISIONS.md), which settles how the session runner
 behaves; read it before touching anything user-facing.
 
-### Stack, once phase 1 scaffolds it
+### Stack
 
 TypeScript + SvelteKit, single Node container, SQLite via `better-sqlite3`, Zod for
-contract validation, Vitest for tests. One image, one port, one volume.
+contract validation, Vitest for tests. One image, one port, one volume. The phase-1 core
+is plain TypeScript with no framework — SvelteKit arrives with phase 3.
 
 Node version, package manager, lint/format and CI are settled in ARCHITECTURE §12,
 "Toolchain, settled". Implement those choices; do not make them again.

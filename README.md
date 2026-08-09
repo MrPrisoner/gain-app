@@ -78,14 +78,14 @@ TypeScript, SvelteKit, SQLite. One image, one port, one volume.
 
 ## Documentation
 
-| | |
-|---|---|
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Design, decisions, data model, build order |
-| [`docs/CONTRACT.md`](docs/CONTRACT.md) | The plan format an AI must produce |
-| [`docs/UI-DECISIONS.md`](docs/UI-DECISIONS.md) | How the session runner behaves, and why |
-| [`design/`](design/) | A clickable mockup of the session runner — open it in a browser |
-| [`fixtures/plans/`](fixtures/plans/) | A complete reference plan |
-| [`templates/`](templates/) | The two prompts GAIN hands to an AI — author a plan, revise a plan |
+|                                                |                                                                    |
+| ---------------------------------------------- | ------------------------------------------------------------------ |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Design, decisions, data model, build order                         |
+| [`docs/CONTRACT.md`](docs/CONTRACT.md)         | The plan format an AI must produce                                 |
+| [`docs/UI-DECISIONS.md`](docs/UI-DECISIONS.md) | How the session runner behaves, and why                            |
+| [`design/`](design/)                           | A clickable mockup of the session runner — open it in a browser    |
+| [`fixtures/plans/`](fixtures/plans/)           | A complete reference plan                                          |
+| [`templates/`](templates/)                     | The two prompts GAIN hands to an AI — author a plan, revise a plan |
 
 ## Licence
 

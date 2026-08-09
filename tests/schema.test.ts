@@ -1,0 +1,260 @@
+/**
+ * Contract schema tests — the Zod implementation of docs/CONTRACT.md.
+ *
+ * The minimal valid block is the one from CONTRACT §6. Everything else exercises
+ * the validation behaviour listed in CONTRACT §7 and the round-trip defences from
+ * CLAUDE.md (synonyms rejected loudly, slugs protected).
+ */
+
+import { describe, expect, it } from "vitest";
+
+import { contractSchema } from "../src/lib/contract/schema";
+
+/** The minimal valid block, straight from CONTRACT §6. */
+const minimal = {
+  schema_version: 1,
+  plan: {
+    slug: "simple-plan",
+    name: "Simple Plan",
+    version: 1,
+    based_on_version: null,
+  },
+  loads: [{ ref: "main", label: "Working weight", default_kg: 20 }],
+  exercises: [{ id: "goblet-squat" }],
+  sessions: [
+    {
+      key: "A",
+      name: "Session A",
+      order: 1,
+      blocks: [
+        {
+          key: "main",
+          name: "Main work",
+          exercises: [{ id: "goblet-squat", sets: 3, reps: [8, 12], load: "main" }],
+        },
+      ],
+    },
+  ],
+};
+
+// Tests mutate the clone freely (adding changelogs, metrics, scheduling...), so it
+// is deliberately untyped.
+function clone(): any {
+  return JSON.parse(JSON.stringify(minimal));
+}
+
+function issuesOf(data: unknown): string[] {
+  const result = contractSchema.safeParse(data);
+  if (result.success) return [];
+  return result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`);
+}
+
+describe("contract schema", () => {
+  it("accepts the minimal valid block from CONTRACT §6", () => {
+    expect(contractSchema.safeParse(minimal).success).toBe(true);
+  });
+
+  // -- The contract key is `plan`, and synonyms are not accepted.
+
+  it("rejects `program` loudly, pointing at `plan`", () => {
+    const data = clone() as Record<string, unknown>;
+    data.program = data.plan;
+    delete data.plan;
+    const issues = issuesOf(data).join("\n");
+    expect(issues).toContain("program");
+    expect(issues).toContain("`plan`");
+    expect(contractSchema.safeParse(data).success).toBe(false);
+  });
+
+  it("rejects `plan_id` and `plan_version` as top-level synonyms", () => {
+    const data = clone() as Record<string, unknown>;
+    data.plan_id = "simple-plan";
+    data.plan_version = 1;
+    const issues = issuesOf(data).join("\n");
+    expect(issues).toContain("plan_id");
+    expect(issues).toContain("plan_version");
+  });
+
+  it("rejects unknown top-level keys", () => {
+    const data = clone() as Record<string, unknown>;
+    data.bonus = true;
+    const issues = issuesOf(data).join("\n");
+    expect(issues).toContain("bonus");
+    expect(issues).toContain("unknown top-level key");
+  });
+
+  // -- Slugs.
+
+  it("rejects non-slug plan slugs and exercise ids", () => {
+    const data = clone();
+    data.plan.slug = "Home Plan";
+    expect(issuesOf(data).join("\n")).toContain("slug");
+
+    const data2 = clone();
+    data2.exercises[0].id = "Goblet_Squat";
+    expect(issuesOf(data2).join("\n")).toContain("exercises.0.id");
+  });
+
+  // -- Versioning.
+
+  it("requires a changelog when version is above 1", () => {
+    const data = clone();
+    data.plan.version = 2;
+    expect(contractSchema.safeParse(data).success).toBe(false);
+    expect(issuesOf(data).join("\n")).toContain("changelog");
+
+    data.plan.changelog = ["Raised the rep range."];
+    expect(contractSchema.safeParse(data).success).toBe(true);
+  });
+
+  it("rejects schema_version other than 1", () => {
+    const data = clone() as Record<string, unknown>;
+    data.schema_version = 2;
+    expect(contractSchema.safeParse(data).success).toBe(false);
+  });
+
+  // -- Rounds blocks.
+
+  it("rejects `sets` inside a rounds block", () => {
+    const data = clone() as any;
+    data.sessions[0].blocks[0].type = "rounds";
+    data.sessions[0].blocks[0].rounds = 2;
+    const issues = issuesOf(data).join("\n");
+    expect(issues).toContain("sets");
+    expect(issues).toContain("rounds");
+  });
+
+  it("requires `rounds` on rounds blocks and rejects it elsewhere", () => {
+    const missing = clone() as any;
+    missing.sessions[0].blocks[0].type = "rounds";
+    expect(issuesOf(missing).join("\n")).toContain("rounds");
+
+    const extra = clone() as any;
+    extra.sessions[0].blocks[0].rounds = 2; // no type: rounds
+    expect(issuesOf(extra).join("\n")).toContain("rounds");
+  });
+
+  it("allows block-level rest_sec only on rounds blocks", () => {
+    const bad = clone() as any;
+    bad.sessions[0].blocks[0].rest_sec = [45, 60];
+    expect(issuesOf(bad).join("\n")).toContain("rest_sec");
+
+    const good = clone() as any;
+    good.sessions[0].blocks[0].type = "rounds";
+    good.sessions[0].blocks[0].rounds = 2;
+    good.sessions[0].blocks[0].rest_sec = [45, 60];
+    good.sessions[0].blocks[0].exercises = [{ id: "goblet-squat", reps: 8 }];
+    expect(contractSchema.safeParse(good).success).toBe(true);
+  });
+
+  // -- References.
+
+  it("rejects a load referencing an undeclared ref", () => {
+    const data = clone() as any;
+    data.sessions[0].blocks[0].exercises[0].load = "heavy";
+    expect(issuesOf(data).join("\n")).toContain("heavy");
+  });
+
+  it("rejects a session exercise id missing from the catalogue", () => {
+    const data = clone() as any;
+    data.sessions[0].blocks[0].exercises[0].id = "not-declared";
+    expect(issuesOf(data).join("\n")).toContain("not-declared");
+  });
+
+  it("rejects substitutes not declared in the catalogue", () => {
+    const data = clone() as any;
+    data.exercises[0].substitutes = ["ghost-movement"];
+    expect(issuesOf(data).join("\n")).toContain("ghost-movement");
+  });
+
+  it("rejects scheduling.sequence referencing an undeclared session key", () => {
+    const data = clone() as any;
+    data.scheduling = { sequence: ["A", "Z"] };
+    expect(issuesOf(data).join("\n")).toContain("scheduling.sequence.1");
+  });
+
+  it("rejects duplicate catalogue ids and duplicate session keys", () => {
+    const dupId = clone();
+    dupId.exercises.push({ id: "goblet-squat" });
+    expect(issuesOf(dupId).join("\n")).toContain("duplicate exercise id");
+
+    const dupKey = clone() as any;
+    dupKey.sessions.push({ ...dupKey.sessions[0] });
+    expect(issuesOf(dupKey).join("\n")).toContain("duplicate session key");
+  });
+
+  // -- Type-driven requirements.
+
+  it("requires reps for type reps and duration_sec for type time", () => {
+    const missingReps = clone() as any;
+    missingReps.sessions[0].blocks[0].exercises[0] = { id: "goblet-squat" };
+    expect(issuesOf(missingReps).join("\n")).toContain("reps");
+
+    const timeNoDuration = clone() as any;
+    timeNoDuration.exercises[0].type = "time";
+    timeNoDuration.sessions[0].blocks[0].exercises[0] = { id: "goblet-squat", reps: 8 };
+    const issues = issuesOf(timeNoDuration).join("\n");
+    expect(issues).toContain("duration_sec");
+    expect(issues).toContain("reps");
+  });
+
+  it("accepts bare integers and [min, max] ranges interchangeably", () => {
+    const data = clone() as any;
+    data.sessions[0].blocks[0].exercises[0] = {
+      id: "goblet-squat",
+      sets: [2, 3],
+      reps: 10,
+      rest_sec: [75, 90],
+      load: "main",
+    };
+    expect(contractSchema.safeParse(data).success).toBe(true);
+  });
+
+  it("rejects inverted ranges", () => {
+    const data = clone() as any;
+    data.sessions[0].blocks[0].exercises[0].reps = [12, 8];
+    expect(contractSchema.safeParse(data).success).toBe(false);
+  });
+
+  // -- Metrics.
+
+  it("rejects prompt_when on non-session metrics", () => {
+    const data = clone() as any;
+    data.metrics = {
+      exercise: [
+        { key: "rir", label: "RIR", type: "number", min: 0, max: 5, prompt_when: "start" },
+      ],
+    };
+    expect(issuesOf(data).join("\n")).toContain("prompt_when");
+  });
+
+  it("requires min/max for number and scale, options for enum", () => {
+    const noBounds = clone() as any;
+    noBounds.metrics = { session: [{ key: "k", label: "L", type: "scale", prompt_when: "start" }] };
+    const issues = issuesOf(noBounds).join("\n");
+    expect(issues).toContain("min");
+    expect(issues).toContain("max");
+
+    const noOptions = clone() as any;
+    noOptions.metrics = { exercise: [{ key: "q", label: "Q", type: "enum" }] };
+    expect(issuesOf(noOptions).join("\n")).toContain("options");
+  });
+
+  it("rejects duplicate metric keys within a scope", () => {
+    const data = clone() as any;
+    data.metrics = {
+      session: [
+        { key: "energy", label: "Energy", type: "scale", min: 1, max: 10, prompt_when: "start" },
+        {
+          key: "energy",
+          label: "Energy again",
+          type: "scale",
+          min: 1,
+          max: 10,
+          prompt_when: "end",
+        },
+      ],
+    };
+    expect(issuesOf(data).join("\n")).toContain("duplicate metric key");
+  });
+});
