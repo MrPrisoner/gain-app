@@ -52,6 +52,23 @@ describe("restPhaseAt", () => {
     const state = startRestTimer(spec, 0);
     expect(restPhaseAt(state, 95_000)).toEqual({ phase: "over_band", elapsedS: 95, bandMaxS: 90 });
   });
+
+  it("is already in_band at exactly the minimum of a ranged rest", () => {
+    const spec = restSpecFrom([60, 90]);
+    const state = startRestTimer(spec, 0);
+    expect(restPhaseAt(state, 60_000)).toEqual({
+      phase: "in_band",
+      elapsedS: 60,
+      bandMinS: 60,
+      bandMaxS: 90,
+    });
+  });
+
+  it("is already over_band at exactly the maximum of a ranged rest", () => {
+    const spec = restSpecFrom([60, 90]);
+    const state = startRestTimer(spec, 0);
+    expect(restPhaseAt(state, 90_000)).toEqual({ phase: "over_band", elapsedS: 90, bandMaxS: 90 });
+  });
 });
 
 describe("extendRest", () => {
