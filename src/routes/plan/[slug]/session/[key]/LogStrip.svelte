@@ -319,7 +319,7 @@
       </div>
     </form>
   {:else}
-    <p class="strip-done">Every set logged. Open the next exercise.</p>
+    <p class="strip-done">Nice — every set's logged. Open the next exercise.</p>
   {/if}
 </div>
 

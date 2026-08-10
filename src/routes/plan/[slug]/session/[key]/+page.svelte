@@ -936,7 +936,7 @@
                               {/if}
                             {:else}
                               <span class="led-actual led-pending"
-                                >{slot.key === nextSlot?.key ? "Up next" : "Not logged"}</span
+                                >{slot.key === nextSlot?.key ? "Up next" : "Not logged yet"}</span
                               >
                             {/if}
                           </li>
