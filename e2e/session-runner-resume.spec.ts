@@ -131,7 +131,7 @@ test("a reload restores a skip and the wrap-up's already-answered metrics", asyn
 
   // A session-scope wrap-up answer, which is a `metric_value` row of its own.
   await page.getByRole("button", { name: "End session" }).click();
-  const symptoms = page.locator("label", { hasText: "Lower-back symptoms during session" });
+  const symptoms = page.locator("fieldset", { hasText: "Lower-back symptoms during session" });
   await symptoms.getByRole("button", { name: "4", exact: true }).click();
   await expect(symptoms.locator(".scale-cell.selected")).toHaveText("4");
 
@@ -145,7 +145,7 @@ test("a reload restores a skip and the wrap-up's already-answered metrics", asyn
   // And the wrap-up does not re-ask something already answered.
   await page.getByRole("button", { name: "End session" }).click();
   await expect(
-    page.locator("label", { hasText: "Lower-back symptoms during session" }).locator(".scale-cell.selected"),
+    page.locator("fieldset", { hasText: "Lower-back symptoms during session" }).locator(".scale-cell.selected"),
   ).toHaveText("4");
 });
 

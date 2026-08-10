@@ -47,3 +47,38 @@ for (const sessionKey of E2E_SESSION_KEYS) {
     ).toBeLessThanOrEqual(innerWidth);
   });
 }
+
+// Task 10 (phase-4 remediation, UI-DECISIONS §8): "Scales render as a row of tappable
+// cells — one tap, no slider." The fixture's `symptoms_during`/`symptoms_after` wrap-up
+// metrics are an 11-cell 0-10 scale — the exact case that used to wrap into ragged rows
+// on a phone (`flex-wrap` + a fixed `min-width`). Checked at every viewport this project
+// runs (`playwright.config.ts`), including the narrowest at 360px.
+test("the wrap-up's scale metrics render as one row, with no horizontal overflow", async ({
+  page,
+}) => {
+  await page.goto(`/plan/${E2E_PLAN_SLUG}/session/A`);
+  await dismissPreSessionPrompt(page);
+  await expect(page.locator(".exercise-head").first()).toBeVisible();
+
+  await page.getByRole("button", { name: "End session" }).click();
+  const scaleRows = page.locator(".scale-row");
+  await expect(scaleRows.first()).toBeVisible();
+
+  const rowCount = await scaleRows.count();
+  for (let i = 0; i < rowCount; i++) {
+    const tops = await scaleRows
+      .nth(i)
+      .locator(".scale-cell")
+      .evaluateAll((cells) => cells.map((cell) => cell.getBoundingClientRect().top));
+    expect(
+      new Set(tops).size,
+      "every cell in a scale row must share one top offset — no ragged wrapping",
+    ).toBe(1);
+  }
+
+  const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+  const innerWidth = await page.evaluate(() => window.innerWidth);
+  expect(scrollWidth, "the wrap-up sheet must not force horizontal overflow").toBeLessThanOrEqual(
+    innerWidth,
+  );
+});

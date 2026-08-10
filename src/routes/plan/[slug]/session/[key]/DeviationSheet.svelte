@@ -154,10 +154,13 @@
   }
   .sheet {
     width: 100%;
+    max-height: 90dvh;
+    overflow-y: auto;
     background: var(--surface);
     border-top-left-radius: var(--r-lg);
     border-top-right-radius: var(--r-lg);
     padding: 1.25rem;
+    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
     display: grid;
     gap: 0.75rem;
   }

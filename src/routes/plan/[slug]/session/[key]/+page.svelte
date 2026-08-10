@@ -632,12 +632,21 @@
        a scale renders as one row of tappable cells (no slider), an enum the same way
        over its declared options. One tap both selects and submits — there is no
        separate "save" step and no per-metric skip control, since an untapped metric
-       simply writes nothing. -->
+       simply writes nothing.
+
+       A `fieldset`/`legend` names the group rather than a `<label>` wrapping the whole
+       row of buttons — a label associates with exactly one control, and this row is a
+       group of several independent submit buttons, one per cell. The row is sized to
+       its own cell count (`--cells`, set per instance below) rather than a fixed
+       column count, so an 11-cell 0–10 scale and a 3-option enum each get a grid fit to
+       what they actually render — UI-DECISIONS §8: "a row of tappable cells", not a
+       wrap. -->
   {#if metric.type === "scale" || metric.type === "number"}
-    <label>
-      {metric.label}
-      <div class="scale-row">
-        {#each Array.from({ length: (metric.max ?? 0) - (metric.min ?? 0) + 1 }, (_, i) => (metric.min ?? 0) + i) as value (value)}
+    {@const cellCount = (metric.max ?? 0) - (metric.min ?? 0) + 1}
+    <fieldset class="metric-field">
+      <legend>{metric.label}</legend>
+      <div class="scale-row" style:--cells={cellCount}>
+        {#each Array.from({ length: cellCount }, (_, i) => (metric.min ?? 0) + i) as value (value)}
           <form
             method="POST"
             action="?/logMetric"
@@ -664,12 +673,13 @@
           </form>
         {/each}
       </div>
-    </label>
+    </fieldset>
   {:else if metric.type === "enum"}
-    <label>
-      {metric.label}
-      <div class="scale-row">
-        {#each metric.options ?? [] as option (option)}
+    {@const options = metric.options ?? []}
+    <fieldset class="metric-field">
+      <legend>{metric.label}</legend>
+      <div class="scale-row" style:--cells={options.length}>
+        {#each options as option (option)}
           <form
             method="POST"
             action="?/logMetric"
@@ -696,7 +706,7 @@
           </form>
         {/each}
       </div>
-    </label>
+    </fieldset>
   {/if}
 {/snippet}
 
@@ -1006,6 +1016,17 @@
       {#each data.endMetrics as metric (metric.key)}
         {@render metricRow(metric)}
       {/each}
+
+      {#if data.nextMorningMetrics.length > 0}
+        <!-- UI-DECISIONS §8: `next_morning` metrics are deliberately not asked here — they
+             surface the following day. Say so explicitly rather than the user wondering
+             whether the question was silently dropped (the nudge itself, on a future Today
+             screen, is out of scope for this plan). -->
+        <p class="next-morning-note">
+          Not part of this wrap-up: {data.nextMorningMetrics.map((m) => m.label).join(", ")}. Asked
+          again tomorrow, not now.
+        </p>
+      {/if}
 
       <form
         method="POST"
@@ -1338,10 +1359,13 @@
   }
   .sheet {
     width: 100%;
+    max-height: 90dvh;
+    overflow-y: auto;
     background: var(--surface);
     border-top-left-radius: var(--r-lg);
     border-top-right-radius: var(--r-lg);
     padding: 1.25rem;
+    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
     display: grid;
     gap: 0.75rem;
   }
@@ -1365,22 +1389,48 @@
     border: 1px solid var(--line);
     color: var(--text);
   }
+  /* Reset the browser's default fieldset chrome — this is a semantic grouping for the
+     row of cells below (see `metricRow`'s comment), not a bordered box. */
+  .metric-field {
+    border: none;
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+  }
+  .metric-field legend {
+    padding: 0;
+    font: inherit;
+    color: var(--text);
+  }
+  /* UI-DECISIONS §8: "a row of tappable cells — one tap, no slider." A grid sized to
+     `--cells` (the metric's own cell count, set per instance in `metricRow`) rather than
+     a fixed column count or `flex-wrap`, so an 11-cell 0–10 scale renders as one clean
+     row at 320–360px instead of wrapping into ragged rows, and a metric with fewer
+     cells (an enum, a narrower scale) gets a grid sized to what it actually renders
+     rather than a hardcoded 11 columns. Each `<form>` is itself a grid item — there is
+     no extra wrapper — so `minmax(0, 1fr)` lets a cell shrink below its button's content
+     width instead of forcing the row wider than the viewport. */
   .scale-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
+    display: grid;
+    grid-template-columns: repeat(var(--cells, 1), minmax(0, 1fr));
+    gap: 0.3rem;
     margin-top: 0.3rem;
   }
   .scale-cell {
+    width: 100%;
     border: 1px solid var(--line);
     background: var(--raised);
     color: var(--text);
     border-radius: var(--r-xs);
-    padding: 0.4rem 0.7rem;
-    min-width: 2.5rem;
+    padding: 0.4rem 0.3rem;
   }
   .scale-cell.selected {
     background: var(--accent-soft);
     border-color: var(--accent);
+  }
+  .next-morning-note {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin: 0;
   }
 </style>

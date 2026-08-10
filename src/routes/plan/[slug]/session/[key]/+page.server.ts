@@ -22,13 +22,7 @@ import { finishWorkout, logDeviation, logMetric, logSet, startWorkout } from "$l
 import type { UserDb } from "$lib/db/user-db";
 import { pickPrefill } from "$lib/session/prefill";
 import { hydrateSession, type SessionHydration } from "$lib/session/resume";
-import {
-  exerciseMetrics,
-  resolveLoad,
-  resolveSession,
-  sessionMetrics,
-  setMetrics,
-} from "$lib/session/session-view";
+import { resolveLoad, resolveSession, sessionMetrics } from "$lib/session/session-view";
 import type { DeviationKind } from "$lib/logs/types";
 
 export const load: PageServerLoad = ({ params, locals }) => {
@@ -95,7 +89,6 @@ export const load: PageServerLoad = ({ params, locals }) => {
 
   return {
     planSlug: plan.slug,
-    planVersionId: version.id,
     session,
     prefillByExercise,
     // The whole catalogue and load table, so a swap can be resolved client-side
@@ -104,10 +97,12 @@ export const load: PageServerLoad = ({ params, locals }) => {
     // answer what `dead-bug` or `front-plank` *is*.
     catalogue: contract.exercises,
     loads: contract.loads,
-    setMetrics: setMetrics(contract),
-    exerciseMetrics: exerciseMetrics(contract),
     startMetrics: sessionMetrics(contract, "start"),
     endMetrics: sessionMetrics(contract, "end"),
+    // UI-DECISIONS §8: `next_morning` metrics are declared but deliberately not asked in
+    // the wrap-up sheet — the runner uses this only to render the honest "we'll ask
+    // tomorrow" note, never to prompt for them here.
+    nextMorningMetrics: sessionMetrics(contract, "next_morning"),
   };
 };
 
