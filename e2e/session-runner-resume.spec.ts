@@ -18,6 +18,7 @@
 
 import { expect, test, type Page } from "@playwright/test";
 import { E2E_PLAN_SLUG, seededDataDir } from "./env";
+import { dismissPreSessionPrompt } from "./helpers";
 import { openSeededUserDb } from "./seed";
 
 /** The exercise row currently expanded — there is exactly one (UI-DECISIONS §1). */
@@ -77,6 +78,7 @@ test("a reload restores the ledger and leaves the cursor on the next unlogged se
   page,
 }) => {
   await page.goto(`/plan/${E2E_PLAN_SLUG}/session/A`);
+  await dismissPreSessionPrompt(page);
   await expect(page.locator(".log-strip")).toBeVisible();
   await expect(openExercise(page).locator(".exercise-name")).toHaveText("Goblet squat");
 
@@ -116,6 +118,7 @@ test("a reload restores the ledger and leaves the cursor on the next unlogged se
 
 test("a reload restores a skip and the wrap-up's already-answered metrics", async ({ page }) => {
   await page.goto(`/plan/${E2E_PLAN_SLUG}/session/A`);
+  await dismissPreSessionPrompt(page);
   await expect(page.locator(".log-strip")).toBeVisible();
   await expect(openExercise(page).locator(".exercise-name")).toHaveText("Goblet squat");
 
@@ -148,6 +151,7 @@ test("a reload restores a skip and the wrap-up's already-answered metrics", asyn
 
 test("a reload restores a swap, so the strip still logs the substitute", async ({ page }) => {
   await page.goto(`/plan/${E2E_PLAN_SLUG}/session/D`);
+  await dismissPreSessionPrompt(page);
   await expect(page.locator(".log-strip")).toBeVisible();
 
   await page.locator(".exercise-head", { hasText: "Reverse crunch" }).first().click();

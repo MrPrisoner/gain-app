@@ -20,6 +20,7 @@
 
 import { expect, test, type Page } from "@playwright/test";
 import { E2E_PLAN_SLUG } from "./env";
+import { dismissPreSessionPrompt } from "./helpers";
 
 /** The `exercise_slug` field of every `?/logSet` POST that leaves the browser. */
 async function captureLoggedSlugs(page: Page): Promise<string[]> {
@@ -58,6 +59,7 @@ async function logSet(page: Page): Promise<void> {
 
 test("finishing an exercise opens the next one in prescribed order", async ({ page }) => {
   await page.goto(`/plan/${E2E_PLAN_SLUG}/session/D`);
+  await dismissPreSessionPrompt(page);
   await expect(page.locator(".log-strip")).toBeVisible();
 
   // The abdominal finisher is a `type: rounds` block, so no per-set rest fires and the
@@ -78,6 +80,7 @@ test("finishing an exercise opens the next one in prescribed order", async ({ pa
 test("a swap logs against the substitute, not the movement it replaced", async ({ page }) => {
   const loggedSlugs = await captureLoggedSlugs(page);
   await page.goto(`/plan/${E2E_PLAN_SLUG}/session/D`);
+  await dismissPreSessionPrompt(page);
   await expect(page.locator(".log-strip")).toBeVisible();
 
   await open(page, "Reverse crunch");
@@ -100,6 +103,7 @@ test("a swap logs against the substitute, not the movement it replaced", async (
 
 test("a skip collapses the exercise, says so, and advances", async ({ page }) => {
   await page.goto(`/plan/${E2E_PLAN_SLUG}/session/A`);
+  await dismissPreSessionPrompt(page);
   await expect(page.locator(".log-strip")).toBeVisible();
   await expect(openExercise(page).locator(".exercise-name")).toHaveText("Goblet squat");
 
@@ -138,6 +142,7 @@ async function openDeviationSheet(page: Page) {
  */
 test("a rounds block does not offer to add or drop a set", async ({ page }) => {
   await page.goto(`/plan/${E2E_PLAN_SLUG}/session/D`);
+  await dismissPreSessionPrompt(page);
   await expect(page.locator(".log-strip")).toBeVisible();
 
   // The `main` block is a plain sequence: both options belong there.
@@ -163,6 +168,7 @@ test("a rounds block does not offer to add or drop a set", async ({ page }) => {
  */
 test("finishing a round restarts the circuit at its first exercise", async ({ page }) => {
   await page.goto(`/plan/${E2E_PLAN_SLUG}/session/D`);
+  await dismissPreSessionPrompt(page);
   await expect(page.locator(".log-strip")).toBeVisible();
 
   // Anywhere other than the top of the circuit — this is where completing a round leaves
@@ -181,6 +187,7 @@ test("finishing a round restarts the circuit at its first exercise", async ({ pa
  */
 test("dropping a set never hides a set already logged", async ({ page }) => {
   await page.goto(`/plan/${E2E_PLAN_SLUG}/session/A`);
+  await dismissPreSessionPrompt(page);
   await expect(page.locator(".log-strip")).toBeVisible();
   // Goblet squat, 3 × 10–15.
   await expect(openExercise(page).locator(".ledger-row")).toHaveCount(3);

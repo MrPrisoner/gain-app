@@ -20,6 +20,7 @@
 
 import { expect, test, type Page } from "@playwright/test";
 import { E2E_PLAN_SLUG } from "./env";
+import { dismissPreSessionPrompt } from "./helpers";
 
 /** Counts `?/logSet` POSTs, optionally holding each one open to open the race window. */
 async function countLogSetRequests(page: Page, holdMs = 0): Promise<() => number> {
@@ -37,6 +38,7 @@ async function countLogSetRequests(page: Page, holdMs = 0): Promise<() => number
 test("Enter in a dial does not log the set at Easy", async ({ page }) => {
   const logSets = await countLogSetRequests(page);
   await page.goto(`/plan/${E2E_PLAN_SLUG}/session/A`);
+  await dismissPreSessionPrompt(page);
   await expect(page.locator(".log-strip")).toBeVisible();
 
   const reps = page.locator('.log-strip input[name="reps"]');
@@ -56,6 +58,7 @@ test("Enter in a dial does not log the set at Easy", async ({ page }) => {
 test("a double tap on an effort key logs exactly one set", async ({ page }) => {
   const logSets = await countLogSetRequests(page, 400);
   await page.goto(`/plan/${E2E_PLAN_SLUG}/session/A`);
+  await dismissPreSessionPrompt(page);
   await expect(page.locator(".log-strip")).toBeVisible();
 
   // Both clicks in one task, so the `disabled` attribute provably has not been flushed

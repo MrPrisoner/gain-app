@@ -31,6 +31,7 @@
   } from "$lib/session/session-view";
   import type { SessionHydration } from "$lib/session/resume";
   import type { DeviationKind } from "$lib/logs/types";
+  import type { MetricDef } from "$lib/contract/schema";
   import { formatLastPerformance } from "$lib/session/prefill";
   import RestTimer from "./RestTimer.svelte";
   import DeviationSheet from "./DeviationSheet.svelte";
@@ -53,6 +54,17 @@
       : ulid(),
   );
   let workoutId = $state<string | undefined>(form?.workoutId);
+
+  // Pre-session metrics (ARCHITECTURE §9, phase-4 remediation Task 9): a genuinely fresh
+  // start gates the runner behind `data.startMetrics` until "Continue to session" is
+  // tapped — asking "how do you feel before you start" makes no sense on a workout
+  // already in progress, so a *resumed* workout (the `?/start` response carries
+  // `hydration`) skips this gate entirely and never sets it true. Set once, in the
+  // `?/start` handler below, from the same `hydration` signal Task 6 already threads
+  // back — never re-derived anywhere else. If the plan declares no `start` metrics at
+  // all there is nothing to show, so the gate is skipped rather than surfacing an empty
+  // sheet with only a Continue button.
+  let showPreSession = $state(false);
 
   // The one action-error surface for the whole runner (phase-4 remediation Task 2) — every
   // enhanced form on this page, and `DeviationSheet` via its `onError` prop, funnels into
@@ -561,7 +573,11 @@
         workoutId = result.data.workoutId as string;
         // Only ever present when the idempotent lookup resumed an existing workout.
         const hydration = result.data.hydration as SessionHydration | undefined;
-        if (hydration) applyHydration(hydration);
+        if (hydration) {
+          applyHydration(hydration);
+        } else if (data.startMetrics.length > 0) {
+          showPreSession = true;
+        }
       }
     };
   }}
@@ -611,11 +627,100 @@
   </div>
 {/if}
 
+{#snippet metricRow(metric: MetricDef)}
+  <!-- Shared by the pre-session prompt and the wrap-up sheet (Task 9/UI-DECISIONS §8):
+       a scale renders as one row of tappable cells (no slider), an enum the same way
+       over its declared options. One tap both selects and submits — there is no
+       separate "save" step and no per-metric skip control, since an untapped metric
+       simply writes nothing. -->
+  {#if metric.type === "scale" || metric.type === "number"}
+    <label>
+      {metric.label}
+      <div class="scale-row">
+        {#each Array.from({ length: (metric.max ?? 0) - (metric.min ?? 0) + 1 }, (_, i) => (metric.min ?? 0) + i) as value (value)}
+          <form
+            method="POST"
+            action="?/logMetric"
+            use:enhance={() => {
+              return async ({ result }) => {
+                await applyAction(result);
+                afterAction(result);
+                if (result.type === "success") sessionMetricValues.set(metric.key, value);
+              };
+            }}
+          >
+            <input type="hidden" name="scope" value="session" />
+            <input type="hidden" name="workout_id" value={workoutId ?? ""} />
+            <input type="hidden" name="metric_key" value={metric.key} />
+            <input type="hidden" name="value_num" {value} />
+            <input type="hidden" name="client_id" value={ulid()} />
+            <button
+              type="submit"
+              class="scale-cell"
+              class:selected={sessionMetricValues.get(metric.key) === value}
+            >
+              {value}
+            </button>
+          </form>
+        {/each}
+      </div>
+    </label>
+  {:else if metric.type === "enum"}
+    <label>
+      {metric.label}
+      <div class="scale-row">
+        {#each metric.options ?? [] as option (option)}
+          <form
+            method="POST"
+            action="?/logMetric"
+            use:enhance={() => {
+              return async ({ result }) => {
+                await applyAction(result);
+                afterAction(result);
+                if (result.type === "success") sessionMetricValues.set(metric.key, option);
+              };
+            }}
+          >
+            <input type="hidden" name="scope" value="session" />
+            <input type="hidden" name="workout_id" value={workoutId ?? ""} />
+            <input type="hidden" name="metric_key" value={metric.key} />
+            <input type="hidden" name="value_text" value={option} />
+            <input type="hidden" name="client_id" value={ulid()} />
+            <button
+              type="submit"
+              class="scale-cell"
+              class:selected={sessionMetricValues.get(metric.key) === option}
+            >
+              {option}
+            </button>
+          </form>
+        {/each}
+      </div>
+    </label>
+  {/if}
+{/snippet}
+
 {#if !workoutId}
   <!-- Task 2 (phase-4 remediation): nothing below posts a real workout_id until the
        async `?/start` round-trip resolves, so no logging control renders until then —
        a quiet "starting" state beats a live-looking strip that 400s on every tap. -->
   <p class="starting">Starting your session…</p>
+{:else if showPreSession}
+  <!-- Task 9 (ARCHITECTURE §9): a genuine gate, following the same "quiet placeholder
+       until satisfied" precedent as the `!workoutId` branch above — the runner itself
+       does not render underneath, rather than a dismissible overlay on top of it, so
+       nothing here can be tapped before the pre-session prompt is dealt with. -->
+  <div class="pre-session">
+    <h2>Before you start</h2>
+    {#each data.startMetrics as metric (metric.key)}
+      {@render metricRow(metric)}
+    {/each}
+    <div class="sheet-actions">
+      <button type="button" class="primary" onclick={() => (showPreSession = false)}>
+        Continue to session
+      </button>
+    </div>
+  </div>
 {:else}
   <!-- The strip is `position: fixed`, so the scroll area has to reserve its measured
        height or the last block sits underneath it forever. -->
@@ -848,7 +953,7 @@
   </div>
 {/if}
 
-{#if workoutId && openContext}
+{#if workoutId && !showPreSession && openContext}
   {@const ctx = openContext}
   {@const slot = ctx.next}
   {@const fill = prefillFor(ctx.exercise.slug, ctx.exercise.perSide, slot?.side)}
@@ -899,71 +1004,7 @@
       <h3>How did it go?</h3>
 
       {#each data.endMetrics as metric (metric.key)}
-        {#if metric.type === "scale" || metric.type === "number"}
-          <label>
-            {metric.label}
-            <div class="scale-row">
-              {#each Array.from({ length: (metric.max ?? 0) - (metric.min ?? 0) + 1 }, (_, i) => (metric.min ?? 0) + i) as value (value)}
-                <form
-                  method="POST"
-                  action="?/logMetric"
-                  use:enhance={() => {
-                    return async ({ result }) => {
-                      await applyAction(result);
-                      afterAction(result);
-                      if (result.type === "success") sessionMetricValues.set(metric.key, value);
-                    };
-                  }}
-                >
-                  <input type="hidden" name="scope" value="session" />
-                  <input type="hidden" name="workout_id" value={workoutId ?? ""} />
-                  <input type="hidden" name="metric_key" value={metric.key} />
-                  <input type="hidden" name="value_num" {value} />
-                  <input type="hidden" name="client_id" value={ulid()} />
-                  <button
-                    type="submit"
-                    class="scale-cell"
-                    class:selected={sessionMetricValues.get(metric.key) === value}
-                  >
-                    {value}
-                  </button>
-                </form>
-              {/each}
-            </div>
-          </label>
-        {:else if metric.type === "enum"}
-          <label>
-            {metric.label}
-            <div class="scale-row">
-              {#each metric.options ?? [] as option (option)}
-                <form
-                  method="POST"
-                  action="?/logMetric"
-                  use:enhance={() => {
-                    return async ({ result }) => {
-                      await applyAction(result);
-                      afterAction(result);
-                      if (result.type === "success") sessionMetricValues.set(metric.key, option);
-                    };
-                  }}
-                >
-                  <input type="hidden" name="scope" value="session" />
-                  <input type="hidden" name="workout_id" value={workoutId ?? ""} />
-                  <input type="hidden" name="metric_key" value={metric.key} />
-                  <input type="hidden" name="value_text" value={option} />
-                  <input type="hidden" name="client_id" value={ulid()} />
-                  <button
-                    type="submit"
-                    class="scale-cell"
-                    class:selected={sessionMetricValues.get(metric.key) === option}
-                  >
-                    {option}
-                  </button>
-                </form>
-              {/each}
-            </div>
-          </label>
-        {/if}
+        {@render metricRow(metric)}
       {/each}
 
       <form
@@ -1261,6 +1302,23 @@
     color: var(--muted);
     text-align: center;
     padding: 3rem 0;
+  }
+  /* The pre-session gate (Task 9): styled like `.sheet` below, but in-flow rather than a
+     fixed backdrop overlay — it stands in for the runner entirely until dismissed, the
+     same "quiet placeholder" precedent as `.starting`, so nothing underneath it is ever
+     reachable before "Continue to session" is tapped. */
+  .pre-session {
+    background: var(--surface);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-md);
+    padding: 1.25rem;
+    margin-top: 1rem;
+    display: grid;
+    gap: 0.75rem;
+  }
+  .pre-session h2 {
+    margin: 0;
+    font-size: 1.1rem;
   }
   .end-session {
     margin-top: 0.5rem;

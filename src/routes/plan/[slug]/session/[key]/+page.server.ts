@@ -106,6 +106,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
     loads: contract.loads,
     setMetrics: setMetrics(contract),
     exerciseMetrics: exerciseMetrics(contract),
+    startMetrics: sessionMetrics(contract, "start"),
     endMetrics: sessionMetrics(contract, "end"),
   };
 };
