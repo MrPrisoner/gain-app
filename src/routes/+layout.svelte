@@ -8,7 +8,7 @@
 
 <div class="shell">
   <header class="top">
-    <a class="wordmark" href="/">GAIN</a>
+    <a class="wordmark" href="/">G<span class="ai">AI</span>N</a>
     <div class="top-right">
       {#if data.user?.bypass}
         <span class="badge" title="GAIN_DEV_USER is active — development only">dev bypass</span>
@@ -54,6 +54,11 @@
     letter-spacing: 0.04em;
     color: var(--text);
     text-decoration: none;
+  }
+
+  .wordmark .ai {
+    /* matches the "AI" highlight in the app icon (static/gain-blue-steel.svg) */
+    color: #6a8098;
   }
 
   .top-right {
