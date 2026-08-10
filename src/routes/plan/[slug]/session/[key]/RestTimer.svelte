@@ -9,6 +9,7 @@
 
 <script lang="ts">
   import { onDestroy } from "svelte";
+  import { trapFocus } from "$lib/actions/focus-trap";
   import {
     extendRest,
     restPhaseAt,
@@ -87,18 +88,42 @@
   }
 </script>
 
-<div class="rest-overlay" role="timer">
-  <div class="rest-state">
+<!-- Final-review finding: this is a full-screen `position: fixed` overlay, so it is a modal
+     dialog whether or not it was announced as one — and it was not. The exercise list and
+     the log strip stay mounted underneath it, so before the trap a keyboard user could Tab
+     straight past the overlay into effort keys they could not see and log a set during
+     rest. Same treatment the wrap-up sheet and `DeviationSheet` got in Task 11:
+     `role="dialog"`/`aria-modal="true"`, `use:trapFocus` (see `$lib/actions/focus-trap`)
+     to move focus in, cycle Tab within the overlay and restore focus on close, and Escape
+     wired to the same deliberate escape the primary button already offers — "start the
+     next set early" (`onSkip`). There is still no auto-dismiss (UI-DECISIONS §4): Escape
+     is a tap, not a timeout.
+
+     `role="timer"` moves down onto the readout it actually describes. It cannot stay on
+     this element — one element has one role, and `dialog` is the one that matters for
+     containment. -->
+<div
+  class="rest-overlay"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="rest-heading"
+  use:trapFocus={{ onEscape: onSkip }}
+>
+  <!-- The dialog's own name and its focus landing point, following both sheets' pattern:
+       `tabindex="-1"` keeps it focusable programmatically but out of the Tab cycle, and
+       `data-trap-focus-heading` is what the action looks for. Naming the dialog by the
+       clock and its phase ("1:15, Resting") is the honest answer to "what is this?". -->
+  <div class="rest-state" id="rest-heading" tabindex="-1" data-trap-focus-heading>
     {#if phase.phase === "counting_down"}
-      <span class="rest-time tabular">{formatSeconds(phase.remainingS)}</span>
+      <span class="rest-time tabular" role="timer">{formatSeconds(phase.remainingS)}</span>
       <span class="rest-label" aria-live="polite">Resting</span>
     {:else if phase.phase === "in_band"}
-      <span class="rest-time tabular">{formatSeconds(phase.elapsedS)}</span>
+      <span class="rest-time tabular" role="timer">{formatSeconds(phase.elapsedS)}</span>
       <span class="rest-label" aria-live="polite"
         >Ready — {formatSeconds(phase.bandMaxS - phase.elapsedS)} left in the window</span
       >
     {:else}
-      <span class="rest-time tabular">{formatSeconds(phase.elapsedS)}</span>
+      <span class="rest-time tabular" role="timer">{formatSeconds(phase.elapsedS)}</span>
       <span class="rest-label" aria-live="polite">Over rest</span>
     {/if}
   </div>

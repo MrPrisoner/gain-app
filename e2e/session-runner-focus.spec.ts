@@ -4,7 +4,11 @@
  * `role="dialog"`, `aria-modal="true"`, a labelled heading, focus moved into the sheet
  * on open, Tab/Shift+Tab trapped inside it, Escape treated the same as the existing
  * Cancel/Back button, and focus restored to whatever triggered the sheet once it
- * closes. `src/lib/actions/focus-trap.ts` is the one shared mechanism behind both; this
+ * closes. The rest overlay (`RestTimer.svelte`) is the third — the final whole-branch
+ * review caught that Task 11's sweep had missed it, though it is the same kind of
+ * full-screen modal over the same still-tabbable runner.
+ *
+ * `src/lib/actions/focus-trap.ts` is the one shared mechanism behind all three; this
  * spec drives it through a real browser, which is the only way to exercise the action
  * itself in this repo — `vitest.config.ts` runs Vitest with no DOM, so only the pure
  * cycling decision (`nextTrapFocusTarget`) is unit-tested
@@ -14,14 +18,12 @@
  */
 
 import { expect, test, type Page } from "@playwright/test";
+// The *actual* app constant, not a re-typed copy. This spec counts a dialog's Tab stops
+// to decide how many presses prove the cycle wraps; a local copy would keep passing while
+// the app's selector drifted, which is the one thing this test must not do.
+import { FOCUSABLE_SELECTOR } from "../src/lib/actions/focus-trap";
 import { E2E_PLAN_SLUG } from "./env";
 import { dismissPreSessionPrompt } from "./helpers";
-
-// Mirrors `src/lib/actions/focus-trap.ts`'s own `FOCUSABLE_SELECTOR` — see its comment
-// for why `[type="hidden"]` is excluded (both sheets carry several hidden form fields,
-// which a browser silently refuses to focus).
-const FOCUSABLE_SELECTOR =
-  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /** Presses Tab `presses` times, asserting after *every* press that focus is still
  * somewhere inside `sheetSelector` — checking after each press, rather than only at the
@@ -41,9 +43,7 @@ async function assertTabStaysWithin(
   }
 }
 
-test("the deviation sheet traps focus and Escape closes it, restoring focus", async ({
-  page,
-}) => {
+test("the deviation sheet traps focus and Escape closes it, restoring focus", async ({ page }) => {
   await page.goto(`/plan/${E2E_PLAN_SLUG}/session/A`);
   await dismissPreSessionPrompt(page);
   await expect(page.locator(".log-strip")).toBeVisible();
@@ -141,4 +141,80 @@ test("the wrap-up sheet traps focus and Escape closes it, restoring focus", asyn
   await page.keyboard.press("Escape");
   await expect(sheet).toHaveCount(0);
   await expect(trigger).toBeFocused();
+});
+
+/**
+ * Final-review finding: the rest overlay is the third full-screen modal in the runner and
+ * was the one that never got Task 11's treatment. It is `position: fixed; inset: 0` over
+ * a log strip and an exercise list that both stay mounted and tabbable, so before the fix
+ * a keyboard user could Tab straight through it into effort keys they could not see and
+ * log a set during rest.
+ *
+ * Goblet squat (Session A's first tracked exercise) declares `rest_sec: [75, 90]`
+ * (fixtures/plans/home-dumbbell-v1.md), so logging its first set always fires the overlay.
+ */
+test("the rest overlay traps focus and Escape starts the next set", async ({ page }) => {
+  await page.goto(`/plan/${E2E_PLAN_SLUG}/session/A`);
+  await dismissPreSessionPrompt(page);
+  await expect(page.locator(".log-strip")).toBeVisible();
+
+  const trigger = page.locator('.log-strip button[value="medium"]');
+  await trigger.click();
+
+  const rest = page.locator(".rest-overlay");
+  await expect(rest).toBeVisible();
+  await expect(rest).toHaveAttribute("role", "dialog");
+  await expect(rest).toHaveAttribute("aria-modal", "true");
+  await expect(rest).toHaveAttribute("aria-labelledby", "rest-heading");
+  // `role="timer"` moved onto the readout it describes rather than being dropped —
+  // `role="dialog"` had to take the overlay itself.
+  await expect(rest.locator(".rest-time")).toHaveAttribute("role", "timer");
+
+  await expect(page.locator("#rest-heading")).toBeFocused();
+
+  // Tab from the heading lands on the overlay's own first control (+30s), never on the
+  // log strip's effort keys sitting underneath it.
+  await page.keyboard.press("Tab");
+  await expect(rest.getByRole("button", { name: "+30s" })).toBeFocused();
+
+  const focusableCount = await rest.locator(FOCUSABLE_SELECTOR).count();
+  await assertTabStaysWithin(page, ".rest-overlay", focusableCount + 2);
+
+  // Same regression Task 11's fix round added for the other two sheets: a tap on
+  // non-focusable overlay content (the "Up next" label — real text this overlay renders)
+  // blurs focus to `<body>`, and both Tab and Escape have to recover from that.
+  const upNext = rest.locator(".upnext-label");
+  await expect(upNext).toBeVisible();
+
+  await upNext.click();
+  expect(
+    await page.evaluate(() => document.activeElement === document.body),
+    "the tap should have blurred focus to <body>, reproducing the bug this guards",
+  ).toBe(true);
+  await page.keyboard.press("Tab");
+  await expect(rest.getByRole("button", { name: "+30s" })).toBeFocused();
+
+  // Escape is wired to the same deliberate escape the primary button offers — "start the
+  // next set early" (`onSkip`). It is a tap, not the auto-dismiss UI-DECISIONS §4 forbids.
+  await upNext.click();
+  await page.keyboard.press("Escape");
+  await expect(rest).toHaveCount(0);
+
+  // The two sheets above additionally assert focus returns to the control that opened
+  // them. This overlay cannot make that claim, and the difference is the log strip's, not
+  // the trap's: its trigger is a `<form>` submit button, and the round trip that logs the
+  // set blurs it to `<body>` *before* the overlay mounts (a `focusin`/`focusout` trace
+  // shows button-in, button-out, body-in, and only then the overlay's heading). So the
+  // trap captures `<body>` as the thing to restore, and restoring it is a no-op. What
+  // must still hold is that focus is not stranded in the removed overlay — a detached
+  // `activeElement` is a keyboard dead end, which is the actual failure mode worth
+  // guarding.
+  expect(
+    await page.evaluate(
+      () =>
+        !!document.activeElement?.isConnected && !document.activeElement.closest(".rest-overlay"),
+    ),
+    "focus must be on a live element outside the dismissed overlay",
+  ).toBe(true);
+  await expect(trigger).toBeVisible();
 });

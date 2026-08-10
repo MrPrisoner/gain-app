@@ -15,12 +15,21 @@
  * (`e2e/session-runner-focus.spec.ts`).
  */
 
-// `input:not([disabled])` alone would also match `<input type="hidden">` — both
-// sheets carry several (every form field the enclosing `<form>` submits), and a
-// browser silently refuses to focus one (it generates no box), so treating it as a
-// real Tab stop would leave focus stuck wherever it already was, one keypress that
-// visibly does nothing. `:not([type="hidden"])` rules that out.
-const FOCUSABLE_SELECTOR =
+/**
+ * What the trap treats as a Tab stop.
+ *
+ * `input:not([disabled])` alone would also match `<input type="hidden">` — the sheets
+ * carry several (every form field the enclosing `<form>` submits), and a browser
+ * silently refuses to focus one (it generates no box), so treating it as a real Tab stop
+ * would leave focus stuck wherever it already was, one keypress that visibly does
+ * nothing. `:not([type="hidden"])` rules that out.
+ *
+ * Exported because `e2e/session-runner-focus.spec.ts` counts a dialog's Tab stops to
+ * decide how many presses prove the cycle wraps. It used to keep its own copy of this
+ * string, which defeats the test: a wrong selector in the app would still pass as long
+ * as the test's copy drifted the same way. The test must measure the real constant.
+ */
+export const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /**
