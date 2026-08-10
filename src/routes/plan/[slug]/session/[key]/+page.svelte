@@ -37,6 +37,7 @@
   import DeviationSheet from "./DeviationSheet.svelte";
   import LogStrip from "./LogStrip.svelte";
   import { restSpecFrom, type RestSpec } from "$lib/session/rest-timer";
+  import { trapFocus } from "$lib/actions/focus-trap";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -1010,8 +1011,20 @@
 
 {#if showWrapUp && workoutId}
   <div class="sheet-backdrop" role="presentation">
-    <div class="sheet">
-      <h3>How did it go?</h3>
+    <!-- Task 11 (phase-4 remediation): a real modal dialog, not just a visually
+         bottom-sheeted div — `role="dialog"`/`aria-modal="true"` plus `aria-labelledby`
+         pointing at the heading below announce it as such, and `use:trapFocus` (see
+         `$lib/actions/focus-trap`) moves focus to that heading on open, cycles Tab
+         within the sheet, restores focus to whatever had it on close, and treats
+         Escape the same as the Back button. -->
+    <div
+      class="sheet"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="wrap-up-heading"
+      use:trapFocus={{ onEscape: () => (showWrapUp = false) }}
+    >
+      <h3 id="wrap-up-heading" tabindex="-1" data-trap-focus-heading>How did it go?</h3>
 
       {#each data.endMetrics as metric (metric.key)}
         {@render metricRow(metric)}
@@ -1120,6 +1133,7 @@
     gap: 0.5rem;
   }
   .pill {
+    min-height: 2.75rem;
     border: 1px solid var(--line);
     background: var(--raised);
     color: var(--text);
@@ -1205,6 +1219,7 @@
     gap: 0.4rem;
   }
   .chip {
+    min-height: 2.75rem;
     border: 1px solid var(--line);
     background: var(--raised);
     color: var(--text);
@@ -1285,6 +1300,7 @@
   }
   .add-set {
     justify-self: start;
+    min-height: 2.75rem;
     border: 1px dashed var(--line);
     background: none;
     color: var(--accent);
@@ -1311,6 +1327,9 @@
     margin: 0;
   }
   .action-error .dismiss {
+    flex: none;
+    min-height: 2.75rem;
+    min-width: 2.75rem;
     border: none;
     background: none;
     color: inherit;
@@ -1343,6 +1362,7 @@
   }
   .end-session {
     margin-top: 0.5rem;
+    min-height: 2.75rem;
     border: 1px solid var(--line);
     background: var(--raised);
     color: var(--text);
@@ -1418,6 +1438,7 @@
   }
   .scale-cell {
     width: 100%;
+    min-height: 2.75rem;
     border: 1px solid var(--line);
     background: var(--raised);
     color: var(--text);

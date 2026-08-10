@@ -82,3 +82,49 @@ test("the wrap-up's scale metrics render as one row, with no horizontal overflow
     innerWidth,
   );
 });
+
+/** `document.documentElement.scrollWidth` must never exceed `window.innerWidth`, same
+ * assertion the two tests above make — extracted here since Task 11 adds two more
+ * overlay states that need exactly the same check. */
+async function assertNoHorizontalOverflow(page: import("@playwright/test").Page): Promise<void> {
+  const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+  const innerWidth = await page.evaluate(() => window.innerWidth);
+  expect(scrollWidth, "no horizontal overflow, ever").toBeLessThanOrEqual(innerWidth);
+}
+
+// Task 11 (phase-4 remediation): the base runner and the wrap-up sheet were already
+// covered (above); the deviation sheet and the rest overlay were not. Both are
+// `position: fixed` overlays with their own layout, so each is its own chance to
+// reintroduce overflow that the base-runner check alone would never catch.
+test("the deviation sheet has no horizontal overflow", async ({ page }) => {
+  await page.goto(`/plan/${E2E_PLAN_SLUG}/session/A`);
+  await dismissPreSessionPrompt(page);
+  await expect(page.locator(".log-strip")).toBeVisible();
+
+  // "Change" on the strip opens the deviation sheet for whatever exercise is open —
+  // Goblet squat, the first tracked exercise of Session A.
+  await page.locator(".log-strip .strip-change").click();
+  await expect(page.locator(".sheet")).toBeVisible();
+  // The reason chips are the widest row in the sheet — worth confirming they actually
+  // rendered before asserting the page never had to widen to fit them.
+  await expect(page.getByText("Equipment")).toBeVisible();
+
+  await assertNoHorizontalOverflow(page);
+});
+
+// Goblet squat (Session A's first tracked exercise) declares `rest_sec: [75, 90]`
+// (fixtures/plans/home-dumbbell-v1.md), so logging its first set always fires the rest
+// overlay — the one full-viewport surface that isn't exercised by any other overflow
+// test in this file.
+test("the rest overlay has no horizontal overflow", async ({ page }) => {
+  await page.goto(`/plan/${E2E_PLAN_SLUG}/session/A`);
+  await dismissPreSessionPrompt(page);
+  await expect(page.locator(".log-strip")).toBeVisible();
+
+  await page.locator('.log-strip button[value="medium"]').click();
+  const rest = page.locator(".rest-overlay");
+  await expect(rest).toBeVisible();
+  await expect(rest.getByText("Up next")).toBeVisible();
+
+  await assertNoHorizontalOverflow(page);
+});

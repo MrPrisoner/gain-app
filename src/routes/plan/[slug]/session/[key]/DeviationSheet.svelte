@@ -3,6 +3,7 @@
   import { applyAction, enhance } from "$app/forms";
   import type { ActionResult } from "@sveltejs/kit";
   import type { DeviationKind } from "$lib/logs/types";
+  import { trapFocus } from "$lib/actions/focus-trap";
 
   let {
     exerciseSlug,
@@ -60,11 +61,20 @@
 </script>
 
 <div class="sheet-backdrop" onclick={onClose} role="presentation">
+  <!-- Task 11 (phase-4 remediation): `role="dialog"`/`aria-modal="true"` plus
+       `aria-labelledby` announce this as a real modal, and `use:trapFocus` (see
+       `$lib/actions/focus-trap`) moves focus to the heading below on open, cycles Tab
+       within the sheet, restores focus on close, and treats Escape the same as
+       Cancel. -->
   <form
     method="POST"
     action="?/logDeviation"
     class="sheet"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="deviation-heading"
     onclick={(e) => e.stopPropagation()}
+    use:trapFocus={{ onEscape: onClose }}
     use:enhance={() => {
       return async ({ result }: { result: ActionResult }) => {
         await applyAction(result);
@@ -95,7 +105,7 @@
       <input type="hidden" name="substitute_exercise_slug" value={substituteSlug} />
     {/if}
 
-    <h3>Change this set</h3>
+    <h3 id="deviation-heading" tabindex="-1" data-trap-focus-heading>Change this set</h3>
 
     <div class="kind-row">
       <label><input type="radio" name="kind" value="skip" bind:group={kind} /> Skip</label>
@@ -171,9 +181,24 @@
     gap: 0.6rem;
     font-size: 0.85rem;
   }
+  /* Each label is the tap target for its radio (the input itself is a few px), so it
+     needs the same 44px minimum as every other control here — a row of chip-like
+     labels rather than bare inline text next to a tiny native radio. */
+  .kind-row label,
+  .reason-row label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 2.75rem;
+    padding: 0.3rem 0.5rem;
+    border: 1px solid var(--line);
+    border-radius: var(--r-xs);
+    background: var(--raised);
+  }
   select,
   textarea {
     width: 100%;
+    min-height: 2.75rem;
     padding: 0.6rem;
     border-radius: var(--r-xs);
     border: 1px solid var(--line);
