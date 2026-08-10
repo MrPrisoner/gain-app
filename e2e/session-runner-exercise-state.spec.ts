@@ -1,0 +1,114 @@
+/**
+ * Task 5 (docs/superpowers/plans/2026-08-10-phase-4-remediation.md): the exercise state
+ * machine — UI-DECISIONS §1 (completion state and auto-advance), §6 (a substitute is a
+ * real swap), §7 (deviation is one tap away, and it *does* something).
+ *
+ * Each of these asserts on the thing that could silently rot back to the old behaviour:
+ *
+ * 1. **Auto-advance** — finishing an exercise opens the next one. Before Task 5 the list
+ *    just sat there and you hunted for the next row one-handed.
+ * 2. **A swap actually substitutes** — this is the one that corrupts the export rather
+ *    than merely annoying the user. Before Task 5, tapping "Swap: dead-bug" on the
+ *    conditional reverse-crunch logged the deviation and then kept posting
+ *    `exercise_slug=reverse-crunch`, so the file said you did the movement the plan told
+ *    you to avoid. The assertion is on the POST body, not on rendered text.
+ * 3. **A skip actually skips** — before Task 5 it wrote a deviation row and left the
+ *    exercise expanded and fully loggable.
+ *
+ * `GAIN_DEV_USER` bypass mode (see `session-runner.spec.ts`) means no auth setup here.
+ */
+
+import { expect, test, type Page } from "@playwright/test";
+import { E2E_PLAN_SLUG } from "./env";
+
+/** The `exercise_slug` field of every `?/logSet` POST that leaves the browser. */
+async function captureLoggedSlugs(page: Page): Promise<string[]> {
+  const slugs: string[] = [];
+  await page.route(/\?\/logSet/, async (route) => {
+    const request = route.request();
+    if (request.method() === "POST") {
+      const slug = new URLSearchParams(request.postData() ?? "").get("exercise_slug");
+      if (slug) slugs.push(slug);
+    }
+    await route.continue();
+  });
+  return slugs;
+}
+
+/** The exercise row currently expanded — there is exactly one (UI-DECISIONS §1). */
+function openExercise(page: Page) {
+  return page.locator(".exercise.open");
+}
+
+/** Opens a collapsed row by its rendered name. */
+async function open(page: Page, name: string): Promise<void> {
+  await page.locator(".exercise-head", { hasText: name }).first().click();
+  await expect(openExercise(page).locator(".exercise-name")).toHaveText(name);
+}
+
+/** Taps the strip's Medium key and waits for the round trip to settle. The strip's context
+ * line names exactly what the *next* tap writes, so it always changes once a set lands —
+ * whether the cursor moved within the exercise or auto-advance moved to the next one. */
+async function logSet(page: Page): Promise<void> {
+  const context = page.locator(".log-strip .strip-set");
+  const before = await context.innerText();
+  await page.locator('.log-strip button[value="medium"]').click();
+  await expect(context).not.toHaveText(before);
+}
+
+test("finishing an exercise opens the next one in prescribed order", async ({ page }) => {
+  await page.goto(`/plan/${E2E_PLAN_SLUG}/session/D`);
+  await expect(page.locator(".log-strip")).toBeVisible();
+
+  // The abdominal finisher is a `type: rounds` block, so no per-set rest fires and the
+  // advance is immediate — the rest-gated path is covered by `advanceAfterRest` in the
+  // runner and would only add flake here.
+  await open(page, "Dead bug");
+  // `per_side: true`, so one round is two slots: left then right.
+  await logSet(page);
+  await logSet(page);
+
+  await expect(openExercise(page).locator(".exercise-name")).toHaveText("McGill curl-up");
+  // The finished exercise collapsed to what it actually was, not to its target.
+  const deadBug = page.locator(".exercise", { hasText: "Dead bug" }).first();
+  await expect(deadBug).toHaveClass(/done/);
+  await expect(deadBug.locator(".exercise-meta")).not.toHaveText("1 × 8 per side");
+});
+
+test("a swap logs against the substitute, not the movement it replaced", async ({ page }) => {
+  const loggedSlugs = await captureLoggedSlugs(page);
+  await page.goto(`/plan/${E2E_PLAN_SLUG}/session/D`);
+  await expect(page.locator(".log-strip")).toBeVisible();
+
+  await open(page, "Reverse crunch");
+  await expect(openExercise(page).locator(".condition")).toContainText("familiar back symptoms");
+  await openExercise(page).getByRole("button", { name: "Swap: dead-bug" }).click();
+
+  // The row renames itself to the movement now being performed, and says which prescribed
+  // slot it is filling.
+  await expect(openExercise(page).locator(".exercise-name")).toHaveText("Dead bug");
+  await expect(openExercise(page)).toContainText("Swapped in for Reverse crunch");
+  // `dead-bug` is `per_side` where `reverse-crunch` is not, so the ledger really did
+  // re-shape around the substitute rather than repainting the original's rows.
+  await expect(openExercise(page).locator(".ledger-row")).toHaveCount(2);
+  await expect(page.locator(".log-strip .strip-exercise")).toHaveText("Dead bug");
+
+  await logSet(page);
+
+  expect(loggedSlugs, "the set must be recorded against the substitute").toEqual(["dead-bug"]);
+});
+
+test("a skip collapses the exercise, says so, and advances", async ({ page }) => {
+  await page.goto(`/plan/${E2E_PLAN_SLUG}/session/A`);
+  await expect(page.locator(".log-strip")).toBeVisible();
+  await expect(openExercise(page).locator(".exercise-name")).toHaveText("Goblet squat");
+
+  await page.locator(".log-strip .strip-change").click();
+  // `kind` defaults to skip and `reason_code` to Symptoms, so Save is the whole gesture.
+  await page.locator(".sheet button[type=submit]").click();
+
+  const squat = page.locator(".exercise", { hasText: "Goblet squat" }).first();
+  await expect(squat.locator(".exercise-meta")).toHaveText("Skipped");
+  await expect(squat).not.toHaveClass(/open/);
+  await expect(openExercise(page).locator(".exercise-name")).toHaveText("Dumbbell floor press");
+});

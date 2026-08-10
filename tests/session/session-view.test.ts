@@ -7,20 +7,27 @@ import {
   formatLoggedSet,
   formatRange,
   formatRepsOrDuration,
+  formatRepsOrDurationOrDash,
   formatSlotContext,
   formatSlotLabel,
   formatTarget,
+  formatTargetOrSets,
+  nextExerciseKey,
   nextUnloggedSlot,
   resolveLoad,
   resolveSession,
+  resolveSubstitute,
   restBetweenRounds,
   restForSet,
   sessionMetrics,
   setLogKey,
   setMetrics,
   setSlotsFor,
+  summariseLoggedSets,
+  trackedExerciseKeys,
   visibleSetCount,
 } from "../../src/lib/session/session-view";
+import type { ResolvedExercise } from "../../src/lib/session/session-view";
 
 const ROOT = new URL("../../", import.meta.url);
 const fixtureMd = fs.readFileSync(new URL("fixtures/plans/home-dumbbell-v1.md", ROOT), "utf8");
@@ -435,5 +442,227 @@ describe("formatRepsOrDuration", () => {
     expect(() =>
       formatRepsOrDuration({ type: "time", reps: undefined, durationSec: undefined }),
     ).toThrow(/duration_sec/);
+  });
+});
+
+describe("resolveSubstitute", () => {
+  /** The fixture's real conditional: `reverse-crunch` in session D's rounds block,
+   * `substitutes: [dead-bug, front-plank]`. Both substitutes differ from it in a
+   * property that changes how the runner renders and logs. */
+  function reverseCrunch(): ResolvedExercise {
+    const session = resolveSession(fixtureContract(), "D");
+    const exercise = session?.blocks
+      .find((b) => b.key === "ab-finisher")
+      ?.exercises.find((e) => e.slug === "reverse-crunch");
+    if (!exercise) throw new Error("fixture no longer prescribes reverse-crunch in session D");
+    return exercise;
+  }
+
+  it("returns undefined for a slug that is not in the catalogue", () => {
+    const contract = fixtureContract();
+    expect(
+      resolveSubstitute(contract.exercises, contract.loads, reverseCrunch(), "not-a-movement"),
+    ).toBeUndefined();
+  });
+
+  it("takes catalogue identity from the substitute — including per_side the original lacks", () => {
+    const contract = fixtureContract();
+    const original = reverseCrunch();
+    expect(original.perSide).toBe(false);
+
+    const deadBug = resolveSubstitute(contract.exercises, contract.loads, original, "dead-bug");
+    expect(deadBug?.slug).toBe("dead-bug");
+    expect(deadBug?.name).toBe("Dead bug");
+    expect(deadBug?.type).toBe("reps");
+    // The substitute's own movement property, not the original's: a per_side substitute
+    // really does want its own L/R ledger rows.
+    expect(deadBug?.perSide).toBe(true);
+    expect(deadBug?.load?.ref).toBe("bodyweight");
+    expect(deadBug?.load?.isBodyweight).toBe(true);
+  });
+
+  it("takes the targets of the occasion being replaced, not the substitute's own", () => {
+    const contract = fixtureContract();
+    const original = reverseCrunch();
+    expect(original.reps).toEqual([8, 12]);
+
+    const deadBug = resolveSubstitute(contract.exercises, contract.loads, original, "dead-bug");
+    // Session D also prescribes dead-bug at `reps: 8` in the same block — the substitute
+    // must not inherit that; it is standing in for *this* occasion.
+    expect(deadBug?.reps).toEqual([8, 12]);
+    expect(deadBug?.sets).toBe(original.sets);
+    expect(deadBug?.restSec).toBe(original.restSec);
+  });
+
+  it("resolves a substitute whose load differs from the original's", () => {
+    const contract = fixtureContract();
+    const session = resolveSession(contract, "B");
+    const triceps = session?.blocks
+      .find((b) => b.key === "main")
+      ?.exercises.find((e) => e.slug === "overhead-triceps-extension");
+    if (!triceps) throw new Error("fixture no longer prescribes overhead-triceps-extension");
+
+    const lying = resolveSubstitute(
+      contract.exercises,
+      contract.loads,
+      triceps,
+      "lying-triceps-extension",
+    );
+    expect(lying?.name).toBe("Lying dumbbell triceps extension");
+    expect(lying?.load?.ref).toBe("light");
+    expect(lying?.note).toContain("Substitute for the overhead version");
+    // Not a conditional exercise at all — the swap came from the deviation sheet.
+    expect(lying?.conditional).toBe(false);
+  });
+
+  it("leaves the target unset when the substitute's type differs from the original's", () => {
+    const contract = fixtureContract();
+    const original = reverseCrunch();
+    const plank = resolveSubstitute(contract.exercises, contract.loads, original, "front-plank");
+
+    // A reps movement replaced by a timed one: the plan declares `front-plank` as a valid
+    // substitute but never says how long to hold it *here*, so nothing is invented.
+    expect(plank?.type).toBe("time");
+    expect(plank?.reps).toBeUndefined();
+    expect(plank?.durationSec).toBeUndefined();
+    expect(plank?.sets).toBe(original.sets);
+  });
+
+  it("does not re-ask the condition it was chosen to answer", () => {
+    const contract = fixtureContract();
+    // `front-plank` is itself `conditional: true` in the catalogue.
+    expect(contract.exercises.find((e) => e.id === "front-plank")?.conditional).toBe(true);
+
+    const plank = resolveSubstitute(
+      contract.exercises,
+      contract.loads,
+      reverseCrunch(),
+      "front-plank",
+    );
+    expect(plank?.conditional).toBe(false);
+    expect(plank?.condition).toBeUndefined();
+    expect(plank?.substitutes).toEqual([]);
+  });
+});
+
+describe("formatTargetOrSets / formatRepsOrDurationOrDash", () => {
+  const untargeted = {
+    type: "time" as const,
+    sets: 2,
+    reps: undefined,
+    durationSec: undefined,
+    perSide: false,
+  };
+
+  it("formats a normal exercise exactly as formatTarget does", () => {
+    const session = resolveSession(fixtureContract(), "A");
+    const squat = session?.blocks
+      .find((b) => b.key === "main")
+      ?.exercises.find((e) => e.slug === "goblet-squat");
+    expect(squat && formatTargetOrSets(squat)).toBe("3 × 8–12");
+    expect(squat && formatRepsOrDurationOrDash(squat)).toBe("8–12");
+  });
+
+  it("falls back to the sets count where formatTarget would throw", () => {
+    expect(() => formatTarget(untargeted)).toThrow();
+    expect(formatTargetOrSets(untargeted)).toBe("2 sets");
+    expect(formatTargetOrSets({ ...untargeted, sets: 1 })).toBe("1 set");
+    expect(formatTargetOrSets({ ...untargeted, sets: [2, 3] })).toBe("2–3 sets");
+    expect(formatTargetOrSets({ ...untargeted, perSide: true })).toBe("2 sets per side");
+  });
+
+  it("renders an em dash rather than a fabricated zero in a ledger cell", () => {
+    expect(formatRepsOrDurationOrDash(untargeted)).toBe("—");
+  });
+});
+
+describe("summariseLoggedSets", () => {
+  it("joins one figure per set and collapses a shared load", () => {
+    expect(
+      summariseLoggedSets([
+        { reps: 11, weightKg: 6 },
+        { reps: 10, weightKg: 6 },
+        { reps: 10, weightKg: 6 },
+      ]),
+    ).toBe("11 · 10 · 10 at 6 kg");
+  });
+
+  it("shows a load range when the load changed mid-exercise", () => {
+    expect(
+      summariseLoggedSets([
+        { reps: 11, weightKg: 8 },
+        { reps: 8, weightKg: 6 },
+      ]),
+    ).toBe("11 · 8 at 6–8 kg");
+  });
+
+  it("omits the load for a bodyweight movement", () => {
+    expect(summariseLoggedSets([{ reps: 10 }, { reps: 9 }])).toBe("10 · 9");
+  });
+
+  it("summarises held durations", () => {
+    expect(summariseLoggedSets([{ durationS: 30 }, { durationS: 25 }])).toBe("30 sec · 25 sec");
+  });
+
+  it("says Logged when no set carried a figure at all", () => {
+    expect(summariseLoggedSets([{ difficulty: "hard" }, { difficulty: "easy" }])).toBe("Logged");
+  });
+
+  it("keeps a zero rather than dropping it", () => {
+    expect(summariseLoggedSets([{ reps: 0, weightKg: 0 }])).toBe("0 at 0 kg");
+  });
+
+  it("says so rather than rendering an empty string when nothing is logged", () => {
+    expect(summariseLoggedSets([])).toBe("Nothing logged");
+  });
+});
+
+describe("trackedExerciseKeys / nextExerciseKey", () => {
+  const session = () => {
+    const resolved = resolveSession(fixtureContract(), "A");
+    if (!resolved) throw new Error("fixture no longer has session A");
+    return resolved;
+  };
+
+  it("lists every loggable exercise in prescribed order, excluding checkoff blocks", () => {
+    const keys = trackedExerciseKeys(session());
+    expect(keys.every((key) => !key.startsWith("warmup:"))).toBe(true);
+    expect(keys[0]).toBe("main:goblet-squat");
+    expect(keys).toContain("core:side-plank");
+    // Order follows blocks then exercises, not the order they happen to be logged in.
+    expect(keys.indexOf("main:goblet-squat")).toBeLessThan(keys.indexOf("core:side-plank"));
+  });
+
+  it("opens the first exercise when nothing is done and no current key is given", () => {
+    expect(nextExerciseKey(session(), new Set())).toBe("main:goblet-squat");
+  });
+
+  it("advances to the next not-yet-done exercise after the current one", () => {
+    const keys = trackedExerciseKeys(session());
+    const done = new Set([keys[0]!, keys[1]!]);
+    expect(nextExerciseKey(session(), done, keys[0])).toBe(keys[2]);
+  });
+
+  it("skips over exercises already done, in order", () => {
+    const keys = trackedExerciseKeys(session());
+    const done = new Set([keys[0]!, keys[1]!, keys[2]!]);
+    expect(nextExerciseKey(session(), done, keys[0])).toBe(keys[3]);
+  });
+
+  it("wraps to an exercise left unfinished earlier rather than stranding it", () => {
+    const keys = trackedExerciseKeys(session());
+    const last = keys[keys.length - 1]!;
+    // Everything done except the second one, and the cursor is on the final exercise.
+    const done = new Set(keys.filter((key) => key !== keys[1]));
+    expect(nextExerciseKey(session(), done, last)).toBe(keys[1]);
+  });
+
+  it("is undefined once every exercise is finished", () => {
+    const keys = trackedExerciseKeys(session());
+    expect(nextExerciseKey(session(), new Set(keys), keys[0])).toBeUndefined();
+  });
+
+  it("starts from the beginning when the current key is not in this session", () => {
+    expect(nextExerciseKey(session(), new Set(), "somewhere:else")).toBe("main:goblet-squat");
   });
 });

@@ -114,24 +114,8 @@ function resolveExercise(
     );
   }
 
-  const loadRef = rx.load ?? def.load;
-  const loadConfig = resolveLoad(contract, loadRef);
-
   return {
-    slug: rx.id,
-    name: def.name ?? deriveExerciseName(rx.id),
-    type: def.type ?? "reps",
-    perSide: def.per_side === true,
-    loadRef,
-    load: loadConfig
-      ? {
-          ref: loadConfig.ref,
-          label: loadConfig.label,
-          defaultKg: loadConfig.default_kg,
-          isBodyweight: loadConfig.is_bodyweight === true,
-          note: loadConfig.note,
-        }
-      : undefined,
+    ...catalogueIdentity(def, contract.loads, rx.load ?? def.load),
     restSec: rx.rest_sec ?? def.rest_sec,
     conditional: rx.conditional ?? def.conditional ?? false,
     condition: rx.condition ?? def.condition,
@@ -143,12 +127,103 @@ function resolveExercise(
   };
 }
 
+/**
+ * The half of a `ResolvedExercise` that belongs to the *movement* rather than to the
+ * occasion it is performed on — CONTRACT: "All occurrences share one `id`, and therefore
+ * one identity, one name and one set of movement properties." Shared by
+ * `resolveExercise`, which layers a prescription's targets and overrides on top, and
+ * `resolveSubstitute`, which layers the targets of the occasion being *replaced* on top
+ * instead. Neither may re-derive load/type/per_side resolution on its own.
+ */
+function catalogueIdentity(
+  def: ExerciseDef,
+  loads: readonly LoadConfig[],
+  loadRef: string | undefined,
+): Pick<ResolvedExercise, "slug" | "name" | "type" | "perSide" | "loadRef" | "load"> {
+  const config = findLoad(loads, loadRef);
+  return {
+    slug: def.id,
+    name: def.name ?? deriveExerciseName(def.id),
+    type: def.type ?? "reps",
+    perSide: def.per_side === true,
+    loadRef,
+    load: config
+      ? {
+          ref: config.ref,
+          label: config.label,
+          defaultKg: config.default_kg,
+          isBodyweight: config.is_bodyweight === true,
+          note: config.note,
+        }
+      : undefined,
+  };
+}
+
+function findLoad(loads: readonly LoadConfig[], ref: string | undefined): LoadConfig | undefined {
+  if (ref === undefined) return undefined;
+  return loads.find((l) => l.ref === ref);
+}
+
 export function resolveLoad(
   contract: GainContract,
   ref: string | undefined,
 ): LoadConfig | undefined {
-  if (ref === undefined) return undefined;
-  return contract.loads.find((l) => l.ref === ref);
+  return findLoad(contract.loads, ref);
+}
+
+/**
+ * A declared substitute (CONTRACT: "`substitutes` entries are always bare slugs declared
+ * in the catalogue"), resolved into a `ResolvedExercise` that can stand in for the
+ * exercise it replaces — so the log strip posts *its* slug and the ledger renders *its*
+ * name, rather than the runner logging the movement the plan told you to avoid.
+ *
+ * The split follows CONTRACT exactly:
+ *
+ * - **Catalogue identity comes from the substitute** — name, `type`, `per_side`, `load`,
+ *   `note`. These are properties of the movement, and a substitute is a different
+ *   movement. A `per_side` substitute for a two-sided original really does want L/R
+ *   ledger rows, and a bodyweight substitute for a loaded original really does want the
+ *   load dial gone.
+ * - **Targets come from the occasion being replaced** — `sets`, `rest_sec`, and the
+ *   rep/duration target. A substitute has no prescription of its own for *this* occasion;
+ *   the occasion is the one it is standing in for. (`rest_sec` too: the substitute's
+ *   catalogue default describes the movement in the abstract, but what governs here is
+ *   the slot in the session it has been dropped into.)
+ * - **The condition does not carry over.** `conditional`/`condition`/`substitutes` are
+ *   cleared: swapping *is* the answer to the condition prompt, so re-asking it — or
+ *   offering the substitute's own substitutes — on the movement you just chose is noise.
+ *   The prescribed exercise's condition text stays rendered by the runner alongside a
+ *   "swapped in for" cue, which is where the audit trail belongs.
+ *
+ * When the substitute's `type` differs from the original's (the fixture's real
+ * `reverse-crunch` → `front-plank` case: a reps movement replaced by a timed one) the
+ * plan has simply never said how long to hold it, so the target is left `undefined` and
+ * `formatTargetOrSets`/`formatRepsOrDurationOrDash` render the sets count alone rather
+ * than inventing a number. Returns `undefined` when the slug is not in the catalogue —
+ * the contract validator should make that unreachable, but the caller is a browser with
+ * a slug it read off a form, so it gets a value it can surface rather than a throw.
+ */
+export function resolveSubstitute(
+  catalogue: readonly ExerciseDef[],
+  loads: readonly LoadConfig[],
+  original: Pick<ResolvedExercise, "sets" | "reps" | "durationSec" | "restSec">,
+  substituteSlug: string,
+): ResolvedExercise | undefined {
+  const def = catalogue.find((e) => e.id === substituteSlug);
+  if (!def) return undefined;
+
+  const identity = catalogueIdentity(def, loads, def.load);
+  return {
+    ...identity,
+    restSec: original.restSec,
+    conditional: false,
+    condition: undefined,
+    substitutes: [],
+    sets: original.sets,
+    reps: identity.type === "reps" ? original.reps : undefined,
+    durationSec: identity.type === "time" ? original.durationSec : undefined,
+    note: def.note,
+  };
 }
 
 export function sessionMetrics(
@@ -237,7 +312,11 @@ export type LoggedSet = {
  *
  * Deliberately derivable from a stored `set_log` row alone (block key aside, which the
  * resolved session supplies) so a resumed workout can rebuild the same keys from the
- * server rather than only from a client-side map that starts empty.
+ * server rather than only from a client-side map that starts empty. The one exception is
+ * a slot whose exercise has been substituted: the runner keeps such a slot on its
+ * *prescribed* slug (see `slotsFor` in the runner) while logging against the substitute's,
+ * because a block can prescribe the substitute in its own right. Rebuilding that slot on
+ * resume needs the workout's `deviation` rows too, not `set_log` alone.
  */
 export function setLogKey(
   blockKey: string,
@@ -378,4 +457,95 @@ export function formatTarget(
 ): string {
   const line = `${formatRange(exercise.sets)} × ${formatRepsOrDuration(exercise)}`;
   return exercise.perSide ? `${line} per side` : line;
+}
+
+/**
+ * True when the exercise carries the target its own `type` requires. Always true for a
+ * prescribed exercise — the contract validator enforces it — and false only for a
+ * substitute resolved across a `type` boundary (`resolveSubstitute`), where the plan
+ * never stated a target for the movement on this occasion.
+ */
+function hasTarget(exercise: Pick<ResolvedExercise, "type" | "reps" | "durationSec">): boolean {
+  return (exercise.type === "time" ? exercise.durationSec : exercise.reps) !== undefined;
+}
+
+/**
+ * `formatTarget` for any exercise the runner might be *rendering*, prescribed or
+ * substituted. Falls back to the sets count alone (`2 sets`) when the substitute carries
+ * no target of its own type, rather than throwing the way the prescribed-exercise path
+ * deliberately does.
+ */
+export function formatTargetOrSets(
+  exercise: Pick<ResolvedExercise, "type" | "sets" | "reps" | "durationSec" | "perSide">,
+): string {
+  if (hasTarget(exercise)) return formatTarget(exercise);
+  const core = exercise.sets === 1 ? "1 set" : `${formatRange(exercise.sets)} sets`;
+  return exercise.perSide ? `${core} per side` : core;
+}
+
+/** `formatRepsOrDuration` for the same "prescribed or substituted" case — an em dash
+ * where a substitute has no target of its own type, never a fabricated `0`. */
+export function formatRepsOrDurationOrDash(
+  exercise: Pick<ResolvedExercise, "type" | "reps" | "durationSec">,
+): string {
+  return hasTarget(exercise) ? formatRepsOrDuration(exercise) : "—";
+}
+
+/**
+ * UI-DECISIONS §1: a finished exercise collapses to what it actually was —
+ * `11 · 10 · 10 at 6 kg`. One figure per logged set in performed order, then the load,
+ * collapsed to a single value when every set shared one and to a range when they did not
+ * (dropping the weight mid-exercise is exactly the thing worth seeing from the collapsed
+ * row). Sets that carry no figures at all — a checkoff-style write, or every stepper
+ * cleared — summarise as `Logged`, matching `formatLoggedSet`'s own floor.
+ */
+export function summariseLoggedSets(sets: readonly LoggedSet[]): string {
+  if (sets.length === 0) return "Nothing logged";
+
+  const figures = sets.map((set) =>
+    set.durationS !== undefined ? `${set.durationS} sec` : (set.reps?.toString() ?? "—"),
+  );
+  const core = figures.every((figure) => figure === "—") ? "Logged" : figures.join(" · ");
+
+  const weights = sets
+    .map((set) => set.weightKg)
+    .filter((weight): weight is number => weight !== undefined);
+  if (weights.length === 0) return core;
+
+  const min = Math.min(...weights);
+  const max = Math.max(...weights);
+  return `${core} at ${min === max ? `${min}` : `${min}–${max}`} kg`;
+}
+
+/**
+ * Every exercise of a session that can be opened and logged, in prescribed order, as
+ * `${block.key}:${slug}` keys — the same identity every keyed map in the runner uses.
+ * Checkoff blocks are excluded: they have no set rows and nothing to open
+ * (UI-DECISIONS §9).
+ */
+export function trackedExerciseKeys(session: Pick<ResolvedSession, "blocks">): string[] {
+  return session.blocks
+    .filter((block) => block.tracking !== "checkoff")
+    .flatMap((block) => block.exercises.map((exercise) => `${block.key}:${exercise.slug}`));
+}
+
+/**
+ * The exercise the runner should open next (UI-DECISIONS §1: the default path is not
+ * "hunt for the next row one-handed"). Searches forward from `currentKey` in prescribed
+ * order, then wraps to the start so an exercise left unfinished earlier — done out of
+ * order, or skipped and then un-skipped — is picked up rather than stranded. `undefined`
+ * when nothing is left, which is the runner's cue to leave the current exercise open
+ * showing its finished state.
+ *
+ * `done` is anything that can answer "is this exercise finished": the runner's derived
+ * set of keys whose every offered slot is logged, plus the skipped ones.
+ */
+export function nextExerciseKey(
+  session: Pick<ResolvedSession, "blocks">,
+  done: { has(key: string): boolean },
+  currentKey?: string,
+): string | undefined {
+  const keys = trackedExerciseKeys(session);
+  const after = currentKey === undefined ? 0 : keys.indexOf(currentKey) + 1;
+  return keys.slice(after).find((key) => !done.has(key)) ?? keys.find((key) => !done.has(key));
 }

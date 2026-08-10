@@ -20,6 +20,7 @@ import { finishWorkout, logDeviation, logMetric, logSet, startWorkout } from "$l
 import { pickPrefill } from "$lib/session/prefill";
 import {
   exerciseMetrics,
+  resolveLoad,
   resolveSession,
   sessionMetrics,
   setMetrics,
@@ -49,20 +50,43 @@ export const load: PageServerLoad = ({ params, locals }) => {
     }
   > = {};
 
+  /**
+   * Pre-fill is needed for every movement the runner can end up logging — which is not
+   * just the prescribed ones. Any declared substitute can be swapped in mid-session
+   * (`resolveSubstitute`), and CONTRACT is explicit that a substitute accumulates real
+   * history under its own slug ("history needs a stable slug exactly as much as a
+   * prescribed movement does"), so its last performance has to be here too or the strip
+   * silently loses its pre-fill the moment you swap.
+   */
+  const prefillSlugs = new Map<string, { perSide: boolean; defaultKg: number | undefined }>();
   for (const block of session.blocks) {
     if (block.tracking === "checkoff") continue;
     for (const exercise of block.exercises) {
-      const defId = getExerciseDefIdBySlug(userDb, plan.id, exercise.slug);
-      if (!defId) continue;
-      const rows = recentSetLogsForExercise(userDb, defId);
-      const defaultKg = exercise.load?.defaultKg;
-      prefillByExercise[exercise.slug] = exercise.perSide
-        ? {
-            left: pickPrefill(rows, "left", defaultKg),
-            right: pickPrefill(rows, "right", defaultKg),
-          }
-        : { none: pickPrefill(rows, undefined, defaultKg) };
+      prefillSlugs.set(exercise.slug, {
+        perSide: exercise.perSide,
+        defaultKg: exercise.load?.defaultKg,
+      });
+      for (const substituteSlug of exercise.substitutes) {
+        const def = contract.exercises.find((e) => e.id === substituteSlug);
+        if (!def || prefillSlugs.has(substituteSlug)) continue;
+        prefillSlugs.set(substituteSlug, {
+          perSide: def.per_side === true,
+          defaultKg: resolveLoad(contract, def.load)?.default_kg,
+        });
+      }
     }
+  }
+
+  for (const [slug, { perSide, defaultKg }] of prefillSlugs) {
+    const defId = getExerciseDefIdBySlug(userDb, plan.id, slug);
+    if (!defId) continue;
+    const rows = recentSetLogsForExercise(userDb, defId);
+    prefillByExercise[slug] = perSide
+      ? {
+          left: pickPrefill(rows, "left", defaultKg),
+          right: pickPrefill(rows, "right", defaultKg),
+        }
+      : { none: pickPrefill(rows, undefined, defaultKg) };
   }
 
   return {
@@ -70,6 +94,12 @@ export const load: PageServerLoad = ({ params, locals }) => {
     planVersionId: version.id,
     session,
     prefillByExercise,
+    // The whole catalogue and load table, so a swap can be resolved client-side
+    // (`resolveSubstitute`) without a round trip. A substitute is declared in the
+    // catalogue but need not be prescribed by any session, so `session` alone cannot
+    // answer what `dead-bug` or `front-plank` *is*.
+    catalogue: contract.exercises,
+    loads: contract.loads,
     setMetrics: setMetrics(contract),
     exerciseMetrics: exerciseMetrics(contract),
     endMetrics: sessionMetrics(contract, "end"),

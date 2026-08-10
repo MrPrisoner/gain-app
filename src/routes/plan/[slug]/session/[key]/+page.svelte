@@ -7,20 +7,26 @@
   import {
     formatLoggedSet,
     formatRepsOrDuration,
+    formatRepsOrDurationOrDash,
     formatSlotContext,
     formatSlotLabel,
-    formatTarget,
+    formatTargetOrSets,
+    nextExerciseKey,
     nextUnloggedSlot,
+    resolveSubstitute,
     restForSet,
     restBetweenRounds,
     setLogKey,
     setSlotsFor,
+    summariseLoggedSets,
+    trackedExerciseKeys,
     visibleSetCount,
     type LoggedSet,
     type ResolvedBlock,
     type ResolvedExercise,
     type SetSlot,
   } from "$lib/session/session-view";
+  import type { DeviationKind } from "$lib/logs/types";
   import { formatLastPerformance } from "$lib/session/prefill";
   import RestTimer from "./RestTimer.svelte";
   import DeviationSheet from "./DeviationSheet.svelte";
@@ -89,39 +95,51 @@
   // Which exercise is expanded — UI-DECISIONS §1: exactly one, the others collapse.
   // Keyed by `${block.key}:${slug}` since the same exercise slug can appear in more
   // than one block within a session (e.g. a warm-up checkoff and a working block) and
-  // expanding one must not affect the other.
-  let openSlug = $state<string | undefined>(firstTrackedExerciseKey());
-  function firstTrackedExerciseKey(): string | undefined {
-    for (const block of data.session.blocks) {
-      if (block.tracking === "checkoff") continue;
-      const first = block.exercises[0];
-      if (first) return `${block.key}:${first.slug}`;
-    }
-    return undefined;
-  }
+  // expanding one must not affect the other. Always the *prescribed* slug, never a
+  // substitute's — the key identifies the slot in the session, not the movement
+  // currently filling it.
+  let openSlug = $state<string | undefined>(trackedExerciseKeys(data.session)[0]);
 
   // Logged sets this workout, keyed by `setLogKey`, holding what was actually submitted
   // (never the pre-fill it started from — the ledger reads from this). Keys are the
   // shape a resumed workout would rebuild from persisted `set_log` rows.
   const loggedSets = new SvelteMap<string, LoggedSet>();
 
-  // Optional sets added beyond a ranged prescription's minimum, keyed by `${block.key}:${slug}`.
+  // Optional sets added beyond a ranged prescription's minimum, keyed by
+  // `${block.key}:${slug}` — see `shownSetsFor` for why this is not the same counter as
+  // `setCountDelta`.
   const addedSets = new SvelteMap<string, number>();
+
+  // Sets added or dropped by the deviation sheet's `add_set`/`drop_set`, as a signed
+  // delta keyed `${block.key}:${slug}` — again, see `shownSetsFor`.
+  const setCountDelta = new SvelteMap<string, number>();
 
   // Rounds completed so far for a `type: rounds` block, keyed by block key.
   const completedRounds = new SvelteMap<string, number>();
 
-  // A conditional exercise's active substitute (UI-DECISIONS §6), keyed by
-  // `${block.key}:${slug}`; once set the swap chips stop rendering for that exercise.
-  const substitutedExercises = new SvelteMap<string, string>();
+  // The substitute actually swapped in for a prescribed exercise (UI-DECISIONS §6),
+  // keyed `${block.key}:${slug}` by the *prescribed* slug, holding the substitute
+  // resolved through the plan's catalogue (`resolveSubstitute`) rather than its bare
+  // slug: everything downstream — the strip's `exercise_slug`, the ledger's target, the
+  // reps-vs-duration dial, the L/R rows — has to come from the movement being performed,
+  // not the one it replaced.
+  const substitutedExercises = new SvelteMap<string, ResolvedExercise>();
+
+  // Exercises skipped via the deviation sheet, keyed `${block.key}:${slug}`. A skip is
+  // not just a logged row: the exercise stops offering slots, collapses with that state,
+  // and counts as finished for auto-advance.
+  const skippedExercises = new SvelteSet<string>();
+
   // Conditional exercises whose condition prompt was dismissed via "Do it" — the
   // prescribed movement is being done as-is, so no deviation is logged.
   const dismissedConditions = new SvelteSet<string>();
 
   // The rest timer overlay's spec, or undefined when no rest is active.
   let activeRest = $state<RestSpec | undefined>(undefined);
-  // The exercise slug the deviation sheet is open for, or undefined when closed.
-  let deviationFor = $state<string | undefined>(undefined);
+  // Which exercise the deviation sheet is open for, or undefined when closed. Block-keyed
+  // like every other map here: a bare slug picks the wrong prescription when the same
+  // movement appears in two blocks with different overrides.
+  let deviationFor = $state<{ blockKey: string; slug: string } | undefined>(undefined);
 
   // Whether the end-of-session wrap-up sheet is showing.
   let showWrapUp = $state(false);
@@ -140,12 +158,39 @@
     return entry.none ?? {};
   }
 
-  /** How many sets the exercise currently offers — its ranged minimum plus any optional
-   * set the user has added, or exactly the current round inside a rounds block. */
-  function shownSetsFor(block: ResolvedBlock, exercise: ResolvedExercise): number {
+  /**
+   * The exercise actually being performed in a slot: the prescribed one, or the
+   * substitute swapped in for it. Every render path that shows a name, a target, a dial
+   * or a slug goes through here, which is what makes a swap real rather than cosmetic.
+   */
+  function performed(blockKey: string, prescribed: ResolvedExercise): ResolvedExercise {
+    return substitutedExercises.get(`${blockKey}:${prescribed.slug}`) ?? prescribed;
+  }
+
+  /**
+   * How many sets the exercise currently offers, or exactly the current round inside a
+   * rounds block (where `set_no` *is* the round, so neither counter below applies).
+   *
+   * The two counters are deliberately separate mechanisms, not one number:
+   *
+   * - `addedSets` is UI-DECISIONS §6's "Add the optional 3rd set". A ranged prescription
+   *   (`sets: [2, 3]`) draws its minimum and offers the sets the plan itself already
+   *   declared. Taking one is *doing the plan*, so it logs no deviation, and it can never
+   *   exceed the declared max.
+   * - `setCountDelta` is the deviation sheet's `add_set`/`drop_set`: a manual override of
+   *   what the prescription allows at all — a 4th set on a fixed-3 exercise, or dropping
+   *   that same exercise to 2 — which *is* a deviation and always writes a row.
+   *
+   * Collapsing them would either make taking a declared optional set look like a
+   * deviation in the export, or cap a genuine deviation at the ranged max it exists to
+   * exceed. The floor is one slot: a drop that reached zero is a skip wearing a different
+   * name, and the sheet already has a Skip that records itself honestly as one.
+   */
+  function shownSetsFor(block: ResolvedBlock, prescribed: ResolvedExercise): number {
     if (block.type === "rounds") return 1;
-    return visibleSetCount(exercise.sets, addedSets.get(`${block.key}:${exercise.slug}`) ?? 0)
-      .shown;
+    const key = `${block.key}:${prescribed.slug}`;
+    const declared = visibleSetCount(prescribed.sets, addedSets.get(key) ?? 0).shown;
+    return Math.max(1, declared + (setCountDelta.get(key) ?? 0));
   }
 
   function currentRoundOf(blockKey: string): number {
@@ -153,38 +198,186 @@
   }
 
   /**
+   * The slots an exercise currently offers — none at all once it has been skipped.
+   *
+   * The slot key stays on the **prescribed** slug even after a swap, because it names the
+   * slot in the session rather than the movement filling it: session D's rounds block
+   * prescribes `dead-bug` in its own right *and* offers it as a substitute for
+   * `reverse-crunch` two rows below, so keying by the performed movement would collapse
+   * the two exercises onto one another and mark one done by logging the other. `per_side`
+   * does come from the performed movement — that is what decides whether there are L/R
+   * rows to log at all. What the strip actually posts as `exercise_slug` is separate
+   * again, and is always the performed movement (`LogStrip`'s `exercise` prop).
+   */
+  function slotsFor(block: ResolvedBlock, prescribed: ResolvedExercise): SetSlot[] {
+    if (skippedExercises.has(`${block.key}:${prescribed.slug}`)) return [];
+    return setSlotsFor(
+      block,
+      { slug: prescribed.slug, perSide: performed(block.key, prescribed).perSide },
+      { shownSets: shownSetsFor(block, prescribed), currentRound: currentRoundOf(block.key) },
+    );
+  }
+
+  /**
    * Everything the pinned strip needs about the one open exercise (UI-DECISIONS §1: one
    * exercise open, §2: the strip logs exactly one set). `next` is `undefined` once every
    * offered set is logged — the strip then shows its finished state rather than
    * vanishing, so the ledger's reserved bottom padding stays honest.
+   *
+   * `prescribed` is the session's own exercise (the thing every map is keyed by);
+   * `exercise` is what is actually being performed, which is what gets logged.
    */
   const openContext = $derived.by(() => {
     if (!openSlug) return undefined;
     for (const block of data.session.blocks) {
       if (block.tracking === "checkoff") continue;
-      for (const exercise of block.exercises) {
-        if (`${block.key}:${exercise.slug}` !== openSlug) continue;
-        const shownSets = shownSetsFor(block, exercise);
-        const slots = setSlotsFor(block, exercise, {
-          shownSets,
-          currentRound: currentRoundOf(block.key),
-        });
-        return { block, exercise, shownSets, next: nextUnloggedSlot(slots, loggedSets) };
+      for (const prescribed of block.exercises) {
+        const key = `${block.key}:${prescribed.slug}`;
+        if (key !== openSlug) continue;
+        return {
+          key,
+          block,
+          prescribed,
+          exercise: performed(block.key, prescribed),
+          shownSets: shownSetsFor(block, prescribed),
+          next: nextUnloggedSlot(slotsFor(block, prescribed), loggedSets),
+        };
       }
     }
     return undefined;
+  });
+
+  /**
+   * Every exercise that needs nothing more from the user — each offered slot logged, or
+   * the whole exercise skipped. Drives both the collapsed row's completion state
+   * (UI-DECISIONS §1) and where auto-advance goes next.
+   */
+  const doneExercises = $derived.by(() => {
+    const done = new SvelteSet<string>();
+    for (const block of data.session.blocks) {
+      if (block.tracking === "checkoff") continue;
+      for (const prescribed of block.exercises) {
+        const key = `${block.key}:${prescribed.slug}`;
+        if (skippedExercises.has(key)) {
+          done.add(key);
+          continue;
+        }
+        const slots = slotsFor(block, prescribed);
+        if (slots.length > 0 && nextUnloggedSlot(slots, loggedSets) === undefined) done.add(key);
+      }
+    }
+    return done;
   });
 
   /** The strip's real rendered height, so `.blocks` can reserve exactly that much
    * scroll padding — the last block must never be trapped underneath it. */
   let stripHeight = $state(0);
 
+  /**
+   * Set when an exercise finished while its rest was still counting down: advancing then
+   * would swap the strip's context out from under a timer the user is still watching, so
+   * the move waits until the rest is dismissed — by running out (`onDone`) or by being
+   * skipped (`onSkip`), which count the same.
+   */
+  let advanceAfterRest = $state(false);
+
+  /** Auto-advance (UI-DECISIONS §1): open the next exercise that still needs something.
+   * Nothing left means nothing moves — the finished exercise stays open showing its
+   * finished strip rather than the list snapping somewhere arbitrary. */
+  function advance(): void {
+    advanceAfterRest = false;
+    const next = nextExerciseKey(data.session, doneExercises, openSlug);
+    if (next) openSlug = next;
+  }
+
+  /** Manual selection always wins over auto-advance — including over an advance a
+   * running rest timer has not released yet, which would otherwise yank the user off the
+   * row they just deliberately tapped. */
+  function openExercise(key: string): void {
+    advanceAfterRest = false;
+    openSlug = key;
+  }
+
   function onSetLogged(slot: SetSlot, logged: LoggedSet): void {
     loggedSets.set(slot.key, logged);
     const context = openContext;
     if (!context) return;
+
+    // Recomputed from the map rather than read off `openContext.next`, so this does not
+    // depend on when the derived happens to be re-pulled.
+    const finished =
+      nextUnloggedSlot(slotsFor(context.block, context.prescribed), loggedSets) === undefined;
     const rest = restForSet(context.block, context.exercise);
-    if (rest) activeRest = restSpecFrom(rest);
+
+    if (rest) {
+      activeRest = restSpecFrom(rest);
+      advanceAfterRest = finished;
+    } else if (finished) {
+      advance();
+    }
+  }
+
+  function onRestDismissed(): void {
+    activeRest = undefined;
+    if (advanceAfterRest) advance();
+  }
+
+  /** The exercise the deviation sheet is acting on, looked up by `${block.key}:${slug}`
+   * — a bare-slug `find` across every block returns the wrong prescription (and so the
+   * wrong `substitutes` list) whenever a movement appears in two blocks. */
+  const deviationTarget = $derived.by(() => {
+    const target = deviationFor;
+    if (!target) return undefined;
+    const block = data.session.blocks.find((b) => b.key === target.blockKey);
+    const prescribed = block?.exercises.find((e) => e.slug === target.slug);
+    if (!block || !prescribed) return undefined;
+    return {
+      key: `${block.key}:${prescribed.slug}`,
+      block,
+      prescribed,
+      exercise: performed(block.key, prescribed),
+    };
+  });
+
+  /** Resolve a declared substitute through the plan's catalogue and swap it in for the
+   * prescribed exercise. */
+  function applySubstitute(
+    blockKey: string,
+    prescribed: ResolvedExercise,
+    substituteSlug: string,
+  ): void {
+    const substitute = resolveSubstitute(data.catalogue, data.loads, prescribed, substituteSlug);
+    if (!substitute) {
+      // CONTRACT requires every substitute to be declared in the catalogue, so this is
+      // unreachable for a valid plan — but the deviation row has already been written, so
+      // say so rather than leaving the runner logging the original in silence.
+      actionError = `\`${substituteSlug}\` is not in this plan's exercise catalogue, so the swap could not be applied — the deviation was recorded.`;
+      return;
+    }
+    substitutedExercises.set(`${blockKey}:${prescribed.slug}`, substitute);
+  }
+
+  /** A deviation the server accepted, made true in the runner (see `DeviationSheet`'s
+   * `onApplied`). Keyed by the prescribed slug, always — a swapped exercise is still the
+   * same slot of the same session. */
+  function onDeviationApplied(
+    kind: Exclude<DeviationKind, "stop_red_flag">,
+    substituteSlug: string | undefined,
+  ): void {
+    const target = deviationTarget;
+    if (!target) return;
+
+    if (kind === "skip") {
+      skippedExercises.add(target.key);
+      advance();
+    } else if (kind === "substitute") {
+      if (substituteSlug) applySubstitute(target.block.key, target.prescribed, substituteSlug);
+    } else {
+      setCountDelta.set(
+        target.key,
+        (setCountDelta.get(target.key) ?? 0) + (kind === "add_set" ? 1 : -1),
+      );
+    }
   }
 </script>
 
@@ -293,122 +486,170 @@
           </div>
         {:else}
           <ul class="exercises">
-            {#each block.exercises as exercise (exercise.slug)}
-              {@const exerciseKey = `${block.key}:${exercise.slug}`}
+            {#each block.exercises as prescribed (prescribed.slug)}
+              {@const exerciseKey = `${block.key}:${prescribed.slug}`}
+              {@const exercise = performed(block.key, prescribed)}
+              {@const substituted = exercise.slug !== prescribed.slug}
               {@const isOpen = openSlug === exerciseKey}
+              {@const isSkipped = skippedExercises.has(exerciseKey)}
+              {@const isDone = doneExercises.has(exerciseKey)}
               {@const isRounds = block.type === "rounds"}
               {@const visible = isRounds
                 ? { shown: 1, canAddMore: false }
-                : visibleSetCount(exercise.sets, addedSets.get(exerciseKey) ?? 0)}
-              <li class="exercise" class:open={isOpen}>
+                : visibleSetCount(prescribed.sets, addedSets.get(exerciseKey) ?? 0)}
+              {@const slots = slotsFor(block, prescribed)}
+              {@const nextSlot = nextUnloggedSlot(slots, loggedSets)}
+              <!-- UI-DECISIONS §1: the collapsed row carries name, target *and completion
+                   state*. Done collapses to what it actually was, skipped says so, and
+                   what has not been reached yet recedes. -->
+              {@const headline = isSkipped
+                ? "Skipped"
+                : isDone && !isOpen
+                  ? summariseLoggedSets(
+                      slots
+                        .map((slot) => loggedSets.get(slot.key))
+                        .filter((logged): logged is LoggedSet => logged !== undefined),
+                    )
+                  : formatTargetOrSets(exercise)}
+              <li
+                class="exercise"
+                class:open={isOpen}
+                class:done={!isOpen && isDone}
+                class:upcoming={!isOpen && !isDone}
+              >
                 <button
                   type="button"
                   class="exercise-head"
-                  onclick={() => (openSlug = exerciseKey)}
+                  onclick={() => openExercise(exerciseKey)}
                 >
                   <span class="exercise-name">{exercise.name}</span>
-                  <span class="exercise-meta tabular">
-                    {formatTarget(exercise)}
-                  </span>
+                  <span class="exercise-meta tabular">{headline}</span>
                 </button>
 
                 {#if isOpen}
-                  {@const slots = setSlotsFor(block, exercise, {
-                    shownSets: visible.shown,
-                    currentRound: currentRoundOf(block.key),
-                  })}
-                  {@const nextSlot = nextUnloggedSlot(slots, loggedSets)}
                   <div class="exercise-body">
-                    {#if exercise.conditional && !dismissedConditions.has(exerciseKey)}
-                      {@const substitutedWith = substitutedExercises.get(exerciseKey)}
-                      <p class="condition">{exercise.condition}</p>
-                      {#if substitutedWith}
-                        <p class="cue">Swapped for: {substitutedWith}</p>
-                      {:else if exercise.substitutes.length > 0}
-                        <div class="substitute-row">
-                          {#each exercise.substitutes as sub (sub)}
-                            <form
-                              method="POST"
-                              action="?/logDeviation"
-                              use:enhance={() => {
-                                return async ({ result }) => {
-                                  await applyAction(result);
-                                  afterAction(result);
-                                  if (result.type === "success") {
-                                    substitutedExercises.set(exerciseKey, sub);
-                                  }
-                                };
-                              }}
+                    {#if isSkipped}
+                      <p class="cue">
+                        Skipped — the deviation is recorded. Nothing further will be logged here.
+                      </p>
+                    {:else}
+                      {#if prescribed.conditional && !dismissedConditions.has(exerciseKey)}
+                        <p class="condition">{prescribed.condition}</p>
+                        {#if !substituted && prescribed.substitutes.length > 0}
+                          <div class="substitute-row">
+                            {#each prescribed.substitutes as sub (sub)}
+                              <form
+                                method="POST"
+                                action="?/logDeviation"
+                                use:enhance={() => {
+                                  return async ({ result }) => {
+                                    await applyAction(result);
+                                    afterAction(result);
+                                    if (result.type === "success") {
+                                      applySubstitute(block.key, prescribed, sub);
+                                    }
+                                  };
+                                }}
+                              >
+                                <input type="hidden" name="workout_id" value={workoutId ?? ""} />
+                                <input type="hidden" name="exercise_slug" value={prescribed.slug} />
+                                <input type="hidden" name="kind" value="substitute" />
+                                <!-- A condition-triggered swap is symptom-driven by
+                                     definition: the `condition` text these chips render
+                                     beside is what makes them appear at all, and in this
+                                     plan it reads "if it reproduces familiar back
+                                     symptoms, replace it". `other` said nothing, and the
+                                     reason is exported as signal for the revising AI
+                                     (UI-DECISIONS §7), so saying nothing is a real loss.
+                                     `pain` is the code behind DeviationSheet's own
+                                     "Symptoms" chip. Anything more precise needs a reason
+                                     picker in this inline row, which §7 already puts in
+                                     the deviation sheet — the sheet remains the way to
+                                     record a swap for some other reason. -->
+                                <input type="hidden" name="reason_code" value="pain" />
+                                <input type="hidden" name="substitute_exercise_slug" value={sub} />
+                                <input type="hidden" name="client_id" value={ulid()} />
+                                <button type="submit" class="chip">Swap: {sub}</button>
+                              </form>
+                            {/each}
+                            <button
+                              type="button"
+                              class="chip chip--primary"
+                              onclick={() => dismissedConditions.add(exerciseKey)}
                             >
-                              <input type="hidden" name="workout_id" value={workoutId ?? ""} />
-                              <input type="hidden" name="exercise_slug" value={exercise.slug} />
-                              <input type="hidden" name="kind" value="substitute" />
-                              <input type="hidden" name="reason_code" value="other" />
-                              <input type="hidden" name="substitute_exercise_slug" value={sub} />
-                              <input type="hidden" name="client_id" value={ulid()} />
-                              <button type="submit" class="chip">Swap: {sub}</button>
-                            </form>
-                          {/each}
-                          <button
-                            type="button"
-                            class="chip chip--primary"
-                            onclick={() => dismissedConditions.add(exerciseKey)}
-                          >
-                            Do it
-                          </button>
-                        </div>
+                              Do it
+                            </button>
+                          </div>
+                        {/if}
                       {/if}
-                    {/if}
-                    {#if exercise.note}<p class="cue">{exercise.note}</p>{/if}
-                    {#if exercise.load?.note}<p class="cue">{exercise.load.note}</p>{/if}
+                      <!-- The head now shows the substitute's own name, so the old
+                           "Swapped for: <slug>" cue would just repeat it. What is *not*
+                           otherwise visible once the row renames itself is which
+                           prescribed slot this is, so the cue points the other way. It
+                           lives outside the conditional block because a swap can also
+                           come from the deviation sheet on an exercise that was never
+                           conditional. -->
+                      {#if substituted}
+                        <p class="cue">Swapped in for {prescribed.name}.</p>
+                      {/if}
+                      {#if exercise.note}<p class="cue">{exercise.note}</p>{/if}
+                      {#if exercise.load?.note}<p class="cue">{exercise.load.note}</p>{/if}
 
-                    <!-- The read-only set ledger. Every input that used to live here is
+                      <!-- The read-only set ledger. Every input that used to live here is
                          now in the pinned strip, which logs one set at a time — so these
                          rows are text, and text reflows at 360px where a four-track input
                          grid could not. -->
-                    <ul class="ledger">
-                      {#each slots as slot (slot.key)}
-                        {@const logged = loggedSets.get(slot.key)}
-                        <li
-                          class="ledger-row"
-                          class:logged={!!logged}
-                          class:next={slot.key === nextSlot?.key}
-                        >
-                          <span class="led-set tabular">{formatSlotLabel(block, slot)}</span>
-                          <span class="led-target tabular">{formatRepsOrDuration(exercise)}</span>
-                          {#if logged}
-                            <span class="led-actual tabular">{formatLoggedSet(logged)}</span>
-                            {#if logged.difficulty}
-                              {@const filled =
-                                logged.difficulty === "easy"
-                                  ? 1
-                                  : logged.difficulty === "medium"
-                                    ? 2
-                                    : 3}
-                              <span class="led-effort" aria-label="Felt {logged.difficulty}">
-                                {#each [1, 2, 3] as seg (seg)}
-                                  <i class:on={seg <= filled}></i>
-                                {/each}
-                              </span>
-                            {/if}
-                          {:else}
-                            <span class="led-actual led-pending"
-                              >{slot.key === nextSlot?.key ? "Up next" : "Not logged"}</span
+                      <ul class="ledger">
+                        {#each slots as slot (slot.key)}
+                          {@const logged = loggedSets.get(slot.key)}
+                          <li
+                            class="ledger-row"
+                            class:logged={!!logged}
+                            class:next={slot.key === nextSlot?.key}
+                          >
+                            <span class="led-set tabular">{formatSlotLabel(block, slot)}</span>
+                            <span class="led-target tabular"
+                              >{formatRepsOrDurationOrDash(exercise)}</span
                             >
-                          {/if}
-                        </li>
-                      {/each}
-                    </ul>
+                            {#if logged}
+                              <span class="led-actual tabular">{formatLoggedSet(logged)}</span>
+                              {#if logged.difficulty}
+                                {@const filled =
+                                  logged.difficulty === "easy"
+                                    ? 1
+                                    : logged.difficulty === "medium"
+                                      ? 2
+                                      : 3}
+                                <span class="led-effort" aria-label="Felt {logged.difficulty}">
+                                  {#each [1, 2, 3] as seg (seg)}
+                                    <i class:on={seg <= filled}></i>
+                                  {/each}
+                                </span>
+                              {/if}
+                            {:else}
+                              <span class="led-actual led-pending"
+                                >{slot.key === nextSlot?.key ? "Up next" : "Not logged"}</span
+                              >
+                            {/if}
+                          </li>
+                        {/each}
+                      </ul>
 
-                    {#if visible.canAddMore}
-                      <button
-                        type="button"
-                        class="add-set"
-                        onclick={() =>
-                          addedSets.set(exerciseKey, (addedSets.get(exerciseKey) ?? 0) + 1)}
-                      >
-                        Add the optional set
-                      </button>
+                      <!-- UI-DECISIONS §6's optional set, and *only* that: this offers
+                           sets the ranged prescription already declared, so it is not a
+                           deviation and logs none. The deviation sheet's add_set/drop_set
+                           is a separate mechanism against a separate counter — see
+                           `shownSetsFor`. -->
+                      {#if visible.canAddMore}
+                        <button
+                          type="button"
+                          class="add-set"
+                          onclick={() =>
+                            addedSets.set(exerciseKey, (addedSets.get(exerciseKey) ?? 0) + 1)}
+                        >
+                          Add the optional set
+                        </button>
+                      {/if}
                     {/if}
                   </div>
                 {/if}
@@ -450,26 +691,28 @@
     prefill={fill}
     onLogged={onSetLogged}
     onResult={afterAction}
-    onDeviate={() => (deviationFor = ctx.exercise.slug)}
+    onDeviate={() => (deviationFor = { blockKey: ctx.block.key, slug: ctx.prescribed.slug })}
   />
 {/if}
 
 {#if activeRest}
-  <RestTimer
-    spec={activeRest}
-    onDone={() => (activeRest = undefined)}
-    onSkip={() => (activeRest = undefined)}
-  />
+  <!-- Both dismissals count the same for auto-advance: a rest that ran out and a rest the
+       user cut short are equally "the rest is over". -->
+  <RestTimer spec={activeRest} onDone={onRestDismissed} onSkip={onRestDismissed} />
 {/if}
 
-{#if deviationFor && workoutId}
+{#if deviationTarget && workoutId}
+  {@const target = deviationTarget}
+  <!-- `exercise_slug` is the movement actually being performed (the substitute, after a
+       swap) — that is what is being skipped, added to or dropped. `substitutes` comes
+       from the *prescription*, block-keyed, because that is what the plan declared for
+       this occasion. -->
   <DeviationSheet
-    exerciseSlug={deviationFor}
-    substitutes={data.session.blocks
-      .flatMap((b) => b.exercises)
-      .find((e) => e.slug === deviationFor)?.substitutes ?? []}
+    exerciseSlug={target.exercise.slug}
+    substitutes={target.prescribed.substitutes}
     {workoutId}
     onClose={() => (deviationFor = undefined)}
+    onApplied={onDeviationApplied}
     {onRedFlagStop}
     onError={(message) => (actionError = message)}
   />
@@ -660,6 +903,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 0.75rem;
     background: none;
     border: none;
     padding: 0.85rem 1rem;
@@ -668,6 +912,31 @@
   .exercise-meta {
     color: var(--muted);
     font-size: 0.85rem;
+    text-align: right;
+  }
+  /* UI-DECISIONS §1/§5: the three states of a row are carried entirely by weight and
+     luminance — no colour anywhere below, because colour in this app means symptoms and
+     effort, and a list that traffic-lights "done" competes with the one scale that has
+     to stay readable. The open exercise is heaviest and brightest; a finished one stays
+     legible so its summary can be read at a glance; one not yet reached recedes to
+     `--dim`. */
+  .exercise-name {
+    font-weight: 600;
+  }
+  .exercise.open .exercise-name {
+    font-weight: 750;
+  }
+  .exercise.done .exercise-name {
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .exercise.done .exercise-meta {
+    color: var(--text);
+  }
+  .exercise.upcoming .exercise-name,
+  .exercise.upcoming .exercise-meta {
+    color: var(--dim);
+    font-weight: 500;
   }
   .exercise-body {
     padding: 0 1rem 1rem;

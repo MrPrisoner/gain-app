@@ -2,12 +2,14 @@
   import { ulid } from "ulidx";
   import { applyAction, enhance } from "$app/forms";
   import type { ActionResult } from "@sveltejs/kit";
+  import type { DeviationKind } from "$lib/logs/types";
 
   let {
     exerciseSlug,
     substitutes,
     workoutId,
     onClose,
+    onApplied,
     onRedFlagStop,
     onError,
   }: {
@@ -15,6 +17,17 @@
     substitutes: string[];
     workoutId: string;
     onClose: () => void;
+    /**
+     * Reports a deviation that the server actually accepted, so the runner can make it
+     * *true* rather than only recorded — a skip has to collapse the exercise, a swap has
+     * to change what the strip logs against, an add/drop has to change the ledger. Fired
+     * before `onClose`, and never for `stop_red_flag` (that path ends the workout through
+     * `onRedFlagStop` instead).
+     */
+    onApplied: (
+      kind: Exclude<DeviationKind, "stop_red_flag">,
+      substituteSlug: string | undefined,
+    ) => void;
     onRedFlagStop: (note: string | undefined) => void;
     /** Reports a failed `?/logDeviation` submission (or clears a prior one on success) into
      * the parent page's single shared action-error surface — this sheet has no error UI of
@@ -51,6 +64,10 @@
           if (kind === "stop_red_flag") {
             onRedFlagStop(note || undefined);
           } else {
+            // The row is written; now make it true. `onApplied` runs before `onClose` so
+            // the runner's state has already moved (skipped / swapped / ledger resized)
+            // by the time this sheet unmounts.
+            onApplied(kind, kind === "substitute" ? substituteSlug : undefined);
             onClose();
           }
         } else if (result.type === "failure") {
