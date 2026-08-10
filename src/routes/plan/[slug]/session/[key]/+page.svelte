@@ -748,8 +748,13 @@
             <span class="tag">Rounds × {block.rounds}</span>
             {#if block.rounds}
               {@const completed = completedRounds.get(block.key) ?? 0}
+              <!-- `role="img"` is what makes the `aria-label` stick: a bare `<span>` maps
+                   to the generic role, which most screen readers refuse to name, so the
+                   dots would be silently unlabelled. The role is honest here — this is a
+                   picture of a count, and its parts carry no meaning on their own. -->
               <span
                 class="rounds-indicator"
+                role="img"
                 aria-label="{completed} of {block.rounds} rounds complete"
               >
                 {#each Array.from({ length: block.rounds }).keys() as i (i)}
@@ -916,7 +921,14 @@
                                     : logged.difficulty === "medium"
                                       ? 2
                                       : 3}
-                                <span class="led-effort" aria-label="Felt {logged.difficulty}">
+                                <!-- `role="img"` for the same reason as `.rounds-indicator`
+                                     above: without it the generic role drops the label and
+                                     the three segments read as nothing at all. -->
+                                <span
+                                  class="led-effort"
+                                  role="img"
+                                  aria-label="Felt {logged.difficulty}"
+                                >
                                   {#each [1, 2, 3] as seg (seg)}
                                     <i class:on={seg <= filled}></i>
                                   {/each}
