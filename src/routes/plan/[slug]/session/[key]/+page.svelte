@@ -628,7 +628,20 @@
         <div class="block-head">
           <span class="block-name">{block.name}</span>
           {#if block.tracking === "checkoff"}<span class="tag">Check off</span>{/if}
-          {#if block.type === "rounds"}<span class="tag">Rounds × {block.rounds}</span>{/if}
+          {#if block.type === "rounds"}
+            <span class="tag">Rounds × {block.rounds}</span>
+            {#if block.rounds}
+              {@const completed = completedRounds.get(block.key) ?? 0}
+              <span
+                class="rounds-indicator"
+                aria-label="{completed} of {block.rounds} rounds complete"
+              >
+                {#each Array.from({ length: block.rounds }).keys() as i (i)}
+                  <i class:on={i < completed}></i>
+                {/each}
+              </span>
+            {/if}
+          {/if}
         </div>
         {#if block.note}<p class="block-note">{block.note}</p>{/if}
 
@@ -1023,6 +1036,21 @@
   .block-note {
     color: var(--muted);
     font-size: 0.85rem;
+  }
+  .rounds-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+  }
+  .rounds-indicator i {
+    display: block;
+    width: 5px;
+    height: 0.75rem;
+    border-radius: 2px;
+    background: var(--line);
+  }
+  .rounds-indicator i.on {
+    background: var(--accent);
   }
   .checkoff-pills {
     display: flex;
