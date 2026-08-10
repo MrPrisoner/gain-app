@@ -43,6 +43,16 @@ export function pickPrefill(
   const match = rows.find((row) => (side === undefined ? row.side === null : row.side === side));
   if (!match) {
     if (defaultKg === undefined) return undefined;
+    // Open contract question, same root cause as Task 3's settled "no `paired` contract
+    // field" decision (docs/superpowers/plans/2026-08-10-phase-4-remediation.md): weight
+    // is logged as a total (the strip's dial is labelled "kg total"), but `default_kg` is
+    // written per-dumbbell in the fixture's prose — "Approximately 6 kg per dumbbell" —
+    // and there is no contract field that says a movement is paired, so nothing here can
+    // tell a per-dumbbell default from a total one. A first-time paired lift therefore
+    // pre-fills half its true total. Deliberately left alone: guessing "paired" from a
+    // slug or a load label would be worse than a number the user corrects with two taps
+    // of the stepper, and the honest fix is a contract field, which Task 3 already ruled
+    // out of phase 4's scope.
     return { reps: undefined, weightKg: defaultKg, durationS: undefined };
   }
 
