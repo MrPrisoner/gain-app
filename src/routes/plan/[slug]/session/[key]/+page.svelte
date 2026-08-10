@@ -1108,6 +1108,7 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    margin-bottom: 0.75rem;
   }
   .block-name {
     font-weight: 700;
@@ -1244,6 +1245,7 @@
     border-color: var(--accent);
   }
   .cue {
+    margin: 2px 0;
     color: var(--muted);
     font-size: 0.85rem;
   }
