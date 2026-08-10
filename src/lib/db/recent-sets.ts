@@ -2,7 +2,7 @@
  * Read-side query for pre-fill (UI-DECISIONS §2): the most recent logged sets for one
  * exercise, most-recent-first, so `pickPrefill` (`../session/prefill.ts`) can find the
  * last performance to pre-fill the next one. A thin DB read, covered at the route level
- * (Task 5) rather than by its own unit test — `pickPrefill` carries the logic and is
+ * rather than by its own unit test — `pickPrefill` carries the logic and is
  * tested directly against plain rows.
  */
 

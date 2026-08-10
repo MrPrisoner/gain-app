@@ -41,7 +41,7 @@
     onRedFlagStop: (note: string | undefined) => void;
     /** Reports a failed `?/logDeviation` submission (or clears a prior one on success) into
      * the parent page's single shared action-error surface — this sheet has no error UI of
-     * its own (phase-4 remediation Task 2 unifies the two former error mechanisms). */
+     * its own — the runner has one error surface, not two (UI-DECISIONS §2). */
     onError: (message: string | undefined) => void;
   } = $props();
 
@@ -61,7 +61,7 @@
 </script>
 
 <div class="sheet-backdrop" onclick={onClose} role="presentation">
-  <!-- Task 11 (phase-4 remediation): `role="dialog"`/`aria-modal="true"` plus
+  <!-- UI-DECISIONS §8: `role="dialog"`/`aria-modal="true"` plus
        `aria-labelledby` announce this as a real modal, and `use:trapFocus` (see
        `$lib/actions/focus-trap`) moves focus to the heading below on open, cycles Tab
        within the sheet, restores focus on close, and treats Escape the same as

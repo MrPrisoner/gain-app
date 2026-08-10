@@ -1,5 +1,5 @@
 /**
- * Task 6 (docs/superpowers/plans/2026-08-10-phase-4-remediation.md): a reload resumes the
+ * ARCHITECTURE §9, "Resuming": a reload resumes the
  * workout, not just the workout *row*.
  *
  * Before this task the runner kept its `client_id` in `sessionStorage`, so a reload landed

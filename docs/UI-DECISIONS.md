@@ -2,8 +2,13 @@
 
 Settled in a design pass against
 [`fixtures/plans/home-dumbbell-v1.md`](../fixtures/plans/home-dumbbell-v1.md),
-before any code existed. Nothing here is built: the session runner is **phase 4**, and it
-depends on the phase-1 round-trip core. See ARCHITECTURE §12.
+before any code existed. **Built in phase 4**, at
+`src/routes/plan/[slug]/session/[key]/` with the pure logic in `src/lib/session/`; the
+architectural half is ARCHITECTURE §9.
+
+The build was made to conform to this document rather than the document to the build, and
+that stays the direction of travel. Exactly one clause goes deliberately unbuilt — §3's
+`2 × N` sub-line, for the reason recorded there.
 
 These are decisions, not suggestions — implement against them rather than relitigating
 them, the same way ARCHITECTURE §2 works. Where a decision has a *reason* attached, the
@@ -21,7 +26,8 @@ fixture data, including the awkward primitives in §6.
 It is **illustrative, not authoritative.** This document is the specification; the mockup
 is a snapshot of what it looked like on 2026-08-08. Where they disagree, this document
 wins. Do not reverse-engineer behaviour from the markup, and do not treat its CSS as a
-component library — the real implementation is SvelteKit.
+component library — the real implementation is SvelteKit. Now that the runner is built,
+the mockup is useful for **proportion and density only**.
 
 ---
 
@@ -33,6 +39,11 @@ name, target and completion state.
 
 Rejected: one-card-at-a-time (you lose your place and can't see what's coming) and a flat
 uniform list (the numbers you have to read and tap become too small).
+
+**The list advances itself.** When the last set of an exercise is logged — and its rest,
+if it has any, is done — the next exercise opens. Tapping any collapsed row still opens
+it, so nothing is taken away; but the default path is never "hunt one-handed for the row
+you are now on".
 
 Hierarchy is carried by **weight and luminance**, not by colour — see §5.
 
@@ -52,6 +63,34 @@ contract may declare an optional `rir` metric, but users reliably know how hard 
 *felt* and do not reliably know their reps in reserve. `rir` stays supported as a declared
 optional metric; it never appears in the log strip.
 
+**The strip logs exactly one set** — the next unlogged one of the open exercise, per side
+and per round where those apply. It names what it is about to write ("Set 2 of 3", "Side
+plank — right") and what happened last time, and everything above it is a read-only
+ledger. The exercise's own rows never carry inputs.
+
+That is not only a tidiness argument, and it is the point at which this decision was once
+nearly reversed: a first implementation put the inputs inline, one row per set. At 360 px
+a row of set number + two number inputs + three effort keys has about 254 px to work in,
+of which the fixed tracks take ~214 — and a browser's default `<input type="number">`
+will not shrink below its ~170 px min-content width, so the row does not compress, it
+overflows. One strip at the bottom removes the problem instead of demanding it be solved:
+one set is being logged at a time, so it gets the full viewport, and read-only text
+reflows.
+
+**What the controls are:** a reps stepper, or a duration stepper for a `type: time`
+exercise; a load stepper, **omitted entirely when the resolved load is bodyweight**; the
+three effort keys, each with its **visible text label** as well as its fill; and the
+deviation control (§7). Steppers are at least 44 px and want to be much larger.
+
+**Pre-fill has a chain, not a source:** the last matching performance, else the load
+configuration's `default_kg`, else blank. The middle rung is what makes a user's *first*
+session one tap, and it is the only reason `default_kg` is in the contract at all.
+
+**A failed write must be visible where the eyes already are.** Mid-set, an error rendered
+at the bottom of the document is an error nobody sees, and a set that silently failed to
+log looks exactly like one that succeeded. Errors surface adjacent to the strip, legible
+at arm's length, dismissible — and **not in `var(--red)`**, which §5 has spoken for.
+
 ## 3. Load is total kilograms
 
 A paired lift shows **12 kg**, not "6 kg each", with `2 × 6` beneath it as a quiet check.
@@ -60,9 +99,36 @@ weight, because that is the total load being lifted.
 
 One number, meaning the same thing in the log, the charts and the export.
 
+### Settled 2026-08-10: the `2 × 6` sub-line is not built
+
+The quiet check above needs GAIN to know a movement is performed with two dumbbells, and
+**the contract has no field that says so.** `per_side` is not that field — the goblet
+squat is single-dumbbell and not `per_side`, the floor press is paired and not `per_side`
+— and adding a `paired` field means changing `docs/CONTRACT.md`, which ships verbatim in
+every export and every bootstrap prompt. Judged not worth that surface.
+
+So: **`weight_kg` is always the total being lifted**, the dial is labelled `kg total`, and
+the sub-line is omitted. The invariant §3 actually exists to protect — one number meaning
+one thing everywhere — is intact without it. This is settled, not an open task; do not
+implement the sub-line and do not add the field on your own initiative.
+
+One honest consequence follows, and is left alone deliberately. `default_kg` is written
+per-dumbbell in the fixture's prose ("approximately 6 kg per dumbbell") while the log is a
+total, and nothing can tell the two apart — so a **first-ever** set of a paired lift
+pre-fills at half its true total, until history takes over on the next session. Inferring
+"paired" from a slug or a load label would be a guess that is silently wrong; a number the
+user corrects with two taps of the stepper is not. The real fix is upstream, in what the
+authoring AI is told about loads.
+
 **The dial steps 1 kg.** No per-load-configuration increment and no new contract field —
-deliberately, to keep `loads` simple. An odd total on a paired lift displays as `2 × 5.5`,
-which is exactly what 1.25 kg plates produce. The awkward-looking number is the honest one.
+deliberately, to keep `loads` simple. An odd total on a paired lift — 11 kg — is exactly
+what 1.25 kg plates produce, so it is a real weight and not a rounding error. The
+awkward-looking number is the honest one.
+
+**The load configuration is named on screen**: its `label` beside the dial ("Heavy
+configuration"), its `note` in the expanded exercise. The plan already said which
+configuration this movement uses and why; repeating it costs nothing and answers "which
+dumbbells do I pick up" without leaving the session.
 
 ## 4. Rest runs itself, but only where the plan says so
 
@@ -83,7 +149,16 @@ Both escapes are always available: add 30 seconds, or start the next set early.
 
 **Ranged rest is drawn honestly.** For `rest_sec: [60, 90]` the timer counts down to 60,
 then keeps counting *up* inside a shaded 60–90 band, so the state reads "ready, and you
-are at 1:14" rather than pretending 60 is a finish line.
+are at 1:14" rather than pretending 60 is a finish line. The band is **drawn**, not
+described in a caption — a fixed `rest_sec: 45` has no band and simply counts down, then
+counts up as over.
+
+**What is coming next is named on the overlay**, with its target: "Set 3 of 3 · 8–12 reps
+at 12 kg", or the next exercise where the current one is finished. A full-screen timer
+that shows only a number wastes the one screen the user is definitely looking at.
+
+The screen takes a **wake lock** while resting, and releases it — a lock acquired after
+the overlay has already closed is a leak that outlives the session.
 
 ## 5. Colour is reserved for meaning
 
@@ -113,6 +188,27 @@ finished.
 | `conditional: true` | The `condition` text is shown in full, with every declared substitute offered as a one-tap swap alongside "Do it". |
 | Ranged reps `[8, 12]` | Shown as the target on each set row; the stepper pre-fills from last time, not from the range. |
 
+**A range is formatted, never interpolated.** In the contract a range is a tuple, so
+dropping it into a template renders `8,12` and `20,40 sec` — which happened, to nearly
+every prescription in the fixture at once, and reads as a typo rather than as a bug. One
+formatter, en dash (U+2013), used at every site that shows a target.
+
+**Adding the optional set is not a deviation.** The ranged-set "add the 3rd set" tap is
+the plan being followed to the top of its declared range, and it writes no `deviation`
+row. §7's `add_set` — a fourth set of a `sets: 3` prescription — is a departure from the
+plan and does. The two paths look identical on screen and must not be merged in code.
+
+**A swap takes the substitute's identity and the slot's targets.** Name, `type`,
+`per_side`, `load` and `note` come from the substitute, because those are properties of a
+movement and a substitute is a different movement — a `per_side` substitute really does
+want L/R rows, a bodyweight one really does want the load dial gone. `sets`, `rest_sec`
+and the rep target come from the occasion being replaced, because the substitute has no
+prescription of its own for *this* slot. The condition does not carry over: swapping is
+the answer to the prompt, so re-asking it on the movement you just chose is noise. Where
+the substitute's `type` differs from the original's — the fixture's reverse-crunch →
+front-plank, reps replaced by time — the plan has simply never said how long to hold it,
+so the target renders as the set count alone rather than inventing a number.
+
 ## 7. Deviation is always one tap away
 
 Skip, swap and add-a-set live behind a single control in the log strip, with the reason
@@ -121,13 +217,36 @@ captured as a chip (symptoms / fatigue / time / equipment / felt easy / other).
 **If deviating is slower than lying, the log stops being true.** The reason is exported —
 it is signal for the revising AI, not an apology.
 
+**A deviation changes the screen, not only the database.** A skip collapses the exercise
+showing that state and advances; a swap re-renders the slot as the substitute and logs
+every later set against it; add and drop change the ledger's rows. A deviation that
+writes its row and leaves the runner untouched is worse than one that does nothing at
+all — the user believes they skipped, keeps logging into the slot they thought they left,
+and the export tells the next AI they performed the movement the plan warned them off.
+
 ## 8. Wrap-up asks only what is due now
 
 End-of-session metrics render from the contract's declared `session` metrics, filtered by
 `prompt_when`. Scales render as a row of tappable cells — one tap, no slider.
 
+**A row means a row.** An 0–10 scale is eleven cells in an eleven-column grid, which fits
+at 320 px. Letting the cells wrap turns a scale into three ragged lines and destroys the
+one thing that made it readable at a glance: position meaning magnitude.
+
+**`prompt_when: start` metrics are asked before the runner opens**, not folded into the
+wrap-up — "energy before" collected after the session is a different measurement. Same
+rendering, same write path, all skippable, and a skipped metric writes nothing.
+
 `prompt_when: next_morning` metrics are **not** asked at the end of the session. They are
 surfaced the following day, and an unanswered one appears as a nudge on the Today screen.
+Until that screen exists the wrap-up says so in as many words — a question the user can
+see was declared and not asked needs to look deliberate, or it looks dropped.
+
+**Both sheets scroll.** A wrap-up with three scales, or the deviation sheet with six
+reason chips and a note field, is taller than a phone; without `max-height` and
+`overflow-y` the top of it goes off-screen with no way to reach it. Both also honour
+`env(safe-area-inset-bottom)`, take focus on open and return it on close, trap it while
+open, and close on Escape.
 
 ## 9. The warm-up does not collapse
 
@@ -177,7 +296,26 @@ back.
 
 ---
 
+## 12. The phone is the target, and it is checked mechanically
+
+The narrow viewport is not a responsive afterthought here; it is the device the screen
+exists for. **360 × 800 is the floor**, and every screen is also checked at 390 × 844 and
+768 × 1024, in both themes.
+
+`document.documentElement.scrollWidth <= window.innerWidth` is asserted on every screen at
+every viewport, with the sheets and the rest overlay open as well as closed. **No
+horizontal overflow, ever.** This is one assertion and it is worth more than any amount of
+eyeballing: the failure it catches is a fixed-width track that silently pushes a control
+off the edge, which looks like nothing at all on a desktop browser. `npm run test:e2e`
+(Playwright, kept out of `npm run verify` — ARCHITECTURE §12) is where it lives.
+
+Everything interactive is at least 44 px, and the log strip's controls are deliberately
+larger than that. Sweaty hands, a phone on the floor, arm's length.
+
+---
+
 ## What this does not decide
 
-Still open, and not blocking phase 1: the history and progress screens, the diff-review
-layout itself, the AI-template editor, and the offline sync-state indicator.
+Still open: the Today/home screen with suggested-next-session, the history and progress
+screens, the diff-review layout itself, the AI-template editor, and the offline sync-state
+indicator.

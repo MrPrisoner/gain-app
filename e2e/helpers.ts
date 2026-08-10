@@ -8,8 +8,8 @@
  * real one: the `setLogsOf` copies had already drifted into two different return types.
  * A helper with two shapes is two helpers, and the second one is the bug.
  *
- * Task 9 (docs/superpowers/plans/2026-08-10-phase-4-remediation.md, ARCHITECTURE §9): a
- * genuinely fresh workout now opens on the pre-session metrics prompt before the runner
+ * Pre-session metrics (ARCHITECTURE §9, UI-DECISIONS §8): a
+ * genuinely fresh workout opens on the pre-session metrics prompt before the runner
  * itself (`.log-strip`, `.exercise-head`, …) becomes visible at all — a *resumed* workout
  * (`page.reload()` within a test, which lands back on the same `client_id`) skips this
  * gate, since the `?/start` response carries `hydration` in that case and the runner
@@ -100,7 +100,8 @@ export function setLogsOf(clientId: string): SetLogRow[] {
 }
 
 /** How many `workout` rows carry this `client_id` — one, always, is the whole point of
- * Task 6's resume: a reload must land back on the workout it left, not start another. */
+ * resume (ARCHITECTURE §9): a reload must land back on the workout it left, not start
+ * another. */
 export function workoutCountFor(clientId: string): number {
   const db = openSeededUserDb(seededDataDir());
   try {

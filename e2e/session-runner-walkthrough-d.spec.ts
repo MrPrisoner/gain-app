@@ -1,6 +1,6 @@
 /**
- * Task 12 (docs/superpowers/sdd/2026-08-10-phase-4-remediation): the plan's closing,
- * durable regression spec for Session D — the ranged-set/optional-third case and the
+ * Phase 4's "done when" (ARCHITECTURE §12), as a durable regression spec for Session D
+ * — the ranged-set/optional-third case and the
  * two-round abdominal finisher, walked end-to-end in one browser session rather than in
  * the isolated pieces `session-runner-exercise-state.spec.ts` and
  * `session-runner-resume.spec.ts` already cover.
@@ -12,9 +12,9 @@
  * conditional `reverse-crunch` taken **as a substitute**, specifically swapped to
  * `dead-bug`. `ab-finisher` prescribes `dead-bug` directly *and* offers it as
  * `reverse-crunch`'s substitute in the same block (fixtures/plans/home-dumbbell-v1.md,
- * `ab-finisher`), which is exactly the same-block-slug-collision case Task 5's
- * `setLogKey`-pinned-to-the-prescribed-slug fix and Task 6's resume matching were built
- * to handle (Bug 3/8 in the review, `docs/superpowers/sdd/2026-08-10-phase-4-remediation/task-12-brief.md`).
+ * `ab-finisher`), which is exactly the same-block-slug-collision case that
+ * `setLogKey`'s pinning to the prescribed slug, and the resume matching in
+ * `$lib/session/resume.ts`, were built to handle (ARCHITECTURE §5 and §9).
  * The database is queried directly afterwards to confirm the logged rows carry the
  * substitute's `exercise_def_id` (`dead-bug`'s), not the original `reverse-crunch`'s —
  * `set_log` has no notion of "which prescribed slot" a row came from, so the assertion

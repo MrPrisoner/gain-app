@@ -2,8 +2,8 @@
  * The session runner's data and actions (phase 4, ARCHITECTURE §9). Loads the resolved
  * session plus pre-fill data for every exercise in it; every write goes through
  * `$lib/db/workout`, which is idempotent on the client-generated `client_id` the
- * runner's Svelte components mint (see Task 6/7's `ulidx` usage) — the server never
- * mints one, per this plan's Global Constraints.
+ * runner's Svelte components mint via `ulidx` — the server never mints one, because
+ * phase 5 replays these ids (ARCHITECTURE §9).
  */
 
 import { error, fail, redirect } from "@sveltejs/kit";
@@ -128,7 +128,7 @@ export const actions: Actions = {
       });
 
       /**
-       * Resume (Task 6). The page holds the workout's `client_id` in `sessionStorage` and
+       * Resume (ARCHITECTURE §9). The page holds the workout's `client_id` in `sessionStorage` and
        * posts it here on mount, which is already how a reload lands back on the same
        * workout row rather than starting a second one. `load` runs before that POST and
        * cannot see the id, so the read-back rides along on this same response: one round
@@ -319,7 +319,7 @@ function formText(form: FormData, name: string): string {
  * Throws a plain `Error` on a missing/malformed field. Every call site is inside an
  * action's own `try`/`catch`, which converts that throw into `fail(400, { actionError })`
  * before it can reach SvelteKit — nothing in `actions` is allowed to throw except
- * `redirect` (ARCHITECTURE §9 / phase-4 remediation Task 2).
+ * `redirect` (ARCHITECTURE §9; AGENTS.md, "What the phase-4 review changed").
  */
 function requireText(form: FormData, name: string): string {
   const value = formText(form, name).trim();

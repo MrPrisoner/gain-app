@@ -1,5 +1,5 @@
 /**
- * Task 4 review follow-up (docs/superpowers/plans/2026-08-10-phase-4-remediation.md):
+ * Log-strip review follow-up (UI-DECISIONS §2):
  * two ways the pinned log strip could write a set the user did not ask for. Both are
  * about the strip being **one shared form** where the per-set rows used to be many
  * independent ones, so both regress silently if the guards are removed.

@@ -66,8 +66,8 @@ export type LogDeviationInput = {
 };
 
 /**
- * Start (or, on replay, resume) a workout. Created with status `partial` — see the
- * plan's Global Constraints on why the schema has no "in progress" state.
+ * Start (or, on replay, resume) a workout. Created with status `partial` — see
+ * ARCHITECTURE §5 on why the schema has no "in progress" state.
  *
  * `resumed` distinguishes the two: the idempotent lookup found a workout already started
  * against this `client_id`, so it may already have rows the caller needs to read back

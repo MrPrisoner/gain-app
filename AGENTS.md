@@ -251,6 +251,14 @@ protect:
   whatever order the rows arrived in. The summary is Markdown tables built by string
   concatenation, so every free-text value — session names, metric labels, user notes —
   gets its `|` escaped or it eats the rest of the row.
+- **`weight_kg` is always the total kilograms being lifted**, everywhere — the log, the
+  charts, the export. Settled 2026-08-10: the contract has no field meaning "this movement
+  is paired", `per_side` is not that field, and adding one was rejected because
+  `docs/CONTRACT.md` ships verbatim in every export and bootstrap prompt. So UI-DECISIONS
+  §3's `2 × N` sub-line is the single clause of that document deliberately left unbuilt.
+  Do not implement it, do not add a `paired` field, and do not infer pairing from a slug
+  or a load label. The full reasoning, including the one honest consequence it leaves
+  behind, is in UI-DECISIONS §3.
 - **The contract key is `plan`, and synonyms are not accepted.** `plan.slug`,
   `plan_version`, `plan_id`. The word was chosen partly because it is spelled
   identically in every variety of English, unlike `programme`/`program` — but a revising
@@ -329,6 +337,59 @@ queue, which §4 requires to keep its data across a 401.
 **CI builds the image on every change**, and smoke-tests that it boots, answers
 `/healthz` and runs as non-root. It is only pushed on a tag. A Dockerfile that stopped
 working should fail the PR that broke it, not the release that needed it.
+
+Phase 4 kept the same shape: the session runner's logic is pure and lives in
+`src/lib/session/` (resolution, pre-fill, rest timer, resume reconstruction), unit-tested
+without SvelteKit; the route is thin. ARCHITECTURE §9 holds the architecture,
+[`docs/UI-DECISIONS.md`](docs/UI-DECISIONS.md) holds the behaviour, and the build was made
+to conform to the latter rather than the reverse.
+
+### What the phase-4 review changed
+
+Phase 4 shipped, was reviewed against UI-DECISIONS, and was substantially rebuilt. These
+are the rules worth carrying forward rather than the fixes.
+
+**A form action must never throw.** In SvelteKit a thrown `Error` inside an action is a
+500, `applyAction` renders `+error.svelte`, and the entire in-progress session — open
+exercise, rest timer, unsaved state — is destroyed. One malformed form field cost a
+workout. Every failure path returns `fail(400, { actionError })`; nothing in `actions`
+throws except `redirect`. The same reasoning covers unchecked casts: a value headed for a
+schema `CHECK` constraint gets validated in the action, or a bad one arrives as a
+SQLITE_CONSTRAINT 500 instead of a 400.
+
+**A control that can post before its precondition exists must be disabled.** The runner
+rendered every logging control while the `?/start` round-trip was still in flight, so a
+fast tap posted `workout_id=""` and hit the 500 above. Disable and show the pending state;
+do not rely on the user being slower than the network.
+
+**An error the user cannot see is worse than a crash.** A failed set log rendered at the
+bottom of the document in `var(--muted)` looks exactly like success from mid-set. Errors
+belong next to the control that failed, legible at arm's length — and never in
+`var(--red)`, which belongs to the plan's symptom framework (UI-DECISIONS §5).
+
+**Recording an intent is not honouring it.** A skip that writes a `deviation` row and
+leaves the exercise loggable, or a swap that keeps posting the original slug, produces an
+export stating the user did the movement the plan told them to avoid. Nothing errors, and
+the wrong claim reaches the next revision. Every state-changing action must change the
+state it names.
+
+**Client state is what was submitted, never what was pre-filled.** The ledger once
+rendered from the pre-fill map, so it showed the numbers the user was offered rather than
+the ones they logged.
+
+**Everything in the runner keys on `block:slug`**, because one movement can be prescribed
+in two blocks of one session. A lookup that searches `blocks.flatMap(b => b.exercises)`
+finds the wrong block's overrides. Note the consequence in ARCHITECTURE §5 and §9: log
+rows carry no `block_key`, so resuming a workout has to match rows back onto occurrences.
+
+**A contract range is a tuple, so it must be formatted, not interpolated.** `[8, 12]`
+stringifies to `8,12`. It escaped review because it is not an exception — it is nearly
+every prescription in the fixture rendering as a typo.
+
+**Layout is verified in a browser at 360 px.** The runner's worst bug was a grid that
+could not shrink, and nothing in `verify` could ever have seen it. `npm run test:e2e`
+asserts no horizontal overflow on every screen at three viewports in both themes; see
+UI-DECISIONS §12.
 
 ## Non-goals
 

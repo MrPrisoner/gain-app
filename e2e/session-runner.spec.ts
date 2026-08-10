@@ -1,5 +1,5 @@
 /**
- * Task 0 (docs/superpowers/plans/2026-08-10-phase-4-remediation.md): opens
+ * UI-DECISIONS §12: opens
  * the session runner for Session A and Session D of the fixture plan at
  * three real viewport widths, captures a full-page screenshot of each, and
  * asserts no horizontal overflow — `document.documentElement.scrollWidth`
@@ -22,7 +22,7 @@ for (const sessionKey of E2E_SESSION_KEYS) {
     await page.goto(`/plan/${E2E_PLAN_SLUG}/session/${sessionKey}`);
 
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-    // Task 9: a fresh workout opens on the pre-session prompt — dismiss it before
+    // UI-DECISIONS §8: a fresh workout opens on the pre-session prompt — dismiss it before
     // asserting on the runner itself, which is what this spec's overflow check is about.
     await dismissPreSessionPrompt(page);
     // The runner opens the first tracked exercise of every block by default
@@ -36,14 +36,14 @@ for (const sessionKey of E2E_SESSION_KEYS) {
     });
 
     // The bug class this harness exists to catch for good: nothing on this
-    // screen may be wider than the viewport, at any viewport. Expected to
-    // fail on this branch (the phase-4 remediation plan's Task 4 defect);
-    // it must pass once Task 4 lands.
+    // screen may be wider than the viewport, at any viewport. This is the
+    // assertion that failed against the pre-rebuild inline set rows, and the
+    // reason the log strip is pinned rather than inline (UI-DECISIONS §2).
     await assertNoHorizontalOverflow(page);
   });
 }
 
-// Task 10 (phase-4 remediation, UI-DECISIONS §8): "Scales render as a row of tappable
+// UI-DECISIONS §8: "Scales render as a row of tappable
 // cells — one tap, no slider." The fixture's `symptoms_during`/`symptoms_after` wrap-up
 // metrics are an 11-cell 0-10 scale — the exact case that used to wrap into ragged rows
 // on a phone (`flex-wrap` + a fixed `min-width`). Checked at every viewport this project
@@ -74,7 +74,7 @@ test("the wrap-up's scale metrics render as one row, with no horizontal overflow
   await assertNoHorizontalOverflow(page);
 });
 
-// Task 11 (phase-4 remediation): the base runner and the wrap-up sheet were already
+// The accessibility sweep (UI-DECISIONS §12): the base runner and the wrap-up sheet were already
 // covered (above); the deviation sheet and the rest overlay were not. Both are
 // `position: fixed` overlays with their own layout, so each is its own chance to
 // reintroduce overflow that the base-runner check alone would never catch.

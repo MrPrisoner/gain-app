@@ -92,7 +92,7 @@
      dialog whether or not it was announced as one — and it was not. The exercise list and
      the log strip stay mounted underneath it, so before the trap a keyboard user could Tab
      straight past the overlay into effort keys they could not see and log a set during
-     rest. Same treatment the wrap-up sheet and `DeviationSheet` got in Task 11:
+     rest. Same treatment the wrap-up sheet and `DeviationSheet` got (UI-DECISIONS §8):
      `role="dialog"`/`aria-modal="true"`, `use:trapFocus` (see `$lib/actions/focus-trap`)
      to move focus in, cycle Tab within the overlay and restore focus on close, and Escape
      wired to the same deliberate escape the primary button already offers — "start the

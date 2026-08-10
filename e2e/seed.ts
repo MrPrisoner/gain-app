@@ -83,7 +83,7 @@ export function seedFixturePlan(dataDir: string, devUser: string, now = new Date
 
 /**
  * A read-only handle on the one seeded user's `gain.db`, for specs that need to assert on
- * what a form action actually wrote rather than only on what the page draws — Task 6's
+ * what a form action actually wrote rather than only on what the page draws — resume's
  * "re-logging cannot create a duplicate `(workout, exercise, set_no, side)`" is a claim
  * about rows, and rendered state cannot make it.
  *

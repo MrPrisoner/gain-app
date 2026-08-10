@@ -1,5 +1,5 @@
 /**
- * Read-side query for resuming a workout (phase-4 remediation Task 6): everything one
+ * Read-side query for resuming a workout (ARCHITECTURE §9, "Resuming"): everything one
  * in-progress workout has already written, so the runner can rebuild its client state
  * after a reload instead of starting from an empty ledger.
  *

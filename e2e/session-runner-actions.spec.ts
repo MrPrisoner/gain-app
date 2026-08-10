@@ -1,5 +1,5 @@
 /**
- * Task 2 (docs/superpowers/plans/2026-08-10-phase-4-remediation.md): a form action must
+ * Form-action failure handling (AGENTS.md, "What the phase-4 review changed"): an action must
  * never bare-`throw` on a missing required field — before this task, `requireText`
  * (`+page.server.ts`) threw a plain `Error`, which SvelteKit turns into an unhandled
  * 500 and `+error.svelte` replaces the whole in-progress runner. This test drives the
@@ -40,7 +40,7 @@ test("?/logSet with an empty workout_id fails with 400 and a message, not a 500"
 
   // The runner shell itself must still have rendered — not +error.svelte swallowing the
   // whole page (this request has no `workout_id`, i.e. no `?/start` round-trip preceded
-  // it, so the runner correctly shows its own gated "starting" state, Task 2's point 3 —
+  // it, so the runner correctly shows its own gated "starting" state —
   // but that is still the real runner, not the error boundary).
   expect(body).toContain("runner-head");
   expect(body).not.toContain("error-page");

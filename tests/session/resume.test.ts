@@ -1,5 +1,5 @@
 /**
- * Task 6 (docs/superpowers/plans/2026-08-10-phase-4-remediation.md): rebuilding a resumed
+ * ARCHITECTURE §9, "Resuming": rebuilding a resumed
  * workout's runner state from its own persisted rows.
  *
  * Driven against the real fixture's resolved sessions plus hand-written row fixtures — no

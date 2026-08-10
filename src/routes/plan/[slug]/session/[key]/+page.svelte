@@ -56,18 +56,18 @@
   );
   let workoutId = $state<string | undefined>(form?.workoutId);
 
-  // Pre-session metrics (ARCHITECTURE §9, phase-4 remediation Task 9): a genuinely fresh
+  // Pre-session metrics (ARCHITECTURE §9, UI-DECISIONS §8): a genuinely fresh
   // start gates the runner behind `data.startMetrics` until "Continue to session" is
   // tapped — asking "how do you feel before you start" makes no sense on a workout
   // already in progress, so a *resumed* workout (the `?/start` response carries
   // `hydration`) skips this gate entirely and never sets it true. Set once, in the
-  // `?/start` handler below, from the same `hydration` signal Task 6 already threads
+  // `?/start` handler below, from the same `hydration` signal the resume path already threads
   // back — never re-derived anywhere else. If the plan declares no `start` metrics at
   // all there is nothing to show, so the gate is skipped rather than surfacing an empty
   // sheet with only a Continue button.
   let showPreSession = $state(false);
 
-  // The one action-error surface for the whole runner (phase-4 remediation Task 2) — every
+  // The one action-error surface for the whole runner (UI-DECISIONS §2) — every
   // enhanced form on this page, and `DeviationSheet` via its `onError` prop, funnels into
   // this single piece of state so there is exactly one place an action error renders, one
   // visual treatment, one dismiss control.
@@ -629,7 +629,7 @@
 {/if}
 
 {#snippet metricRow(metric: MetricDef)}
-  <!-- Shared by the pre-session prompt and the wrap-up sheet (Task 9/UI-DECISIONS §8):
+  <!-- Shared by the pre-session prompt and the wrap-up sheet (UI-DECISIONS §8):
        a scale renders as one row of tappable cells (no slider), an enum the same way
        over its declared options. One tap both selects and submits — there is no
        separate "save" step and no per-metric skip control, since an untapped metric
@@ -712,12 +712,12 @@
 {/snippet}
 
 {#if !workoutId}
-  <!-- Task 2 (phase-4 remediation): nothing below posts a real workout_id until the
+  <!-- UI-DECISIONS §2: nothing below posts a real workout_id until the
        async `?/start` round-trip resolves, so no logging control renders until then —
        a quiet "starting" state beats a live-looking strip that 400s on every tap. -->
   <p class="starting">Starting your session…</p>
 {:else if showPreSession}
-  <!-- Task 9 (ARCHITECTURE §9): a genuine gate, following the same "quiet placeholder
+  <!-- Pre-session metrics (ARCHITECTURE §9): a genuine gate, following the same "quiet placeholder
        until satisfied" precedent as the `!workoutId` branch above — the runner itself
        does not render underneath, rather than a dismissible overlay on top of it, so
        nothing here can be tapped before the pre-session prompt is dealt with. -->
@@ -1023,7 +1023,7 @@
 
 {#if showWrapUp && workoutId}
   <div class="sheet-backdrop" role="presentation">
-    <!-- Task 11 (phase-4 remediation): a real modal dialog, not just a visually
+    <!-- UI-DECISIONS §8: a real modal dialog, not just a visually
          bottom-sheeted div — `role="dialog"`/`aria-modal="true"` plus `aria-labelledby`
          pointing at the heading below announce it as such, and `use:trapFocus` (see
          `$lib/actions/focus-trap`) moves focus to that heading on open, cycles Tab
@@ -1357,7 +1357,7 @@
     text-align: center;
     padding: 3rem 0;
   }
-  /* The pre-session gate (Task 9): styled like `.sheet` below, but in-flow rather than a
+  /* The pre-session gate (UI-DECISIONS §8): styled like `.sheet` below, but in-flow rather than a
      fixed backdrop overlay — it stands in for the runner entirely until dismissed, the
      same "quiet placeholder" precedent as `.starting`, so nothing underneath it is ever
      reachable before "Continue to session" is tapped. */
@@ -1450,13 +1450,13 @@
     gap: 0.3rem;
     margin-top: 0.3rem;
   }
-  /* Task 11 touch-target sweep, ruled on rather than changed further: `min-height`
+  /* Touch-target sweep (UI-DECISIONS §12), ruled on rather than changed further: `min-height`
      alone (not `min-width`) is deliberate here. CONTRACT places no bound on a metric's
      `min`/`max`, and 0-10 scales are standard clinical convention for pain/symptom
      tracking, not test-fixture noise — real plans will keep declaring them. At 360px an
      11-cell row (`--cells: 11` from `metricRow`) leaves ~29px per cell, under the 44px
      square a lone tap target would want. Forcing every cell to a true 44×44 square would
-     either force the row to wrap across lines (reopening the ragged-wrap bug Task 10
+     either force the row to wrap across lines (reopening the ragged-wrap bug UI-DECISIONS §8
      fixed) or need horizontal scroll inside an already-scrolling sheet — both worse than
      a row of adjacent cells sized to the scale's own width. Height is the tap dimension
      that matters for a row of buttons (the same reasoning `.exercise-head` and

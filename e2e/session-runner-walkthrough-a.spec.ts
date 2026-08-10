@@ -1,6 +1,6 @@
 /**
- * Task 12 (docs/superpowers/sdd/2026-08-10-phase-4-remediation): the plan's closing,
- * durable regression spec — walks the real fixture's Session A top to bottom in one
+ * Phase 4's "done when" (ARCHITECTURE §12), as a durable regression spec — walks the
+ * real fixture's Session A top to bottom in one
  * browser session, the way a person actually would, rather than exercising each piece
  * in isolation the way the rest of `e2e/session-runner-*.spec.ts` deliberately does.
  *
@@ -8,7 +8,7 @@
  * four `main` exercises including the per-side `supported-one-arm-row`, a rest timer that
  * genuinely counts down and is genuinely dismissed by a deliberate tap (UI-DECISIONS §4 —
  * there is no auto-dismiss), a mid-session reload exercised as part of a real full
- * walkthrough (Task 6 — `session-runner-resume.spec.ts` already proves the mechanism in
+ * walkthrough (`session-runner-resume.spec.ts` already proves the mechanism in
  * isolation; this proves it survives a real session in progress), one deviation
  * (`add_set` on Reverse lunge — the one deviation kind no other full-walkthrough spec
  * exercises end-to-end; `skip` and `drop_set` are already covered by
@@ -80,7 +80,7 @@ test("Session A end-to-end: warm-up, four working exercises, per-side, rest, a d
   await expect(page.locator(".log-strip .strip-set")).toContainText("Set 1 of 3 — left");
   for (let i = 0; i < 6; i++) await logSetThroughRest(page);
 
-  // --- Mid-session reload (Task 6). Twelve sets are on the database by now; the reload
+  // --- Mid-session reload (ARCHITECTURE §9). Twelve sets are on the database by now; the reload
   // has to bring back the ledger and the cursor, not just the workout row, and it must
   // not write anything twice. Exercised here, mid a real walkthrough with a per-side
   // exercise and a partially-worked main block already behind it — a strictly larger

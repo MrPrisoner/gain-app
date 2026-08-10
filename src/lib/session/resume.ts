@@ -1,6 +1,6 @@
 /**
- * Rebuilding a resumed workout's runner state from what it already wrote (phase-4
- * remediation Task 6). Pure: plain rows in (`$lib/db/workout-history`), the same
+ * Rebuilding a resumed workout's runner state from what it already wrote
+ * (ARCHITECTURE §9, "Resuming"). Pure: plain rows in (`$lib/db/workout-history`), the same
  * block-keyed shapes the live interactive paths populate out — so every read site in the
  * runner works on a resumed workout without knowing it is one.
  *

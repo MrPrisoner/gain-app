@@ -1,18 +1,19 @@
 /**
- * Task 5 (docs/superpowers/plans/2026-08-10-phase-4-remediation.md): the exercise state
+ * UI-DECISIONS §1 and §7: the exercise state
  * machine — UI-DECISIONS §1 (completion state and auto-advance), §6 (a substitute is a
  * real swap), §7 (deviation is one tap away, and it *does* something).
  *
  * Each of these asserts on the thing that could silently rot back to the old behaviour:
  *
- * 1. **Auto-advance** — finishing an exercise opens the next one. Before Task 5 the list
+ * 1. **Auto-advance** — finishing an exercise opens the next one. Before the phase-4
+ *    review's rebuild, the list
  *    just sat there and you hunted for the next row one-handed.
  * 2. **A swap actually substitutes** — this is the one that corrupts the export rather
- *    than merely annoying the user. Before Task 5, tapping "Swap: dead-bug" on the
+ *    than merely annoying the user. Before the rebuild, tapping "Swap: dead-bug" on the
  *    conditional reverse-crunch logged the deviation and then kept posting
  *    `exercise_slug=reverse-crunch`, so the file said you did the movement the plan told
  *    you to avoid. The assertion is on the POST body, not on rendered text.
- * 3. **A skip actually skips** — before Task 5 it wrote a deviation row and left the
+ * 3. **A skip actually skips** — before the rebuild it wrote a deviation row and left the
  *    exercise expanded and fully loggable.
  *
  * `GAIN_DEV_USER` bypass mode (see `session-runner.spec.ts`) means no auth setup here.

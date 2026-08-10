@@ -2,8 +2,8 @@
 
 A self-hosted web app for running and tracking AI-authored exercise plans.
 
-**Status:** design agreed; phases 1–3 implemented (pure round-trip core, storage layer,
-auth + container + first run).
+**Status:** design agreed; phases 1–4 implemented (pure round-trip core, storage layer,
+auth + container + first run, session runner).
 **Audience:** the AI agents that will build this, and the human reviewing their work.
 
 ---
@@ -245,6 +245,19 @@ structure is version-scoped, and logs bind to the version they were recorded und
 - **`scheduling`/`progression`/`safety` are JSON columns on `plan_version`.** GAIN
   surfaces them but does not act on them, except `scheduling.sequence`, which drives
   the suggested next session.
+- **`workout` has no "in progress" state.** `status` is `completed | partial | stopped`.
+  A workout row is created the moment a session starts, as `partial` with a NULL
+  `completed_at` — true until proven otherwise — and updated when the user finishes or
+  red-flag-stops. In-progress is the absence of `completed_at`, not a fourth status, so a
+  session abandoned mid-way is already recorded honestly without anything having to
+  reconcile it later.
+- **A log row records what was performed, not where in the session.** `set_log` and
+  `deviation` key on `exercise_def_id` and carry no `block_key`. The runner, which must
+  distinguish two occurrences of one movement in one session, keys its own state on
+  `block:slug` — so resuming a workout means matching persisted rows back onto
+  occurrences rather than reading the occurrence off the row (§9, "Resuming"). Adding a
+  `block_key` column would remove the ambiguity, and is a schema-plus-CONTRACT change
+  nobody has yet needed enough.
 
 ### Why `exercise_def.slug` is load-bearing
 
@@ -544,6 +557,12 @@ context a future AI may well want.
 
 The screen you actually stare at, sweating, between sets. It gets the most design care.
 
+Built in phase 4 at `src/routes/plan/[slug]/session/[key]/`, with the pure logic in
+`src/lib/session/` (resolution, pre-fill, rest timer, resume reconstruction). **How it
+behaves is settled in [`docs/UI-DECISIONS.md`](./UI-DECISIONS.md)**, not here; this
+section is the architectural half. The Home screen below is the one part still unbuilt —
+it belongs to a later phase, and sessions are reached from the plan overview meanwhile.
+
 - **Home:** suggested next session per `scheduling.sequence` and rules, with any
   session selectable as an override. One-tap buttons to log activity that is not part of
   the plan. `activity.kind` is a free-form slug in the user's own vocabulary — the
@@ -556,9 +575,12 @@ The screen you actually stare at, sweating, between sets. It gets the most desig
   completed ones collapsed with a summary, upcoming ones dimmed. Target reps/weight
   pre-filled from the last time you did this exercise, so the common case is one tap.
   Large touch targets — assume sweaty hands and a phone propped on the floor.
-- **Set entry:** reps (stepper, pre-filled), weight (stepper stepping by your smallest
-  available plate increment), difficulty (Easy / Medium / Hard). Per-side exercises log
-  left and right separately. Time-based exercises get a countdown.
+- **Set entry:** reps (stepper, pre-filled), weight (stepper, 1 kg, total kilograms —
+  UI-DECISIONS §3), difficulty (Easy / Medium / Hard). Per-side exercises log left and
+  right separately. Time-based exercises get a countdown. Pre-fill falls back down a
+  chain: the last matching performance, else the load configuration's `default_kg`, else
+  blank — so a user's *first* session is still one tap, which is the only reason
+  `load_config.default_kg` exists.
 - **Rest timer:** auto-starts on set completion using `rest_sec`, with a wake lock so
   the screen doesn't sleep mid-session.
 - **Deviation:** every exercise has skip / substitute / add set / drop set. Skips prompt
@@ -567,10 +589,48 @@ The screen you actually stare at, sweating, between sets. It gets the most desig
   plan's own Green/Yellow/Red framework. These become structured export data:
   "skipped reverse-crunch 3× for pain" is precisely the evidence the plan's
   Section 20 asks a reviewing AI to weigh.
+
+  **A deviation changes what the runner does, not only what it writes.** A skip collapses
+  and advances past the exercise; a substitution re-renders the slot as the substitute and
+  logs every subsequent set against *its* `exercise_def_id`; add/drop set changes the
+  ledger. A deviation that writes a row and leaves the screen alone produces an export
+  claiming the user performed the movement the plan told them to avoid — the failure is
+  silent and lands in the next revision.
+
+  A substitute therefore accumulates real history under its own slug, which is why
+  pre-fill is loaded for every declared substitute of every prescribed exercise, not only
+  for the prescribed ones.
 - **Conditional exercises** render with their condition text visible before you start.
 - **Post-session:** `prompt_when: end` metrics. A `next_morning` metric schedules a
   prompt on next app open the following day — the reference plan explicitly wants
   next-morning symptom data, and it is worthless if collected three days later.
+
+### Resuming a workout
+
+A phone locks, a browser tab is discarded, a user pulls to refresh mid-set. Phase 4 is
+online-only, so the guarantee is narrower than phase 5's, but it is not nothing: the
+runner keeps the workout's `client_id` in `sessionStorage`, and `?/start` replayed with
+that same ID resolves the existing row instead of creating a second one — the ordinary
+idempotency every write already has, used as a lookup.
+
+**Resuming the workout row is the easy half. Resuming the screen is the real one.** A
+reload that restores the row but not the ledger re-arms every set with a fresh ULID, and
+the user re-logs sets that are already recorded. So the server reads the workout's
+`set_log`, `deviation` and `metric_value` rows back and reconstructs the runner's state
+from them (`src/lib/session/resume.ts`, pure and unit-tested): the ledger, the strip's
+next-unlogged-set cursor, skipped and substituted slots, set-count deltas, the round in
+progress, and which wrap-up metrics are already answered.
+
+Reconstruction is inference, because a log row names a movement and not a slot (§5).
+Deviations are replayed in ULID order so the substitution map is rebuilt as it stood at
+the time, and each row is attributed to the occurrence currently performing its slug
+before one that has since been substituted away. Where a slug could belong to two
+loggable occurrences of one session, the earlier wins. That last rule can put a set in
+the wrong slot of the right session; it can never invent, drop or misattribute a row
+across workouts. Making it exact needs the `block_key` column §5 describes.
+
+Surviving a full browser kill — where `sessionStorage` is gone too — is a phase-5
+guarantee, and IndexedDB is what delivers it.
 
 ### Offline model
 
@@ -685,6 +745,7 @@ choosing them, and so two agents do not choose differently.
 | Package manager | **npm** | Ships with Node, one lockfile, no corepack step in the image build. This is a single-package repo; a workspace-aware manager would earn nothing |
 | Language | **TypeScript, `strict: true`** | The Zod schema and the SQLite DDL are the specification (above). Loose types would defeat the point |
 | Tests | **Vitest** | Already decision 9's stack. The golden round-trip test is plain Vitest, no harness |
+| Browser tests | **Playwright**, Chromium only, `npm run test:e2e`, added in phase 4 | The session runner's worst failures are layout ones — they exist only at a real viewport width, and no amount of unit testing sees them. Kept deliberately *outside* `npm run verify` so CI's few-second check never downloads a browser |
 | Lint / format | **ESLint + Prettier**, plus `svelte-check` | What `sv create` scaffolds. Formatting arguments are not a good use of anyone's attention |
 | CI | **GitHub Actions**: typecheck, lint and test on push and PR; build and push the image on a tag | Minimal. The round-trip test failing must be loud |
 
@@ -766,3 +827,4 @@ Explicitly out of scope, to stop agents inventing work:
 | Offline sync loses or duplicates a workout | Client-generated IDs, idempotent server writes, property-tested replay |
 | `ORIGIN` / proxy misconfiguration breaks login | Documented in compose; startup logs the effective origin and redirect URI |
 | Context prose mangled on round-trip | `context_md` stored and replayed verbatim; byte-equality asserted in the golden test |
+| A resumed workout attributes a set to the wrong slot of the same session | Accepted and bounded (§9, "Resuming"): log rows carry no `block_key`, so reconstruction infers. It can never cross workouts, invent a row or drop one. The exact fix is a schema column, deferred until a real plan needs it |

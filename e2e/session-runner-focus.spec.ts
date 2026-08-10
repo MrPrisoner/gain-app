@@ -1,11 +1,11 @@
 /**
- * Task 11 (docs/superpowers/plans/2026-08-10-phase-4-remediation.md): both the wrap-up
+ * UI-DECISIONS §8: both the wrap-up
  * sheet (`+page.svelte`) and `DeviationSheet.svelte` are now real modal dialogs —
  * `role="dialog"`, `aria-modal="true"`, a labelled heading, focus moved into the sheet
  * on open, Tab/Shift+Tab trapped inside it, Escape treated the same as the existing
  * Cancel/Back button, and focus restored to whatever triggered the sheet once it
  * closes. The rest overlay (`RestTimer.svelte`) is the third — the final whole-branch
- * review caught that Task 11's sweep had missed it, though it is the same kind of
+ * review caught that the accessibility sweep had missed it, though it is the same kind of
  * full-screen modal over the same still-tabbable runner.
  *
  * `src/lib/actions/focus-trap.ts` is the one shared mechanism behind all three; this
@@ -145,7 +145,7 @@ test("the wrap-up sheet traps focus and Escape closes it, restoring focus", asyn
 
 /**
  * Final-review finding: the rest overlay is the third full-screen modal in the runner and
- * was the one that never got Task 11's treatment. It is `position: fixed; inset: 0` over
+ * was the one that never got that treatment. It is `position: fixed; inset: 0` over
  * a log strip and an exercise list that both stay mounted and tabbable, so before the fix
  * a keyboard user could Tab straight through it into effort keys they could not see and
  * log a set during rest.
@@ -180,7 +180,7 @@ test("the rest overlay traps focus and Escape starts the next set", async ({ pag
   const focusableCount = await rest.locator(FOCUSABLE_SELECTOR).count();
   await assertTabStaysWithin(page, ".rest-overlay", focusableCount + 2);
 
-  // Same regression Task 11's fix round added for the other two sheets: a tap on
+  // Same regression the sheets' fix round covered for the other two: a tap on
   // non-focusable overlay content (the "Up next" label — real text this overlay renders)
   // blurs focus to `<body>`, and both Tab and Escape have to recover from that.
   const upNext = rest.locator(".upnext-label");
