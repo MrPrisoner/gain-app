@@ -33,27 +33,62 @@ test.beforeEach(({}, testInfo) => {
   );
 });
 
-/** Opens Session A, applies an explicit `data-theme` override if given, dismisses the
- * pre-session gate, logs the first set (Goblet squat, Medium) and clears the rest
- * overlay it fires — leaving the strip on "Set 2 of 3" and the ledger's first row
- * showing a logged set with its effort segments, per this file's header.
+/** `--ground` from `src/app.css`, which `body`'s `background` resolves to — the one
+ * property every test in this file actually checks took effect, since it's set once at
+ * `:root` (or its `[data-theme]`/media-query overrides) and inherited by nothing more
+ * specific that could mask a broken override. Written as the browser reports computed
+ * colours (`rgb(r, g, b)`), not the source hex, so the assertion compares like with
+ * like. */
+const GROUND = {
+  dark: "rgb(11, 13, 16)", // #0b0d10
+  light: "rgb(244, 246, 248)", // #f4f6f8
+} as const;
+
+async function bodyGround(page: Page): Promise<string> {
+  return page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+}
+
+/**
+ * Registers an init script that sets `data-theme` on `<html>` before Session A loads.
  *
- * The override is applied with `page.evaluate` right after `goto` resolves, not via
- * `page.addInitScript` before it — this sandbox's Chromium is a Playwright "fallback
- * build" (`playwright.config.ts`'s own comment on `launchOptions`), and on it a
- * `document.documentElement` attribute set that early does not survive the HTML
- * parser's own `<html lang="en">` start tag; set immediately after navigation, on the
- * live element, it does, and (confirmed by the screenshots this spec produces) the
- * `:root[data-theme]` rule still wins the cascade over `@media (prefers-color-scheme)`
- * on both light and dark either way, since it is applied well before anything is
- * painted or asserted on. */
-async function openWithLoggedSet(page: Page, theme?: "light" | "dark"): Promise<void> {
-  await page.goto(`/plan/${E2E_PLAN_SLUG}/session/A`);
-  if (theme) {
-    await page.evaluate((value) => {
+ * This has to be an `addInitScript`, not a `page.evaluate` after `goto` resolves — the
+ * override must be in place *before* the app's own CSS is first applied, or the
+ * screenshots would show a flash of the wrong theme even if the final state were
+ * correct. The naive version of this (`document.documentElement.setAttribute(...)`
+ * called directly in the init script body) silently does nothing: Playwright's
+ * `addInitScript` runs before the HTML parser has processed the response body at all,
+ * so `document.documentElement` is still `null` at that point — `.setAttribute` on it
+ * throws, and because init-script errors aren't surfaced to the Node side, the failure
+ * is invisible unless something downstream specifically checks whether the theme
+ * actually changed (which is exactly what a review finding on this spec caught: the
+ * first version asserted no horizontal overflow and took a screenshot, neither of which
+ * fails when the override silently no-ops and the page just renders its default theme
+ * twice). This is a well-known, environment-independent `addInitScript` gotcha, not
+ * anything specific to this sandbox's browser build. The fix: retry via a
+ * `MutationObserver` on `document` until the parser has actually created
+ * `document.documentElement`, then set the attribute on the real element.
+ */
+async function applyThemeOverride(page: Page, theme: "light" | "dark"): Promise<void> {
+  await page.addInitScript((value) => {
+    const apply = (): boolean => {
+      if (!document.documentElement) return false;
       document.documentElement.setAttribute("data-theme", value);
-    }, theme);
-  }
+      return true;
+    };
+    if (apply()) return;
+    const observer = new MutationObserver(() => {
+      if (apply()) observer.disconnect();
+    });
+    observer.observe(document, { childList: true });
+  }, theme);
+}
+
+/** Opens Session A, dismisses the pre-session gate, logs the first set (Goblet squat,
+ * Medium) and clears the rest overlay it fires — leaving the strip on "Set 2 of 3" and
+ * the ledger's first row showing a logged set with its effort segments, per this file's
+ * header. */
+async function openWithLoggedSet(page: Page): Promise<void> {
+  await page.goto(`/plan/${E2E_PLAN_SLUG}/session/A`);
   await dismissPreSessionPrompt(page);
   await expect(page.locator(".log-strip")).toBeVisible();
 
@@ -76,6 +111,12 @@ async function assertNoHorizontalOverflow(page: Page): Promise<void> {
 test("prefers-color-scheme: dark (the default, no override)", async ({ page }, testInfo) => {
   await page.emulateMedia({ colorScheme: "dark" });
   await openWithLoggedSet(page);
+  // The assertion this spec exists to make: the theme actually rendered as dark, not
+  // just "the page didn't overflow" — a broken override would leave this at the light
+  // default instead and fail here.
+  expect(await bodyGround(page), "prefers-color-scheme: dark must render the dark palette").toBe(
+    GROUND.dark,
+  );
   await assertNoHorizontalOverflow(page);
   await page.screenshot({
     path: testInfo.outputPath("theme-360-prefers-dark.png"),
@@ -86,6 +127,10 @@ test("prefers-color-scheme: dark (the default, no override)", async ({ page }, t
 test("prefers-color-scheme: light (the default, no override)", async ({ page }, testInfo) => {
   await page.emulateMedia({ colorScheme: "light" });
   await openWithLoggedSet(page);
+  expect(
+    await bodyGround(page),
+    "prefers-color-scheme: light must render the light palette",
+  ).toBe(GROUND.light);
   await assertNoHorizontalOverflow(page);
   await page.screenshot({
     path: testInfo.outputPath("theme-360-prefers-light.png"),
@@ -99,7 +144,16 @@ test('data-theme="light" override (against a dark prefers-color-scheme)', async 
   page,
 }, testInfo) => {
   await page.emulateMedia({ colorScheme: "dark" });
-  await openWithLoggedSet(page, "light");
+  await applyThemeOverride(page, "light");
+  await openWithLoggedSet(page);
+  // The load-bearing assertion: if the override silently failed to apply (the exact
+  // failure mode `applyThemeOverride`'s own comment documents and works around), this
+  // would still read `GROUND.dark` — the emulated `prefers-color-scheme` — and fail
+  // here rather than passing on an unexercised code path.
+  expect(
+    await bodyGround(page),
+    'data-theme="light" must win over a dark prefers-color-scheme',
+  ).toBe(GROUND.light);
   await assertNoHorizontalOverflow(page);
   await page.screenshot({
     path: testInfo.outputPath("theme-360-data-theme-light.png"),
@@ -112,7 +166,12 @@ test('data-theme="dark" override (against a light prefers-color-scheme)', async 
   page,
 }, testInfo) => {
   await page.emulateMedia({ colorScheme: "light" });
-  await openWithLoggedSet(page, "dark");
+  await applyThemeOverride(page, "dark");
+  await openWithLoggedSet(page);
+  expect(
+    await bodyGround(page),
+    'data-theme="dark" must win over a light prefers-color-scheme',
+  ).toBe(GROUND.dark);
   await assertNoHorizontalOverflow(page);
   await page.screenshot({
     path: testInfo.outputPath("theme-360-data-theme-dark.png"),

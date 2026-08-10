@@ -1436,6 +1436,18 @@
     gap: 0.3rem;
     margin-top: 0.3rem;
   }
+  /* Task 11 touch-target sweep, ruled on rather than changed further: `min-height`
+     alone (not `min-width`) is deliberate here. CONTRACT places no bound on a metric's
+     `min`/`max`, and 0-10 scales are standard clinical convention for pain/symptom
+     tracking, not test-fixture noise — real plans will keep declaring them. At 360px an
+     11-cell row (`--cells: 11` from `metricRow`) leaves ~29px per cell, under the 44px
+     square a lone tap target would want. Forcing every cell to a true 44×44 square would
+     either force the row to wrap across lines (reopening the ragged-wrap bug Task 10
+     fixed) or need horizontal scroll inside an already-scrolling sheet — both worse than
+     a row of adjacent cells sized to the scale's own width. Height is the tap dimension
+     that matters for a row of buttons (the same reasoning `.exercise-head` and
+     `.checkoff-pills .pill` already rely on) — width is intentionally left to shrink to
+     fit whatever width the plan-declared scale needs in one row. */
   .scale-cell {
     width: 100%;
     min-height: 2.75rem;

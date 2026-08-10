@@ -65,12 +65,33 @@ export type TrapFocusOptions = {
  * - Escape calls `options.onEscape` instead of doing anything else;
  * - on unmount, focus returns to whatever element had it immediately before the trap
  *   activated.
+ *
+ * Both the keydown handling and a defensive `focusin` reclaim listen on `document`,
+ * not `node` — a review finding on the first version of this action caught that a
+ * `node`-scoped listener goes silent the moment focus leaves `node`, and on a phone a
+ * tap anywhere on the sheet that isn't itself focusable (a paragraph, a metric label,
+ * padding between controls) blurs `document.activeElement` to `<body>`: from there Tab
+ * would fall through to the browser's own document-wide default (escaping to the page
+ * behind the modal) and Escape would stop doing anything at all. This is a mobile-first
+ * runner whose own brief says "assume sweaty hands and a phone propped on the floor" —
+ * a stray tap on sheet text is the common case, not an edge case. Listening on
+ * `document` means Tab and Escape both keep working no matter where a tap left focus;
+ * `nextTrapFocusTarget` already treats "active is outside `node`'s focusable elements"
+ * (including `<body>`) the same way it treats the heading — as an escaped position to
+ * pull back from, forward or backward. The `focusin` listener is belt-and-braces on top
+ * of that: it reclaims focus the instant it drifts outside `node`, by any means,
+ * without waiting for a Tab press to notice.
  */
 export function trapFocus(node: HTMLElement, options: TrapFocusOptions) {
   const previouslyFocused = document.activeElement as HTMLElement | null;
 
   function focusableElements(): HTMLElement[] {
     return Array.from(node.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+  }
+
+  function focusHeadingOrNode(): void {
+    const heading = node.querySelector<HTMLElement>("[data-trap-focus-heading]");
+    (heading ?? node).focus();
   }
 
   function handleKeydown(event: KeyboardEvent): void {
@@ -92,14 +113,21 @@ export function trapFocus(node: HTMLElement, options: TrapFocusOptions) {
     }
   }
 
-  const heading = node.querySelector<HTMLElement>("[data-trap-focus-heading]");
-  (heading ?? node).focus();
+  function handleFocusIn(event: FocusEvent): void {
+    const target = event.target;
+    if (target instanceof Node && node.contains(target)) return;
+    focusHeadingOrNode();
+  }
 
-  node.addEventListener("keydown", handleKeydown);
+  focusHeadingOrNode();
+
+  document.addEventListener("keydown", handleKeydown);
+  document.addEventListener("focusin", handleFocusIn);
 
   return {
     destroy() {
-      node.removeEventListener("keydown", handleKeydown);
+      document.removeEventListener("keydown", handleKeydown);
+      document.removeEventListener("focusin", handleFocusIn);
       previouslyFocused?.focus();
     },
   };

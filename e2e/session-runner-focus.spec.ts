@@ -70,6 +70,26 @@ test("the deviation sheet traps focus and Escape closes it, restoring focus", as
   const focusableCount = await sheet.locator(FOCUSABLE_SELECTOR).count();
   await assertTabStaysWithin(page, ".sheet", focusableCount + 2);
 
+  // Review finding: a `keydown` listener scoped to the sheet element goes silent the
+  // moment focus leaves it — and on a phone, tapping any non-focusable region *inside*
+  // the sheet (padding between rows, here — not a button, radio, or the heading) blurs
+  // `document.activeElement` to `<body>`. This is the common case on a touch device
+  // ("assume sweaty hands and a phone propped on the floor"), not an edge case, so both
+  // Tab and Escape have to keep working after it, not just after a click that happens
+  // to land on a real control.
+  const sheetBox = await sheet.boundingBox();
+  if (!sheetBox) throw new Error("sheet has no bounding box");
+  const nonFocusableTap = { x: sheetBox.width / 2, y: 6 }; // the sheet's own top padding
+
+  await sheet.click({ position: nonFocusableTap });
+  expect(
+    await page.evaluate(() => document.activeElement === document.body),
+    "the tap should have blurred focus to <body>, reproducing the bug this guards",
+  ).toBe(true);
+  await page.keyboard.press("Tab");
+  await expect(page.locator('.sheet input[value="skip"]')).toBeFocused();
+
+  await sheet.click({ position: nonFocusableTap });
   await page.keyboard.press("Escape");
   await expect(sheet).toHaveCount(0);
   // Focus returned to the control that opened the sheet.
@@ -102,6 +122,22 @@ test("the wrap-up sheet traps focus and Escape closes it, restoring focus", asyn
   const focusableCount = await sheet.locator(FOCUSABLE_SELECTOR).count();
   await assertTabStaysWithin(page, ".sheet", focusableCount + 1);
 
+  // Same review finding as the deviation sheet's test above: a tap on non-focusable
+  // sheet content (the next-morning note, here — real text this sheet renders, not a
+  // synthetic target) blurs focus to `<body>`, and both Tab and Escape have to recover
+  // from that, not just from a click that happens to land on a real control.
+  const note = sheet.locator(".next-morning-note");
+  await expect(note).toBeVisible();
+
+  await note.click();
+  expect(
+    await page.evaluate(() => document.activeElement === document.body),
+    "the tap should have blurred focus to <body>, reproducing the bug this guards",
+  ).toBe(true);
+  await page.keyboard.press("Tab");
+  await expect(sheet.locator(FOCUSABLE_SELECTOR).first()).toBeFocused();
+
+  await note.click();
   await page.keyboard.press("Escape");
   await expect(sheet).toHaveCount(0);
   await expect(trigger).toBeFocused();
