@@ -328,6 +328,36 @@ export function setLogKey(
 }
 
 /**
+ * The highest set number already logged for one exercise, or `0` when none is — read back
+ * out of the runner's `setLogKey`-keyed map rather than tracked separately, so it cannot
+ * drift from what the ledger actually holds.
+ *
+ * This is the floor a `drop_set` deviation may not go below. Dropping a set has to stop
+ * *future* slots being offered; it must never shrink the ledger past a set that was really
+ * performed, because that row is in the database and will be exported either way, and a
+ * ledger that hides it is simply lying. (Contrast the substitution case, where slots
+ * legitimately re-shape around a different movement's `per_side`.)
+ *
+ * Matches on the `${blockKey}:${slug}:` prefix and requires the next segment to be digits,
+ * so a block key containing a colon — `key` is only `nonEmptyString` in the schema —
+ * cannot make one exercise's rows count towards another's.
+ */
+export function highestLoggedSetNo(
+  blockKey: string,
+  exerciseSlug: string,
+  loggedKeys: Iterable<string>,
+): number {
+  const prefix = `${blockKey}:${exerciseSlug}:`;
+  let highest = 0;
+  for (const key of loggedKeys) {
+    if (!key.startsWith(prefix)) continue;
+    const setNo = /^(\d+):/.exec(key.slice(prefix.length))?.[1];
+    if (setNo !== undefined) highest = Math.max(highest, Number(setNo));
+  }
+  return highest;
+}
+
+/**
  * Every slot the open exercise currently offers, in the order they are performed:
  * set by set, and within a set left then right for a `per_side` exercise
  * (UI-DECISIONS §6 — one ledger row per side, because differing between sides is the

@@ -7,6 +7,7 @@
   let {
     exerciseSlug,
     substitutes,
+    canChangeSetCount,
     workoutId,
     onClose,
     onApplied,
@@ -15,6 +16,14 @@
   }: {
     exerciseSlug: string;
     substitutes: string[];
+    /**
+     * Whether adding or dropping a set is a thing that can happen here at all. False
+     * inside a `type: rounds` block: CONTRACT makes `sets` invalid there because `set_no`
+     * *is* the round, so there is no set count to move. Offering the choice anyway would
+     * let the user record a deviation claiming something that could not have occurred —
+     * the sheet would close, the row would be written, and the ledger would not budge.
+     */
+    canChangeSetCount: boolean;
     workoutId: string;
     onClose: () => void;
     /**
@@ -93,9 +102,14 @@
       {#if substitutes.length > 0}
         <label><input type="radio" name="kind" value="substitute" bind:group={kind} /> Swap</label>
       {/if}
-      <label><input type="radio" name="kind" value="add_set" bind:group={kind} /> Add a set</label>
-      <label><input type="radio" name="kind" value="drop_set" bind:group={kind} /> Drop a set</label
-      >
+      {#if canChangeSetCount}
+        <label
+          ><input type="radio" name="kind" value="add_set" bind:group={kind} /> Add a set</label
+        >
+        <label
+          ><input type="radio" name="kind" value="drop_set" bind:group={kind} /> Drop a set</label
+        >
+      {/if}
       <label
         ><input type="radio" name="kind" value="stop_red_flag" bind:group={kind} /> Stop (red flag)</label
       >

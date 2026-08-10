@@ -112,3 +112,93 @@ test("a skip collapses the exercise, says so, and advances", async ({ page }) =>
   await expect(squat).not.toHaveClass(/open/);
   await expect(openExercise(page).locator(".exercise-name")).toHaveText("Dumbbell floor press");
 });
+
+/** Logs a set and clears the rest overlay it fires, so the strip is tappable again. */
+async function logSetThroughRest(page: Page): Promise<void> {
+  await logSet(page);
+  const rest = page.locator(".rest-overlay");
+  if (await rest.isVisible()) {
+    await rest.getByRole("button", { name: "Start next set" }).click();
+    await expect(rest).toHaveCount(0);
+  }
+}
+
+/** Opens the deviation sheet on whatever exercise is currently expanded. */
+async function openDeviationSheet(page: Page) {
+  await page.locator(".log-strip .strip-change").click();
+  const sheet = page.locator(".sheet");
+  await expect(sheet).toBeVisible();
+  return sheet;
+}
+
+/**
+ * Review finding 1: `add_set`/`drop_set` cannot move a rounds block's ledger — CONTRACT
+ * makes `sets` invalid there, because `set_no` *is* the round. Offering them anyway let a
+ * user write a deviation row claiming something that could not have happened.
+ */
+test("a rounds block does not offer to add or drop a set", async ({ page }) => {
+  await page.goto(`/plan/${E2E_PLAN_SLUG}/session/D`);
+  await expect(page.locator(".log-strip")).toBeVisible();
+
+  // The `main` block is a plain sequence: both options belong there.
+  const sequenceSheet = await openDeviationSheet(page);
+  await expect(sequenceSheet.getByText("Add a set")).toBeVisible();
+  await expect(sequenceSheet.getByText("Drop a set")).toBeVisible();
+  await sequenceSheet.getByRole("button", { name: "Cancel" }).click();
+
+  // `ab-finisher` is `type: rounds`.
+  await open(page, "Dead bug");
+  const roundsSheet = await openDeviationSheet(page);
+  await expect(roundsSheet.getByText("Add a set")).toHaveCount(0);
+  await expect(roundsSheet.getByText("Drop a set")).toHaveCount(0);
+  // Everything that *is* meaningful in a rounds block is still on offer.
+  await expect(roundsSheet.getByText("Skip")).toBeVisible();
+  await expect(roundsSheet.getByText("Stop (red flag)")).toBeVisible();
+});
+
+/**
+ * Review finding 2: completing a round left the cursor on the *last* exercise of the
+ * circuit, so round 2 started at position 4 of 4 — and with a block after it, the generic
+ * advance walked straight out of the circuit and abandoned the remaining rounds.
+ */
+test("finishing a round restarts the circuit at its first exercise", async ({ page }) => {
+  await page.goto(`/plan/${E2E_PLAN_SLUG}/session/D`);
+  await expect(page.locator(".log-strip")).toBeVisible();
+
+  // Anywhere other than the top of the circuit — this is where completing a round leaves
+  // the cursor in real use.
+  await open(page, "Reverse crunch");
+  await page.getByRole("button", { name: /^Round 1 of 2 done$/ }).click();
+
+  await expect(openExercise(page).locator(".exercise-name")).toHaveText("Dead bug");
+  await expect(page.locator(".log-strip .strip-set")).toContainText("Round 2 of 2");
+});
+
+/**
+ * Review finding 3: a `drop_set` shrank the ledger past sets that had really been
+ * performed, so a logged row vanished from both the ledger and the collapsed summary while
+ * still sitting in the database and in the export.
+ */
+test("dropping a set never hides a set already logged", async ({ page }) => {
+  await page.goto(`/plan/${E2E_PLAN_SLUG}/session/A`);
+  await expect(page.locator(".log-strip")).toBeVisible();
+  // Goblet squat, 3 × 10–15.
+  await expect(openExercise(page).locator(".ledger-row")).toHaveCount(3);
+
+  await logSetThroughRest(page);
+  await logSetThroughRest(page);
+  await expect(openExercise(page).locator(".ledger-row.logged")).toHaveCount(2);
+
+  // Two drops would take a 3-set exercise to 1 — below the 2 sets already performed.
+  for (let i = 0; i < 2; i++) {
+    const sheet = await openDeviationSheet(page);
+    await sheet.getByText("Drop a set").click();
+    await sheet.getByRole("button", { name: "Save" }).click();
+    await expect(sheet).toHaveCount(0);
+  }
+
+  // The unperformed 3rd slot is gone — that is what a drop is for — but neither logged set
+  // was hidden.
+  await expect(openExercise(page).locator(".ledger-row")).toHaveCount(2);
+  await expect(openExercise(page).locator(".ledger-row.logged")).toHaveCount(2);
+});

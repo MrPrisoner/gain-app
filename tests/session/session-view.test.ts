@@ -12,6 +12,7 @@ import {
   formatSlotLabel,
   formatTarget,
   formatTargetOrSets,
+  highestLoggedSetNo,
   nextExerciseKey,
   nextUnloggedSlot,
   resolveLoad,
@@ -664,5 +665,45 @@ describe("trackedExerciseKeys / nextExerciseKey", () => {
 
   it("starts from the beginning when the current key is not in this session", () => {
     expect(nextExerciseKey(session(), new Set(), "somewhere:else")).toBe("main:goblet-squat");
+  });
+});
+
+describe("highestLoggedSetNo", () => {
+  const logged = [
+    setLogKey("main", "goblet-squat", 1),
+    setLogKey("main", "goblet-squat", 2),
+    setLogKey("main", "goblet-squat", 3),
+    setLogKey("core", "side-plank", 2, "left"),
+    setLogKey("core", "side-plank", 2, "right"),
+  ];
+
+  it("is zero when the exercise has nothing logged", () => {
+    expect(highestLoggedSetNo("main", "reverse-lunge", logged)).toBe(0);
+    expect(highestLoggedSetNo("main", "goblet-squat", [])).toBe(0);
+  });
+
+  it("is the highest set number logged, not the count of rows", () => {
+    expect(highestLoggedSetNo("main", "goblet-squat", logged)).toBe(3);
+    // Two rows (left and right), but they are one set.
+    expect(highestLoggedSetNo("core", "side-plank", logged)).toBe(2);
+  });
+
+  it("never counts another block's rows for the same slug", () => {
+    const both = [setLogKey("main", "dead-bug", 3), setLogKey("core", "dead-bug", 1)];
+    expect(highestLoggedSetNo("core", "dead-bug", both)).toBe(1);
+    expect(highestLoggedSetNo("main", "dead-bug", both)).toBe(3);
+  });
+
+  it("never counts a longer slug that merely starts with this one", () => {
+    const rows = [setLogKey("main", "goblet-squat-heavy", 4)];
+    expect(highestLoggedSetNo("main", "goblet-squat", rows)).toBe(0);
+  });
+
+  // `block.key` is only `nonEmptyString` in the schema, so it may contain a colon — the
+  // digits guard is what stops one exercise's rows counting towards another's.
+  it("is not confused by a colon inside a block key", () => {
+    const rows = [setLogKey("a:b", "dead-bug", 5)];
+    expect(highestLoggedSetNo("a:b", "dead-bug", rows)).toBe(5);
+    expect(highestLoggedSetNo("a", "b", rows)).toBe(0);
   });
 });

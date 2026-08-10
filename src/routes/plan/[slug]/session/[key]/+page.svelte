@@ -11,6 +11,7 @@
     formatSlotContext,
     formatSlotLabel,
     formatTargetOrSets,
+    highestLoggedSetNo,
     nextExerciseKey,
     nextUnloggedSlot,
     resolveSubstitute,
@@ -183,14 +184,23 @@
    *
    * Collapsing them would either make taking a declared optional set look like a
    * deviation in the export, or cap a genuine deviation at the ranged max it exists to
-   * exceed. The floor is one slot: a drop that reached zero is a skip wearing a different
-   * name, and the sheet already has a Skip that records itself honestly as one.
+   * exceed.
+   *
+   * A drop has two floors. One slot, because a drop that reached zero is a skip wearing a
+   * different name and the sheet already has a Skip that records itself honestly as one.
+   * And `highestLoggedSetNo`, because dropping a set must stop the *next* slot being
+   * offered, never hide one that was really performed — that row is in the database and
+   * will be exported whatever the ledger draws.
    */
   function shownSetsFor(block: ResolvedBlock, prescribed: ResolvedExercise): number {
     if (block.type === "rounds") return 1;
     const key = `${block.key}:${prescribed.slug}`;
     const declared = visibleSetCount(prescribed.sets, addedSets.get(key) ?? 0).shown;
-    return Math.max(1, declared + (setCountDelta.get(key) ?? 0));
+    return Math.max(
+      1,
+      highestLoggedSetNo(block.key, prescribed.slug, loggedSets.keys()),
+      declared + (setCountDelta.get(key) ?? 0),
+    );
   }
 
   function currentRoundOf(blockKey: string): number {
@@ -320,6 +330,30 @@
   function onRestDismissed(): void {
     activeRest = undefined;
     if (advanceAfterRest) advance();
+  }
+
+  /**
+   * A rounds block is a circuit, so finishing a round restarts it at the top rather than
+   * carrying on where the generic advance left the cursor — which is the *last* exercise
+   * of the block, since that is what completing the round means. `nextExerciseKey` scoped
+   * to this one block does the picking, so a skipped first exercise is stepped over the
+   * same way it is everywhere else; incrementing the round has already made every
+   * unskipped exercise in the block un-done again.
+   *
+   * Without this, round 2 would start at position 4 of 4, and a rounds block followed by
+   * another block would advance straight *out* of the circuit after round 1, abandoning
+   * the remaining rounds with no prompt (UI-DECISIONS §6 — rounds are a primitive the
+   * design commits to handling).
+   */
+  function startNextRound(block: ResolvedBlock): void {
+    const round = (completedRounds.get(block.key) ?? 0) + 1;
+    completedRounds.set(block.key, round);
+
+    const rest = restBetweenRounds(block, round);
+    if (rest) activeRest = restSpecFrom(rest);
+
+    const top = nextExerciseKey({ blocks: [block] }, doneExercises);
+    if (top) openExercise(top);
   }
 
   /** The exercise the deviation sheet is acting on, looked up by `${block.key}:${slug}`
@@ -658,16 +692,7 @@
           </ul>
 
           {#if block.type === "rounds"}
-            <button
-              type="button"
-              class="add-set"
-              onclick={() => {
-                const round = (completedRounds.get(block.key) ?? 0) + 1;
-                completedRounds.set(block.key, round);
-                const rest = restBetweenRounds(block, round);
-                if (rest) activeRest = restSpecFrom(rest);
-              }}
-            >
+            <button type="button" class="add-set" onclick={() => startNextRound(block)}>
               Round {(completedRounds.get(block.key) ?? 0) + 1} of {block.rounds} done
             </button>
           {/if}
@@ -710,6 +735,7 @@
   <DeviationSheet
     exerciseSlug={target.exercise.slug}
     substitutes={target.prescribed.substitutes}
+    canChangeSetCount={target.block.type !== "rounds"}
     {workoutId}
     onClose={() => (deviationFor = undefined)}
     onApplied={onDeviationApplied}
