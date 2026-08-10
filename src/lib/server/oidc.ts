@@ -309,6 +309,24 @@ export function hasRequiredGroup(groups: readonly string[], requiredGroup: strin
   return groups.includes(requiredGroup);
 }
 
+// ---------------------------------------------------------------------------
+// Display name
+// ---------------------------------------------------------------------------
+
+/**
+ * Reads a friendly display name from ID token claims, for the greeting and
+ * the bootstrap prompt — display only, never an identity or authorization
+ * decision. `name` first, falling back to `preferred_username` for IdPs or
+ * users where it is blank; `null` when neither is a non-empty string.
+ */
+export function extractDisplayName(claims: Record<string, unknown>): string | null {
+  for (const key of ["name", "preferred_username"] as const) {
+    const value = claims[key];
+    if (typeof value === "string" && value.trim() !== "") return value.trim();
+  }
+  return null;
+}
+
 /**
  * Fallback for IdPs that do not put `groups` in the ID token: ask the userinfo
  * endpoint with the access token.

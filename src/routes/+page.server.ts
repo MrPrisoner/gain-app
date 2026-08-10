@@ -26,7 +26,7 @@ export const load: PageServerLoad = ({ locals }) => {
   const plans = listPlans(userDb).filter((plan) => !plan.archived_at);
 
   if (plans.length === 0) {
-    return { view: "first_run" as const };
+    return { view: "first_run" as const, displayName: user.displayName };
   }
 
   const overviews = plans.flatMap((plan) => {
@@ -52,15 +52,17 @@ export const load: PageServerLoad = ({ locals }) => {
     ];
   });
 
-  return { view: "plan" as const, plans: overviews };
+  return { view: "plan" as const, plans: overviews, displayName: user.displayName };
 };
 
 export const actions: Actions = {
   /**
-   * Fill the bootstrap template with the four optional answers and hand the
-   * whole prompt back for copying. The answers are not stored (§7).
+   * Fill the bootstrap template with the four optional answers plus the
+   * user's OIDC display name, and hand the whole prompt back for copying.
+   * The answers are not stored (§7); the display name is never stored either
+   * — see `checkSession`.
    */
-  generatePrompt: async ({ request }) => {
+  generatePrompt: async ({ request, locals }) => {
     const form = await request.formData();
     const answers: BootstrapAnswers = {
       equipment: field(form, "equipment"),
@@ -68,6 +70,7 @@ export const actions: Actions = {
       session_minutes: field(form, "session_minutes"),
       goals: field(form, "goals"),
       constraints: field(form, "constraints"),
+      display_name: locals.user?.displayName ?? undefined,
     };
     return { prompt: renderBootstrapPrompt(bootstrapPromptTemplate, answers, contractMd) };
   },

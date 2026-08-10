@@ -54,7 +54,13 @@ export const handle: Handle = async ({ event, resolve }) => {
   const now = new Date();
 
   if (config.auth.mode === "bypass") {
-    event.locals.user = { id: ensureBypassUser(config.auth.devUser, now), bypass: true };
+    event.locals.user = {
+      id: ensureBypassUser(config.auth.devUser, now),
+      bypass: true,
+      // No real OIDC identity in bypass mode; the env var stands in so the
+      // greeting can still be exercised without a live IdP.
+      displayName: config.auth.devUser,
+    };
     return resolve(event);
   }
 
@@ -75,6 +81,6 @@ export const handle: Handle = async ({ event, resolve }) => {
     setSessionCookie(event.cookies, config, check.setCookie);
   }
 
-  event.locals.user = { id: check.userId, bypass: false };
+  event.locals.user = { id: check.userId, bypass: false, displayName: check.displayName };
   return resolve(event);
 };

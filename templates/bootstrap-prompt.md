@@ -135,10 +135,12 @@ is a judgement call.
 # Section 1 — What the user has told the app
 
 <!--
-  GAIN fills this in from the first-run questions. Every field is optional and the user
-  may have skipped all of them. Anything missing is something to ask about.
+  GAIN fills this in from the first-run questions, plus the user's display name from
+  their GAIN login where available. Every field is optional and the user may have
+  skipped all of them. Anything missing is something to ask about.
 -->
 
+- **Name:** {{display_name}}
 - **Equipment:** {{equipment}}
 - **Sessions per week:** {{sessions_per_week}}
 - **Time per session:** {{session_minutes}} minutes

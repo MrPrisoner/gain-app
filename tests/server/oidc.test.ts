@@ -14,6 +14,7 @@ import {
   discoverEndpoints,
   discoveryUrl,
   exchangeCode,
+  extractDisplayName,
   extractGroups,
   fetchUserinfoGroups,
   generatePkce,
@@ -355,6 +356,29 @@ describe("the group gate", () => {
     expect(hasRequiredGroup(["gain-users", "x"], "gain-users")).toBe(true);
     expect(hasRequiredGroup(["x"], "gain-users")).toBe(false);
     expect(hasRequiredGroup([], "gain-users")).toBe(false);
+  });
+});
+
+describe("the display name", () => {
+  it("prefers the name claim", () => {
+    expect(extractDisplayName({ name: "Ada Lovelace", preferred_username: "ada" })).toBe(
+      "Ada Lovelace",
+    );
+  });
+
+  it("falls back to preferred_username when name is missing or blank", () => {
+    expect(extractDisplayName({ preferred_username: "ada" })).toBe("ada");
+    expect(extractDisplayName({ name: "  ", preferred_username: "ada" })).toBe("ada");
+  });
+
+  it("trims whitespace", () => {
+    expect(extractDisplayName({ name: "  Ada Lovelace  " })).toBe("Ada Lovelace");
+  });
+
+  it("is null when neither claim is a non-empty string", () => {
+    expect(extractDisplayName({})).toBeNull();
+    expect(extractDisplayName({ name: 42, preferred_username: null })).toBeNull();
+    expect(extractDisplayName({ name: "   " })).toBeNull();
   });
 
   it("falls back to userinfo groups", async () => {

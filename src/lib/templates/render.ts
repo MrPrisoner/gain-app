@@ -42,6 +42,8 @@ export type BootstrapAnswers = {
   session_minutes?: string;
   goals?: string;
   constraints?: string;
+  /** From the OIDC display name, not a first-run question — still optional. */
+  display_name?: string;
 };
 
 export const BOOTSTRAP_VARIABLES = new Set([
@@ -50,6 +52,7 @@ export const BOOTSTRAP_VARIABLES = new Set([
   "session_minutes",
   "goals",
   "constraints",
+  "display_name",
   "contract",
 ]);
 
@@ -64,6 +67,7 @@ export function renderBootstrapPrompt(
     session_minutes: answers.session_minutes ?? "",
     goals: answers.goals ?? "",
     constraints: answers.constraints ?? "",
+    display_name: answers.display_name ?? "",
     contract: contractMd,
   });
 }

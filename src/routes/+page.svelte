@@ -54,6 +54,10 @@
   <title>GAIN</title>
 </svelte:head>
 
+{#if data.displayName}
+  <p class="greeting">Hi, {data.displayName}.</p>
+{/if}
+
 {#if data.view === "first_run"}
   <section class="hero">
     <h1>GAIN doesn't write plans — an AI does.</h1>
@@ -241,6 +245,12 @@
 {/if}
 
 <style>
+  .greeting {
+    margin: 0;
+    color: var(--muted);
+    font-weight: 700;
+  }
+
   .hero {
     padding: 1.5rem 0 0.5rem;
   }

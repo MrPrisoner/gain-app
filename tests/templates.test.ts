@@ -57,6 +57,14 @@ describe("renderBootstrapPrompt", () => {
     );
     expect(out).toBe("dumbbells / muscle / bad knee");
   });
+
+  it("fills in the display name when known, and blanks it otherwise", () => {
+    const template = "Name: {{display_name}}";
+    expect(renderBootstrapPrompt(template, { display_name: "Ada Lovelace" }, "C")).toBe(
+      "Name: Ada Lovelace",
+    );
+    expect(renderBootstrapPrompt(template, {}, "C")).toBe("Name: ");
+  });
 });
 
 describe("renderInstructionsTemplate", () => {

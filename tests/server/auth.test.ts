@@ -158,6 +158,7 @@ function seedSession(options: {
   accessTtlMs?: number | null;
   refreshToken?: string | null;
   createdAt?: Date;
+  idToken?: string | null;
 }): string {
   const createdAt = options.createdAt ?? NOW;
   const session = createSession(control, {
@@ -171,7 +172,7 @@ function seedSession(options: {
           ? null
           : new Date(createdAt.getTime() + options.accessTtlMs).toISOString(),
       refresh_token: options.refreshToken === undefined ? "refresh-1" : options.refreshToken,
-      id_token: null,
+      id_token: options.idToken ?? null,
     },
   });
   return session.id;
@@ -217,6 +218,7 @@ describe("resolving a session", () => {
       status: "ok",
       userId,
       setCookie: null,
+      displayName: null,
     });
   });
 });
@@ -227,7 +229,7 @@ describe("the sliding expiry", () => {
     const before = getSession(control, sessionId, NOW)?.expires_at;
     const result = await check(sessionId, at(IDLE_MS / 4), deps(control));
 
-    expect(result).toEqual({ status: "ok", userId, setCookie: null });
+    expect(result).toEqual({ status: "ok", userId, setCookie: null, displayName: null });
     expect(getSession(control, sessionId, NOW)?.expires_at).toBe(before);
   });
 
@@ -237,7 +239,7 @@ describe("the sliding expiry", () => {
     const now = at(IDLE_MS * 0.75);
     const result = await check(sessionId, now, deps(control));
 
-    expect(result).toEqual({ status: "ok", userId, setCookie: sessionId });
+    expect(result).toEqual({ status: "ok", userId, setCookie: sessionId, displayName: null });
     const after = getSession(control, sessionId, now)?.expires_at;
     expect(after).not.toBe(before);
     expect(after).toBe(new Date(now.getTime() + IDLE_MS).toISOString());
@@ -268,7 +270,7 @@ describe("the group gate on refresh", () => {
       }),
     );
 
-    expect(result).toEqual({ status: "ok", userId, setCookie: null });
+    expect(result).toEqual({ status: "ok", userId, setCookie: null, displayName: null });
     expect(grant).toBe("refresh_token");
 
     // The rotated tokens are persisted, so the next request does not refresh again.
@@ -324,7 +326,7 @@ describe("the group gate on refresh", () => {
       }),
     );
 
-    expect(result).toEqual({ status: "ok", userId, setCookie: null });
+    expect(result).toEqual({ status: "ok", userId, setCookie: null, displayName: null });
   });
 
   it("revokes when userinfo answers that membership is gone", async () => {
@@ -360,7 +362,7 @@ describe("an unevaluable gate does not evict the user", () => {
       }),
     );
 
-    expect(result).toEqual({ status: "ok", userId, setCookie: null });
+    expect(result).toEqual({ status: "ok", userId, setCookie: null, displayName: null });
     expect(getSession(control, sessionId, NOW)?.access_token).toBe("access-2");
   });
 
@@ -435,7 +437,7 @@ describe("when the refresh itself fails", () => {
       deps(control, { getEndpoints: () => Promise.reject(new Error("unreachable")) }),
     );
 
-    expect(result).toEqual({ status: "ok", userId, setCookie: null });
+    expect(result).toEqual({ status: "ok", userId, setCookie: null, displayName: null });
     expect(getSession(control, sessionId, NOW)).toBeDefined();
   });
 
@@ -463,7 +465,45 @@ describe("when the refresh itself fails", () => {
       status: "ok",
       userId,
       setCookie: null,
+      displayName: null,
     });
+  });
+});
+
+describe("the display name", () => {
+  it("reads it from the stored ID token's name claim", async () => {
+    const token = await idToken({ name: "Ada Lovelace" });
+    const sessionId = seedSession({ accessTtlMs: 3600_000, idToken: token });
+    const result = await check(sessionId, at(60_000), deps(control));
+    expect(result).toMatchObject({ status: "ok", displayName: "Ada Lovelace" });
+  });
+
+  it("falls back to preferred_username when name is absent", async () => {
+    const token = await idToken({ preferred_username: "ada" });
+    const sessionId = seedSession({ accessTtlMs: 3600_000, idToken: token });
+    const result = await check(sessionId, at(60_000), deps(control));
+    expect(result).toMatchObject({ status: "ok", displayName: "ada" });
+  });
+
+  it("is null when the ID token has neither claim, or there is no ID token at all", async () => {
+    const withNeitherClaim = seedSession({
+      accessTtlMs: 3600_000,
+      idToken: await idToken({}),
+    });
+    expect(await check(withNeitherClaim, at(60_000), deps(control))).toMatchObject({
+      displayName: null,
+    });
+
+    const withoutIdToken = seedSession({ accessTtlMs: 3600_000 });
+    expect(await check(withoutIdToken, at(60_000), deps(control))).toMatchObject({
+      displayName: null,
+    });
+  });
+
+  it("tolerates a stored ID token that is not valid JWT shape", async () => {
+    const sessionId = seedSession({ accessTtlMs: 3600_000, idToken: "not.a.jwt" });
+    const result = await check(sessionId, at(60_000), deps(control));
+    expect(result).toMatchObject({ status: "ok", displayName: null });
   });
 });
 

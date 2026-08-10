@@ -14,6 +14,12 @@ declare global {
         id: string;
         /** True when the dev-only bypass (`GAIN_DEV_USER`) is active. */
         bypass: boolean;
+        /**
+         * A friendly name for the greeting and the bootstrap prompt, read
+         * from the OIDC `name`/`preferred_username` claim — display only,
+         * never an identity. `null` when the IdP gave neither.
+         */
+        displayName: string | null;
       } | null;
     }
     // interface Error {}

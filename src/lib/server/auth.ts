@@ -6,6 +6,7 @@
  */
 
 import type { Cookies } from "@sveltejs/kit";
+import { decodeJwt } from "jose";
 import type { GainConfig, OidcConfig } from "./config";
 import type { ControlDb, SessionRow } from "./control-db";
 import {
@@ -19,6 +20,7 @@ import {
 import { getControlDb, getJwksFor, getOidcEndpoints, getUserDbFor } from "./app-state";
 import {
   OidcError,
+  extractDisplayName,
   extractGroups,
   fetchUserinfoGroups,
   hasRequiredGroup,
@@ -92,9 +94,26 @@ export type SessionCheck =
       status: "ok";
       userId: string;
       /** Set when the sliding expiry was extended. */ setCookie: string | null;
+      /** For the greeting and the bootstrap prompt — display only, see `displayNameFromIdToken`. */
+      displayName: string | null;
     }
   | { status: "anonymous" }
   | { status: "forbidden"; message: string };
+
+/**
+ * A friendly name for display, read from the session's stored ID token —
+ * never re-verified here, since it was already verified when written (at
+ * login or the last refresh) and this is not an authorization decision.
+ * Tolerant of a missing or malformed token: both just mean no greeting.
+ */
+function displayNameFromIdToken(idToken: string | null): string | null {
+  if (!idToken) return null;
+  try {
+    return extractDisplayName(decodeJwt(idToken));
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Resolve the session for this request. Anonymous when there is no valid
@@ -129,7 +148,12 @@ export async function checkSession(
     setCookie = session.id;
   }
 
-  return { status: "ok", userId: session.user_id, setCookie };
+  return {
+    status: "ok",
+    userId: session.user_id,
+    setCookie,
+    displayName: displayNameFromIdToken(session.id_token),
+  };
 }
 
 type RefreshOutcome = "ok" | "failed" | "forbidden";
