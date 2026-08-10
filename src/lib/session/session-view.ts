@@ -420,6 +420,32 @@ export function formatSlotContext(
 }
 
 /**
+ * The rest overlay's up-next card (UI-DECISIONS §4: "names what is coming next") for the
+ * *same* exercise's next slot — `"Set 3 of 3 · 8–12 reps at 12 kg"`. Built out of
+ * `formatSlotContext` and `formatRepsOrDuration` rather than re-deriving either, so the
+ * overlay can never describe the next slot differently than the ledger row it will fill
+ * in. `weightKg` is the pre-fill the log strip would show for that slot — passed in by
+ * the caller, which already has it for the currently-open exercise — and is omitted
+ * entirely (no `"at … kg"` clause) when there is none: a bodyweight movement, or no
+ * matching history or configured default.
+ */
+export function formatUpNextSlot(
+  block: Pick<ResolvedBlock, "type" | "rounds">,
+  slot: SetSlot,
+  totalSets: number,
+  exercise: Pick<ResolvedExercise, "type" | "reps" | "durationSec">,
+  weightKg?: number,
+): string {
+  const context = formatSlotContext(block, slot, totalSets);
+  const value = formatRepsOrDuration(exercise);
+  // `formatRepsOrDuration` already appends "sec" for a timed exercise; reps carries no
+  // unit of its own (the ledger's number column doesn't need one), so it is added here.
+  const target = exercise.type === "reps" ? `${value} reps` : value;
+  const weight = weightKg === undefined ? "" : ` at ${weightKg} kg`;
+  return `${context} · ${target}${weight}`;
+}
+
+/**
  * The set-number cell of a ledger row. A rounds block names the round, since its rows
  * are rounds; everything else is a set number with the side appended for `per_side`.
  */

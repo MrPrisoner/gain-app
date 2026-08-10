@@ -10,7 +10,9 @@
     formatRepsOrDurationOrDash,
     formatSlotContext,
     formatSlotLabel,
+    formatTarget,
     formatTargetOrSets,
+    formatUpNextSlot,
     highestLoggedSetNo,
     nextExerciseKey,
     nextUnloggedSlot,
@@ -139,8 +141,20 @@
   // prescribed movement is being done as-is, so no deviation is logged.
   const dismissedConditions = new SvelteSet<string>();
 
-  // The rest timer overlay's spec, or undefined when no rest is active.
-  let activeRest = $state<RestSpec | undefined>(undefined);
+  /** UI-DECISIONS §4's up-next card: a name and a pre-formatted target line, following
+   * the same pattern as `LogStrip`'s `context`/`lastPerformance` props — `RestTimer`
+   * itself does no formatting, only rendering. */
+  type UpNext = { label: string; target: string };
+
+  /** The block/prescribed/performed trio `exerciseAt` resolves a key to. */
+  type ExerciseAt = {
+    block: ResolvedBlock;
+    prescribed: ResolvedExercise;
+    exercise: ResolvedExercise;
+  };
+
+  // The rest timer overlay's spec and up-next card, or undefined when no rest is active.
+  let activeRest = $state<{ spec: RestSpec; upNext: UpNext } | undefined>(undefined);
   // Which exercise the deviation sheet is open for, or undefined when closed. Block-keyed
   // like every other map here: a bare slug picks the wrong prescription when the same
   // movement appears in two blocks with different overrides.
@@ -209,6 +223,31 @@
 
   function currentRoundOf(blockKey: string): number {
     return (completedRounds.get(blockKey) ?? 0) + 1;
+  }
+
+  /**
+   * The block/prescribed/performed trio for any `${block.key}:${slug}` key the session
+   * offers, or `undefined` for a checkoff block (never opened) or an unknown key. Used to
+   * look up an exercise the runner is not currently *at* — the rest overlay's up-next
+   * card needs to describe the exercise auto-advance is about to open, one step ahead of
+   * `openContext`, which only ever describes `openSlug` itself.
+   */
+  function exerciseAt(key: string | undefined): ExerciseAt | undefined {
+    if (!key) return undefined;
+    for (const block of data.session.blocks) {
+      if (block.tracking === "checkoff") continue;
+      for (const prescribed of block.exercises) {
+        if (`${block.key}:${prescribed.slug}` !== key) continue;
+        return { block, prescribed, exercise: performed(block.key, prescribed) };
+      }
+    }
+    return undefined;
+  }
+
+  /** Nothing else is scheduled — the rest overlay still needs an up-next card even when
+   * this was the session's very last set or round. */
+  function upNextFallback(): UpNext {
+    return { label: "Nothing left", target: "Finish up when you're ready" };
   }
 
   /**
@@ -290,8 +329,8 @@
   /**
    * Set when an exercise finished while its rest was still counting down: advancing then
    * would swap the strip's context out from under a timer the user is still watching, so
-   * the move waits until the rest is dismissed — by running out (`onDone`) or by being
-   * skipped (`onSkip`), which count the same.
+   * the move waits until the rest is dismissed — always by the user tapping "start next
+   * set early" (`onSkip`/`onRestDismissed`; UI-DECISIONS §4's rest has no auto-dismiss).
    */
   let advanceAfterRest = $state(false);
 
@@ -319,16 +358,61 @@
 
     // Recomputed from the map rather than read off `openContext.next`, so this does not
     // depend on when the derived happens to be re-pulled.
-    const finished =
-      nextUnloggedSlot(slotsFor(context.block, context.prescribed), loggedSets) === undefined;
+    const nextSlot = nextUnloggedSlot(slotsFor(context.block, context.prescribed), loggedSets);
+    const finished = nextSlot === undefined;
     const rest = restForSet(context.block, context.exercise);
 
     if (rest) {
-      activeRest = restSpecFrom(rest);
+      activeRest = { spec: restSpecFrom(rest), upNext: upNextForSetLogged(context, nextSlot) };
       advanceAfterRest = finished;
     } else if (finished) {
       advance();
     }
+  }
+
+  /**
+   * The rest overlay's up-next card (UI-DECISIONS §4) after a set is logged. Two cases:
+   *
+   * - The exercise isn't finished — "next" is the next slot of the *same* exercise,
+   *   formatted the same way `LogStrip`'s own context line is, plus the weight the strip
+   *   would pre-fill for that slot (already resolved here for the currently-open
+   *   exercise, so reusing it costs nothing extra).
+   * - The exercise IS finished — "next" is whatever auto-advance (`nextExerciseKey`)
+   *   would open once this rest is dismissed, named by its own target line. Scoped from
+   *   `context.key` exactly like `advance()` itself, so the preview can never name a
+   *   different exercise than the one that actually opens.
+   */
+  function upNextForSetLogged(
+    context: {
+      block: ResolvedBlock;
+      prescribed: ResolvedExercise;
+      exercise: ResolvedExercise;
+      key: string;
+      shownSets: number;
+    },
+    nextSlot: SetSlot | undefined,
+  ): UpNext {
+    if (nextSlot) {
+      const weight = prefillFor(
+        context.exercise.slug,
+        context.exercise.perSide,
+        nextSlot.side,
+      ).weightKg;
+      return {
+        label: context.exercise.name,
+        target: formatUpNextSlot(
+          context.block,
+          nextSlot,
+          context.shownSets,
+          context.exercise,
+          weight,
+        ),
+      };
+    }
+    const next = exerciseAt(nextExerciseKey(data.session, doneExercises, context.key));
+    return next
+      ? { label: next.exercise.name, target: formatTarget(next.exercise) }
+      : upNextFallback();
   }
 
   function onRestDismissed(): void {
@@ -353,10 +437,17 @@
     const round = (completedRounds.get(block.key) ?? 0) + 1;
     completedRounds.set(block.key, round);
 
-    const rest = restBetweenRounds(block, round);
-    if (rest) activeRest = restSpecFrom(rest);
-
     const top = nextExerciseKey({ blocks: [block] }, doneExercises);
+
+    const rest = restBetweenRounds(block, round);
+    if (rest) {
+      const next = exerciseAt(top);
+      const upNext: UpNext = next
+        ? { label: next.exercise.name, target: formatTarget(next.exercise) }
+        : upNextFallback();
+      activeRest = { spec: restSpecFrom(rest), upNext };
+    }
+
     if (top) openExercise(top);
   }
 
@@ -763,9 +854,12 @@
 {/if}
 
 {#if activeRest}
-  <!-- Both dismissals count the same for auto-advance: a rest that ran out and a rest the
-       user cut short are equally "the rest is over". -->
-  <RestTimer spec={activeRest} onDone={onRestDismissed} onSkip={onRestDismissed} />
+  {@const rest = activeRest}
+  <!-- UI-DECISIONS §4: both escapes stay user-initiated — +30s and "start the next set
+       early" (`onSkip`, wired to the same dismissal `advanceAfterRest` reads). There is
+       no auto-dismiss: rest never ends on its own, only on a deliberate tap, so
+       `onRestDismissed` has exactly one caller. -->
+  <RestTimer spec={rest.spec} upNext={rest.upNext} onSkip={onRestDismissed} />
 {/if}
 
 {#if deviationTarget && workoutId}
