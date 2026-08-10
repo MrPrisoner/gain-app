@@ -120,6 +120,31 @@
     return raw === "easy" || raw === "medium" || raw === "hard" ? raw : undefined;
   }
 
+  /**
+   * UI-DECISIONS §2: tapping an effort key logs the set — and *only* tapping an effort
+   * key does. HTML implicit submission would otherwise break that: pressing Go/Enter on a
+   * phone keyboard while a dial input has focus fires a click at the form's default
+   * button, which is the first submit button in tree order — the Easy key. The set would
+   * log at an effort the user never chose, and the ledger is read-only with no delete, so
+   * there is no undoing it. Enter dismisses the keyboard instead, which is what it should
+   * have done anyway.
+   */
+  function onDialKeydown(event: KeyboardEvent & { currentTarget: HTMLInputElement }): void {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    event.currentTarget.blur();
+  }
+
+  /**
+   * True from the moment an effort key is tapped until that submission resolves, success
+   * or failure. Without it a second tap inside the round trip lands *after* `onLogged`
+   * has advanced the cursor, writing a real set against N+1 that the user never
+   * performed — and with a fresh `client_id` for a genuinely different slot, so `logSet`'s
+   * idempotency cannot catch it. The old per-set rows got this for free by disabling
+   * themselves once logged; one shared strip has to hold the flag itself.
+   */
+  let submitting = $state(false);
+
   const efforts = [
     { level: "easy", label: "Easy" },
     { level: "medium", label: "Medium" },
@@ -144,7 +169,7 @@
     <form
       method="POST"
       action="?/logSet"
-      use:enhance={({ formData }) => {
+      use:enhance={({ formData, cancel }) => {
         // Bug 9: the ledger renders from what was submitted, read straight off the
         // outgoing FormData — not from the pre-fill the steppers happened to start at.
         const submitted: LoggedSet = {
@@ -154,10 +179,24 @@
           difficulty: difficultyFrom(formData),
         };
         const loggedSlot = slot;
+
+        // Nothing writes a set without an effort on it (§2), and nothing writes a second
+        // one while the first is still in flight — the `disabled` below closes the second
+        // window a frame later than the tap does, so it is re-checked here.
+        if (submitting || submitted.difficulty === undefined || !loggedSlot) {
+          cancel();
+          return;
+        }
+        submitting = true;
+
         return async ({ result }: { result: ActionResult }) => {
-          await applyAction(result);
-          onResult(result);
-          if (result.type === "success" && loggedSlot) onLogged(loggedSlot, submitted);
+          try {
+            await applyAction(result);
+            onResult(result);
+            if (result.type === "success") onLogged(loggedSlot, submitted);
+          } finally {
+            submitting = false;
+          }
         };
       }}
     >
@@ -185,6 +224,7 @@
                 aria-label="Seconds held"
                 value={durationValue}
                 oninput={(event) => setField("durationS", event.currentTarget.value)}
+                onkeydown={onDialKeydown}
               />
               <span class="dial-u">sec</span>
             </span>
@@ -212,6 +252,7 @@
                 aria-label="Reps"
                 value={repsValue}
                 oninput={(event) => setField("reps", event.currentTarget.value)}
+                onkeydown={onDialKeydown}
               />
               <span class="dial-u">reps</span>
             </span>
@@ -240,6 +281,7 @@
                   aria-label="Load in total kilograms"
                   value={weightValue}
                   oninput={(event) => setField("weightKg", event.currentTarget.value)}
+                  onkeydown={onDialKeydown}
                 />
                 <span class="dial-u">kg total</span>
               </span>
@@ -259,7 +301,13 @@
            plan is usually trying to produce. -->
       <div class="efforts">
         {#each efforts as effort, i (effort.level)}
-          <button type="submit" name="difficulty" value={effort.level} class="effort-key">
+          <button
+            type="submit"
+            name="difficulty"
+            value={effort.level}
+            class="effort-key"
+            disabled={submitting}
+          >
             <span class="effort-name">{effort.label}</span>
             <span class="effort-fill">
               {#each [0, 1, 2] as seg (seg)}
@@ -400,6 +448,9 @@
     background: var(--raised);
     border-radius: var(--r-md);
     padding: 0.4rem 0.2rem;
+  }
+  .effort-key:disabled {
+    opacity: 0.55;
   }
   .effort-name {
     font-size: 0.85rem;
