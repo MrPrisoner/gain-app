@@ -18,69 +18,16 @@
  * `GAIN_DEV_USER` bypass mode (see `session-runner.spec.ts`) means no auth setup here.
  */
 
-import { expect, test, type Page } from "@playwright/test";
-import { E2E_PLAN_SLUG, seededDataDir } from "./env";
-import { dismissPreSessionPrompt } from "./helpers";
-import { openSeededUserDb } from "./seed";
-
-/** The exercise row currently expanded — there is exactly one (UI-DECISIONS §1). */
-function openExercise(page: Page) {
-  return page.locator(".exercise.open");
-}
-
-/** Taps the strip's Medium key and waits for the round trip to settle. The strip's
- * context line names exactly what the *next* tap writes, so it always changes once a
- * set lands. */
-async function logSet(page: Page): Promise<void> {
-  const context = page.locator(".log-strip .strip-set");
-  const before = await context.innerText();
-  await page.locator('.log-strip button[value="medium"]').click();
-  await expect(context).not.toHaveText(before);
-}
-
-/** Logs a set and clears whatever rest overlay it fires, so the strip is tappable again
- * — most sets in this fixture declare `rest_sec`, so this is the routine path through
- * the whole walkthrough. */
-async function logSetThroughRest(page: Page): Promise<void> {
-  await logSet(page);
-  const rest = page.locator(".rest-overlay");
-  if (await rest.isVisible()) {
-    await rest.getByRole("button", { name: "Start next set" }).click();
-    await expect(rest).toHaveCount(0);
-  }
-}
-
-/** The workout's `client_id` — the page mints it and keeps it in `sessionStorage`, and
- * it is the only handle a spec has on *its own* workout in the shared database. */
-async function workoutClientId(page: Page, sessionKey: string): Promise<string> {
-  const key = `gain:workout:${E2E_PLAN_SLUG}:${sessionKey}`;
-  const clientId = await page.evaluate((k) => sessionStorage.getItem(k), key);
-  expect(clientId, "the runner must have stored a workout client_id").toBeTruthy();
-  return clientId as string;
-}
-
-type SetLogRow = { set_no: number; side: string | null; slug: string };
-
-/** Every `set_log` row of one workout, in insertion order, with its exercise's slug —
- * same query shape `session-runner-resume.spec.ts` uses. `id` is a ULID, so ordering by
- * it is ordering by creation time. */
-function setLogsOf(clientId: string): SetLogRow[] {
-  const db = openSeededUserDb(seededDataDir());
-  try {
-    return db
-      .prepare(
-        `SELECT s.set_no AS set_no, s.side AS side, e.slug AS slug
-         FROM set_log s
-         JOIN exercise_def e ON e.id = s.exercise_def_id
-         JOIN workout w ON w.id = s.workout_id
-         WHERE w.client_id = ?
-         ORDER BY s.id`,
-      )
-      .all(clientId) as SetLogRow[];
-  } finally {
-    db.close();
-  }
-}
+import { expect, test } from "@playwright/test";
+import { E2E_PLAN_SLUG } from "./env";
+import {
+  dismissPreSessionPrompt,
+  logSet,
+  logSetThroughRest,
+  openExercise,
+  setLogsOf,
+  workoutClientId,
+} from "./helpers";
 
 test("Session A end-to-end: warm-up, four working exercises, per-side, rest, a deviation, core, wrap-up", async ({
   page,
@@ -203,7 +150,9 @@ test("Session A end-to-end: warm-up, four working exercises, per-side, rest, a d
 
   await page.getByRole("button", { name: "Finish session" }).click();
   await page.waitForURL(/\/$/);
-  await expect(page.getByRole("heading", { name: "4-Week Home Dumbbell Training Plan" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "4-Week Home Dumbbell Training Plan" }),
+  ).toBeVisible();
 
   // The finished workout: the full 18 working sets (6 main + 6 added + 12? — see the
   // spec's own arithmetic below), never duplicated by the reload above.

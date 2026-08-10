@@ -16,63 +16,16 @@
  * `GAIN_DEV_USER` bypass mode (see `session-runner.spec.ts`) means no auth setup here.
  */
 
-import { expect, test, type Page } from "@playwright/test";
-import { E2E_PLAN_SLUG, seededDataDir } from "./env";
-import { dismissPreSessionPrompt } from "./helpers";
-import { openSeededUserDb } from "./seed";
-
-/** The exercise row currently expanded — there is exactly one (UI-DECISIONS §1). */
-function openExercise(page: Page) {
-  return page.locator(".exercise.open");
-}
-
-/** Taps the strip's Medium key, then clears any rest overlay the set fired. */
-async function logSet(page: Page): Promise<void> {
-  const context = page.locator(".log-strip .strip-set");
-  const before = await context.innerText();
-  await page.locator('.log-strip button[value="medium"]').click();
-  await expect(context).not.toHaveText(before);
-
-  const rest = page.locator(".rest-overlay");
-  if (await rest.isVisible()) {
-    await rest.getByRole("button", { name: "Start next set" }).click();
-    await expect(rest).toHaveCount(0);
-  }
-}
-
-/** The workout's `client_id` — the page mints it and keeps it here, and it is the only
- * handle a spec has on *its own* workout in the shared database. */
-async function workoutClientId(page: Page, sessionKey: string): Promise<string> {
-  const key = `gain:workout:${E2E_PLAN_SLUG}:${sessionKey}`;
-  const clientId = await page.evaluate((k) => sessionStorage.getItem(k), key);
-  expect(clientId, "the runner must have stored a workout client_id").toBeTruthy();
-  return clientId as string;
-}
-
-type SetLogRow = { set_no: number; side: string | null; slug: string };
-
-/** Every `set_log` row of one workout, in insertion order, with its exercise's slug. */
-function setLogsOf(clientId: string): { workouts: number; sets: SetLogRow[] } {
-  const db = openSeededUserDb(seededDataDir());
-  try {
-    const { n } = db.prepare("SELECT COUNT(*) AS n FROM workout WHERE client_id = ?").get(clientId) as {
-      n: number;
-    };
-    const sets = db
-      .prepare(
-        `SELECT s.set_no AS set_no, s.side AS side, e.slug AS slug
-         FROM set_log s
-         JOIN exercise_def e ON e.id = s.exercise_def_id
-         JOIN workout w ON w.id = s.workout_id
-         WHERE w.client_id = ?
-         ORDER BY s.id`,
-      )
-      .all(clientId) as SetLogRow[];
-    return { workouts: n, sets };
-  } finally {
-    db.close();
-  }
-}
+import { expect, test } from "@playwright/test";
+import { E2E_PLAN_SLUG } from "./env";
+import {
+  dismissPreSessionPrompt,
+  logSetThroughRest,
+  openExercise,
+  setLogsOf,
+  workoutClientId,
+  workoutCountFor,
+} from "./helpers";
 
 test("a reload restores the ledger and leaves the cursor on the next unlogged set", async ({
   page,
@@ -83,8 +36,8 @@ test("a reload restores the ledger and leaves the cursor on the next unlogged se
   await expect(openExercise(page).locator(".exercise-name")).toHaveText("Goblet squat");
 
   // Goblet squat is 3 sets, so two logged leaves the cursor on set 3.
-  await logSet(page);
-  await logSet(page);
+  await logSetThroughRest(page);
+  await logSetThroughRest(page);
   await expect(page.locator(".log-strip .strip-set")).toContainText("Set 3 of 3");
 
   const clientId = await workoutClientId(page, "A");
@@ -98,9 +51,10 @@ test("a reload restores the ledger and leaves the cursor on the next unlogged se
   await expect(page.locator(".log-strip .strip-set")).toContainText("Set 3 of 3");
 
   // Same workout row, and exactly the two sets that were performed.
-  const afterReload = setLogsOf(clientId);
-  expect(afterReload.workouts, "the reload must resume the workout, not start a second").toBe(1);
-  expect(afterReload.sets).toEqual([
+  expect(workoutCountFor(clientId), "the reload must resume the workout, not start a second").toBe(
+    1,
+  );
+  expect(setLogsOf(clientId)).toEqual([
     { set_no: 1, side: null, slug: "goblet-squat" },
     { set_no: 2, side: null, slug: "goblet-squat" },
   ]);
@@ -108,8 +62,8 @@ test("a reload restores the ledger and leaves the cursor on the next unlogged se
   // Logging on from where the reload left off adds set 3 and re-writes neither of the
   // first two — the cursor is what makes that impossible, since a fresh `client_id` on a
   // re-offered set 1 would have written a second row for it.
-  await logSet(page);
-  expect(setLogsOf(clientId).sets).toEqual([
+  await logSetThroughRest(page);
+  expect(setLogsOf(clientId)).toEqual([
     { set_no: 1, side: null, slug: "goblet-squat" },
     { set_no: 2, side: null, slug: "goblet-squat" },
     { set_no: 3, side: null, slug: "goblet-squat" },
@@ -145,7 +99,9 @@ test("a reload restores a skip and the wrap-up's already-answered metrics", asyn
   // And the wrap-up does not re-ask something already answered.
   await page.getByRole("button", { name: "End session" }).click();
   await expect(
-    page.locator("fieldset", { hasText: "Lower-back symptoms during session" }).locator(".scale-cell.selected"),
+    page
+      .locator("fieldset", { hasText: "Lower-back symptoms during session" })
+      .locator(".scale-cell.selected"),
   ).toHaveText("4");
 });
 

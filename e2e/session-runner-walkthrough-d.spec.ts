@@ -26,35 +26,14 @@
  */
 
 import { expect, test, type Page } from "@playwright/test";
-import { E2E_PLAN_SLUG, seededDataDir } from "./env";
-import { dismissPreSessionPrompt } from "./helpers";
-import { openSeededUserDb } from "./seed";
-
-/** The exercise row currently expanded — there is exactly one (UI-DECISIONS §1). */
-function openExercise(page: Page) {
-  return page.locator(".exercise.open");
-}
-
-/** Taps the strip's Medium key and waits for the round trip to settle. */
-async function logSet(page: Page): Promise<void> {
-  const context = page.locator(".log-strip .strip-set");
-  const before = await context.innerText();
-  await page.locator('.log-strip button[value="medium"]').click();
-  await expect(context).not.toHaveText(before);
-}
-
-/** Logs a set and clears whatever rest overlay it fires. A `type: rounds` block (the
- * abdominal finisher) never fires a per-set rest (only between rounds), so this is a
- * no-op there — used uniformly anyway so callers don't need to know which block they're
- * in. */
-async function logSetThroughRest(page: Page): Promise<void> {
-  await logSet(page);
-  const rest = page.locator(".rest-overlay");
-  if (await rest.isVisible()) {
-    await rest.getByRole("button", { name: "Start next set" }).click();
-    await expect(rest).toHaveCount(0);
-  }
-}
+import { E2E_PLAN_SLUG } from "./env";
+import {
+  dismissPreSessionPrompt,
+  logSetThroughRest,
+  openExercise,
+  setLogsOf,
+  workoutClientId,
+} from "./helpers";
 
 /** Skips the currently open exercise via the deviation sheet's default gesture. Used
  * here to move quickly through the main-block exercises this spec's assertions are not
@@ -66,34 +45,6 @@ async function skipCurrent(page: Page): Promise<void> {
   await expect(sheet).toBeVisible();
   await sheet.locator("button[type=submit]").click();
   await expect(sheet).toHaveCount(0);
-}
-
-async function workoutClientId(page: Page, sessionKey: string): Promise<string> {
-  const key = `gain:workout:${E2E_PLAN_SLUG}:${sessionKey}`;
-  const clientId = await page.evaluate((k) => sessionStorage.getItem(k), key);
-  expect(clientId, "the runner must have stored a workout client_id").toBeTruthy();
-  return clientId as string;
-}
-
-type SetLogRow = { set_no: number; side: string | null; slug: string };
-
-/** Every `set_log` row of one workout, in insertion order, with its exercise's slug. */
-function setLogsOf(clientId: string): SetLogRow[] {
-  const db = openSeededUserDb(seededDataDir());
-  try {
-    return db
-      .prepare(
-        `SELECT s.set_no AS set_no, s.side AS side, e.slug AS slug
-         FROM set_log s
-         JOIN exercise_def e ON e.id = s.exercise_def_id
-         JOIN workout w ON w.id = s.workout_id
-         WHERE w.client_id = ?
-         ORDER BY s.id`,
-      )
-      .all(clientId) as SetLogRow[];
-  } finally {
-    db.close();
-  }
 }
 
 test("Session D end-to-end: ranged optional third, the two-round abdominal finisher, the reverse-crunch swap", async ({
@@ -118,7 +69,9 @@ test("Session D end-to-end: ranged optional third, the two-round abdominal finis
   // it is dismissed (UI-DECISIONS §1), before there is any chance to tap the button. ---
   await expect(openExercise(page).locator(".exercise-name")).toHaveText("Dumbbell floor press");
   await expect(openExercise(page).locator(".ledger-row")).toHaveCount(2);
-  await expect(openExercise(page).getByRole("button", { name: "Add the optional set" })).toBeVisible();
+  await expect(
+    openExercise(page).getByRole("button", { name: "Add the optional set" }),
+  ).toBeVisible();
   await openExercise(page).getByRole("button", { name: "Add the optional set" }).click();
   await expect(openExercise(page).locator(".ledger-row")).toHaveCount(3);
   await logSetThroughRest(page); // set 1
@@ -138,7 +91,9 @@ test("Session D end-to-end: ranged optional third, the two-round abdominal finis
   await skipCurrent(page);
   await expect(openExercise(page).locator(".exercise-name")).toHaveText("Hammer curl");
   await skipCurrent(page);
-  await expect(openExercise(page).locator(".exercise-name")).toHaveText("Overhead triceps extension");
+  await expect(openExercise(page).locator(".exercise-name")).toHaveText(
+    "Overhead triceps extension",
+  );
   await skipCurrent(page);
 
   // --- Abdominal finisher: `type: rounds, rounds: 2`. Round 1. ---
@@ -206,33 +161,11 @@ test("Session D end-to-end: ranged optional third, the two-round abdominal finis
 
   // --- The load-bearing check: query the database directly. ---
   const clientId = await workoutClientId(page, "D");
-  const db = openSeededUserDb(seededDataDir());
-  let deadBugRows: SetLogRow[];
-  let reverseCrunchCount: number;
-  try {
-    deadBugRows = db
-      .prepare(
-        `SELECT s.set_no AS set_no, s.side AS side, e.slug AS slug
-         FROM set_log s
-         JOIN exercise_def e ON e.id = s.exercise_def_id
-         JOIN workout w ON w.id = s.workout_id
-         WHERE w.client_id = ? AND e.slug = 'dead-bug'
-         ORDER BY s.id`,
-      )
-      .all(clientId) as SetLogRow[];
-    const { n } = db
-      .prepare(
-        `SELECT COUNT(*) AS n
-         FROM set_log s
-         JOIN exercise_def e ON e.id = s.exercise_def_id
-         JOIN workout w ON w.id = s.workout_id
-         WHERE w.client_id = ? AND e.slug = 'reverse-crunch'`,
-      )
-      .get(clientId) as { n: number };
-    reverseCrunchCount = n;
-  } finally {
-    db.close();
-  }
+  // `setLogsOf` already returns this workout's rows in insertion order with their slugs;
+  // the two counts below are a filter over that, not two more bespoke queries.
+  const rows = setLogsOf(clientId);
+  const deadBugRows = rows.filter((row) => row.slug === "dead-bug");
+  const reverseCrunchCount = rows.filter((row) => row.slug === "reverse-crunch").length;
 
   // 4 rows from the block's own directly-prescribed `dead-bug` (2 rounds × L/R) plus 4
   // from the swapped-in substitute (2 rounds × L/R) — every set logged against the
@@ -285,5 +218,7 @@ test("Session D end-to-end: ranged optional third, the two-round abdominal finis
 
   await page.getByRole("button", { name: "Finish session" }).click();
   await page.waitForURL(/\/$/);
-  await expect(page.getByRole("heading", { name: "4-Week Home Dumbbell Training Plan" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "4-Week Home Dumbbell Training Plan" }),
+  ).toBeVisible();
 });

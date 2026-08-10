@@ -20,7 +20,7 @@
 
 import { expect, test, type Page } from "@playwright/test";
 import { E2E_PLAN_SLUG } from "./env";
-import { dismissPreSessionPrompt } from "./helpers";
+import { dismissPreSessionPrompt, logSet, logSetThroughRest, openExercise } from "./helpers";
 
 /** The `exercise_slug` field of every `?/logSet` POST that leaves the browser. */
 async function captureLoggedSlugs(page: Page): Promise<string[]> {
@@ -36,25 +36,10 @@ async function captureLoggedSlugs(page: Page): Promise<string[]> {
   return slugs;
 }
 
-/** The exercise row currently expanded — there is exactly one (UI-DECISIONS §1). */
-function openExercise(page: Page) {
-  return page.locator(".exercise.open");
-}
-
 /** Opens a collapsed row by its rendered name. */
 async function open(page: Page, name: string): Promise<void> {
   await page.locator(".exercise-head", { hasText: name }).first().click();
   await expect(openExercise(page).locator(".exercise-name")).toHaveText(name);
-}
-
-/** Taps the strip's Medium key and waits for the round trip to settle. The strip's context
- * line names exactly what the *next* tap writes, so it always changes once a set lands —
- * whether the cursor moved within the exercise or auto-advance moved to the next one. */
-async function logSet(page: Page): Promise<void> {
-  const context = page.locator(".log-strip .strip-set");
-  const before = await context.innerText();
-  await page.locator('.log-strip button[value="medium"]').click();
-  await expect(context).not.toHaveText(before);
 }
 
 test("finishing an exercise opens the next one in prescribed order", async ({ page }) => {
@@ -116,16 +101,6 @@ test("a skip collapses the exercise, says so, and advances", async ({ page }) =>
   await expect(squat).not.toHaveClass(/open/);
   await expect(openExercise(page).locator(".exercise-name")).toHaveText("Dumbbell floor press");
 });
-
-/** Logs a set and clears the rest overlay it fires, so the strip is tappable again. */
-async function logSetThroughRest(page: Page): Promise<void> {
-  await logSet(page);
-  const rest = page.locator(".rest-overlay");
-  if (await rest.isVisible()) {
-    await rest.getByRole("button", { name: "Start next set" }).click();
-    await expect(rest).toHaveCount(0);
-  }
-}
 
 /** Opens the deviation sheet on whatever exercise is currently expanded. */
 async function openDeviationSheet(page: Page) {

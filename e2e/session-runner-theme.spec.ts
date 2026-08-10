@@ -14,7 +14,7 @@
 
 import { expect, test, type Page } from "@playwright/test";
 import { E2E_PLAN_SLUG } from "./env";
-import { dismissPreSessionPrompt } from "./helpers";
+import { assertNoHorizontalOverflow, dismissPreSessionPrompt } from "./helpers";
 
 test.use({ viewport: { width: 360, height: 800 } });
 
@@ -102,12 +102,6 @@ async function openWithLoggedSet(page: Page): Promise<void> {
   await expect(page.locator(".log-strip .strip-set")).toContainText("Set 2 of 3");
 }
 
-async function assertNoHorizontalOverflow(page: Page): Promise<void> {
-  const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
-  const innerWidth = await page.evaluate(() => window.innerWidth);
-  expect(scrollWidth, "no horizontal overflow, ever").toBeLessThanOrEqual(innerWidth);
-}
-
 test("prefers-color-scheme: dark (the default, no override)", async ({ page }, testInfo) => {
   await page.emulateMedia({ colorScheme: "dark" });
   await openWithLoggedSet(page);
@@ -127,10 +121,9 @@ test("prefers-color-scheme: dark (the default, no override)", async ({ page }, t
 test("prefers-color-scheme: light (the default, no override)", async ({ page }, testInfo) => {
   await page.emulateMedia({ colorScheme: "light" });
   await openWithLoggedSet(page);
-  expect(
-    await bodyGround(page),
-    "prefers-color-scheme: light must render the light palette",
-  ).toBe(GROUND.light);
+  expect(await bodyGround(page), "prefers-color-scheme: light must render the light palette").toBe(
+    GROUND.light,
+  );
   await assertNoHorizontalOverflow(page);
   await page.screenshot({
     path: testInfo.outputPath("theme-360-prefers-light.png"),

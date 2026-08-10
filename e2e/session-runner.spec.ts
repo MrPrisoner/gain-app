@@ -15,7 +15,7 @@
 
 import { expect, test } from "@playwright/test";
 import { E2E_PLAN_SLUG, E2E_SESSION_KEYS } from "./env";
-import { dismissPreSessionPrompt } from "./helpers";
+import { assertNoHorizontalOverflow, dismissPreSessionPrompt } from "./helpers";
 
 for (const sessionKey of E2E_SESSION_KEYS) {
   test(`session ${sessionKey} has no horizontal overflow`, async ({ page }, testInfo) => {
@@ -39,12 +39,7 @@ for (const sessionKey of E2E_SESSION_KEYS) {
     // screen may be wider than the viewport, at any viewport. Expected to
     // fail on this branch (the phase-4 remediation plan's Task 4 defect);
     // it must pass once Task 4 lands.
-    const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
-    const innerWidth = await page.evaluate(() => window.innerWidth);
-    expect(
-      scrollWidth,
-      "document.documentElement.scrollWidth must not exceed window.innerWidth — no horizontal overflow, ever",
-    ).toBeLessThanOrEqual(innerWidth);
+    await assertNoHorizontalOverflow(page);
   });
 }
 
@@ -76,21 +71,8 @@ test("the wrap-up's scale metrics render as one row, with no horizontal overflow
     ).toBe(1);
   }
 
-  const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
-  const innerWidth = await page.evaluate(() => window.innerWidth);
-  expect(scrollWidth, "the wrap-up sheet must not force horizontal overflow").toBeLessThanOrEqual(
-    innerWidth,
-  );
+  await assertNoHorizontalOverflow(page);
 });
-
-/** `document.documentElement.scrollWidth` must never exceed `window.innerWidth`, same
- * assertion the two tests above make — extracted here since Task 11 adds two more
- * overlay states that need exactly the same check. */
-async function assertNoHorizontalOverflow(page: import("@playwright/test").Page): Promise<void> {
-  const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
-  const innerWidth = await page.evaluate(() => window.innerWidth);
-  expect(scrollWidth, "no horizontal overflow, ever").toBeLessThanOrEqual(innerWidth);
-}
 
 // Task 11 (phase-4 remediation): the base runner and the wrap-up sheet were already
 // covered (above); the deviation sheet and the rest overlay were not. Both are
