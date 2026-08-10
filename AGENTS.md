@@ -5,7 +5,7 @@ else that reads this file. It is the single source of truth; `CLAUDE.md` points 
 
 ## Current state
 
-**Phases 1–3 are done.** Phase 1 is the pure round-trip core: contract schema
+**Phases 1–4 are done.** Phase 1 is the pure round-trip core: contract schema
 (`src/lib/contract/`), parser (`src/lib/parse/`), diff engine (`src/lib/diff/`), export
 generator (`src/lib/export/`) and both prompt templates (`src/lib/templates/`) — pure
 functions over plain data, no I/O. Phase 2 is the storage layer (`src/lib/db/`): the
@@ -14,8 +14,15 @@ import review — import writes a version, and a second import produces a correc
 Phase 3 is the web app: SvelteKit scaffolded at the repo root, OIDC auth against
 Authentik with the group gate, sessions in `control.db`, the container (`Dockerfile`,
 `compose.yaml`), and first run — empty state → bootstrap prompt out → paste a plan in →
-commit. The session runner (phase 4) is next; phases 4–7 have not started, and the
-build-order table in ARCHITECTURE §12 is the map.
+commit. Phase 4 is the session runner (`src/routes/plan/[slug]/session/[key]/`): it logs a
+full session of the real fixture plan on a phone — warm-up checkoff, the pinned log strip,
+per-side and ranged-set exercises, rest timers, rounds blocks, skip/substitute/add-set/
+drop-set deviations, a reload that resumes ledger and cursor rather than just the workout
+row, the pre-session and wrap-up metric prompts, and a red-flag stop — which is phase 4's
+own "done when" (ARCHITECTURE §12). `e2e/session-runner-walkthrough-a.spec.ts` and
+`e2e/session-runner-walkthrough-d.spec.ts` walk both fixture sessions end-to-end as the
+durable proof of that. Phase 5 (offline PWA: IndexedDB, sync queue, idempotency) is next;
+phases 5–7 have not started, and the build-order table in ARCHITECTURE §12 is the map.
 
 Commands (Node 24 LTS — see `.nvmrc` and the `engines` field):
 
