@@ -27,6 +27,7 @@
     type ResolvedExercise,
     type SetSlot,
   } from "$lib/session/session-view";
+  import type { SessionHydration } from "$lib/session/resume";
   import type { DeviationKind } from "$lib/logs/types";
   import { formatLastPerformance } from "$lib/session/prefill";
   import RestTimer from "./RestTimer.svelte";
@@ -39,7 +40,10 @@
   // The workout row is created once per session attempt and kept in sessionStorage so
   // a reload resumes the same row via its client_id instead of starting a new one
   // (Global Constraints: phase 4 has no IndexedDB, so surviving a full browser kill is
-  // out of scope — surviving a reload is not).
+  // out of scope — surviving a reload is not). The `?/start` action below answers that
+  // same idempotent lookup with everything the workout has already written, which
+  // `applyHydration` pours back into the maps declared here — so a reload keeps the
+  // ledger, the cursor, the skips, the swaps and the wrap-up's answers, not just the row.
   const storageKey = `gain:workout:${data.planSlug}:${data.session.key}`;
   let workoutClientId = $state(
     typeof sessionStorage !== "undefined"
@@ -413,6 +417,41 @@
       );
     }
   }
+
+  /**
+   * A resumed workout's own rows, reconstructed server-side (`$lib/session/resume`) and
+   * poured into the very same maps the live interactive paths above fill — so nothing
+   * downstream (the ledger, `openContext`'s cursor, `doneExercises`, the wrap-up sheet)
+   * needs to know whether a workout was resumed or started fresh.
+   *
+   * Substitutes arrive as bare slugs and go through `applySubstitute`, the same function a
+   * live swap uses, rather than as pre-resolved exercises from the server: `resolveSubstitute`
+   * is pure and the catalogue is already here (`data.catalogue`/`data.loads`), so resolving
+   * it twice in two places is how the two copies drift.
+   */
+  function applyHydration(hydration: SessionHydration): void {
+    for (const { key, logged } of hydration.loggedSets) loggedSets.set(key, logged);
+    for (const key of hydration.skipped) skippedExercises.add(key);
+    for (const { key, delta } of hydration.setCountDelta) setCountDelta.set(key, delta);
+    for (const { blockKey, rounds } of hydration.completedRounds) {
+      completedRounds.set(blockKey, rounds);
+    }
+    for (const { key, value } of hydration.sessionMetrics) sessionMetricValues.set(key, value);
+
+    for (const { blockKey, prescribedSlug, substituteSlug } of hydration.substitutes) {
+      const prescribed = data.session.blocks
+        .find((block) => block.key === blockKey)
+        ?.exercises.find((exercise) => exercise.slug === prescribedSlug);
+      if (prescribed) applySubstitute(blockKey, prescribed, substituteSlug);
+    }
+
+    // Resuming onto a finished first exercise and showing its "every set logged" strip
+    // would make the user hunt for where they were — the same thing auto-advance exists to
+    // prevent. Search from the top rather than from `openSlug`, which is still the default
+    // first exercise at this point.
+    const next = nextExerciseKey(data.session, doneExercises);
+    if (next) openSlug = next;
+  }
 </script>
 
 <svelte:head>
@@ -429,6 +468,9 @@
       afterAction(result);
       if (result.type === "success" && result.data?.workoutId) {
         workoutId = result.data.workoutId as string;
+        // Only ever present when the idempotent lookup resumed an existing workout.
+        const hydration = result.data.hydration as SessionHydration | undefined;
+        if (hydration) applyHydration(hydration);
       }
     };
   }}

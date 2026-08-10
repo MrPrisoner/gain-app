@@ -61,11 +61,22 @@ export type LogDeviationInput = {
   clientId: string;
 };
 
-/** Start (or, on replay, resume) a workout. Created with status `partial` — see the
- * plan's Global Constraints on why the schema has no "in progress" state. */
-export function startWorkout(userDb: UserDb, input: StartWorkoutInput): { id: string } {
+/**
+ * Start (or, on replay, resume) a workout. Created with status `partial` — see the
+ * plan's Global Constraints on why the schema has no "in progress" state.
+ *
+ * `resumed` distinguishes the two: the idempotent lookup found a workout already started
+ * against this `client_id`, so it may already have rows the caller needs to read back
+ * (`workoutHistoryFor`) rather than a brand-new empty one. Which of the two it was is
+ * something only this function can know, and knowing it saves the resume path's callers
+ * three queries and a contract parse on every fresh start.
+ */
+export function startWorkout(
+  userDb: UserDb,
+  input: StartWorkoutInput,
+): { id: string; resumed: boolean } {
   const existing = selectByClientId(userDb, "workout", input.clientId);
-  if (existing) return { id: existing };
+  if (existing) return { id: existing, resumed: true };
 
   const id = newId();
   userDb.db
@@ -74,7 +85,7 @@ export function startWorkout(userDb: UserDb, input: StartWorkoutInput): { id: st
        VALUES (?, ?, ?, ?, 'partial', ?)`,
     )
     .run(id, input.planVersionId, input.sessionKey, input.now.toISOString(), input.clientId);
-  return { id };
+  return { id, resumed: false };
 }
 
 export function finishWorkout(userDb: UserDb, input: FinishWorkoutInput): void {

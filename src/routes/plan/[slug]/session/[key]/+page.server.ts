@@ -14,10 +14,14 @@ import {
   getCurrentVersion,
   getExerciseDefIdBySlug,
   getPlanBySlug,
+  type PlanVersionRow,
 } from "$lib/db/read";
 import { recentSetLogsForExercise } from "$lib/db/recent-sets";
+import { workoutHistoryFor } from "$lib/db/workout-history";
 import { finishWorkout, logDeviation, logMetric, logSet, startWorkout } from "$lib/db/workout";
+import type { UserDb } from "$lib/db/user-db";
 import { pickPrefill } from "$lib/session/prefill";
+import { hydrateSession, type SessionHydration } from "$lib/session/resume";
 import {
   exerciseMetrics,
   resolveLoad,
@@ -126,7 +130,21 @@ export const actions: Actions = {
         clientId,
         now: new Date(),
       });
-      return { workoutId: workout.id };
+
+      /**
+       * Resume (Task 6). The page holds the workout's `client_id` in `sessionStorage` and
+       * posts it here on mount, which is already how a reload lands back on the same
+       * workout row rather than starting a second one. `load` runs before that POST and
+       * cannot see the id, so the read-back rides along on this same response: one round
+       * trip, one idempotent lookup, and the same lookup phase 5 will replay through.
+       *
+       * A fresh start has nothing to read back, so it does none of this work.
+       */
+      const hydration = workout.resumed
+        ? hydrateResumedWorkout(userDb, version, params.key, workout.id)
+        : undefined;
+
+      return { workoutId: workout.id, hydration };
     } catch (err) {
       return fail(400, { actionError: err instanceof Error ? err.message : "Invalid request." });
     }
@@ -267,6 +285,24 @@ export const actions: Actions = {
     }
   },
 };
+
+/**
+ * The reconstruction is pure and lives in `$lib/session/resume`; this is only the I/O
+ * around it — resolve the same session `load` resolves, read the workout's own rows back,
+ * hand both to the pure layer. `undefined` when the session key no longer resolves against
+ * the current plan version, which means the runner is showing something the plan no longer
+ * describes; there is nothing honest to hydrate into it.
+ */
+function hydrateResumedWorkout(
+  userDb: UserDb,
+  version: PlanVersionRow,
+  sessionKey: string,
+  workoutId: string,
+): SessionHydration | undefined {
+  const session = resolveSession(contractOfVersion(version), sessionKey);
+  if (!session) return undefined;
+  return hydrateSession(session, workoutHistoryFor(userDb, workoutId));
+}
 
 /** The schema's CHECK constraint on `deviation.kind` (`schema.ts`) — kept in sync by hand
  * with the `DeviationKind` union it validates against. */

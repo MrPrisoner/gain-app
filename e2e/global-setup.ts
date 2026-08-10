@@ -6,9 +6,12 @@
  * already exists on disk for the browser to open.
  */
 
-import { E2E_DATA_DIR, E2E_DEV_USER } from "./env";
+import { E2E_DATA_DIR, E2E_DATA_DIR_VAR, E2E_DEV_USER } from "./env";
 import { seedFixturePlan } from "./seed";
 
 export default function globalSetup(): void {
   seedFixturePlan(E2E_DATA_DIR, E2E_DEV_USER);
+  // Published for the worker processes, which are forked after this runs and would
+  // otherwise re-import `env.ts` and mint an empty temp directory of their own.
+  process.env[E2E_DATA_DIR_VAR] = E2E_DATA_DIR;
 }

@@ -18,6 +18,25 @@ import path from "node:path";
 
 export const E2E_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "gain-e2e-"));
 
+/**
+ * How a *spec* asks for that directory. `E2E_DATA_DIR` above is only correct in the
+ * Playwright root process: a worker process re-imports this module and would mint a
+ * second, empty `mkdtemp` of its own. `globalSetup` publishes the real one through the
+ * environment instead, which workers inherit when they are forked. Specs that read the
+ * seeded `gain.db` directly (`session-runner-resume.spec.ts`) go through here.
+ */
+export const E2E_DATA_DIR_VAR = "GAIN_E2E_DATA_DIR";
+
+export function seededDataDir(): string {
+  const dir = process.env[E2E_DATA_DIR_VAR];
+  if (!dir) {
+    throw new Error(
+      `${E2E_DATA_DIR_VAR} is not set — global setup publishes it, so this is being read outside a Playwright run`,
+    );
+  }
+  return dir;
+}
+
 /** Matches `GAIN_DEV_USER` — the auth bypass (`src/lib/server/config.ts`). */
 export const E2E_DEV_USER = "e2e";
 

@@ -25,6 +25,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import Database from "better-sqlite3";
 import { parsePlanDocument } from "../src/lib/parse/parser";
 import { importPlan } from "../src/lib/db/import-plan";
 import { openUserDb } from "../src/lib/db/user-db";
@@ -78,4 +79,23 @@ export function seedFixturePlan(dataDir: string, devUser: string, now = new Date
   } finally {
     control.close();
   }
+}
+
+/**
+ * A read-only handle on the one seeded user's `gain.db`, for specs that need to assert on
+ * what a form action actually wrote rather than only on what the page draws — Task 6's
+ * "re-logging cannot create a duplicate `(workout, exercise, set_no, side)`" is a claim
+ * about rows, and rendered state cannot make it.
+ *
+ * `seedFixturePlan` provisions exactly one user per data directory, so the single entry
+ * under `users/` is it; the caller does not have to thread `userId` out of global setup.
+ * Opened `readonly` deliberately: a test that can write to the app's database can make its
+ * own assertions come true. Specs must still scope every query to their own workout —
+ * three viewport projects share this one file.
+ */
+export function openSeededUserDb(dataDir: string): Database.Database {
+  const usersDir = path.join(dataDir, "users");
+  const [userId] = fs.readdirSync(usersDir);
+  if (!userId) throw new Error(`no seeded user under ${usersDir}`);
+  return new Database(path.join(usersDir, userId, "gain.db"), { readonly: true });
 }

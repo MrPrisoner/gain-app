@@ -103,8 +103,7 @@
         <label><input type="radio" name="kind" value="substitute" bind:group={kind} /> Swap</label>
       {/if}
       {#if canChangeSetCount}
-        <label
-          ><input type="radio" name="kind" value="add_set" bind:group={kind} /> Add a set</label
+        <label><input type="radio" name="kind" value="add_set" bind:group={kind} /> Add a set</label
         >
         <label
           ><input type="radio" name="kind" value="drop_set" bind:group={kind} /> Drop a set</label
