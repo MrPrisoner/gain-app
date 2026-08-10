@@ -206,6 +206,68 @@ describe("workout write layer", () => {
     expect(count.n).toBe(3);
   });
 
+  it("corrects a session metric in place rather than logging a second answer", () => {
+    const workout = startWorkout(userDb, {
+      planVersionId,
+      sessionKey: "A",
+      clientId: "wk-client-metric-correction",
+      now: NOW,
+    });
+
+    // Each scale cell submits its own form with its own `client_id` (UI-DECISIONS §8), so
+    // a mis-tap and its correction are two distinct writes — the `client_id` check alone
+    // cannot collapse them, and before the upsert both rows survived and both counted in
+    // the export's metric trends.
+    const mistap = logMetric(userDb, {
+      scope: "session",
+      workoutId: workout.id,
+      metricKey: "energy_after",
+      valueNum: 2,
+      clientId: "mv-correction-mistap",
+    });
+    const corrected = logMetric(userDb, {
+      scope: "session",
+      workoutId: workout.id,
+      metricKey: "energy_after",
+      valueNum: 8,
+      clientId: "mv-correction-fixed",
+    });
+    expect(corrected.id, "the correction must land on the same row").toBe(mistap.id);
+
+    // Retry safety still holds on top of that: the same tap arriving twice (a resubmitted
+    // request) is a no-op, not a second update.
+    const replay = logMetric(userDb, {
+      scope: "session",
+      workoutId: workout.id,
+      metricKey: "energy_after",
+      valueNum: 8,
+      clientId: "mv-correction-fixed",
+    });
+    expect(replay.id).toBe(corrected.id);
+
+    const rows = userDb.db
+      .prepare(
+        `SELECT value_num, client_id FROM metric_value
+           WHERE workout_id = ? AND scope = 'session' AND metric_key = 'energy_after'`,
+      )
+      .all(workout.id) as { value_num: number; client_id: string }[];
+    expect(rows).toEqual([{ value_num: 8, client_id: "mv-correction-fixed" }]);
+
+    // A different metric key in the same workout is a different question, so it gets its
+    // own row rather than overwriting the one above.
+    logMetric(userDb, {
+      scope: "session",
+      workoutId: workout.id,
+      metricKey: "sleep_quality",
+      valueNum: 3,
+      clientId: "mv-correction-other-key",
+    });
+    const all = userDb.db
+      .prepare("SELECT COUNT(*) AS n FROM metric_value WHERE workout_id = ? AND scope = 'session'")
+      .get(workout.id) as { n: number };
+    expect(all.n).toBe(2);
+  });
+
   it("rejects a set-scope metric missing setLogId", () => {
     expect(() =>
       logMetric(userDb, {
