@@ -88,9 +88,10 @@ export default tseslint.config(
     },
   },
   {
-    // Type-aware rules, for source only. They need a program, and the config files
-    // at the repo root are not in tsconfig's include.
-    files: ["src/**/*.ts", "tests/**/*.ts"],
+    // Type-aware rules, for everything tsconfig's `include` covers. They need a
+    // program, so the glob and that `include` have to stay in step — the root config
+    // files outside it cannot be linted this way.
+    files: ["src/**/*.ts", "tests/**/*.ts", "e2e/**/*.ts", "playwright.config.ts"],
     extends: [...tseslint.configs.recommendedTypeChecked],
     languageOptions: {
       parserOptions: {
@@ -102,6 +103,8 @@ export default tseslint.config(
   {
     // Tests build deliberately malformed contracts to provoke validation errors,
     // and read rows back out of SQLite, which better-sqlite3 types as `unknown`.
+    // `e2e/**` is deliberately *not* in here: it reads rows back too, but does it
+    // through explicit casts that the type-aware ruleset accepts as written.
     files: ["tests/**/*.ts"],
     rules: {
       "@typescript-eslint/no-explicit-any": "off",

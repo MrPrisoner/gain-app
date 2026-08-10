@@ -25,11 +25,17 @@
   // The generated tsconfig covers src/**; tests and the root config files stay
   // included exactly as before the app existed. svelte-check covers the .svelte
   // files (`npm run check`); tsc itself only ever sees TypeScript.
+  //
+  // `e2e/**` and `playwright.config.ts` are here so the browser suite is typechecked
+  // by `npm run verify` even though it is never *run* by it — a spec that no longer
+  // compiles is a broken test whether or not anyone launched a browser today.
   "include": [
     "src/**/*.ts",
     "src/**/*.js",
     "src/**/*.svelte",
     "tests/**/*.ts",
+    "e2e/**/*.ts",
+    "playwright.config.ts",
     "vite.config.ts",
     "vitest.config.ts",
     "svelte.config.js",

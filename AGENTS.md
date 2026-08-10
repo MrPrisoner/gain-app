@@ -28,6 +28,11 @@ Commands (Node 24 LTS — see `.nvmrc` and the `engines` field):
 
 - `npm install` — dependencies
 - `npm test` — Vitest; includes the golden round-trip test, the project's spine
+- `npm run test:e2e` — Playwright, the session runner in a real browser at three
+  viewports. Needs `npx playwright install chromium` once first (~150MB), which is
+  exactly why it is deliberately kept out of `npm run verify` — CI's few-seconds check
+  never downloads a browser. `e2e/` is still typechecked, linted and formatted by
+  `verify`; it is only never _executed_ by it
 - `npm run typecheck` — strict TypeScript, `tsc --noEmit`; `tsc` never sees `.svelte`
 - `npm run check` — `svelte-check` covers the `.svelte` files typecheck cannot
 - `npm run dev` / `npm run build` — Vite dev server / adapter-node production build
