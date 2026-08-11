@@ -627,19 +627,6 @@
 <header class="runner-head">
   <h1>{data.session.name}</h1>
   {#if data.session.note}<p class="note">{data.session.note}</p>{/if}
-  <button type="button" class="end-session" onclick={() => (showWrapUp = true)}>
-    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-      <path
-        d="M5 3v18M5 4h11l-2.5 4L16 12H5"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      />
-    </svg>
-    End session
-  </button>
 </header>
 
 {#if actionError}
@@ -1001,6 +988,20 @@
         {/if}
       </section>
     {/each}
+
+    <button type="button" class="end-session" onclick={() => (showWrapUp = true)}>
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <path
+          d="M5 3v18M5 4h11l-2.5 4L16 12H5"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+      End session
+    </button>
   </div>
 {/if}
 
@@ -1348,6 +1349,7 @@
   }
   .add-set {
     justify-self: start;
+    margin-top: 0.75rem;
     min-height: 2.75rem;
     border: 1px dashed var(--line);
     background: none;
@@ -1409,7 +1411,7 @@
     font-size: 1.1rem;
   }
   .end-session {
-    margin-top: 0.5rem;
+    justify-self: start;
     min-height: 2.75rem;
     display: inline-flex;
     align-items: center;
