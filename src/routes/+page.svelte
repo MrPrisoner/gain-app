@@ -371,9 +371,19 @@
   }
 
   .session-link {
-    display: inline-block;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.7rem 1rem;
+    border-radius: var(--r-sm);
+    background: var(--accent-soft);
     color: var(--accent);
     font-weight: 700;
+  }
+
+  .session-link:hover {
+    background: var(--hover);
+    text-decoration: none;
   }
 
   .report-card {
