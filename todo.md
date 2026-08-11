@@ -20,6 +20,7 @@ Work from top to bottom. Where it makes sense to combine multiple items (e.g. 2 
 - ~~change the "End session" button to a different colour, maybe a red, shaded to match the app colour theme.~~ done (fc39fe8) — used the accent colour instead of red; UI-DECISIONS §5 reserves red for the symptom scale
 - ~~move the "End session" button to the bottom - it's typically clicked at the end of a session, not at the start.~~ done
 - ~~the "Round 1 of 2 done" needs some spacing between it and the exercise - currently it's pressed together.~~ done
+- ~~The session start buttons look different to the rest of the buttons. Can we change them to look like the "Continue to session" button, keeping the full width though.~~ done
 
 ### Behavior
 

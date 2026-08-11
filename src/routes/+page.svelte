@@ -367,22 +367,20 @@
     display: inline-block;
     min-width: 1.6em;
     font-weight: 800;
-    color: var(--accent);
   }
 
   .session-link {
     display: flex;
     align-items: center;
     gap: 0.4rem;
-    padding: 0.7rem 1rem;
+    padding: 0.7rem 1.25rem;
     border-radius: var(--r-sm);
-    background: var(--accent-soft);
-    color: var(--accent);
+    background: var(--accent);
+    color: var(--accent-in);
     font-weight: 700;
   }
 
   .session-link:hover {
-    background: var(--hover);
     text-decoration: none;
   }
 
