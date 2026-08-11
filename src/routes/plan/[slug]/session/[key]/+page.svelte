@@ -611,7 +611,19 @@
 <header class="runner-head">
   <h1>{data.session.name}</h1>
   {#if data.session.note}<p class="note">{data.session.note}</p>{/if}
-  <button type="button" class="end-session" onclick={() => (showWrapUp = true)}>End session</button>
+  <button type="button" class="end-session" onclick={() => (showWrapUp = true)}>
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+      <path
+        d="M5 3v18M5 4h11l-2.5 4L16 12H5"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    </svg>
+    End session
+  </button>
 </header>
 
 {#if actionError}
@@ -1377,9 +1389,13 @@
   .end-session {
     margin-top: 0.5rem;
     min-height: 2.75rem;
-    border: 1px solid var(--line);
-    background: var(--raised);
-    color: var(--text);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border: none;
+    background: var(--accent);
+    color: var(--accent-in);
+    font-weight: 700;
     border-radius: var(--r-sm);
     padding: 0.5rem 1rem;
   }
