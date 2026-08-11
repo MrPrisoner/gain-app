@@ -82,9 +82,13 @@ exercise; a load stepper, **omitted entirely when the resolved load is bodyweigh
 three effort keys, each with its **visible text label** as well as its fill; and the
 deviation control (§7). Steppers are at least 44 px and want to be much larger.
 
-**Pre-fill has a chain, not a source:** the last matching performance, else the load
-configuration's `default_kg`, else blank. The middle rung is what makes a user's *first*
-session one tap, and it is the only reason `default_kg` is in the contract at all.
+**Pre-fill has a chain, not a source:** this session's own previous set of the same
+exercise and side, else the last matching performance, else a configured default —
+`default_kg` for weight, the reps or duration target's lower bound for reps/duration —
+else blank. The within-session rung means a set bumped mid-exercise carries forward
+instead of resetting every set; the configured-default rung is what makes a user's
+*first* session one tap instead of blank, and it is the only reason `default_kg` is in
+the contract at all.
 
 **A failed write must be visible where the eyes already are.** Mid-set, an error rendered
 at the bottom of the document is an error nobody sees, and a set that silently failed to
@@ -114,8 +118,10 @@ implement the sub-line and do not add the field on your own initiative.
 
 One honest consequence follows, and is left alone deliberately. `default_kg` is written
 per-dumbbell in the fixture's prose ("approximately 6 kg per dumbbell") while the log is a
-total, and nothing can tell the two apart — so a **first-ever** set of a paired lift
-pre-fills at half its true total, until history takes over on the next session. Inferring
+total, and nothing can tell the two apart — so the very **first set** of a paired lift's
+first-ever session pre-fills at half its true total. The user's correction carries forward
+within that same session — set 2 pre-fills from what set 1 was actually logged as, not
+from `default_kg` again — and full history takes over from the next session on. Inferring
 "paired" from a slug or a load label would be a guess that is silently wrong; a number the
 user corrects with two taps of the stepper is not. The real fix is upstream, in what the
 authoring AI is told about loads.
@@ -186,7 +192,8 @@ finished.
 | Ranged sets `[2, 3]` | Draw the **minimum** only, then offer "Add the optional 3rd set". Never pre-draw a set the plan did not commit to. |
 | `type: rounds` | A round progress indicator on the block; the exercise list is **not** repeated per round. Rest fires between rounds only, and only if the block declares it. |
 | `conditional: true` | The `condition` text is shown in full, with every declared substitute offered as a one-tap swap alongside "Do it". |
-| Ranged reps `[8, 12]` | Shown as the target on each set row; the stepper pre-fills from last time, not from the range. |
+| Ranged reps `[8, 12]` | Shown as the target on each set row; the stepper pre-fills from last time, or the range's lower bound with no history — never the range's upper bound or its full target label. |
+| Ranged duration `[20, 40]` sec | Same rule as ranged reps, for a `type: time` exercise's duration stepper — last time, else the range's lower bound. |
 
 **A range is formatted, never interpolated.** In the contract a range is a tuple, so
 dropping it into a template renders `8,12` and `20,40 sec` — which happened, to nearly

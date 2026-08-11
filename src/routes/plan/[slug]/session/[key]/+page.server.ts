@@ -24,6 +24,7 @@ import { pickPrefill } from "$lib/session/prefill";
 import { hydrateSession, type SessionHydration } from "$lib/session/resume";
 import { resolveLoad, resolveSession, sessionMetrics } from "$lib/session/session-view";
 import type { DeviationKind } from "$lib/logs/types";
+import type { IntOrRange } from "$lib/contract/schema";
 
 export const load: PageServerLoad = ({ params, locals }) => {
   if (!locals.user) throw redirect(303, "/login");
@@ -56,35 +57,56 @@ export const load: PageServerLoad = ({ params, locals }) => {
    * prescribed movement does"), so its last performance has to be here too or the strip
    * silently loses its pre-fill the moment you swap.
    */
-  const prefillSlugs = new Map<string, { perSide: boolean; defaultKg: number | undefined }>();
+  const prefillSlugs = new Map<
+    string,
+    {
+      perSide: boolean;
+      defaultKg: number | undefined;
+      repsTarget: IntOrRange | undefined;
+      durationTarget: IntOrRange | undefined;
+    }
+  >();
   for (const block of session.blocks) {
     if (block.tracking === "checkoff") continue;
     for (const exercise of block.exercises) {
+      // Exactly one of `reps`/`durationSec` is defined per occurrence (CONTRACT: type
+      // `reps` requires `reps`, type `time` requires `duration_sec`), so passing both
+      // through unconditionally only ever supplies the default the exercise's own type
+      // uses; `pickPrefill` ignores the other.
       prefillSlugs.set(exercise.slug, {
         perSide: exercise.perSide,
         defaultKg: exercise.load?.defaultKg,
+        repsTarget: exercise.reps,
+        durationTarget: exercise.durationSec,
       });
       for (const substituteSlug of exercise.substitutes) {
         const def = contract.exercises.find((e) => e.id === substituteSlug);
         if (!def || prefillSlugs.has(substituteSlug)) continue;
+        // Reps/duration targets come from the occasion being replaced, same as
+        // `resolveSubstitute` (UI-DECISIONS §6): a substitute has no prescription of its
+        // own, only the slot it stands in for — and only the target matching its own
+        // type, so a reps substitute for a timed original (or vice versa) gets neither.
+        const substituteType = def.type ?? "reps";
         prefillSlugs.set(substituteSlug, {
           perSide: def.per_side === true,
           defaultKg: resolveLoad(contract, def.load)?.default_kg,
+          repsTarget: substituteType === "reps" ? exercise.reps : undefined,
+          durationTarget: substituteType === "time" ? exercise.durationSec : undefined,
         });
       }
     }
   }
 
-  for (const [slug, { perSide, defaultKg }] of prefillSlugs) {
+  for (const [slug, { perSide, defaultKg, repsTarget, durationTarget }] of prefillSlugs) {
     const defId = getExerciseDefIdBySlug(userDb, plan.id, slug);
     if (!defId) continue;
     const rows = recentSetLogsForExercise(userDb, defId);
     prefillByExercise[slug] = perSide
       ? {
-          left: pickPrefill(rows, "left", defaultKg),
-          right: pickPrefill(rows, "right", defaultKg),
+          left: pickPrefill(rows, "left", defaultKg, repsTarget, durationTarget),
+          right: pickPrefill(rows, "right", defaultKg, repsTarget, durationTarget),
         }
-      : { none: pickPrefill(rows, undefined, defaultKg) };
+      : { none: pickPrefill(rows, undefined, defaultKg, repsTarget, durationTarget) };
   }
 
   return {

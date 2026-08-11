@@ -32,7 +32,7 @@
   import type { SessionHydration } from "$lib/session/resume";
   import type { DeviationKind } from "$lib/logs/types";
   import type { MetricDef } from "$lib/contract/schema";
-  import { formatLastPerformance } from "$lib/session/prefill";
+  import { carryForwardFromPreviousSet, formatLastPerformance } from "$lib/session/prefill";
   import RestTimer from "./RestTimer.svelte";
   import DeviationSheet from "./DeviationSheet.svelte";
   import LogStrip from "./LogStrip.svelte";
@@ -179,15 +179,29 @@
   // display only; each tap fires its own `?/logMetric` submission (UI-DECISIONS §8).
   const sessionMetricValues = new SvelteMap<string, number | string>();
 
+  /**
+   * `blockKey`/`prescribedSlug` are the slot's identity (same as `setLogKey`), used to
+   * look up whatever this session already logged for the *previous* set of the same slot
+   * — the pre-fill's outermost rung (`carryForwardFromPreviousSet`): a set bumped from
+   * 6 kg to 8 kg mid-exercise should not reset to 6 kg on the next set. `exerciseSlug` is
+   * the *performed* movement (post-substitution), which is what history is keyed by.
+   */
   function prefillFor(
-    slug: string,
+    blockKey: string,
+    prescribedSlug: string,
+    exerciseSlug: string,
     perSide: boolean,
-    side?: "left" | "right",
+    slot: SetSlot | undefined,
   ): { reps?: number; weightKg?: number; durationS?: number } {
-    const entry = data.prefillByExercise[slug];
-    if (!entry) return {};
-    if (perSide) return (side === "left" ? entry.left : entry.right) ?? {};
-    return entry.none ?? {};
+    const entry = data.prefillByExercise[exerciseSlug];
+    const base = entry
+      ? perSide
+        ? ((slot?.side === "left" ? entry.left : entry.right) ?? {})
+        : (entry.none ?? {})
+      : {};
+    if (!slot || slot.setNo <= 1) return base;
+    const previous = loggedSets.get(setLogKey(blockKey, prescribedSlug, slot.setNo - 1, slot.side));
+    return carryForwardFromPreviousSet(base, previous);
   }
 
   /**
@@ -407,9 +421,11 @@
   ): UpNext {
     if (nextSlot) {
       const weight = prefillFor(
+        context.block.key,
+        context.prescribed.slug,
         context.exercise.slug,
         context.exercise.perSide,
-        nextSlot.side,
+        nextSlot,
       ).weightKg;
       return {
         label: context.exercise.name,
@@ -991,7 +1007,13 @@
 {#if workoutId && !showPreSession && openContext}
   {@const ctx = openContext}
   {@const slot = ctx.next}
-  {@const fill = prefillFor(ctx.exercise.slug, ctx.exercise.perSide, slot?.side)}
+  {@const fill = prefillFor(
+    ctx.block.key,
+    ctx.prescribed.slug,
+    ctx.exercise.slug,
+    ctx.exercise.perSide,
+    slot,
+  )}
   <LogStrip
     bind:height={stripHeight}
     {workoutId}
