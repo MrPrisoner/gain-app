@@ -81,7 +81,7 @@ loads:
 |---|---|---|
 | `ref` | yes | Stable identifier referenced by `load`. Free-form; `heavy` / `moderate` / `light` / `bodyweight` are conventional |
 | `label` | yes | Display name shown wherever the configuration is named |
-| `default_kg` | no | Starting weight. Omit on a bodyweight configuration |
+| `default_kg` | no | Starting weight, **as a total** — see §4. Omit on a bodyweight configuration |
 | `is_bodyweight` | no (default `false`) | Suppresses the weight field when logging |
 | `note` | no | Guidance shown alongside the configuration |
 
@@ -313,8 +313,19 @@ front of you at the moment you need it.
 
 - **Ranges** are `[min, max]`. Any field accepting a range also accepts a bare integer
   meaning "exactly this".
-- **`per_side: true`** means the prescription is per side. `sets: 3, reps: [10,12],
-  per_side: true` is "3 × 10–12 per side" and produces six logged entries.
+- **Weight is always the total kilograms moved in one set** — `default_kg` and every
+  logged weight — summed across every implement in use at once, never per-implement.
+  Two 6 kg dumbbells lifted together is `default_kg: 12`, not `6`; a single dumbbell's
+  own weight is already the total. Get this wrong and the log, the charts and the
+  export are all wrong by the same factor.
+- **`per_side: true`** means the prescription is logged as two separate sets, one per
+  side — for a movement where one side completes a full set before the other starts (a
+  one-arm row, a side plank). `sets: 3, reps: [10,12], per_side: true` is "3 × 10–12 per
+  side" and produces six logged entries. **A movement that alternates sides within one
+  set is not `per_side`** — alternating dumbbell curls, alternating reverse lunges. Log
+  those as a single set: total reps across both sides, total kg across both implements.
+  "10 reps per arm with a pair of 6 kg dumbbells, alternating" is `reps: 20, load: <a
+  ref with default_kg: 12>`, `per_side` omitted.
 - **`type: time`** exercises use `duration_sec` and log elapsed time, not reps.
 - **Bodyweight** is expressed as `load: <a ref with is_bodyweight: true>`, never as
   `weight: 0`.

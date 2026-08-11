@@ -43,6 +43,7 @@ usable load is. Guess the increments and you will prescribe weights that do not 
 | They tell you | Do not assume | Ask |
 |---|---|---|
 | "I have dumbbells" | a weight range or an increment | Fixed or adjustable? Which plates? Smallest increment? Heaviest usable load? |
+| A movement uses dumbbells | it's obvious from the name whether that's one or a pair, or how the sides work | One dumbbell or two? If two, moving together, or alternating side to side within a set? (Section 2 §4 explains why this changes how you write `load` and `per_side`.) |
 | "I have a gym" | that every machine or plate is free whenever needed | Which equipment can you actually get to, and is anything time-limited or often occupied? |
 | "About 45 minutes" | how much of that is training | Does that include warming up and changing weights? |
 | "My back plays up" | a diagnosis, or which movements to avoid | What does it feel like, what brings it on, what have you been told, what do you already avoid? |

@@ -30,4 +30,4 @@ Work from top to bottom. Where it makes sense to combine multiple items (e.g. 2 
 
 ### Decision-challenging
 
-- seems like AI that creates GAIN plans based on the bootstrap prompt doesn't realise that the GAIN app uses _total_ weight for loads. And all exercises using e.g. "heavy" load uses the same weight, regardless of whether the exercise uses 1 or 2 dumbbells. For example, goblet squat vs dumbbell floor press.
+- ~~When building a plan with an AI, it seems there is some confusion about the loads. We land on heavy, moderate, and light loads, but then it gets confused about loads with kg and 1-dumbbell vs 2-dumbbell exercises.~~ done — the "total kg, not per-dumbbell" rule lived only in the internal UI-DECISIONS.md, never in CONTRACT.md, which is the doc actually shipped to the authoring AI; added it there plus explicit `per_side` guidance for alternating-arm movements (e.g. alternating curls: one set, total reps, total kg, `per_side` omitted — no schema change needed), and a matching question to the bootstrap prompt's equipment interview.
