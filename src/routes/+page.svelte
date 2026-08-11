@@ -295,15 +295,19 @@
     gap: 0.25rem;
     font-size: 0.9rem;
     color: var(--muted);
+    min-width: 0;
   }
 
   .row2 {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 0.75rem;
+    min-width: 0;
   }
 
   input {
+    width: 100%;
+    min-width: 0;
     padding: 0.65rem 0.75rem;
     border-radius: var(--r-xs);
     border: 1px solid var(--line);
