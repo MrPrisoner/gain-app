@@ -155,14 +155,22 @@ describe("golden round trip", () => {
       bundle.startsWith("# GAIN Export — 4-Week Home Dumbbell Training Plan — weeks 1–4\n"),
     ).toBe(true);
 
-    // The default instructions template carries no placeholders, so Section 0 is
-    // the template verbatim.
     const start = bundle.indexOf("## 0. Your task\n\n");
     const end = bundle.indexOf("\n## 1. The current plan");
     expect(start).toBeGreaterThan(-1);
     expect(end).toBeGreaterThan(start);
     const section0 = bundle.slice(start + "## 0. Your task\n\n".length, end);
-    expect(section0).toBe(instructionsTemplate);
+
+    // The default template tells the reviewing AI how much evidence it is working
+    // from, which only works if every placeholder actually resolves. An unrendered
+    // `{{weeks_elapsed}}` reads as a literal to the AI and is worse than saying
+    // nothing, so assert none survive rather than that the body is unchanged.
+    expect(instructionsTemplate).toContain("{{weeks_elapsed}}");
+    expect(section0).not.toMatch(/\{\{/);
+    expect(section0).toContain("12 workouts logged over");
+    expect(section0).toContain("4 weeks of 4-Week Home Dumbbell Training Plan v1");
+    expect(section0).toContain("covering\nweeks 1–4");
+    expect(section0).toContain("Today is 2026-09-01");
   });
 
   it("carries the synthetic logs into Sections 2 and 3", () => {
