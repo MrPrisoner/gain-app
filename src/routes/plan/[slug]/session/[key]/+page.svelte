@@ -1311,9 +1311,18 @@
   }
   /* Three states, by luminance and the one accent hue only (UI-DECISIONS §5): a logged
      row reads at full strength, the row the strip is about to write is accented, and a
-     set still to come stays quiet. */
+     set still to come stays quiet. The "next" row bleeds into `.exercise-body`'s side
+     padding so the highlight reaches the card edges rather than sitting as an inset
+     patch. */
   .ledger-row.logged .led-set {
     color: var(--text);
+  }
+  .ledger-row.next {
+    margin: 0 -1rem;
+    padding: 0.5rem 1rem;
+    background: var(--accent-soft);
+    border-bottom-color: transparent;
+    border-radius: var(--r-md);
   }
   .ledger-row.next .led-set {
     color: var(--accent);

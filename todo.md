@@ -21,6 +21,7 @@ Work from top to bottom. Where it makes sense to combine multiple items (e.g. 2 
 - ~~move the "End session" button to the bottom - it's typically clicked at the end of a session, not at the start.~~ done
 - ~~the "Round 1 of 2 done" needs some spacing between it and the exercise - currently it's pressed together.~~ done
 - ~~The session start buttons look different to the rest of the buttons. Can we change them to look like the "Continue to session" button, keeping the full width though.~~ done
+- ~~highlight the current set more - currently the set number is accented, but that's not much to draw eyes. Could we do something like highlight the row?~~ done
 
 ### Behavior
 
@@ -30,4 +31,3 @@ Work from top to bottom. Where it makes sense to combine multiple items (e.g. 2 
 ### Decision-challenging
 
 - seems like AI that creates GAIN plans based on the bootstrap prompt doesn't realise that the GAIN app uses _total_ weight for loads. And all exercises using e.g. "heavy" load uses the same weight, regardless of whether the exercise uses 1 or 2 dumbbells. For example, goblet squat vs dumbbell floor press.
-- loads carry a default kg which is used when no history exists, correct? when a plan is revised and re-imported, would it be possible to use the updated default kg instead of history? my thinking is: user follows plan, progresses and logs higher weights, then exports the plan to AI and lands on a new "default" weight. Next training session on v2 plan should use the new weights, instead of using the historical weight. Although, argument might be that user went from 10 kg to 12 kg which is now the latest from history, v2 plan sets default weight to 12 kg, and we land on exactly this behaviour without changing anything. Worth a chat.
