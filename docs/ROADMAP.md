@@ -37,7 +37,10 @@ on a phone, and `e2e/session-runner-walkthrough-a.spec.ts` and `-d.spec.ts` prov
 
 | Phase | Deliverable | State |
 |---|---|---|
-| 1–4 | Round-trip core, storage, auth + first run, session runner | Done |
+| 1 | Contract schema, parser, diff engine, export generator, both prompt templates | Done |
+| 2 | SQLite layer, per-user provisioning, migrations, import writer and review | Done |
+| 3 | OIDC auth and group gate, container, AGPL §13 source link, first run | Done |
+| 4 | Session runner UI, online only | Done |
 | 5 | Export UI — the loop's return crossing | Not started |
 | 6 | Offline PWA: IndexedDB, sync queue, idempotency | Not started |
 | 7 | Progress, history & the Home screen | Not started |
