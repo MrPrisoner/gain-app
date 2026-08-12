@@ -163,6 +163,35 @@ smaller gets done and deleted rather than struck through. A design decision that
 of a to-do item belongs in the Invariants section below — that is where the `weight_kg`
 ruling went, and it is why it survived.
 
+### Commit messages, settled
+
+`type(scope): imperative summary` — e.g.
+`feat(export): add the export screen and reach it from the plan card`. This is
+Conventional Commits (the Angular type list); it is also just what most of this repo's
+history already converged on before it was written down here.
+
+- Types: `feat`, `fix`, `refactor`, `style`, `test`, `docs`, `chore`.
+- Scope is required — the module or area touched (`session`, `export`, `home`, `db`,
+  `plan`, `e2e`...) — except for changes that are genuinely repo-wide, which drop it.
+- The summary is lowercase, imperative ("add", not "adds" or "added"), no trailing
+  period, and reads as a complete sentence on its own. It is the changelog entry,
+  verbatim — a release note gets built by pulling summaries forward, not by rewriting
+  them, so it has to hold up alone without the body for context.
+- A breaking change gets `!` after the scope (`feat(db)!: ...`) and a `BREAKING CHANGE:`
+  footer explaining the migration. Nothing has needed this yet; it is settled anyway so
+  the first commit that does need it does not also have to invent the convention.
+
+The body is prose paragraphs, not bullets — the same split "How to report back" draws
+between chat replies and files applies here: a commit message is a file. State what
+changed and why; call out a decision or a gotcha if the commit had one.
+
+`Co-Authored-By: Claude <model> <noreply@anthropic.com>` closes the message when Claude
+authored the commit. That is a standard git/GitHub trailer, not part of Conventional
+Commits itself.
+
+The ~35 commits before this was written down (`Add icon svg`, `Phase 1: pure round-trip
+core`, ...) predate the convention and are not worth rewriting.
+
 ## What this app is
 
 GAIN is the structured middle of a copy-paste loop. An AI writes a training plan in
