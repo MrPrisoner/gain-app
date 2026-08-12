@@ -3,7 +3,7 @@
  * session plus pre-fill data for every exercise in it; every write goes through
  * `$lib/db/workout`, which is idempotent on the client-generated `client_id` the
  * runner's Svelte components mint via `ulidx` — the server never mints one, because
- * phase 5 replays these ids (ARCHITECTURE §9).
+ * phase 6 replays these ids (ARCHITECTURE §9).
  */
 
 import { error, fail, redirect } from "@sveltejs/kit";
@@ -154,7 +154,7 @@ export const actions: Actions = {
        * posts it here on mount, which is already how a reload lands back on the same
        * workout row rather than starting a second one. `load` runs before that POST and
        * cannot see the id, so the read-back rides along on this same response: one round
-       * trip, one idempotent lookup, and the same lookup phase 5 will replay through.
+       * trip, one idempotent lookup, and the same lookup phase 6 will replay through.
        *
        * A fresh start has nothing to read back, so it does none of this work.
        */

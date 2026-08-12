@@ -545,7 +545,7 @@ mark is_current, previous version retained read-only
 
 Both paths share everything except the review step, so the first import is not a special
 case in the pipeline — it is the same pipeline with nothing to compare against. That is
-why it can ship in phase 3 while diff review waits for phase 7.
+why it can ship in phase 3 while diff review waits for phase 8.
 
 Old versions stay browsable. Workouts remain attached to the version they were logged
 under, so "what did the plan actually say in week 3" is always answerable —
@@ -561,7 +561,7 @@ Built in phase 4 at `src/routes/plan/[slug]/session/[key]/`, with the pure logic
 `src/lib/session/` (resolution, pre-fill, rest timer, resume reconstruction). **How it
 behaves is settled in [`docs/UI-DECISIONS.md`](./UI-DECISIONS.md)**, not here; this
 section is the architectural half. The Home screen below is the one part still unbuilt —
-it belongs to a later phase, and sessions are reached from the plan overview meanwhile.
+it belongs to phase 7, and sessions are reached from the plan overview meanwhile.
 
 - **Home:** suggested next session per `scheduling.sequence` and rules, with any
   session selectable as an override. One-tap buttons to log activity that is not part of
@@ -608,7 +608,7 @@ it belongs to a later phase, and sessions are reached from the plan overview mea
 ### Resuming a workout
 
 A phone locks, a browser tab is discarded, a user pulls to refresh mid-set. Phase 4 is
-online-only, so the guarantee is narrower than phase 5's, but it is not nothing: the
+online-only, so the guarantee is narrower than phase 6's, but it is not nothing: the
 runner keeps the workout's `client_id` in `sessionStorage`, and `?/start` replayed with
 that same ID resolves the existing row instead of creating a second one — the ordinary
 idempotency every write already has, used as a lookup.
@@ -629,7 +629,7 @@ loggable occurrences of one session, the earlier wins. That last rule can put a 
 the wrong slot of the right session; it can never invent, drop or misattribute a row
 across workouts. Making it exact needs the `block_key` column §5 describes.
 
-Surviving a full browser kill — where `sessionStorage` is gone too — is a phase-5
+Surviving a full browser kill — where `sessionStorage` is gone too — is a phase-6
 guarantee, and IndexedDB is what delivers it.
 
 ### Offline model
@@ -764,9 +764,13 @@ actually be built. It belongs to phase 3, when a shell exists to put it in.
 | 2 | SQLite layer, per-user DB provisioning, migrations — **reconcile §5 with the catalogue first** | Import writes a version; second import produces a correct diff |
 | 3 | OIDC auth, group gate, session handling, container + compose, AGPL §13 source link, **first run: empty state → prompt out → paste a plan in** | Deploys to Portainer; unauthorised user gets a clean 403; a user with an empty account copies the bootstrap prompt and pastes a plan back into a working app |
 | 4 | Session runner UI, online only | A full session of the real plan can be logged on a phone |
-| 5 | Offline PWA: IndexedDB, sync queue, idempotency | Airplane-mode session syncs cleanly on reconnect; property tests pass |
-| 6 | Progress, history, charts | Double-progression state matches hand-calculated expectations |
-| 7 | Revision diff review, template editor, export UI | A logged block exports, comes back revised, and the diff is reviewed and committed — the loop closes |
+| 5 | **Export UI** — route, window picker, copy with download fallback | A logged block leaves GAIN as one pasteable document, in one tap |
+| 6 | Offline PWA: IndexedDB, sync queue, idempotency | Airplane-mode session syncs cleanly on reconnect; property tests pass |
+| 7 | Progress, history, charts, **and the Home screen** — suggested next session, activity logging, the next-morning prompt | Double-progression state matches hand-calculated expectations; Home suggests the right next session |
+| 8 | Revision diff review, template editor | A logged block exports, comes back revised, and the diff is reviewed and committed — the loop closes |
+
+The item-by-item decomposition of phases 5–8, with acceptance criteria, is
+[`docs/ROADMAP.md`](./ROADMAP.md). This table is the map; that file is the itinerary.
 
 **Why the templates land in phase 1.** They are pure content, they need no code, and they
 must embed `docs/CONTRACT.md` verbatim — the same mechanism the export generator already
@@ -785,13 +789,32 @@ anybody, and seeding one by hand is a development workaround, not a product.
 It needs nothing that phases 1 and 2 do not already provide: parse, validate, write a
 version. The screen is a paste box, a validation result and a confirmation.
 
+**Why export is its own phase, ahead of offline and charts.** It began as the tail of the
+revision phase and was pulled forward once the runner shipped, because the two halves of
+that phase turned out to have nothing in common. Reviewing a revision needs a diff UI and
+weeks of logs to have something to revise; *emitting* the bundle needs a route, a window
+picker and a copy button, on top of a generator phase 1 already finished and tested.
+
+Leaving them together meant a user could import a plan, log an entire block, and have no
+way to get any of it out — the loop open at its return crossing, with the code to close it
+sitting complete and unreachable. That is the one gap that makes everything logged so far
+worth less, and it is the cheapest phase in the list to close.
+
+**Why the Home screen belongs with progress.** Three obligations from §9 — the suggested
+next session, one-tap activity logging, and the next-morning metric prompt — were attached
+to no phase at all, which is how they stayed unbuilt while everything around them shipped.
+They are one screen, they need nothing from offline, and each is a promise the app
+currently does not keep: the `activity` table exists with no way to write to it, and a plan
+declaring a `next_morning` metric collects nothing. Progress and history land on the same
+screen, so they land in the same phase.
+
 **The two imports are not the same job**, which is what makes the split clean:
 
 | | First import | Revision import |
 |---|---|---|
 | Diff against | Nothing — everything is new | The previous version |
 | Needs | Parse, validate, confirm | Rename detection, per-field diff, mapping UI |
-| Available | Phase 3 | Phase 7 |
+| Available | Phase 3 | Phase 8 |
 
 The first import has nothing to compare against, so it needs no diff review — a summary of
 what was parsed is enough. The revision import is where the real work lives, and it cannot

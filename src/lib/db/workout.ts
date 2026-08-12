@@ -1,7 +1,7 @@
 /**
  * The workout write layer (phase 4, online-only): start/finish a workout, log a set, a
  * metric value, or a deviation. Every write is idempotent on `client_id` — the same
- * shape offline sync (phase 5) will replay, so this layer already behaves as a replay
+ * shape offline sync (phase 6) will replay, so this layer already behaves as a replay
  * target: writing the same client_id twice is a no-op that returns the original row.
  *
  * `logMetric` carries one extra rule on top of that — a metric answer is a correction of
@@ -154,7 +154,7 @@ export function logMetric(userDb: UserDb, input: LogMetricInput): { id: string }
   // Taking `client_id` with the new value keeps the row's replay identity pointing at the
   // write that actually produced its current value.
   //
-  // Phase 5 caveat: a replay queue that delivers two corrections out of order would land
+  // Phase 6 caveat: a replay queue that delivers two corrections out of order would land
   // on the earlier answer. Ordering the queue is the queue's job — there is no timestamp
   // on `metric_value` to arbitrate with here.
   const prior = selectMetricByReference(userDb, input);

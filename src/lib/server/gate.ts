@@ -18,7 +18,7 @@ export function isPublicPath(pathname: string): boolean {
  * It decides what an expired session looks like. A navigation should land on
  * the login page; a fetch must not, because a 303 turns the follow-up into a
  * GET and the request body is gone. §4 is explicit that a 401 must not cost
- * the client its queued data, and the phase-5 sync queue depends on being able
+ * the client its queued data, and the phase-6 sync queue depends on being able
  * to tell "you are logged out" from "here is a login page".
  *
  * `Sec-Fetch-Mode` is authoritative where it exists (every browser GAIN

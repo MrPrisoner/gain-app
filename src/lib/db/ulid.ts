@@ -1,7 +1,7 @@
 /**
  * ULID generation for server-side IDs (ARCHITECTURE §5: "IDs are ULIDs unless noted").
  *
- * Client-generated ULIDs for offline sync arrive in phase 5; these are the IDs GAIN
+ * Client-generated ULIDs for offline sync arrive in phase 6; these are the IDs GAIN
  * itself mints — plans, versions, prescriptions, and anything else created server-side.
  */
 

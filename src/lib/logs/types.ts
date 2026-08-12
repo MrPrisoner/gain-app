@@ -4,7 +4,7 @@
  *
  * Phase 1 is pure functions over plain data: the export generator consumes these
  * structures, and tests build them directly. IDs are caller-generated strings
- * (ULIDs with client-side generation and server-side idempotency arrive in phase 5).
+ * (ULIDs with client-side generation and server-side idempotency arrive in phase 6).
  */
 
 export type Difficulty = "easy" | "medium" | "hard";
