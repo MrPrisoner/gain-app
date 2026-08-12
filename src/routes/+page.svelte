@@ -156,6 +156,7 @@
           </li>
         {/each}
       </ul>
+      <a class="export-link" href={`/plan/${plan.slug}/export`}>Export for review</a>
     </section>
   {/each}
 
@@ -385,6 +386,20 @@
   }
 
   .session-link:hover {
+    text-decoration: none;
+  }
+
+  .export-link {
+    display: inline-block;
+    padding: 0.7rem 1.25rem;
+    border-radius: var(--r-sm);
+    background: var(--raised);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-weight: 700;
+  }
+
+  .export-link:hover {
     text-decoration: none;
   }
 
