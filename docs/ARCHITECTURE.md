@@ -2,8 +2,8 @@
 
 A self-hosted web app for running and tracking AI-authored exercise plans.
 
-**Status:** design agreed; phases 1–4 implemented (pure round-trip core, storage layer,
-auth + container + first run, session runner).
+**Status:** design agreed; phases 1–5 implemented (pure round-trip core, storage layer,
+auth + container + first run, session runner, export UI).
 **Audience:** the AI agents that will build this, and the human reviewing their work.
 
 ---

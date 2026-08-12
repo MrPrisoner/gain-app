@@ -5,7 +5,7 @@ else that reads this file. It is the single source of truth; `CLAUDE.md` points 
 
 ## Current state
 
-**Phases 1–4 are done.** Phase 1 is the pure round-trip core: contract schema
+**Phases 1–5 are done.** Phase 1 is the pure round-trip core: contract schema
 (`src/lib/contract/`), parser (`src/lib/parse/`), diff engine (`src/lib/diff/`), export
 generator (`src/lib/export/`) and both prompt templates (`src/lib/templates/`) — pure
 functions over plain data, no I/O. Phase 2 is the storage layer (`src/lib/db/`): the
@@ -21,9 +21,16 @@ drop-set deviations, a reload that resumes ledger and cursor rather than just th
 row, the pre-session and wrap-up metric prompts, and a red-flag stop — which is phase 4's
 own "done when" (ARCHITECTURE §12). `e2e/session-runner-walkthrough-a.spec.ts` and
 `e2e/session-runner-walkthrough-d.spec.ts` walk both fixture sessions end-to-end as the
-durable proof of that. Phases 5–8 have not started. **Phase 5 (the export UI) is next** —
-the generator has been finished and tested since phase 1, and until a route reaches it a
-user can log an entire block and have no way to get it out.
+durable proof of that. Phase 5 is the export UI
+(`src/routes/plan/[slug]/export/`): `src/lib/db/logs.ts` reads the plain-data `Logs`
+shape the phase-1 generator has always consumed out of `gain.db`, keyed on `(scope, key)`
+and spanning every version of the plan; `src/lib/export/windows.ts` derives the window
+picker's options from the plan's own `block_length_weeks` rather than a constant, dropping
+the middle option entirely when a plan declares none; and the route assembles, previews and
+archives the bundle, copy-with-download-fallback exactly as the bootstrap prompt does.
+`e2e/export-walkthrough.spec.ts` logs a session and exports it as the durable proof that
+Section 1 comes back byte-identical to the imported document. Phases 6–8 have not started.
+**Phase 6 (the offline PWA) is next.**
 
 Two files hold the plan: the build-order table in ARCHITECTURE §12 is the map, and
 [`docs/ROADMAP.md`](docs/ROADMAP.md) is the itinerary — the remaining work item by item,

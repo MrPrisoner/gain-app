@@ -29,11 +29,13 @@ line, the README status banner, and AGENTS.md's "Current state" paragraph.
 
 ## Status
 
-Phases 1–4 are done: the pure round-trip core, the per-user storage layer, the web app with
-OIDC and first run, and the session runner. A full session of the fixture plan can be logged
-on a phone, and `e2e/session-runner-walkthrough-a.spec.ts` and `-d.spec.ts` prove it.
+Phases 1–5 are done: the pure round-trip core, the per-user storage layer, the web app with
+OIDC and first run, the session runner, and the export UI. A full session of the fixture
+plan can be logged on a phone and exported back out as one pasteable document, and
+`e2e/session-runner-walkthrough-a.spec.ts`, `-d.spec.ts` and `e2e/export-walkthrough.spec.ts`
+prove it.
 
-**Phase 5 is next.**
+**Phase 6 is next.**
 
 | Phase | Deliverable | State |
 |---|---|---|
@@ -41,7 +43,7 @@ on a phone, and `e2e/session-runner-walkthrough-a.spec.ts` and `-d.spec.ts` prov
 | 2 | SQLite layer, per-user provisioning, migrations, import writer and review | Done |
 | 3 | OIDC auth and group gate, container, AGPL §13 source link, first run | Done |
 | 4 | Session runner UI, online only | Done |
-| 5 | Export UI — the loop's return crossing | Not started |
+| 5 | Export UI — the loop's return crossing | Done |
 | 6 | Offline PWA: IndexedDB, sync queue, idempotency | Not started |
 | 7 | Progress, history & the Home screen | Not started |
 | 8 | Revision diff review, template editor | Not started |
@@ -64,20 +66,29 @@ Already in place: `generateExport`, `filterLogsToWindow`, `renderRawLogs`, `week
 and `buildProgressSummary` in `src/lib/export/`, all unit-tested, plus the golden
 round-trip test. Nothing pure needs writing.
 
-- [ ] **A read path from `gain.db` to `Logs`.** The export generator consumes the plain-data
+- [x] **A read path from `gain.db` to `Logs`.** The export generator consumes the plain-data
       `Logs` shape from `src/lib/logs/types.ts`; the database has the rows. One query module,
       windowed at the SQL level or in memory — either is fine at this size, but it must key
-      metric values on `(scope, key)`, never the bare key.
-- [ ] **The export route.** Window picker (current block / last N weeks / full history),
-      generate, and a preview of what will be copied.
-- [ ] **Copy with download fallback**, the same pattern as the bootstrap prompt on the home
+      metric values on `(scope, key)`, never the bare key. `src/lib/db/logs.ts` (`9f93e9c`).
+      The window picker's own options are pure and separate: `src/lib/export/windows.ts`
+      derives the default and mid windows from the plan's own `block_length_weeks` rather
+      than a constant, and drops the mid option entirely when the plan declares none
+      (`6efd06b`).
+- [x] **The export route.** Window picker (since the current version / two of the plan's own
+      blocks back / full history — see above), generate, and a preview of what will be
+      copied. `src/routes/plan/[slug]/export/+page.server.ts` and `bundle-for-plan.ts`
+      (`8863994`), `+page.svelte` (`21c1012`).
+- [x] **Copy with download fallback**, the same pattern as the bootstrap prompt on the home
       screen — `copyText` then `downloadText`. Paste is the primary transport (§1); the file
-      is the convenience.
-- [ ] **The template substitutions are real.** `{{plan_name}}`, `{{plan_version}}`,
+      is the convenience. (`21c1012`)
+- [x] **The template substitutions are real.** `{{plan_name}}`, `{{plan_version}}`,
       `{{export_window}}`, `{{today}}`, `{{workouts_logged}}`, `{{weeks_elapsed}}` — an
-      unknown token is left as literal text, never blanked (§11).
-- [ ] **An e2e walkthrough**: seed a plan, log a session, export, assert Section 1 is
+      unknown token is left as literal text, never blanked (§11). Exercised by
+      `tests/server/export-route.test.ts` and `e2e/export-walkthrough.spec.ts` (`8863994`,
+      `0e235bf`).
+- [x] **An e2e walkthrough**: seed a plan, log a session, export, assert Section 1 is
       byte-identical to the imported document and that the summary reflects what was logged.
+      `e2e/export-walkthrough.spec.ts` (`0e235bf`).
 
 **Watch for:** the progress summary is arithmetic the reviewing AI will trust and not check
 (AGENTS.md, Invariants). Load is per set, "first" and "latest" are chronological, and every
