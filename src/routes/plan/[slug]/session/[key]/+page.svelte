@@ -5,21 +5,13 @@
   import type { ActionResult } from "@sveltejs/kit";
   import type { ActionData, PageData } from "./$types";
   import {
-    formatLoggedSet,
-    formatRepsOrDuration,
-    formatRepsOrDurationOrDash,
     formatSlotContext,
-    formatSlotLabel,
-    formatTargetOrSets,
     nextExerciseKey,
     nextUnloggedSlot,
     resolveSubstitute,
     restForSet,
     restBetweenRounds,
-    setLogKey,
-    summariseLoggedSets,
     trackedExerciseKeys,
-    visibleSetCount,
     type LoggedSet,
     type ResolvedBlock,
     type ResolvedExercise,
@@ -39,13 +31,14 @@
   } from "$lib/session/ledger";
   import type { SessionHydration } from "$lib/session/resume";
   import type { DeviationKind } from "$lib/logs/types";
-  import type { MetricDef } from "$lib/contract/schema";
   import { formatLastPerformance } from "$lib/session/prefill";
   import RestTimer from "./RestTimer.svelte";
   import DeviationSheet from "./DeviationSheet.svelte";
   import LogStrip from "./LogStrip.svelte";
+  import MetricRow from "./MetricRow.svelte";
+  import BlockSection from "./BlockSection.svelte";
+  import WrapUpSheet from "./WrapUpSheet.svelte";
   import { restSpecFrom, type RestSpec } from "$lib/session/rest-timer";
-  import { trapFocus } from "$lib/actions/focus-trap";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
@@ -462,89 +455,6 @@
   </div>
 {/if}
 
-{#snippet metricRow(metric: MetricDef)}
-  <!-- Shared by the pre-session prompt and the wrap-up sheet (UI-DECISIONS §8):
-       a scale renders as one row of tappable cells (no slider), an enum the same way
-       over its declared options. One tap both selects and submits — there is no
-       separate "save" step and no per-metric skip control, since an untapped metric
-       simply writes nothing.
-
-       A `fieldset`/`legend` names the group rather than a `<label>` wrapping the whole
-       row of buttons — a label associates with exactly one control, and this row is a
-       group of several independent submit buttons, one per cell. The row is sized to
-       its own cell count (`--cells`, set per instance below) rather than a fixed
-       column count, so an 11-cell 0–10 scale and a 3-option enum each get a grid fit to
-       what they actually render — UI-DECISIONS §8: "a row of tappable cells", not a
-       wrap. -->
-  {#if metric.type === "scale" || metric.type === "number"}
-    {@const cellCount = (metric.max ?? 0) - (metric.min ?? 0) + 1}
-    <fieldset class="metric-field">
-      <legend>{metric.label}</legend>
-      <div class="scale-row" style:--cells={cellCount}>
-        {#each Array.from({ length: cellCount }, (_, i) => (metric.min ?? 0) + i) as value (value)}
-          <form
-            method="POST"
-            action="?/logMetric"
-            use:enhance={() => {
-              return async ({ result }) => {
-                await applyAction(result);
-                afterAction(result);
-                if (result.type === "success") sessionMetricValues.set(metric.key, value);
-              };
-            }}
-          >
-            <input type="hidden" name="scope" value="session" />
-            <input type="hidden" name="workout_id" value={workoutId ?? ""} />
-            <input type="hidden" name="metric_key" value={metric.key} />
-            <input type="hidden" name="value_num" {value} />
-            <input type="hidden" name="client_id" value={ulid()} />
-            <button
-              type="submit"
-              class="scale-cell"
-              class:selected={sessionMetricValues.get(metric.key) === value}
-            >
-              {value}
-            </button>
-          </form>
-        {/each}
-      </div>
-    </fieldset>
-  {:else if metric.type === "enum"}
-    {@const options = metric.options ?? []}
-    <fieldset class="metric-field">
-      <legend>{metric.label}</legend>
-      <div class="scale-row" style:--cells={options.length}>
-        {#each options as option (option)}
-          <form
-            method="POST"
-            action="?/logMetric"
-            use:enhance={() => {
-              return async ({ result }) => {
-                await applyAction(result);
-                afterAction(result);
-                if (result.type === "success") sessionMetricValues.set(metric.key, option);
-              };
-            }}
-          >
-            <input type="hidden" name="scope" value="session" />
-            <input type="hidden" name="workout_id" value={workoutId ?? ""} />
-            <input type="hidden" name="metric_key" value={metric.key} />
-            <input type="hidden" name="value_text" value={option} />
-            <input type="hidden" name="client_id" value={ulid()} />
-            <button
-              type="submit"
-              class="scale-cell"
-              class:selected={sessionMetricValues.get(metric.key) === option}
-            >
-              {option}
-            </button>
-          </form>
-        {/each}
-      </div>
-    </fieldset>
-  {/if}
-{/snippet}
-
 {#if !workoutId}
   <!-- UI-DECISIONS §2: nothing below posts a real workout_id until the
        async `?/start` round-trip resolves, so no logging control renders until then —
@@ -558,7 +468,13 @@
   <div class="pre-session">
     <h2>Before you start</h2>
     {#each data.startMetrics as metric (metric.key)}
-      {@render metricRow(metric)}
+      <MetricRow
+        {metric}
+        {workoutId}
+        selected={sessionMetricValues.get(metric.key)}
+        onSelected={(value) => sessionMetricValues.set(metric.key, value)}
+        onResult={afterAction}
+      />
     {/each}
     <div class="sheet-actions">
       <button type="button" class="primary" onclick={() => (showPreSession = false)}>
@@ -574,238 +490,20 @@
     style:padding-bottom={stripHeight > 0 ? `calc(${stripHeight}px + 1rem)` : undefined}
   >
     {#each data.session.blocks as block (block.key)}
-      <section class="block">
-        <div class="block-head">
-          <span class="block-name">{block.name}</span>
-          {#if block.tracking === "checkoff"}<span class="tag">Check off</span>{/if}
-          {#if block.type === "rounds"}
-            <span class="tag">Rounds × {block.rounds}</span>
-            {#if block.rounds}
-              {@const completed = completedRounds.get(block.key) ?? 0}
-              <!-- `role="img"` is what makes the `aria-label` stick: a bare `<span>` maps
-                   to the generic role, which most screen readers refuse to name, so the
-                   dots would be silently unlabelled. The role is honest here — this is a
-                   picture of a count, and its parts carry no meaning on their own. -->
-              <span
-                class="rounds-indicator"
-                role="img"
-                aria-label="{completed} of {block.rounds} rounds complete"
-              >
-                {#each Array.from({ length: block.rounds }).keys() as i (i)}
-                  <i class:on={i < completed}></i>
-                {/each}
-              </span>
-            {/if}
-          {/if}
-        </div>
-        {#if block.note}<p class="block-note">{block.note}</p>{/if}
-
-        {#if block.tracking === "checkoff"}
-          <!-- UI-DECISIONS §9: pills, no set rows, excluded from progression. -->
-          <div class="checkoff-pills">
-            {#each block.exercises as exercise (exercise.slug)}
-              {@const key = setLogKey(block.key, exercise.slug, 1)}
-              <button
-                type="button"
-                class="pill"
-                class:done={loggedSets.has(key)}
-                onclick={() => {
-                  if (loggedSets.has(key)) loggedSets.delete(key);
-                  else loggedSets.set(key, {});
-                }}
-              >
-                {exercise.name}
-                <span class="pill-target tabular">{formatRepsOrDuration(exercise)}</span>
-              </button>
-            {/each}
-          </div>
-        {:else}
-          <ul class="exercises">
-            {#each block.exercises as prescribed (prescribed.slug)}
-              {@const exerciseKey = `${block.key}:${prescribed.slug}`}
-              {@const exercise = performed(ledger, block.key, prescribed)}
-              {@const substituted = exercise.slug !== prescribed.slug}
-              {@const isOpen = openSlug === exerciseKey}
-              {@const isSkipped = skippedExercises.has(exerciseKey)}
-              {@const isDone = doneExercises.has(exerciseKey)}
-              {@const isRounds = block.type === "rounds"}
-              {@const visible = isRounds
-                ? { shown: 1, canAddMore: false }
-                : visibleSetCount(prescribed.sets, addedSets.get(exerciseKey) ?? 0)}
-              {@const slots = slotsFor(ledger, block, prescribed)}
-              {@const nextSlot = nextUnloggedSlot(slots, loggedSets)}
-              <!-- UI-DECISIONS §1: the collapsed row carries name, target *and completion
-                   state*. Done collapses to what it actually was, skipped says so, and
-                   what has not been reached yet recedes. -->
-              {@const headline = isSkipped
-                ? "Skipped"
-                : isDone && !isOpen
-                  ? summariseLoggedSets(
-                      slots
-                        .map((slot) => loggedSets.get(slot.key))
-                        .filter((logged): logged is LoggedSet => logged !== undefined),
-                    )
-                  : formatTargetOrSets(exercise)}
-              <li
-                class="exercise"
-                class:open={isOpen}
-                class:done={!isOpen && isDone}
-                class:upcoming={!isOpen && !isDone}
-              >
-                <button
-                  type="button"
-                  class="exercise-head"
-                  onclick={() => openExercise(exerciseKey)}
-                >
-                  <span class="exercise-name">{exercise.name}</span>
-                  <span class="exercise-meta tabular">{headline}</span>
-                </button>
-
-                {#if isOpen}
-                  <div class="exercise-body">
-                    {#if isSkipped}
-                      <p class="cue">
-                        Skipped — the deviation is recorded. Nothing further will be logged here.
-                      </p>
-                    {:else}
-                      {#if prescribed.conditional && !dismissedConditions.has(exerciseKey)}
-                        <p class="condition">{prescribed.condition}</p>
-                        {#if !substituted && prescribed.substitutes.length > 0}
-                          <div class="substitute-row">
-                            {#each prescribed.substitutes as sub (sub)}
-                              <form
-                                method="POST"
-                                action="?/logDeviation"
-                                use:enhance={() => {
-                                  return async ({ result }) => {
-                                    await applyAction(result);
-                                    afterAction(result);
-                                    if (result.type === "success") {
-                                      applySubstitute(block.key, prescribed, sub);
-                                    }
-                                  };
-                                }}
-                              >
-                                <input type="hidden" name="workout_id" value={workoutId ?? ""} />
-                                <input type="hidden" name="exercise_slug" value={prescribed.slug} />
-                                <input type="hidden" name="kind" value="substitute" />
-                                <!-- A condition-triggered swap is symptom-driven by
-                                     definition: the `condition` text these chips render
-                                     beside is what makes them appear at all, and in this
-                                     plan it reads "if it reproduces familiar back
-                                     symptoms, replace it". `other` said nothing, and the
-                                     reason is exported as signal for the revising AI
-                                     (UI-DECISIONS §7), so saying nothing is a real loss.
-                                     `pain` is the code behind DeviationSheet's own
-                                     "Symptoms" chip. Anything more precise needs a reason
-                                     picker in this inline row, which §7 already puts in
-                                     the deviation sheet — the sheet remains the way to
-                                     record a swap for some other reason. -->
-                                <input type="hidden" name="reason_code" value="pain" />
-                                <input type="hidden" name="substitute_exercise_slug" value={sub} />
-                                <input type="hidden" name="client_id" value={ulid()} />
-                                <button type="submit" class="chip">Swap: {sub}</button>
-                              </form>
-                            {/each}
-                            <button
-                              type="button"
-                              class="chip chip--primary"
-                              onclick={() => dismissedConditions.add(exerciseKey)}
-                            >
-                              Do it
-                            </button>
-                          </div>
-                        {/if}
-                      {/if}
-                      <!-- The head now shows the substitute's own name, so the old
-                           "Swapped for: <slug>" cue would just repeat it. What is *not*
-                           otherwise visible once the row renames itself is which
-                           prescribed slot this is, so the cue points the other way. It
-                           lives outside the conditional block because a swap can also
-                           come from the deviation sheet on an exercise that was never
-                           conditional. -->
-                      {#if substituted}
-                        <p class="cue">Swapped in for {prescribed.name}.</p>
-                      {/if}
-                      {#if exercise.note}<p class="cue">{exercise.note}</p>{/if}
-                      {#if exercise.load?.note}<p class="cue">{exercise.load.note}</p>{/if}
-
-                      <!-- The read-only set ledger. Every input that used to live here is
-                         now in the pinned strip, which logs one set at a time — so these
-                         rows are text, and text reflows at 360px where a four-track input
-                         grid could not. -->
-                      <ul class="ledger">
-                        {#each slots as slot (slot.key)}
-                          {@const logged = loggedSets.get(slot.key)}
-                          <li
-                            class="ledger-row"
-                            class:logged={!!logged}
-                            class:next={slot.key === nextSlot?.key}
-                          >
-                            <span class="led-set tabular">{formatSlotLabel(block, slot)}</span>
-                            <span class="led-target tabular"
-                              >{formatRepsOrDurationOrDash(exercise)}</span
-                            >
-                            {#if logged}
-                              <span class="led-actual tabular">{formatLoggedSet(logged)}</span>
-                              {#if logged.difficulty}
-                                {@const filled =
-                                  logged.difficulty === "easy"
-                                    ? 1
-                                    : logged.difficulty === "medium"
-                                      ? 2
-                                      : 3}
-                                <!-- `role="img"` for the same reason as `.rounds-indicator`
-                                     above: without it the generic role drops the label and
-                                     the three segments read as nothing at all. -->
-                                <span
-                                  class="led-effort"
-                                  role="img"
-                                  aria-label="Felt {logged.difficulty}"
-                                >
-                                  {#each [1, 2, 3] as seg (seg)}
-                                    <i class:on={seg <= filled}></i>
-                                  {/each}
-                                </span>
-                              {/if}
-                            {:else}
-                              <span class="led-actual led-pending"
-                                >{slot.key === nextSlot?.key ? "Up next" : "Not logged yet"}</span
-                              >
-                            {/if}
-                          </li>
-                        {/each}
-                      </ul>
-
-                      <!-- UI-DECISIONS §6's optional set, and *only* that: this offers
-                           sets the ranged prescription already declared, so it is not a
-                           deviation and logs none. The deviation sheet's add_set/drop_set
-                           is a separate mechanism against a separate counter — see
-                           `shownSetsFor`. -->
-                      {#if visible.canAddMore}
-                        <button
-                          type="button"
-                          class="add-set"
-                          onclick={() =>
-                            addedSets.set(exerciseKey, (addedSets.get(exerciseKey) ?? 0) + 1)}
-                        >
-                          Add the optional set
-                        </button>
-                      {/if}
-                    {/if}
-                  </div>
-                {/if}
-              </li>
-            {/each}
-          </ul>
-
-          {#if block.type === "rounds"}
-            <button type="button" class="add-set" onclick={() => startNextRound(block)}>
-              Round {(completedRounds.get(block.key) ?? 0) + 1} of {block.rounds} done
-            </button>
-          {/if}
-        {/if}
-      </section>
+      <BlockSection
+        {block}
+        {ledger}
+        {loggedSets}
+        {doneExercises}
+        {openSlug}
+        {addedSets}
+        {dismissedConditions}
+        {workoutId}
+        onOpen={openExercise}
+        {applySubstitute}
+        onResult={afterAction}
+        onStartNextRound={startNextRound}
+      />
     {/each}
 
     <button type="button" class="end-session" onclick={() => (showWrapUp = true)}>
@@ -878,60 +576,15 @@
 {/if}
 
 {#if showWrapUp && workoutId}
-  <div class="sheet-backdrop" role="presentation">
-    <!-- UI-DECISIONS §8: a real modal dialog, not just a visually
-         bottom-sheeted div — `role="dialog"`/`aria-modal="true"` plus `aria-labelledby`
-         pointing at the heading below announce it as such, and `use:trapFocus` (see
-         `$lib/actions/focus-trap`) moves focus to that heading on open, cycles Tab
-         within the sheet, restores focus to whatever had it on close, and treats
-         Escape the same as the Back button. -->
-    <div
-      class="sheet"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="wrap-up-heading"
-      use:trapFocus={{ onEscape: () => (showWrapUp = false) }}
-    >
-      <h3 id="wrap-up-heading" tabindex="-1" data-trap-focus-heading>How did it go?</h3>
-
-      {#each data.endMetrics as metric (metric.key)}
-        {@render metricRow(metric)}
-      {/each}
-
-      {#if data.nextMorningMetrics.length > 0}
-        <!-- UI-DECISIONS §8: `next_morning` metrics are deliberately not asked here — they
-             surface the following day. Say so explicitly rather than the user wondering
-             whether the question was silently dropped (the nudge itself, on a future Today
-             screen, is out of scope for this plan). -->
-        <p class="next-morning-note">
-          Not part of this wrap-up: {data.nextMorningMetrics.map((m) => m.label).join(", ")}. Asked
-          again tomorrow, not now.
-        </p>
-      {/if}
-
-      <form
-        method="POST"
-        action="?/finish"
-        use:enhance={() => {
-          return async ({ result }) => {
-            await applyAction(result);
-            afterAction(result);
-            if (result.type === "success") {
-              sessionStorage.removeItem(storageKey);
-              window.location.href = "/";
-            }
-          };
-        }}
-      >
-        <input type="hidden" name="workout_id" value={workoutId} />
-        <input type="hidden" name="status" value="completed" />
-        <div class="sheet-actions">
-          <button type="button" class="secondary" onclick={() => (showWrapUp = false)}>Back</button>
-          <button type="submit" class="primary">Finish session</button>
-        </div>
-      </form>
-    </div>
-  </div>
+  <WrapUpSheet
+    {workoutId}
+    endMetrics={data.endMetrics}
+    nextMorningMetrics={data.nextMorningMetrics}
+    {sessionMetricValues}
+    {storageKey}
+    onClose={() => (showWrapUp = false)}
+    onResult={afterAction}
+  />
 {/if}
 
 <style>
@@ -953,239 +606,6 @@
     /* Replaced at runtime by the strip's measured height (see the `style:` binding
        above); this is only what SSR renders before the measurement lands. */
     padding-bottom: 15rem;
-  }
-  .block {
-    background: var(--surface);
-    border: 1px solid var(--line-soft);
-    border-radius: var(--r-md);
-    padding: 1rem;
-  }
-  .block-head {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.75rem;
-  }
-  .block-name {
-    font-weight: 700;
-  }
-  .tag {
-    font-size: 0.75rem;
-    color: var(--muted);
-    background: var(--raised);
-    border: 1px solid var(--line);
-    border-radius: var(--r-xs);
-    padding: 0.1rem 0.5rem;
-  }
-  .block-note {
-    color: var(--muted);
-    font-size: 0.85rem;
-  }
-  .rounds-indicator {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-  }
-  .rounds-indicator i {
-    display: block;
-    width: 5px;
-    height: 0.75rem;
-    border-radius: 2px;
-    background: var(--line);
-  }
-  .rounds-indicator i.on {
-    background: var(--accent);
-  }
-  .checkoff-pills {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-  .pill {
-    min-height: 2.75rem;
-    border: 1px solid var(--line);
-    background: var(--raised);
-    color: var(--text);
-    border-radius: var(--r-lg);
-    padding: 0.5rem 0.9rem;
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-  }
-  .pill.done {
-    background: var(--accent-soft);
-    border-color: var(--accent);
-  }
-  .pill-target {
-    color: var(--muted);
-  }
-  .exercises {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: grid;
-    gap: 0.5rem;
-  }
-  .exercise {
-    border: 1px solid var(--line-soft);
-    border-radius: var(--r-sm);
-  }
-  .exercise.open {
-    border-color: var(--line);
-  }
-  .exercise-head {
-    width: 100%;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 0.75rem;
-    background: none;
-    border: none;
-    padding: 0.85rem 1rem;
-    text-align: left;
-  }
-  .exercise-meta {
-    color: var(--muted);
-    font-size: 0.85rem;
-    text-align: right;
-  }
-  /* UI-DECISIONS §1/§5: the three states of a row are carried entirely by weight and
-     luminance — no colour anywhere below, because colour in this app means symptoms and
-     effort, and a list that traffic-lights "done" competes with the one scale that has
-     to stay readable. The open exercise is heaviest and brightest; a finished one stays
-     legible so its summary can be read at a glance; one not yet reached recedes to
-     `--dim`. */
-  .exercise-name {
-    font-weight: 600;
-  }
-  .exercise.open .exercise-name {
-    font-weight: 750;
-  }
-  .exercise.done .exercise-name {
-    color: var(--muted);
-    font-weight: 500;
-  }
-  .exercise.done .exercise-meta {
-    color: var(--text);
-  }
-  .exercise.upcoming .exercise-name,
-  .exercise.upcoming .exercise-meta {
-    color: var(--dim);
-    font-weight: 500;
-  }
-  .exercise-body {
-    padding: 0 1rem 1rem;
-    display: grid;
-    gap: 0.6rem;
-  }
-  .condition {
-    color: var(--muted);
-    font-size: 0.85rem;
-  }
-  .substitute-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-  }
-  .chip {
-    min-height: 2.75rem;
-    border: 1px solid var(--line);
-    background: var(--raised);
-    color: var(--text);
-    border-radius: var(--r-lg);
-    padding: 0.4rem 0.8rem;
-    font-size: 0.85rem;
-  }
-  .chip--primary {
-    background: var(--accent-soft);
-    border-color: var(--accent);
-  }
-  .cue {
-    margin: 2px 0;
-    color: var(--muted);
-    font-size: 0.85rem;
-  }
-  /* The read-only set ledger. Flex with wrap rather than a fixed grid: at 360px the
-     actual/effort pair drops to its own line instead of forcing the row wider than the
-     card, which is the whole reason the inputs moved to the strip. */
-  .ledger {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-  .ledger-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 0.5rem;
-    padding: 0.5rem 0;
-    border-bottom: 1px solid var(--line-soft);
-    font-size: 0.9rem;
-  }
-  .ledger-row:last-child {
-    border-bottom: none;
-  }
-  .led-set {
-    flex: none;
-    font-weight: 600;
-    color: var(--muted);
-  }
-  /* Three states, by luminance and the one accent hue only (UI-DECISIONS §5): a logged
-     row reads at full strength, the row the strip is about to write is accented, and a
-     set still to come stays quiet. The "next" row bleeds into `.exercise-body`'s side
-     padding so the highlight reaches the card edges rather than sitting as an inset
-     patch. */
-  .ledger-row.logged .led-set {
-    color: var(--text);
-  }
-  .ledger-row.next {
-    margin: 0 -1rem;
-    padding: 0.5rem 1rem;
-    background: var(--accent-soft);
-    border-bottom-color: transparent;
-    border-radius: var(--r-md);
-  }
-  .ledger-row.next .led-set {
-    color: var(--accent);
-  }
-  .led-target {
-    color: var(--dim);
-    font-size: 0.85rem;
-  }
-  .led-actual {
-    margin-left: auto;
-    font-weight: 600;
-  }
-  .led-pending {
-    font-weight: 400;
-    color: var(--dim);
-    font-size: 0.85rem;
-  }
-  .led-effort {
-    flex: none;
-    display: inline-flex;
-    align-self: center;
-    gap: 3px;
-  }
-  .led-effort i {
-    display: block;
-    width: 5px;
-    height: 0.75rem;
-    border-radius: 2px;
-    background: var(--line);
-  }
-  .led-effort i.on {
-    background: var(--accent);
-  }
-  .add-set {
-    justify-self: start;
-    margin-top: 0.75rem;
-    min-height: 2.75rem;
-    border: 1px dashed var(--line);
-    background: none;
-    color: var(--accent);
-    border-radius: var(--r-xs);
-    padding: 0.4rem 0.8rem;
   }
   .action-error {
     position: sticky;
@@ -1253,26 +673,9 @@
     border-radius: var(--r-sm);
     padding: 0.5rem 1rem;
   }
-  .sheet-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: flex-end;
-    z-index: 60;
-  }
-  .sheet {
-    width: 100%;
-    max-height: 90dvh;
-    overflow-y: auto;
-    background: var(--surface);
-    border-top-left-radius: var(--r-lg);
-    border-top-right-radius: var(--r-lg);
-    padding: 1.25rem;
-    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
-    display: grid;
-    gap: 0.75rem;
-  }
+  /* Shared visually with `WrapUpSheet`'s own finish/back buttons — scoped styles don't
+     cross component boundaries, so this is a deliberate duplicate of that rule rather
+     than an import. Still needed here for the pre-session gate's "Continue" button. */
   .sheet-actions {
     display: flex;
     justify-content: flex-end;
@@ -1287,67 +690,5 @@
   .primary {
     background: var(--accent);
     color: var(--accent-in);
-  }
-  .secondary {
-    background: var(--raised);
-    border: 1px solid var(--line);
-    color: var(--text);
-  }
-  /* Reset the browser's default fieldset chrome — this is a semantic grouping for the
-     row of cells below (see `metricRow`'s comment), not a bordered box. */
-  .metric-field {
-    border: none;
-    margin: 0;
-    padding: 0;
-    min-width: 0;
-  }
-  .metric-field legend {
-    padding: 0;
-    font: inherit;
-    color: var(--text);
-  }
-  /* UI-DECISIONS §8: "a row of tappable cells — one tap, no slider." A grid sized to
-     `--cells` (the metric's own cell count, set per instance in `metricRow`) rather than
-     a fixed column count or `flex-wrap`, so an 11-cell 0–10 scale renders as one clean
-     row at 320–360px instead of wrapping into ragged rows, and a metric with fewer
-     cells (an enum, a narrower scale) gets a grid sized to what it actually renders
-     rather than a hardcoded 11 columns. Each `<form>` is itself a grid item — there is
-     no extra wrapper — so `minmax(0, 1fr)` lets a cell shrink below its button's content
-     width instead of forcing the row wider than the viewport. */
-  .scale-row {
-    display: grid;
-    grid-template-columns: repeat(var(--cells, 1), minmax(0, 1fr));
-    gap: 0.3rem;
-    margin-top: 0.3rem;
-  }
-  /* Touch-target sweep (UI-DECISIONS §12), ruled on rather than changed further: `min-height`
-     alone (not `min-width`) is deliberate here. CONTRACT places no bound on a metric's
-     `min`/`max`, and 0-10 scales are standard clinical convention for pain/symptom
-     tracking, not test-fixture noise — real plans will keep declaring them. At 360px an
-     11-cell row (`--cells: 11` from `metricRow`) leaves ~29px per cell, under the 44px
-     square a lone tap target would want. Forcing every cell to a true 44×44 square would
-     either force the row to wrap across lines (reopening the ragged-wrap bug UI-DECISIONS §8
-     fixed) or need horizontal scroll inside an already-scrolling sheet — both worse than
-     a row of adjacent cells sized to the scale's own width. Height is the tap dimension
-     that matters for a row of buttons (the same reasoning `.exercise-head` and
-     `.checkoff-pills .pill` already rely on) — width is intentionally left to shrink to
-     fit whatever width the plan-declared scale needs in one row. */
-  .scale-cell {
-    width: 100%;
-    min-height: 2.75rem;
-    border: 1px solid var(--line);
-    background: var(--raised);
-    color: var(--text);
-    border-radius: var(--r-xs);
-    padding: 0.4rem 0.3rem;
-  }
-  .scale-cell.selected {
-    background: var(--accent-soft);
-    border-color: var(--accent);
-  }
-  .next-morning-note {
-    color: var(--muted);
-    font-size: 0.85rem;
-    margin: 0;
   }
 </style>
