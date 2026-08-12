@@ -21,8 +21,14 @@ drop-set deviations, a reload that resumes ledger and cursor rather than just th
 row, the pre-session and wrap-up metric prompts, and a red-flag stop — which is phase 4's
 own "done when" (ARCHITECTURE §12). `e2e/session-runner-walkthrough-a.spec.ts` and
 `e2e/session-runner-walkthrough-d.spec.ts` walk both fixture sessions end-to-end as the
-durable proof of that. Phase 5 (offline PWA: IndexedDB, sync queue, idempotency) is next;
-phases 5–7 have not started, and the build-order table in ARCHITECTURE §12 is the map.
+durable proof of that. Phases 5–8 have not started. **Phase 5 (the export UI) is next** —
+the generator has been finished and tested since phase 1, and until a route reaches it a
+user can log an entire block and have no way to get it out.
+
+Two files hold the plan: the build-order table in ARCHITECTURE §12 is the map, and
+[`docs/ROADMAP.md`](docs/ROADMAP.md) is the itinerary — the remaining work item by item,
+with acceptance criteria and notes on what groundwork already exists. Read the roadmap
+before picking up work; it will save you rebuilding something phase 1 already wrote.
 
 Commands (Node 24 LTS — see `.nvmrc` and the `engines` field):
 
@@ -126,8 +132,29 @@ user needs to decide under its own heading at the end, numbered so they can repl
 "1. yes, 2. no". Never bury a question mid-paragraph. Ask rather than guess, and give a
 recommendation with the question.
 
-Design documents in this repo are the exception — `docs/` is written for AI agents and a
-human reviewer, and its prose is deliberate. Do not "bullet-ify" it.
+**That is about chat replies, not about files.** `docs/` is a collection of documents with
+different jobs and different shapes: ARCHITECTURE, CONTRACT and UI-DECISIONS argue a case,
+so their prose is deliberate and should not be flattened into bullets when you edit them;
+ROADMAP is a checklist and should read like one. Match the document you are in.
+
+### Keep the status current
+
+Three files state where the build has got to, and a stale one costs the next agent a
+wasted rebuild of something that already exists. When work closes, update them in the same
+commit:
+
+- **`README.md`** — the status banner. It is the first thing a human reads, and it is the
+  one that drifts: it still announced phase 3 with phase 4 shipped and walked-through by
+  two e2e specs.
+- **`docs/ROADMAP.md`** — tick the item, append the commit SHA. Finishing a phase also
+  means moving the "next" marker and the phase table's state column.
+- **`AGENTS.md`** — the "Current state" paragraph above, when a whole phase closes.
+
+`todo.md` is the inbox for findings from manual testing, not a plan. Anything in it bigger
+than a single commit gets moved into the roadmap under the phase it belongs to; anything
+smaller gets done and deleted rather than struck through. A design decision that falls out
+of a to-do item belongs in the Invariants section below — that is where the `weight_kg`
+ruling went, and it is why it survived.
 
 ## What this app is
 
@@ -331,7 +358,7 @@ rejection ends it. Expect this distinction anywhere a remote answer gates access
 
 **An expired session must not turn a POST into a GET.** The gate redirects navigations
 to `/login` and answers everything else with 401 (`src/lib/server/gate.ts`). A 303 replays
-a POST as a GET and discards the body — survivable for a form, fatal for the phase-5 sync
+a POST as a GET and discards the body — survivable for a form, fatal for the phase-6 sync
 queue, which §4 requires to keep its data across a 401.
 
 **CI builds the image on every change**, and smoke-tests that it boots, answers

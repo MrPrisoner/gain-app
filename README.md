@@ -4,12 +4,13 @@ Self-hosted training tracker for AI-authored exercise plans. Import a plan as
 Markdown, run and log sessions from an offline-capable PWA, then export your full
 plan and progress for an AI to review and revise.
 
-> **Status: phase 3 of 7.** The round-trip core (contract parser, diff engine, export
-> generator, prompt templates), the per-user storage layer and the web app's shell are
-> built: OIDC sign-in against Authentik, the container, and first run — copy a bootstrap
-> prompt into any AI chat, paste the plan back, and it imports. The session runner,
-> offline sync, progress charts and revision diff review are still ahead — see
-> [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) §12.
+> **Status: phase 4 of 8.** The round-trip core (contract parser, diff engine, export
+> generator, prompt templates), the per-user storage layer, the web app and the session
+> runner are built: OIDC sign-in against Authentik, the container, first run — copy a
+> bootstrap prompt into any AI chat, paste the plan back, and it imports — and a full
+> session of a real plan logged on a phone, rest timers and deviations included. Getting
+> the export back out, offline sync, progress charts and revision diff review are still
+> ahead — see [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ---
 
@@ -102,6 +103,7 @@ authentication — a production build refuses to start with that variable set.
 |                                                |                                                                    |
 | ---------------------------------------------- | ------------------------------------------------------------------ |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Design, decisions, data model, build order                         |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md)           | What is left to build, and what proves each piece done             |
 | [`docs/CONTRACT.md`](docs/CONTRACT.md)         | The plan format an AI must produce                                 |
 | [`docs/UI-DECISIONS.md`](docs/UI-DECISIONS.md) | How the session runner behaves, and why                            |
 | [`design/`](design/)                           | A clickable mockup of the session runner — open it in a browser    |
