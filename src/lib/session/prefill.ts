@@ -34,6 +34,14 @@ export type RecentSetRow = {
   difficulty: "easy" | "medium" | "hard" | null;
 };
 
+/** Pre-fill for every movement the runner can end up logging, keyed by exercise slug —
+ * see `+page.server.ts`'s `load` for why substitutes are included alongside prescribed
+ * exercises. */
+export type PrefillByExercise = Record<
+  string,
+  { left?: PrefillResult; right?: PrefillResult; none?: PrefillResult }
+>;
+
 export type PrefillResult = {
   reps: number | undefined;
   weightKg: number | undefined;

@@ -20,7 +20,7 @@ import { recentSetLogsForExercise } from "$lib/db/recent-sets";
 import { workoutHistoryFor } from "$lib/db/workout-history";
 import { finishWorkout, logDeviation, logMetric, logSet, startWorkout } from "$lib/db/workout";
 import type { UserDb } from "$lib/db/user-db";
-import { pickPrefill } from "$lib/session/prefill";
+import { pickPrefill, type PrefillByExercise } from "$lib/session/prefill";
 import { hydrateSession, type SessionHydration } from "$lib/session/resume";
 import { resolveLoad, resolveSession, sessionMetrics } from "$lib/session/session-view";
 import type { DeviationKind } from "$lib/logs/types";
@@ -40,14 +40,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
   const session = resolveSession(contract, params.key);
   if (!session) throw error(404, "No such session in the current plan version");
 
-  const prefillByExercise: Record<
-    string,
-    {
-      left?: ReturnType<typeof pickPrefill>;
-      right?: ReturnType<typeof pickPrefill>;
-      none?: ReturnType<typeof pickPrefill>;
-    }
-  > = {};
+  const prefillByExercise: PrefillByExercise = {};
 
   /**
    * Pre-fill is needed for every movement the runner can end up logging — which is not

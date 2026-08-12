@@ -10,17 +10,13 @@
     formatRepsOrDurationOrDash,
     formatSlotContext,
     formatSlotLabel,
-    formatTarget,
     formatTargetOrSets,
-    formatUpNextSlot,
-    highestLoggedSetNo,
     nextExerciseKey,
     nextUnloggedSlot,
     resolveSubstitute,
     restForSet,
     restBetweenRounds,
     setLogKey,
-    setSlotsFor,
     summariseLoggedSets,
     trackedExerciseKeys,
     visibleSetCount,
@@ -29,10 +25,22 @@
     type ResolvedExercise,
     type SetSlot,
   } from "$lib/session/session-view";
+  import {
+    computeDoneExercises,
+    exerciseAt,
+    performed,
+    prefillFor,
+    resolveOpenContext,
+    slotsFor,
+    upNextForExerciseAt,
+    upNextForSetLogged,
+    type SessionLedger,
+    type UpNext,
+  } from "$lib/session/ledger";
   import type { SessionHydration } from "$lib/session/resume";
   import type { DeviationKind } from "$lib/logs/types";
   import type { MetricDef } from "$lib/contract/schema";
-  import { carryForwardFromPreviousSet, formatLastPerformance } from "$lib/session/prefill";
+  import { formatLastPerformance } from "$lib/session/prefill";
   import RestTimer from "./RestTimer.svelte";
   import DeviationSheet from "./DeviationSheet.svelte";
   import LogStrip from "./LogStrip.svelte";
@@ -154,16 +162,17 @@
   // prescribed movement is being done as-is, so no deviation is logged.
   const dismissedConditions = new SvelteSet<string>();
 
-  /** UI-DECISIONS §4's up-next card: a name and a pre-formatted target line, following
-   * the same pattern as `LogStrip`'s `context`/`lastPerformance` props — `RestTimer`
-   * itself does no formatting, only rendering. */
-  type UpNext = { label: string; target: string };
-
-  /** The block/prescribed/performed trio `exerciseAt` resolves a key to. */
-  type ExerciseAt = {
-    block: ResolvedBlock;
-    prescribed: ResolvedExercise;
-    exercise: ResolvedExercise;
+  // Groups the six maps/sets above behind the shape `$lib/session/ledger`'s functions
+  // take explicitly rather than close over — see that module's own doc comment. The
+  // object is a plain wrapper around the same reactive collections, so reading through
+  // it inside a `$derived.by` still tracks each collection's own reactivity.
+  const ledger: SessionLedger = {
+    loggedSets,
+    addedSets,
+    setCountDelta,
+    completedRounds,
+    substitutedExercises,
+    skippedExercises,
   };
 
   // The rest timer overlay's spec and up-next card, or undefined when no rest is active.
@@ -180,174 +189,21 @@
   const sessionMetricValues = new SvelteMap<string, number | string>();
 
   /**
-   * `blockKey`/`prescribedSlug` are the slot's identity (same as `setLogKey`), used to
-   * look up whatever this session already logged for the *previous* set of the same slot
-   * — the pre-fill's outermost rung (`carryForwardFromPreviousSet`): a set bumped from
-   * 6 kg to 8 kg mid-exercise should not reset to 6 kg on the next set. `exerciseSlug` is
-   * the *performed* movement (post-substitution), which is what history is keyed by.
-   */
-  function prefillFor(
-    blockKey: string,
-    prescribedSlug: string,
-    exerciseSlug: string,
-    perSide: boolean,
-    slot: SetSlot | undefined,
-  ): { reps?: number; weightKg?: number; durationS?: number } {
-    const entry = data.prefillByExercise[exerciseSlug];
-    const base = entry
-      ? perSide
-        ? ((slot?.side === "left" ? entry.left : entry.right) ?? {})
-        : (entry.none ?? {})
-      : {};
-    if (!slot || slot.setNo <= 1) return base;
-    const previous = loggedSets.get(setLogKey(blockKey, prescribedSlug, slot.setNo - 1, slot.side));
-    return carryForwardFromPreviousSet(base, previous);
-  }
-
-  /**
-   * The exercise actually being performed in a slot: the prescribed one, or the
-   * substitute swapped in for it. Every render path that shows a name, a target, a dial
-   * or a slug goes through here, which is what makes a swap real rather than cosmetic.
-   */
-  function performed(blockKey: string, prescribed: ResolvedExercise): ResolvedExercise {
-    return substitutedExercises.get(`${blockKey}:${prescribed.slug}`) ?? prescribed;
-  }
-
-  /**
-   * How many sets the exercise currently offers, or exactly the current round inside a
-   * rounds block (where `set_no` *is* the round, so neither counter below applies).
-   *
-   * The two counters are deliberately separate mechanisms, not one number:
-   *
-   * - `addedSets` is UI-DECISIONS §6's "Add the optional 3rd set". A ranged prescription
-   *   (`sets: [2, 3]`) draws its minimum and offers the sets the plan itself already
-   *   declared. Taking one is *doing the plan*, so it logs no deviation, and it can never
-   *   exceed the declared max.
-   * - `setCountDelta` is the deviation sheet's `add_set`/`drop_set`: a manual override of
-   *   what the prescription allows at all — a 4th set on a fixed-3 exercise, or dropping
-   *   that same exercise to 2 — which *is* a deviation and always writes a row.
-   *
-   * Collapsing them would either make taking a declared optional set look like a
-   * deviation in the export, or cap a genuine deviation at the ranged max it exists to
-   * exceed.
-   *
-   * A drop has two floors. One slot, because a drop that reached zero is a skip wearing a
-   * different name and the sheet already has a Skip that records itself honestly as one.
-   * And `highestLoggedSetNo`, because dropping a set must stop the *next* slot being
-   * offered, never hide one that was really performed — that row is in the database and
-   * will be exported whatever the ledger draws.
-   */
-  function shownSetsFor(block: ResolvedBlock, prescribed: ResolvedExercise): number {
-    if (block.type === "rounds") return 1;
-    const key = `${block.key}:${prescribed.slug}`;
-    const declared = visibleSetCount(prescribed.sets, addedSets.get(key) ?? 0).shown;
-    return Math.max(
-      1,
-      highestLoggedSetNo(block.key, prescribed.slug, loggedSets.keys()),
-      declared + (setCountDelta.get(key) ?? 0),
-    );
-  }
-
-  function currentRoundOf(blockKey: string): number {
-    return (completedRounds.get(blockKey) ?? 0) + 1;
-  }
-
-  /**
-   * The block/prescribed/performed trio for any `${block.key}:${slug}` key the session
-   * offers, or `undefined` for a checkoff block (never opened) or an unknown key. Used to
-   * look up an exercise the runner is not currently *at* — the rest overlay's up-next
-   * card needs to describe the exercise auto-advance is about to open, one step ahead of
-   * `openContext`, which only ever describes `openSlug` itself.
-   */
-  function exerciseAt(key: string | undefined): ExerciseAt | undefined {
-    if (!key) return undefined;
-    for (const block of data.session.blocks) {
-      if (block.tracking === "checkoff") continue;
-      for (const prescribed of block.exercises) {
-        if (`${block.key}:${prescribed.slug}` !== key) continue;
-        return { block, prescribed, exercise: performed(block.key, prescribed) };
-      }
-    }
-    return undefined;
-  }
-
-  /** Nothing else is scheduled — the rest overlay still needs an up-next card even when
-   * this was the session's very last set or round. */
-  function upNextFallback(): UpNext {
-    return { label: "Nothing left", target: "Finish up when you're ready" };
-  }
-
-  /**
-   * The slots an exercise currently offers — none at all once it has been skipped.
-   *
-   * The slot key stays on the **prescribed** slug even after a swap, because it names the
-   * slot in the session rather than the movement filling it: session D's rounds block
-   * prescribes `dead-bug` in its own right *and* offers it as a substitute for
-   * `reverse-crunch` two rows below, so keying by the performed movement would collapse
-   * the two exercises onto one another and mark one done by logging the other. `per_side`
-   * does come from the performed movement — that is what decides whether there are L/R
-   * rows to log at all. What the strip actually posts as `exercise_slug` is separate
-   * again, and is always the performed movement (`LogStrip`'s `exercise` prop).
-   */
-  function slotsFor(block: ResolvedBlock, prescribed: ResolvedExercise): SetSlot[] {
-    if (skippedExercises.has(`${block.key}:${prescribed.slug}`)) return [];
-    return setSlotsFor(
-      block,
-      { slug: prescribed.slug, perSide: performed(block.key, prescribed).perSide },
-      { shownSets: shownSetsFor(block, prescribed), currentRound: currentRoundOf(block.key) },
-    );
-  }
-
-  /**
    * Everything the pinned strip needs about the one open exercise (UI-DECISIONS §1: one
    * exercise open, §2: the strip logs exactly one set). `next` is `undefined` once every
    * offered set is logged — the strip then shows its finished state rather than
-   * vanishing, so the ledger's reserved bottom padding stays honest.
-   *
-   * `prescribed` is the session's own exercise (the thing every map is keyed by);
-   * `exercise` is what is actually being performed, which is what gets logged.
+   * vanishing, so the ledger's reserved bottom padding stays honest. See
+   * `$lib/session/ledger`'s `resolveOpenContext` for the resolution itself.
    */
-  const openContext = $derived.by(() => {
-    if (!openSlug) return undefined;
-    for (const block of data.session.blocks) {
-      if (block.tracking === "checkoff") continue;
-      for (const prescribed of block.exercises) {
-        const key = `${block.key}:${prescribed.slug}`;
-        if (key !== openSlug) continue;
-        return {
-          key,
-          block,
-          prescribed,
-          exercise: performed(block.key, prescribed),
-          shownSets: shownSetsFor(block, prescribed),
-          next: nextUnloggedSlot(slotsFor(block, prescribed), loggedSets),
-        };
-      }
-    }
-    return undefined;
-  });
+  const openContext = $derived.by(() => resolveOpenContext(data.session, ledger, openSlug));
 
   /**
    * Every exercise that needs nothing more from the user — each offered slot logged, or
    * the whole exercise skipped. Drives both the collapsed row's completion state
-   * (UI-DECISIONS §1) and where auto-advance goes next.
+   * (UI-DECISIONS §1) and where auto-advance goes next. See `$lib/session/ledger`'s
+   * `computeDoneExercises` for the resolution itself.
    */
-  const doneExercises = $derived.by(() => {
-    const done = new SvelteSet<string>();
-    for (const block of data.session.blocks) {
-      if (block.tracking === "checkoff") continue;
-      for (const prescribed of block.exercises) {
-        const key = `${block.key}:${prescribed.slug}`;
-        if (skippedExercises.has(key)) {
-          done.add(key);
-          continue;
-        }
-        const slots = slotsFor(block, prescribed);
-        if (slots.length > 0 && nextUnloggedSlot(slots, loggedSets) === undefined) done.add(key);
-      }
-    }
-    return done;
-  });
+  const doneExercises = $derived.by(() => computeDoneExercises(data.session, ledger));
 
   /** The strip's real rendered height, so `.blocks` can reserve exactly that much
    * scroll padding — the last block must never be trapped underneath it. */
@@ -385,63 +241,29 @@
 
     // Recomputed from the map rather than read off `openContext.next`, so this does not
     // depend on when the derived happens to be re-pulled.
-    const nextSlot = nextUnloggedSlot(slotsFor(context.block, context.prescribed), loggedSets);
+    const nextSlot = nextUnloggedSlot(
+      slotsFor(ledger, context.block, context.prescribed),
+      loggedSets,
+    );
     const finished = nextSlot === undefined;
     const rest = restForSet(context.block, context.exercise);
 
     if (rest) {
-      activeRest = { spec: restSpecFrom(rest), upNext: upNextForSetLogged(context, nextSlot) };
+      activeRest = {
+        spec: restSpecFrom(rest),
+        upNext: upNextForSetLogged(
+          data.session,
+          ledger,
+          doneExercises,
+          data.prefillByExercise,
+          context,
+          nextSlot,
+        ),
+      };
       advanceAfterRest = finished;
     } else if (finished) {
       advance();
     }
-  }
-
-  /**
-   * The rest overlay's up-next card (UI-DECISIONS §4) after a set is logged. Two cases:
-   *
-   * - The exercise isn't finished — "next" is the next slot of the *same* exercise,
-   *   formatted the same way `LogStrip`'s own context line is, plus the weight the strip
-   *   would pre-fill for that slot (already resolved here for the currently-open
-   *   exercise, so reusing it costs nothing extra).
-   * - The exercise IS finished — "next" is whatever auto-advance (`nextExerciseKey`)
-   *   would open once this rest is dismissed, named by its own target line. Scoped from
-   *   `context.key` exactly like `advance()` itself, so the preview can never name a
-   *   different exercise than the one that actually opens.
-   */
-  function upNextForSetLogged(
-    context: {
-      block: ResolvedBlock;
-      prescribed: ResolvedExercise;
-      exercise: ResolvedExercise;
-      key: string;
-      shownSets: number;
-    },
-    nextSlot: SetSlot | undefined,
-  ): UpNext {
-    if (nextSlot) {
-      const weight = prefillFor(
-        context.block.key,
-        context.prescribed.slug,
-        context.exercise.slug,
-        context.exercise.perSide,
-        nextSlot,
-      ).weightKg;
-      return {
-        label: context.exercise.name,
-        target: formatUpNextSlot(
-          context.block,
-          nextSlot,
-          context.shownSets,
-          context.exercise,
-          weight,
-        ),
-      };
-    }
-    const next = exerciseAt(nextExerciseKey(data.session, doneExercises, context.key));
-    return next
-      ? { label: next.exercise.name, target: formatTarget(next.exercise) }
-      : upNextFallback();
   }
 
   function onRestDismissed(): void {
@@ -470,10 +292,7 @@
 
     const rest = restBetweenRounds(block, round);
     if (rest) {
-      const next = exerciseAt(top);
-      const upNext: UpNext = next
-        ? { label: next.exercise.name, target: formatTarget(next.exercise) }
-        : upNextFallback();
+      const upNext: UpNext = upNextForExerciseAt(exerciseAt(data.session, ledger, top));
       activeRest = { spec: restSpecFrom(rest), upNext };
     }
 
@@ -493,7 +312,7 @@
       key: `${block.key}:${prescribed.slug}`,
       block,
       prescribed,
-      exercise: performed(block.key, prescribed),
+      exercise: performed(ledger, block.key, prescribed),
     };
   });
 
@@ -804,7 +623,7 @@
           <ul class="exercises">
             {#each block.exercises as prescribed (prescribed.slug)}
               {@const exerciseKey = `${block.key}:${prescribed.slug}`}
-              {@const exercise = performed(block.key, prescribed)}
+              {@const exercise = performed(ledger, block.key, prescribed)}
               {@const substituted = exercise.slug !== prescribed.slug}
               {@const isOpen = openSlug === exerciseKey}
               {@const isSkipped = skippedExercises.has(exerciseKey)}
@@ -813,7 +632,7 @@
               {@const visible = isRounds
                 ? { shown: 1, canAddMore: false }
                 : visibleSetCount(prescribed.sets, addedSets.get(exerciseKey) ?? 0)}
-              {@const slots = slotsFor(block, prescribed)}
+              {@const slots = slotsFor(ledger, block, prescribed)}
               {@const nextSlot = nextUnloggedSlot(slots, loggedSets)}
               <!-- UI-DECISIONS §1: the collapsed row carries name, target *and completion
                    state*. Done collapses to what it actually was, skipped says so, and
@@ -1009,6 +828,8 @@
   {@const ctx = openContext}
   {@const slot = ctx.next}
   {@const fill = prefillFor(
+    ledger,
+    data.prefillByExercise,
     ctx.block.key,
     ctx.prescribed.slug,
     ctx.exercise.slug,
