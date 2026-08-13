@@ -22,7 +22,7 @@ import { getUserDbFor, resetAppStateForTests } from "../../src/lib/server/app-st
 import { resetConfigForTests } from "../../src/lib/server/config";
 import { parsePlanDocument } from "../../src/lib/parse/parser";
 
-const FIXTURE = fs.readFileSync("fixtures/plans/home-dumbbell-v1.md", "utf8");
+const FIXTURE = fs.readFileSync("fixtures/plans/home-training-v1.md", "utf8");
 const USER_ID = "01KZKQ4GB22EEQBF20YDKD1BYE";
 const NOW = new Date("2026-09-08T08:00:00Z");
 const W = "01JZ000000000000000000000W";

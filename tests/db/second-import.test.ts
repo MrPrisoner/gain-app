@@ -22,7 +22,7 @@ import { openUserDb, type UserDb } from "../../src/lib/db/user-db";
 import { parsePlanDocument, type ParsedPlan } from "../../src/lib/parse/parser";
 
 const ROOT = new URL("../../", import.meta.url);
-const fixtureMd = fs.readFileSync(new URL("fixtures/plans/home-dumbbell-v1.md", ROOT), "utf8");
+const fixtureMd = fs.readFileSync(new URL("fixtures/plans/home-training-v1.md", ROOT), "utf8");
 
 const NOW = new Date("2026-09-08T08:00:00Z");
 
@@ -162,15 +162,15 @@ describe("second import of a revised plan", () => {
 
     // The v2 source is on disk byte-for-byte, next to v1.
     expect(readSourceMd(userDb, current!)).toBe(parsedV2.source_md);
-    expect(fs.existsSync(path.join(userDb.userDir, "plans", "home-dumbbell", "v1.md"))).toBe(true);
-    expect(fs.existsSync(path.join(userDb.userDir, "plans", "home-dumbbell", "v2.md"))).toBe(true);
+    expect(fs.existsSync(path.join(userDb.userDir, "plans", "home-training", "v1.md"))).toBe(true);
+    expect(fs.existsSync(path.join(userDb.userDir, "plans", "home-training", "v2.md"))).toBe(true);
   });
 
   it("keeps exercise identity stable across the revision", () => {
     const defsBefore = userDb.db
       .prepare("SELECT slug, id, first_seen_version FROM exercise_def WHERE plan_id = ?")
       .all(v1Result.plan_id) as { slug: string; id: string; first_seen_version: number }[];
-    expect(defsBefore).toHaveLength(23);
+    expect(defsBefore).toHaveLength(26);
 
     const result = importPlan(userDb, { parsed: parsedV2, now: NOW });
     if (!result.ok) throw new Error("v2 import failed");
@@ -186,8 +186,8 @@ describe("second import of a revised plan", () => {
       last_seen_version: number;
     }[];
 
-    // 23 originals + push-up.
-    expect(defsAfter).toHaveLength(24);
+    // 26 originals + push-up.
+    expect(defsAfter).toHaveLength(27);
 
     // Every original slug kept its id and its first_seen_version.
     for (const before of defsBefore) {

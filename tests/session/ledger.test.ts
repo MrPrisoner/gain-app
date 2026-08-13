@@ -27,7 +27,7 @@ import {
 } from "../../src/lib/session/ledger";
 
 const ROOT = new URL("../../", import.meta.url);
-const fixtureMd = fs.readFileSync(new URL("fixtures/plans/home-dumbbell-v1.md", ROOT), "utf8");
+const fixtureMd = fs.readFileSync(new URL("fixtures/plans/home-training-v1.md", ROOT), "utf8");
 
 function fixtureContract() {
   const parsed = parsePlanDocument(fixtureMd);
@@ -68,8 +68,8 @@ function emptyLedger(overrides: Partial<SessionLedger> = {}): SessionLedger {
 describe("performed", () => {
   it("returns the prescribed exercise when nothing has been substituted", () => {
     const main = block(session("A"), "main");
-    const row = exercise(main, "supported-one-arm-row");
-    expect(performed(emptyLedger(), main.key, row).slug).toBe("supported-one-arm-row");
+    const row = exercise(main, "prone-row");
+    expect(performed(emptyLedger(), main.key, row).slug).toBe("prone-row");
   });
 
   it("returns the substitute once one is recorded for that block/slug", () => {
@@ -111,9 +111,9 @@ describe("shownSetsFor", () => {
 
   it("setCountDelta adds a deviation set beyond the declared max", () => {
     const main = block(session("D"), "main");
-    const row = exercise(main, "goblet-squat"); // sets: 3, fixed
-    const ledger = emptyLedger({ setCountDelta: new Map([[`${main.key}:goblet-squat`, 1]]) });
-    expect(shownSetsFor(ledger, main, row)).toBe(4);
+    const row = exercise(main, "hammer-curl"); // sets: 2, fixed
+    const ledger = emptyLedger({ setCountDelta: new Map([[`${main.key}:hammer-curl`, 1]]) });
+    expect(shownSetsFor(ledger, main, row)).toBe(3);
   });
 
   it("never drops below the highest set number already logged", () => {
@@ -136,19 +136,23 @@ describe("slotsFor", () => {
   });
 
   it("offers left/right slots for a per-side exercise", () => {
-    const main = block(session("A"), "main");
-    const row = exercise(main, "supported-one-arm-row"); // sets: 3, per_side
+    const main = block(session("C"), "main");
+    const row = exercise(main, "split-squat"); // sets: 2, per_side
     const slots = slotsFor(emptyLedger(), main, row);
-    expect(slots).toHaveLength(6);
+    expect(slots).toHaveLength(4);
     expect(slots[0]?.side).toBe("left");
     expect(slots[1]?.side).toBe("right");
   });
 
-  it("in a rounds block, offers exactly the current round (both sides, dead-bug is per_side)", () => {
+  it("in a rounds block, offers exactly the current round (both sides, for a per_side exercise)", () => {
     const finisher = block(session("D"), "ab-finisher");
     const deadBug = exercise(finisher, "dead-bug");
+    // None of ab-finisher's own movements (dead-bug, mcgill-curl-up, reverse-crunch) are
+    // per_side in this fixture, so this synthesizes one to exercise the per_side +
+    // rounds-block interaction directly, rather than losing the coverage.
+    const perSideDeadBug = { ...deadBug, perSide: true };
     const ledger = emptyLedger({ completedRounds: new Map([["ab-finisher", 1]]) });
-    const slots = slotsFor(ledger, finisher, deadBug);
+    const slots = slotsFor(ledger, finisher, perSideDeadBug);
     expect(slots).toHaveLength(2);
     expect(slots.every((slot) => slot.setNo === 2)).toBe(true);
   });
@@ -156,9 +160,11 @@ describe("slotsFor", () => {
   it("a swap keeps the slot keyed on the prescribed slug, sized off the performed exercise", () => {
     const finisher = block(session("D"), "ab-finisher");
     const reverseCrunch = exercise(finisher, "reverse-crunch"); // not per_side
-    const deadBug = exercise(finisher, "dead-bug"); // per_side
+    // `split-squat` (session C's main block) stands in for the per_side movement here —
+    // ab-finisher's own catalogue has none in this fixture.
+    const splitSquat = exercise(block(session("C"), "main"), "split-squat"); // per_side
     const ledger = emptyLedger({
-      substitutedExercises: new Map([[`${finisher.key}:reverse-crunch`, deadBug]]),
+      substitutedExercises: new Map([[`${finisher.key}:reverse-crunch`, splitSquat]]),
     });
     const slots = slotsFor(ledger, finisher, reverseCrunch);
     // One rounds-block round, but two L/R rows because the swapped-in movement is per_side.
@@ -236,7 +242,9 @@ describe("resolveOpenContext", () => {
     const d = session("D");
     const ctx = resolveOpenContext(d, emptyLedger(), "main:goblet-squat");
     expect(ctx?.next?.setNo).toBe(1);
-    expect(ctx?.shownSets).toBe(3);
+    // goblet-squat is a ranged-set prescription here (sets: [2, 3]); with nothing added
+    // or logged, only the declared minimum is shown.
+    expect(ctx?.shownSets).toBe(2);
   });
 
   it("next is undefined once every slot is logged", () => {
@@ -253,7 +261,7 @@ describe("resolveOpenContext", () => {
 describe("prefillFor", () => {
   const prefillByExercise: PrefillByExercise = {
     "goblet-squat": { none: { reps: 12, weightKg: 10, durationS: undefined, isFirstTime: false } },
-    "supported-one-arm-row": {
+    "split-squat": {
       left: { reps: 9, weightKg: undefined, durationS: undefined, isFirstTime: false },
       right: { reps: 10, weightKg: undefined, durationS: undefined, isFirstTime: false },
     },
@@ -279,10 +287,10 @@ describe("prefillFor", () => {
       emptyLedger(),
       prefillByExercise,
       "main",
-      "supported-one-arm-row",
-      "supported-one-arm-row",
+      "split-squat",
+      "split-squat",
       true,
-      { setNo: 1, side: "right", key: setLogKey("main", "supported-one-arm-row", 1, "right") },
+      { setNo: 1, side: "right", key: setLogKey("main", "split-squat", 1, "right") },
     );
     expect(fill.reps).toBe(10);
   });

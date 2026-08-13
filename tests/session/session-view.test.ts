@@ -32,7 +32,7 @@ import {
 import type { ResolvedExercise } from "../../src/lib/session/session-view";
 
 const ROOT = new URL("../../", import.meta.url);
-const fixtureMd = fs.readFileSync(new URL("fixtures/plans/home-dumbbell-v1.md", ROOT), "utf8");
+const fixtureMd = fs.readFileSync(new URL("fixtures/plans/home-training-v1.md", ROOT), "utf8");
 
 function fixtureContract() {
   const parsed = parsePlanDocument(fixtureMd);
@@ -47,7 +47,7 @@ describe("resolveSession", () => {
 
   it("resolves session A with the warm-up block marked checkoff", () => {
     const session = resolveSession(fixtureContract(), "A");
-    expect(session?.name).toBe("Full Body Strength + Abs");
+    expect(session?.name).toBe("Squat, Press & Row");
     const warmup = session?.blocks.find((b) => b.key === "warmup");
     expect(warmup?.tracking).toBe("checkoff");
     expect(warmup?.type).toBe("sequence");
@@ -56,15 +56,18 @@ describe("resolveSession", () => {
   });
 
   it("resolves a per-side exercise from the catalogue", () => {
-    const session = resolveSession(fixtureContract(), "A");
+    // `split-squat` (session C's main block) is the fixture's per-side, loaded movement —
+    // the stand-in for the old fixture's supported one-arm row.
+    const session = resolveSession(fixtureContract(), "C");
     const main = session?.blocks.find((b) => b.key === "main");
-    const row = main?.exercises.find((e) => e.slug === "supported-one-arm-row");
+    const row = main?.exercises.find((e) => e.slug === "split-squat");
     expect(row?.perSide).toBe(true);
-    expect(row?.sets).toBe(3);
+    expect(row?.sets).toBe(2);
     expect(row?.reps).toEqual([10, 12]);
-    // Prescription overrides catalogue rest_sec.
-    expect(row?.restSec).toBe(30);
-    expect(row?.note).toContain("Support free hand on thigh");
+    // No prescription-level rest_sec override for split-squat, so it falls through to
+    // the catalogue's ranged rest.
+    expect(row?.restSec).toEqual([60, 90]);
+    expect(row?.note).toContain("Staggered stance");
   });
 
   it("defaults sets to 1 when the prescription omits it", () => {
@@ -87,7 +90,7 @@ describe("resolveSession", () => {
     const finisher = session?.blocks.find((b) => b.key === "ab-finisher");
     const crunch = finisher?.exercises.find((e) => e.slug === "reverse-crunch");
     expect(crunch?.conditional).toBe(true);
-    expect(crunch?.condition).toContain("reproduces familiar back symptoms");
+    expect(crunch?.condition).toContain("reproduce your familiar hip or lower-back symptoms");
     expect(crunch?.substitutes).toEqual(["dead-bug", "front-plank"]);
   });
 
@@ -95,8 +98,8 @@ describe("resolveSession", () => {
     const contract = fixtureContract();
     const session = resolveSession(contract, "B");
     const main = session?.blocks.find((b) => b.key === "main");
-    const triceps = main?.exercises.find((e) => e.slug === "overhead-triceps-extension");
-    expect(triceps?.substitutes).toEqual(["lying-triceps-extension"]);
+    const press = main?.exercises.find((e) => e.slug === "db-shoulder-press");
+    expect(press?.substitutes).toEqual(["seated-floor-shoulder-press"]);
   });
 });
 
@@ -105,9 +108,9 @@ describe("resolveExercise — load resolution (UI-DECISIONS §3)", () => {
     const session = resolveSession(fixtureContract(), "A");
     const main = session?.blocks.find((b) => b.key === "main");
     const squat = main?.exercises.find((e) => e.slug === "goblet-squat");
-    expect(squat?.load?.ref).toBe("heavy");
-    expect(squat?.load?.label).toBe("Heavy configuration");
-    expect(squat?.load?.defaultKg).toBe(6);
+    expect(squat?.load?.ref).toBe("goblet");
+    expect(squat?.load?.label).toBe("Goblet — single dumbbell");
+    expect(squat?.load?.defaultKg).toBe(10);
     expect(squat?.load?.isBodyweight).toBe(false);
     expect(squat?.load?.note).toBeTruthy();
   });
@@ -126,16 +129,16 @@ describe("resolveExercise — load resolution (UI-DECISIONS §3)", () => {
     // somewhere (catalogue or prescription), so this strips one by hand to exercise
     // the no-ref path.
     const contract = structuredClone(fixtureContract());
-    const def = contract.exercises.find((e) => e.id === "supported-one-arm-row");
+    const def = contract.exercises.find((e) => e.id === "split-squat");
     delete def?.load;
-    const main = contract.sessions.find((s) => s.key === "A")?.blocks.find((b) => b.key === "main");
-    const rx = main?.exercises.find((e) => e.id === "supported-one-arm-row");
+    const main = contract.sessions.find((s) => s.key === "C")?.blocks.find((b) => b.key === "main");
+    const rx = main?.exercises.find((e) => e.id === "split-squat");
     delete rx?.load;
 
-    const session = resolveSession(contract, "A");
+    const session = resolveSession(contract, "C");
     const row = session?.blocks
       .find((b) => b.key === "main")
-      ?.exercises.find((e) => e.slug === "supported-one-arm-row");
+      ?.exercises.find((e) => e.slug === "split-squat");
     expect(row?.loadRef).toBeUndefined();
     expect(row?.load).toBeUndefined();
   });
@@ -143,7 +146,7 @@ describe("resolveExercise — load resolution (UI-DECISIONS §3)", () => {
 
 describe("resolveLoad", () => {
   it("resolves a declared load ref", () => {
-    const load = resolveLoad(fixtureContract(), "heavy");
+    const load = resolveLoad(fixtureContract(), "goblet");
     expect(load?.label).toBeTruthy();
   });
 
@@ -157,14 +160,14 @@ describe("metric selectors", () => {
     const contract = fixtureContract();
     const endOnly = sessionMetrics(contract, "end");
     const nextMorningOnly = sessionMetrics(contract, "next_morning");
-    expect(endOnly.some((m) => m.key === "energy_after")).toBe(true);
+    expect(endOnly.some((m) => m.key === "symptoms_during")).toBe(true);
     expect(nextMorningOnly.some((m) => m.key === "symptoms_next_morning")).toBe(true);
     expect(endOnly.some((m) => m.key === "symptoms_next_morning")).toBe(false);
   });
 
   it("returns set and exercise metrics unfiltered", () => {
     const contract = fixtureContract();
-    expect(setMetrics(contract).some((m) => m.key === "set_symptom")).toBe(true);
+    expect(setMetrics(contract).some((m) => m.key === "symptoms_during")).toBe(true);
     expect(exerciseMetrics(contract).some((m) => m.key === "rir")).toBe(true);
   });
 });
@@ -417,11 +420,11 @@ describe("formatTarget", () => {
   });
 
   it("formats a ranged-set exercise as `min–max × reps`", () => {
-    const session = resolveSession(fixtureContract(), "B");
+    const session = resolveSession(fixtureContract(), "D");
     const main = session?.blocks.find((b) => b.key === "main");
-    const lateralRaise = main?.exercises.find((e) => e.slug === "lateral-raise");
-    expect(lateralRaise?.sets).toEqual([2, 3]);
-    expect(lateralRaise && formatTarget(lateralRaise)).toBe("2–3 × 10–15");
+    const squat = main?.exercises.find((e) => e.slug === "goblet-squat");
+    expect(squat?.sets).toEqual([2, 3]);
+    expect(squat && formatTarget(squat)).toBe("2–3 × 12–15");
   });
 
   it("formats a fixed single (no ranges anywhere) plainly", () => {
@@ -429,9 +432,9 @@ describe("formatTarget", () => {
     const warmup = session?.blocks.find((b) => b.key === "warmup");
     const squat = warmup?.exercises.find((e) => e.slug === "bodyweight-squat");
     expect(squat?.sets).toBe(1);
-    expect(squat?.reps).toBe(8);
+    expect(squat?.reps).toBe(10);
     expect(squat?.perSide).toBe(false);
-    expect(squat && formatTarget(squat)).toBe("1 × 8");
+    expect(squat && formatTarget(squat)).toBe("1 × 10");
   });
 
   it("throws rather than silently rendering `0` when the type-appropriate field is missing", () => {
@@ -461,7 +464,7 @@ describe("formatRepsOrDuration", () => {
     const session = resolveSession(fixtureContract(), "A");
     const warmup = session?.blocks.find((b) => b.key === "warmup");
     const squat = warmup?.exercises.find((e) => e.slug === "bodyweight-squat");
-    expect(squat && formatRepsOrDuration(squat)).toBe("8");
+    expect(squat && formatRepsOrDuration(squat)).toBe("10");
   });
 
   it("formats the duration side of a checkoff item with a `sec` unit", () => {
@@ -510,49 +513,61 @@ describe("resolveSubstitute", () => {
     const original = reverseCrunch();
     expect(original.perSide).toBe(false);
 
-    const deadBug = resolveSubstitute(contract.exercises, contract.loads, original, "dead-bug");
-    expect(deadBug?.slug).toBe("dead-bug");
-    expect(deadBug?.name).toBe("Dead bug");
-    expect(deadBug?.type).toBe("reps");
+    // None of reverse-crunch's own declared substitutes (dead-bug, front-plank) are
+    // per_side in this fixture, so split-squat stands in to exercise the property.
+    const splitSquat = resolveSubstitute(
+      contract.exercises,
+      contract.loads,
+      original,
+      "split-squat",
+    );
+    expect(splitSquat?.slug).toBe("split-squat");
+    expect(splitSquat?.name).toBe("Split squat");
+    expect(splitSquat?.type).toBe("reps");
     // The substitute's own movement property, not the original's: a per_side substitute
     // really does want its own L/R ledger rows.
-    expect(deadBug?.perSide).toBe(true);
-    expect(deadBug?.load?.ref).toBe("bodyweight");
-    expect(deadBug?.load?.isBodyweight).toBe(true);
+    expect(splitSquat?.perSide).toBe(true);
+    expect(splitSquat?.load?.ref).toBe("bodyweight");
+    expect(splitSquat?.load?.isBodyweight).toBe(true);
   });
 
   it("takes the targets of the occasion being replaced, not the substitute's own", () => {
     const contract = fixtureContract();
     const original = reverseCrunch();
-    expect(original.reps).toEqual([8, 12]);
+    expect(original.reps).toBe(12);
 
     const deadBug = resolveSubstitute(contract.exercises, contract.loads, original, "dead-bug");
-    // Session D also prescribes dead-bug at `reps: 8` in the same block — the substitute
+    // Session D also prescribes dead-bug at `reps: 16` in the same block — the substitute
     // must not inherit that; it is standing in for *this* occasion.
-    expect(deadBug?.reps).toEqual([8, 12]);
+    expect(deadBug?.reps).toBe(12);
     expect(deadBug?.sets).toBe(original.sets);
     expect(deadBug?.restSec).toBe(original.restSec);
   });
 
   it("resolves a substitute whose load differs from the original's", () => {
     const contract = fixtureContract();
-    const session = resolveSession(contract, "B");
+    const session = resolveSession(contract, "D");
+    // `db-shoulder-press`/`seated-floor-shoulder-press` share the same combined-weight
+    // load ref, so they can't exercise a load *difference*. `lying-triceps-extension`
+    // (session D's main block) is conditional with `overhead-triceps-extension` as its
+    // declared substitute, and the two carry different load refs — the reverse pairing
+    // from the old fixture's overhead/lying relationship, but the same shape.
     const triceps = session?.blocks
       .find((b) => b.key === "main")
-      ?.exercises.find((e) => e.slug === "overhead-triceps-extension");
-    if (!triceps) throw new Error("fixture no longer prescribes overhead-triceps-extension");
+      ?.exercises.find((e) => e.slug === "lying-triceps-extension");
+    if (!triceps) throw new Error("fixture no longer prescribes lying-triceps-extension");
 
-    const lying = resolveSubstitute(
+    const overhead = resolveSubstitute(
       contract.exercises,
       contract.loads,
       triceps,
-      "lying-triceps-extension",
+      "overhead-triceps-extension",
     );
-    expect(lying?.name).toBe("Lying dumbbell triceps extension");
-    expect(lying?.load?.ref).toBe("light");
-    expect(lying?.note).toContain("Substitute for the overhead version");
+    expect(overhead?.name).toBe("Overhead triceps extension");
+    expect(overhead?.load?.ref).toBe("pullover-single");
+    expect(overhead?.note).toContain("most likely to pull you into a lower-back arch");
     // Not a conditional exercise at all — the swap came from the deviation sheet.
-    expect(lying?.conditional).toBe(false);
+    expect(overhead?.conditional).toBe(false);
   });
 
   it("leaves the target unset when the substitute's type differs from the original's", () => {
@@ -570,18 +585,19 @@ describe("resolveSubstitute", () => {
 
   it("does not re-ask the condition it was chosen to answer", () => {
     const contract = fixtureContract();
-    // `front-plank` is itself `conditional: true` in the catalogue.
-    expect(contract.exercises.find((e) => e.id === "front-plank")?.conditional).toBe(true);
+    // `floor-pullover` is itself `conditional: true` in the catalogue (and, per its own
+    // condition, declares no substitute of its own — drop it rather than swap it).
+    expect(contract.exercises.find((e) => e.id === "floor-pullover")?.conditional).toBe(true);
 
-    const plank = resolveSubstitute(
+    const pullover = resolveSubstitute(
       contract.exercises,
       contract.loads,
       reverseCrunch(),
-      "front-plank",
+      "floor-pullover",
     );
-    expect(plank?.conditional).toBe(false);
-    expect(plank?.condition).toBeUndefined();
-    expect(plank?.substitutes).toEqual([]);
+    expect(pullover?.conditional).toBe(false);
+    expect(pullover?.condition).toBeUndefined();
+    expect(pullover?.substitutes).toEqual([]);
   });
 });
 

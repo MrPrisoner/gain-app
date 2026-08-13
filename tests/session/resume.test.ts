@@ -22,7 +22,7 @@ import type {
 } from "../../src/lib/session/resume";
 
 const ROOT = new URL("../../", import.meta.url);
-const fixtureMd = fs.readFileSync(new URL("fixtures/plans/home-dumbbell-v1.md", ROOT), "utf8");
+const fixtureMd = fs.readFileSync(new URL("fixtures/plans/home-training-v1.md", ROOT), "utf8");
 
 function session(key: string) {
   const parsed = parsePlanDocument(fixtureMd);
@@ -119,27 +119,32 @@ describe("hydrateSession — set rows", () => {
   });
 
   it("keeps left and right on separate slots for a per-side exercise", () => {
+    // `split-squat` (session C's main block) is per_side and carries a prescription-level
+    // load override — the fixture's stand-in for "per-side and loaded", same as the old
+    // fixture's supported one-arm row.
     const hydrated = hydrateSession(
-      session("A"),
+      session("C"),
       history({
         sets: [
-          setRow("01", "supported-one-arm-row", 1, { side: "left", reps: 12 }),
-          setRow("02", "supported-one-arm-row", 1, { side: "right", reps: 10 }),
+          setRow("01", "split-squat", 1, { side: "left", reps: 12 }),
+          setRow("02", "split-squat", 1, { side: "right", reps: 10 }),
         ],
       }),
     );
 
     expect(hydrated.loggedSets.map((entry) => entry.key)).toEqual([
-      "main:supported-one-arm-row:1:left",
-      "main:supported-one-arm-row:1:right",
+      "main:split-squat:1:left",
+      "main:split-squat:1:right",
     ]);
   });
 
   it("never attributes a set to a checkoff block", () => {
-    // `bird-dog` is in session A's warm-up (checkoff) *and* its core block. Checkoff pills
+    // `bird-dog` is in session C's warm-up (checkoff) *and* its core block. Checkoff pills
     // write no rows at all, so the core block is the only place this can have come from.
+    // (Session A no longer tracks bird-dog in its core block — session C is the only one
+    // that prescribes it both ways.)
     const hydrated = hydrateSession(
-      session("A"),
+      session("C"),
       history({ sets: [setRow("01", "bird-dog", 1, { reps: 8 })] }),
     );
 
@@ -165,10 +170,10 @@ describe("hydrateSession — deviations", () => {
   it("rebuilds a skip on the prescribed slot", () => {
     const hydrated = hydrateSession(
       session("A"),
-      history({ deviations: [deviationRow("01", "reverse-lunge", "skip")] }),
+      history({ deviations: [deviationRow("01", "glute-bridge", "skip")] }),
     );
 
-    expect(hydrated.skipped).toEqual(["main:reverse-lunge"]);
+    expect(hydrated.skipped).toEqual(["main:glute-bridge"]);
   });
 
   it("rebuilds a swap as the prescribed slot plus the slug swapped into it", () => {
@@ -176,7 +181,7 @@ describe("hydrateSession — deviations", () => {
       session("B"),
       history({
         deviations: [
-          deviationRow("01", "overhead-triceps-extension", "substitute", "lying-triceps-extension"),
+          deviationRow("01", "db-shoulder-press", "substitute", "seated-floor-shoulder-press"),
         ],
       }),
     );
@@ -184,8 +189,8 @@ describe("hydrateSession — deviations", () => {
     expect(hydrated.substitutes).toEqual([
       {
         blockKey: "main",
-        prescribedSlug: "overhead-triceps-extension",
-        substituteSlug: "lying-triceps-extension",
+        prescribedSlug: "db-shoulder-press",
+        substituteSlug: "seated-floor-shoulder-press",
       },
     ]);
   });
@@ -195,35 +200,35 @@ describe("hydrateSession — deviations", () => {
       session("B"),
       history({
         sets: [
-          setRow("s1", "overhead-triceps-extension", 1, { reps: 12 }),
-          setRow("s3", "lying-triceps-extension", 2, { reps: 10 }),
+          setRow("s1", "db-shoulder-press", 1, { reps: 12 }),
+          setRow("s3", "seated-floor-shoulder-press", 2, { reps: 10 }),
         ],
         deviations: [
-          deviationRow("s2", "overhead-triceps-extension", "substitute", "lying-triceps-extension"),
+          deviationRow("s2", "db-shoulder-press", "substitute", "seated-floor-shoulder-press"),
         ],
       }),
     );
 
     expect(hydrated.loggedSets).toEqual([
-      { key: "main:overhead-triceps-extension:1:", logged: { reps: 12 } },
-      { key: "main:overhead-triceps-extension:2:", logged: { reps: 10 } },
+      { key: "main:db-shoulder-press:1:", logged: { reps: 12 } },
+      { key: "main:db-shoulder-press:2:", logged: { reps: 10 } },
     ]);
   });
 
   it("lands a skip recorded after a swap on the prescribed slot, not the substitute's name", () => {
     // The deviation sheet posts the *performed* slug, so a skip taken after swapping names
-    // `lying-triceps-extension` — a movement no session prescribes at all.
+    // `seated-floor-shoulder-press` — a movement no session prescribes at all.
     const hydrated = hydrateSession(
       session("B"),
       history({
         deviations: [
-          deviationRow("01", "overhead-triceps-extension", "substitute", "lying-triceps-extension"),
-          deviationRow("02", "lying-triceps-extension", "skip"),
+          deviationRow("01", "db-shoulder-press", "substitute", "seated-floor-shoulder-press"),
+          deviationRow("02", "seated-floor-shoulder-press", "skip"),
         ],
       }),
     );
 
-    expect(hydrated.skipped).toEqual(["main:overhead-triceps-extension"]);
+    expect(hydrated.skipped).toEqual(["main:db-shoulder-press"]);
   });
 
   it("nets add_set and drop_set into one signed delta per slot", () => {
@@ -234,14 +239,14 @@ describe("hydrateSession — deviations", () => {
           deviationRow("01", "goblet-squat", "add_set"),
           deviationRow("02", "goblet-squat", "add_set"),
           deviationRow("03", "goblet-squat", "drop_set"),
-          deviationRow("04", "reverse-lunge", "drop_set"),
+          deviationRow("04", "glute-bridge", "drop_set"),
         ],
       }),
     );
 
     expect(hydrated.setCountDelta).toEqual([
       { key: "main:goblet-squat", delta: 1 },
-      { key: "main:reverse-lunge", delta: -1 },
+      { key: "main:glute-bridge", delta: -1 },
     ]);
   });
 

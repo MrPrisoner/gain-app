@@ -21,7 +21,7 @@ import {
 import { parsePlanDocument } from "../../src/lib/parse/parser";
 
 const ROOT = new URL("../../", import.meta.url);
-const fixtureMd = fs.readFileSync(new URL("fixtures/plans/home-dumbbell-v1.md", ROOT), "utf8");
+const fixtureMd = fs.readFileSync(new URL("fixtures/plans/home-training-v1.md", ROOT), "utf8");
 const NOW = new Date("2026-09-08T08:00:00Z");
 
 describe("workout write layer", () => {
@@ -122,8 +122,8 @@ describe("workout write layer", () => {
       clientId: "wk-client-3",
       now: NOW,
     });
-    const exerciseDefId = getExerciseDefIdBySlug(userDb, planId, "supported-one-arm-row");
-    if (!exerciseDefId) throw new Error("expected supported-one-arm-row in the catalogue");
+    const exerciseDefId = getExerciseDefIdBySlug(userDb, planId, "split-squat");
+    if (!exerciseDefId) throw new Error("expected split-squat in the catalogue");
 
     const left = logSet(userDb, {
       workoutId: workout.id,
@@ -172,7 +172,7 @@ describe("workout write layer", () => {
     logMetric(userDb, {
       scope: "set",
       setLogId: set.id,
-      metricKey: "set_symptom",
+      metricKey: "symptoms_during",
       valueNum: 0,
       clientId: "mv-client-1",
     });
@@ -187,14 +187,14 @@ describe("workout write layer", () => {
     const sessionMetric1 = logMetric(userDb, {
       scope: "session",
       workoutId: workout.id,
-      metricKey: "energy_after",
+      metricKey: "symptoms_during",
       valueNum: 6,
       clientId: "mv-client-3",
     });
     const sessionMetric1Replay = logMetric(userDb, {
       scope: "session",
       workoutId: workout.id,
-      metricKey: "energy_after",
+      metricKey: "symptoms_during",
       valueNum: 6,
       clientId: "mv-client-3",
     });
@@ -221,14 +221,14 @@ describe("workout write layer", () => {
     const mistap = logMetric(userDb, {
       scope: "session",
       workoutId: workout.id,
-      metricKey: "energy_after",
+      metricKey: "symptoms_during",
       valueNum: 2,
       clientId: "mv-correction-01-mistap",
     });
     const corrected = logMetric(userDb, {
       scope: "session",
       workoutId: workout.id,
-      metricKey: "energy_after",
+      metricKey: "symptoms_during",
       valueNum: 8,
       clientId: "mv-correction-02-fixed",
     });
@@ -239,7 +239,7 @@ describe("workout write layer", () => {
     const replay = logMetric(userDb, {
       scope: "session",
       workoutId: workout.id,
-      metricKey: "energy_after",
+      metricKey: "symptoms_during",
       valueNum: 8,
       clientId: "mv-correction-02-fixed",
     });
@@ -248,7 +248,7 @@ describe("workout write layer", () => {
     const rows = userDb.db
       .prepare(
         `SELECT value_num, client_id FROM metric_value
-           WHERE workout_id = ? AND scope = 'session' AND metric_key = 'energy_after'`,
+           WHERE workout_id = ? AND scope = 'session' AND metric_key = 'symptoms_during'`,
       )
       .all(workout.id) as { value_num: number; client_id: string }[];
     expect(rows).toEqual([{ value_num: 8, client_id: "mv-correction-02-fixed" }]);
@@ -282,14 +282,14 @@ describe("workout write layer", () => {
     logMetric(userDb, {
       scope: "session",
       workoutId: workout.id,
-      metricKey: "energy_after",
+      metricKey: "symptoms_during",
       valueNum: 2,
       clientId: "05",
     });
     logMetric(userDb, {
       scope: "session",
       workoutId: workout.id,
-      metricKey: "energy_after",
+      metricKey: "symptoms_during",
       valueNum: 8,
       clientId: "09",
     });
@@ -299,7 +299,7 @@ describe("workout write layer", () => {
     const replayed = logMetric(userDb, {
       scope: "session",
       workoutId: workout.id,
-      metricKey: "energy_after",
+      metricKey: "symptoms_during",
       valueNum: 2,
       clientId: "05",
     });
@@ -307,7 +307,7 @@ describe("workout write layer", () => {
     const row = userDb.db
       .prepare(
         `SELECT value_num, client_id FROM metric_value
-           WHERE workout_id = ? AND scope = 'session' AND metric_key = 'energy_after'`,
+           WHERE workout_id = ? AND scope = 'session' AND metric_key = 'symptoms_during'`,
       )
       .get(workout.id) as { value_num: number; client_id: string };
     expect(row).toEqual({ value_num: 8, client_id: "09" });
@@ -317,7 +317,7 @@ describe("workout write layer", () => {
     const idRow = userDb.db
       .prepare(
         `SELECT id FROM metric_value
-           WHERE workout_id = ? AND scope = 'session' AND metric_key = 'energy_after'`,
+           WHERE workout_id = ? AND scope = 'session' AND metric_key = 'symptoms_during'`,
       )
       .get(workout.id) as { id: string };
     expect(replayed.id).toBe(idRow.id);
@@ -327,7 +327,7 @@ describe("workout write layer", () => {
     expect(() =>
       logMetric(userDb, {
         scope: "set",
-        metricKey: "set_symptom",
+        metricKey: "symptoms_during",
         valueNum: 0,
         clientId: "mv-client-bad-set",
       }),
@@ -368,7 +368,7 @@ describe("workout write layer", () => {
     expect(() =>
       logMetric(userDb, {
         scope: "session",
-        metricKey: "energy_after",
+        metricKey: "symptoms_during",
         valueNum: 6,
         clientId: "mv-client-bad-session",
       }),
@@ -382,16 +382,16 @@ describe("workout write layer", () => {
       clientId: "wk-client-5",
       now: NOW,
     });
-    const exerciseDefId = getExerciseDefIdBySlug(userDb, planId, "overhead-triceps-extension");
-    if (!exerciseDefId) throw new Error("expected overhead-triceps-extension in the catalogue");
+    const exerciseDefId = getExerciseDefIdBySlug(userDb, planId, "db-shoulder-press");
+    if (!exerciseDefId) throw new Error("expected db-shoulder-press in the catalogue");
 
     const first = logDeviation(userDb, {
       workoutId: workout.id,
       exerciseDefId,
       kind: "substitute",
       reasonCode: "comfort",
-      note: "Lumbar arching overhead.",
-      substituteExerciseSlug: "lying-triceps-extension",
+      note: "Leaning back on the standing press.",
+      substituteExerciseSlug: "seated-floor-shoulder-press",
       clientId: "dev-client-1",
     });
     const replay = logDeviation(userDb, {
@@ -399,8 +399,8 @@ describe("workout write layer", () => {
       exerciseDefId,
       kind: "substitute",
       reasonCode: "comfort",
-      note: "Lumbar arching overhead.",
-      substituteExerciseSlug: "lying-triceps-extension",
+      note: "Leaning back on the standing press.",
+      substituteExerciseSlug: "seated-floor-shoulder-press",
       clientId: "dev-client-1",
     });
     expect(replay.id).toBe(first.id);
@@ -427,7 +427,7 @@ describe("workout write layer", () => {
   });
 
   it("a red-flag stop finishes the workout with status stopped", () => {
-    const plan = getPlanBySlug(userDb, "home-dumbbell");
+    const plan = getPlanBySlug(userDb, "home-training");
     if (!plan) throw new Error("expected the fixture plan to be importable");
     const workout = startWorkout(userDb, {
       planVersionId,

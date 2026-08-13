@@ -17,7 +17,7 @@ import { logDeviation, logMetric, logSet, startWorkout } from "../../src/lib/db/
 import { parsePlanDocument } from "../../src/lib/parse/parser";
 
 const ROOT = new URL("../../", import.meta.url);
-const fixtureMd = fs.readFileSync(new URL("fixtures/plans/home-dumbbell-v1.md", ROOT), "utf8");
+const fixtureMd = fs.readFileSync(new URL("fixtures/plans/home-training-v1.md", ROOT), "utf8");
 const NOW = new Date("2026-09-08T08:00:00Z");
 
 describe("logsForPlan", () => {

@@ -21,7 +21,7 @@ import { openUserDb, type UserDb } from "../../src/lib/db/user-db";
 import { parsePlanDocument, type ParsedPlan } from "../../src/lib/parse/parser";
 
 const ROOT = new URL("../../", import.meta.url);
-const fixtureMd = fs.readFileSync(new URL("fixtures/plans/home-dumbbell-v1.md", ROOT), "utf8");
+const fixtureMd = fs.readFileSync(new URL("fixtures/plans/home-training-v1.md", ROOT), "utf8");
 
 const NOW = new Date("2026-09-08T08:00:00Z");
 
@@ -49,12 +49,12 @@ describe("first import of the reference plan", () => {
 
     expect(review.kind).toBe("first_import");
     if (review.kind !== "first_import") return;
-    expect(review.plan_slug).toBe("home-dumbbell");
+    expect(review.plan_slug).toBe("home-training");
     expect(review.version_no).toBe(1);
-    // ARCHITECTURE §6: 4 sessions, 23 catalogued exercises, 60 prescriptions.
+    // ARCHITECTURE §6: 4 sessions, 26 catalogued exercises, 49 prescriptions.
     expect(review.counts.sessions).toBe(4);
-    expect(review.counts.exercises).toBe(23);
-    expect(review.counts.prescriptions).toBe(60);
+    expect(review.counts.exercises).toBe(26);
+    expect(review.counts.prescriptions).toBe(49);
   });
 
   it("writes the plan, one current version, and the verbatim source to disk", () => {
@@ -64,11 +64,11 @@ describe("first import of the reference plan", () => {
     if (!result.ok) return;
     expect(result.first_import).toBe(true);
     expect(result.version_no).toBe(1);
-    expect(result.counts.prescriptions).toBe(60);
+    expect(result.counts.prescriptions).toBe(49);
 
     // The source document is on disk exactly as it arrived (§11).
     expect(fs.readFileSync(result.source_path, "utf8")).toBe(fixtureMd);
-    expect(result.source_path).toBe(path.join(userDb.userDir, "plans", "home-dumbbell", "v1.md"));
+    expect(result.source_path).toBe(path.join(userDb.userDir, "plans", "home-training", "v1.md"));
 
     const versions = listVersions(userDb, result.plan_id);
     expect(versions).toHaveLength(1);
@@ -105,7 +105,7 @@ describe("first import of the reference plan", () => {
           .prepare("SELECT COUNT(*) AS n FROM exercise_def WHERE plan_id = ?")
           .get(result.plan_id) as { n: number }
       ).n,
-    ).toBe(23);
+    ).toBe(26);
     expect(
       (
         db
@@ -119,7 +119,7 @@ describe("first import of the reference plan", () => {
           .prepare("SELECT COUNT(*) AS n FROM prescription WHERE plan_version_id = ?")
           .get(versionId) as { n: number }
       ).n,
-    ).toBe(60);
+    ).toBe(49);
   });
 
   it("carries the catalogue's movement properties (gap 5)", () => {
@@ -261,7 +261,7 @@ describe("first import of the reference plan", () => {
   it("leaves no file behind when the database write fails", () => {
     // SQLite can roll itself back; the filesystem cannot. Force a failure inside
     // the transaction and assert that both stores are untouched afterwards.
-    const planDir = path.join(userDb.userDir, "plans", "home-dumbbell");
+    const planDir = path.join(userDb.userDir, "plans", "home-training");
     userDb.db.exec(
       "CREATE TRIGGER boom BEFORE INSERT ON prescription BEGIN SELECT RAISE(ABORT, 'boom'); END",
     );

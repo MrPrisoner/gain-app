@@ -60,7 +60,7 @@ describe("navigation detection", () => {
 
 describe("return_to", () => {
   it("keeps a same-origin path", () => {
-    expect(safeReturnTo("/plans/home-dumbbell")).toBe("/plans/home-dumbbell");
+    expect(safeReturnTo("/plans/home-training")).toBe("/plans/home-training");
     expect(safeReturnTo("/?tab=history")).toBe("/?tab=history");
   });
 

@@ -17,7 +17,7 @@ import { parsePlanDocument } from "../../src/lib/parse/parser";
 import { buildExportBundle } from "../../src/routes/plan/[slug]/export/bundle-for-plan";
 
 const ROOT = new URL("../../", import.meta.url);
-const fixtureMd = fs.readFileSync(new URL("fixtures/plans/home-dumbbell-v1.md", ROOT), "utf8");
+const fixtureMd = fs.readFileSync(new URL("fixtures/plans/home-training-v1.md", ROOT), "utf8");
 const NOW = new Date("2026-09-08T08:00:00Z");
 
 describe("buildExportBundle", () => {
@@ -68,7 +68,7 @@ describe("buildExportBundle", () => {
   });
 
   it("replays Section 1 byte-for-byte from the imported document", () => {
-    const plan = getPlanBySlug(userDb, "home-dumbbell");
+    const plan = getPlanBySlug(userDb, "home-training");
     if (!plan) throw new Error("plan missing");
     const result = buildExportBundle(userDb, plan, "full", NOW);
     expect(result.ok).toBe(true);
@@ -77,16 +77,16 @@ describe("buildExportBundle", () => {
   });
 
   it("substitutes the template's variables for real values", () => {
-    const plan = getPlanBySlug(userDb, "home-dumbbell");
+    const plan = getPlanBySlug(userDb, "home-training");
     if (!plan) throw new Error("plan missing");
     const result = buildExportBundle(userDb, plan, "full", NOW);
     if (!result.ok) throw new Error(result.message);
-    expect(result.bundle).toContain("Review 4-Week Home Dumbbell Training Plan.");
+    expect(result.bundle).toContain("Review Home Training Plan.");
     expect(result.bundle).not.toContain("{{plan_name}}");
   });
 
   it("puts the window label in the title and reflects the logged set in the summary", () => {
-    const plan = getPlanBySlug(userDb, "home-dumbbell");
+    const plan = getPlanBySlug(userDb, "home-training");
     if (!plan) throw new Error("plan missing");
     const result = buildExportBundle(userDb, plan, "full", NOW);
     if (!result.ok) throw new Error(result.message);
@@ -96,19 +96,19 @@ describe("buildExportBundle", () => {
   });
 
   it("rejects an unknown window rather than defaulting to one", () => {
-    const plan = getPlanBySlug(userDb, "home-dumbbell");
+    const plan = getPlanBySlug(userDb, "home-training");
     if (!plan) throw new Error("plan missing");
     expect(buildExportBundle(userDb, plan, "last_year", NOW).ok).toBe(false);
     expect(buildExportBundle(userDb, plan, "", NOW).ok).toBe(false);
   });
 
   it("names the archive file per plan, version and instant", () => {
-    const plan = getPlanBySlug(userDb, "home-dumbbell");
+    const plan = getPlanBySlug(userDb, "home-training");
     if (!plan) throw new Error("plan missing");
     const result = buildExportBundle(userDb, plan, "full", NOW);
     if (!result.ok) throw new Error(result.message);
-    expect(result.filename).toBe("gain-export-home-dumbbell-v1.md");
+    expect(result.filename).toBe("gain-export-home-training-v1.md");
     const archived = fs.readdirSync(path.join(userDb.userDir, "exports"));
-    expect(archived).toContain("gain-export-home-dumbbell-v1-2026-09-08T080000Z.md");
+    expect(archived).toContain("gain-export-home-training-v1-2026-09-08T080000Z.md");
   });
 });

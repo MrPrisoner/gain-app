@@ -16,7 +16,7 @@ import { actions, load } from "../../src/routes/+page.server";
 import { resetAppStateForTests } from "../../src/lib/server/app-state";
 import { resetConfigForTests } from "../../src/lib/server/config";
 
-const FIXTURE = fs.readFileSync("fixtures/plans/home-dumbbell-v1.md", "utf8");
+const FIXTURE = fs.readFileSync("fixtures/plans/home-training-v1.md", "utf8");
 const USER_ID = "01KZKQ4GB22EEQBF20YDKD1BYE";
 
 let tmpDir: string;
@@ -154,7 +154,7 @@ describe("a plan that does not parse", () => {
 
   it("names a pasted export bundle as the wrong document, not a parse failure", async () => {
     const bundle = [
-      "# GAIN Export — Home Dumbbell — block 1",
+      "# GAIN Export — Home Training — block 1",
       "",
       "## 1. The current plan",
       "",
@@ -196,8 +196,8 @@ describe("importing the reference plan", () => {
     // more than the overview does (blocks, loads, metrics), hence the subset.
     expect(result.review.counts).toMatchObject({
       sessions: 4,
-      exercises: 23,
-      prescriptions: 60,
+      exercises: 26,
+      prescriptions: 49,
     });
 
     // A review is a review: no version row yet.
@@ -210,7 +210,7 @@ describe("importing the reference plan", () => {
     );
     expect(redirect.location).toBe("/");
 
-    const onDisk = fs.readFileSync(path.join(userDir(), "plans", "home-dumbbell", "v1.md"), "utf8");
+    const onDisk = fs.readFileSync(path.join(userDir(), "plans", "home-training", "v1.md"), "utf8");
     expect(onDisk).toBe(FIXTURE);
   });
 
@@ -224,9 +224,9 @@ describe("importing the reference plan", () => {
 
     expect(data.view).toBe("plan");
     expect(data.plans).toHaveLength(1);
-    expect(data.plans[0]?.slug).toBe("home-dumbbell");
+    expect(data.plans[0]?.slug).toBe("home-training");
     expect(data.plans[0]?.version_no).toBe(1);
-    expect(data.plans[0]?.counts).toEqual({ sessions: 4, exercises: 23, prescriptions: 60 });
+    expect(data.plans[0]?.counts).toEqual({ sessions: 4, exercises: 26, prescriptions: 49 });
   });
 
   it("refuses a re-import of the same version, and says why in the plan's terms", async () => {
