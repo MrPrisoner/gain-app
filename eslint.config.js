@@ -91,11 +91,29 @@ export default tseslint.config(
     // Type-aware rules, for everything tsconfig's `include` covers. They need a
     // program, so the glob and that `include` have to stay in step — the root config
     // files outside it cannot be linted this way.
+    //
+    // `src/service-worker.ts` is excluded here and picked up by its own block below:
+    // SvelteKit's generated `.svelte-kit/tsconfig.json` deliberately excludes it from
+    // the main app project (its WebWorker global scope conflicts with the app's DOM
+    // lib), so `projectService` cannot find it in this project.
     files: ["src/**/*.ts", "tests/**/*.ts", "e2e/**/*.ts", "playwright.config.ts"],
+    ignores: ["src/service-worker.ts"],
     extends: [...tseslint.configs.recommendedTypeChecked],
     languageOptions: {
       parserOptions: {
         projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+  },
+  {
+    // The service worker's own project (`tsconfig.worker.json`) — see that file's
+    // comment for why it exists separately.
+    files: ["src/service-worker.ts"],
+    extends: [...tseslint.configs.recommendedTypeChecked],
+    languageOptions: {
+      parserOptions: {
+        project: ["./tsconfig.worker.json"],
         tsconfigRootDir: import.meta.dirname,
       },
     },

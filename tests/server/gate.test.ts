@@ -17,8 +17,23 @@ describe("public paths", () => {
     expect(isPublicPath("/auth/callback")).toBe(true);
   });
 
+  it("lets the offline fallback page through, unauthenticated (phase 6)", () => {
+    // The service worker's install-time `cache.addAll` precaches this page on every page
+    // load, including `/login` before a session exists — a 401 there would fail the whole
+    // precache, app shell included, for anyone whose first visit is the login page.
+    expect(isPublicPath("/offline")).toBe(true);
+  });
+
   it("gates everything else, including paths that merely start alike", () => {
-    for (const path of ["/", "/plans", "/healthzz", "/logina", "/authorise", "/logout"]) {
+    for (const path of [
+      "/",
+      "/plans",
+      "/healthzz",
+      "/logina",
+      "/authorise",
+      "/logout",
+      "/offlinex",
+    ]) {
       expect(isPublicPath(path), path).toBe(false);
     }
   });

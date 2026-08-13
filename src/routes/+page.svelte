@@ -2,9 +2,27 @@
   import { untrack } from "svelte";
   import { enhance } from "$app/forms";
   import { copyText, downloadText } from "$lib/copy";
+  import { precacheSessions } from "$lib/sync/precache";
   import type { ActionData, PageData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
+
+  // Ask the service worker to cache every plan's session routes while there is still a
+  // network (design spec §7, Task 8) — what makes a session *startable* offline, not only
+  // continuable. `data.plans` is `undefined` on the first-run view, so this is a harmless
+  // no-op until a plan actually exists, and it deliberately reacts to `data.plans` rather
+  // than running once: importing a new plan (or a revision that adds a session) must
+  // precache it too, and `precacheSessions`/`cache.addAll` are idempotent, so re-running
+  // on an unrelated reactive update costs nothing beyond a cheap re-fetch of what is
+  // already cached.
+  $effect(() => {
+    for (const plan of data.plans ?? []) {
+      void precacheSessions(
+        plan.slug,
+        plan.sessions.map((session) => session.key),
+      );
+    }
+  });
 
   // Every form here is enhanced, which is what makes the local state work: the
   // component instance survives the action, so `bind:value` keeps the pasted

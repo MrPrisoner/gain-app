@@ -6,10 +6,21 @@
 
 /**
  * Paths that must answer without a session: the health endpoint Portainer
- * polls (§3) and the login round trip itself.
+ * polls (§3), the login round trip itself, and the offline fallback page
+ * (phase 6, design spec §7) — the service worker's `install` step precaches
+ * it with `cache.addAll`, which fails the *entire* precache (app shell
+ * included) on any single non-OK response, and that install runs on every
+ * page load, including `/login` before a session exists. `/offline` names
+ * no user and carries no data, so there is nothing an anonymous request to
+ * it could leak.
  */
 export function isPublicPath(pathname: string): boolean {
-  return pathname === "/healthz" || pathname === "/login" || pathname.startsWith("/auth/");
+  return (
+    pathname === "/healthz" ||
+    pathname === "/login" ||
+    pathname === "/offline" ||
+    pathname.startsWith("/auth/")
+  );
 }
 
 /**

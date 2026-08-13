@@ -1,0 +1,29 @@
+{
+  // The service worker's own TypeScript project, separate from `tsconfig.json` on
+  // purpose: SvelteKit's generated `.svelte-kit/tsconfig.json` excludes
+  // `src/service-worker.ts` from the main app project specifically because the worker's
+  // global scope (`self`, `caches`, `ServiceWorkerGlobalScope`) genuinely conflicts with
+  // the app's own DOM lib — mixing "WebWorker" and "DOM" in one TypeScript program
+  // produces incompatible redeclarations of the same globals. This file exists so the
+  // service worker still gets real type-checking rather than none at all.
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2023", "WebWorker"],
+    "types": [],
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+
+    "noEmit": true
+  },
+  "include": ["src/service-worker.ts"]
+}
