@@ -208,8 +208,11 @@ describe("diffContracts", () => {
   });
 
   it("warns when based_on_version does not match the version being revised", () => {
+    // Can't use `null` here any more — the schema itself now rejects a null
+    // `based_on_version` above version 1, so the mismatch has to be a wrong
+    // (but still non-null) ancestor version instead.
     const after = revise(before, (c) => {
-      c.plan.based_on_version = null;
+      c.plan.based_on_version = before.plan.version + 1;
     });
     const diff = diffContracts(before, after);
     expect(diff.warnings.join("\n")).toContain("based_on_version");

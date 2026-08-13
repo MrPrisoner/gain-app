@@ -344,6 +344,14 @@ const plan = z
           "`changelog` is required (and non-empty) when `version` is above 1 — one line per substantive change, in user-facing terms",
       });
     }
+    if (p.version > 1 && p.based_on_version === null) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["based_on_version"],
+        message:
+          "`based_on_version` cannot be null when `version` is above 1 — a revision must name the version it was built from, so logs stay bound to a real lineage. Use `1` for a first plan and leave `based_on_version: null` there.",
+      });
+    }
   });
 
 export type Plan = z.infer<typeof plan>;

@@ -100,10 +100,36 @@ describe("contract schema", () => {
   it("requires a changelog when version is above 1", () => {
     const data = clone();
     data.plan.version = 2;
+    data.plan.based_on_version = 1;
     expect(contractSchema.safeParse(data).success).toBe(false);
     expect(issuesOf(data).join("\n")).toContain("changelog");
 
     data.plan.changelog = ["Raised the rep range."];
+    expect(contractSchema.safeParse(data).success).toBe(true);
+  });
+
+  it("rejects a version above 1 with no `based_on_version`", () => {
+    const data = clone();
+    data.plan.version = 2;
+    data.plan.based_on_version = null;
+    data.plan.changelog = ["Second version"];
+    const issues = issuesOf(data).join("\n");
+    expect(contractSchema.safeParse(data).success).toBe(false);
+    expect(issues).toContain("based_on_version");
+  });
+
+  it("accepts a version above 1 that names its `based_on_version`", () => {
+    const data = clone();
+    data.plan.version = 2;
+    data.plan.based_on_version = 1;
+    data.plan.changelog = ["Second version"];
+    expect(contractSchema.safeParse(data).success).toBe(true);
+  });
+
+  it("accepts a first version with a null `based_on_version`", () => {
+    const data = clone();
+    data.plan.version = 1;
+    data.plan.based_on_version = null;
     expect(contractSchema.safeParse(data).success).toBe(true);
   });
 
