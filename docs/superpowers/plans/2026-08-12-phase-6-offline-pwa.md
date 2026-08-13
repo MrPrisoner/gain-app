@@ -1744,12 +1744,38 @@ git commit -m "refactor(session): write through the outbox instead of form actio
 
 ### Task 8: Service worker, offline page and manifest
 
+**Three gaps found executing this task that the sketch below doesn't cover — all fixed in
+the real commit (`983ec12`):**
+
+1. `/offline` must be a public path (`src/lib/server/gate.ts`). The service worker's
+   `install` step precaches it via `cache.addAll`, which fails its *entire* call on any
+   single non-OK response — and install runs on every page load, including `/login`
+   before a session exists. Left gated, the very first page anyone ever loads 401s on
+   `/offline` mid-precache and the whole app shell silently never caches, for every user,
+   forever.
+2. `/offline`'s own HTML must be precached explicitly, alongside `build`/`files` — those
+   two arrays are the built JS/CSS bundle, not rendered routes, so `/offline` is nowhere
+   in them. Without this, the navigation fallback finds nothing cached on a first-ever
+   offline visit and falls through to a bare `"Offline"` text response instead of the real
+   page.
+3. `src/service-worker.ts` needs its own TypeScript project (`tsconfig.worker.json`,
+   repo root) and its own `eslint.config.js` block. SvelteKit's generated
+   `.svelte-kit/tsconfig.json` deliberately excludes the file from the main app project —
+   its WebWorker global scope conflicts with the app's DOM lib — which means `tsc --noEmit`
+   silently never checks it at all (confirmed by deliberately breaking it and watching
+   `typecheck` stay green) and `eslint`'s type-aware rules hard-fail trying to find it in a
+   project that excludes it by design. `npm run typecheck` now runs `tsc` twice.
+
 **Files:**
 - Create: `src/service-worker.ts`
 - Create: `src/lib/sync/precache.ts`
 - Create: `src/routes/offline/+page.svelte`
+- Create: `tsconfig.worker.json` (repo root) — see gap 3 above
 - Modify: `static/site.webmanifest`
 - Modify: `src/routes/+page.svelte` — call `precacheSessions` on mount
+- Modify: `src/lib/server/gate.ts` — add `/offline` to `isPublicPath` (gap 1)
+- Modify: `package.json` — `typecheck` runs both `tsc` invocations (gap 3)
+- Modify: `eslint.config.js` — a dedicated block for `src/service-worker.ts` (gap 3)
 
 **Interfaces:**
 - Consumes: `$service-worker`'s `build`, `files`, `version` (worker only).
