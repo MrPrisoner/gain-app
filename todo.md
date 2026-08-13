@@ -28,6 +28,24 @@ Admin page with basic functionality:
 - Ability to delete user data. Would be especially useful during alpha testing so that users can start fresh if they want to. Might even be worth it to give users a way to wipe their own data, should they want to.
 - Should only be available to an admin user, which can be specified using env var.
 
+### `check:chars` only scans tracked files
+
+`npm run check:chars` (and the `gain/no-control-characters` ESLint rule) exist because a
+literal control character makes git treat a file as binary — no diff, nothing to review,
+exactly what happened to `src/lib/export/bundle.ts` once already (AGENTS.md). But
+`check:chars` runs `git ls-files -z ... | xargs -0 grep -laP ...`, which only sees files git
+already knows about. A brand-new untracked file with a literal control character in it
+passes clean, and only starts being checked once `git add` has already staged it — so the
+one moment the check exists to catch, a fresh file with the problem already in it, is
+exactly the moment it's blind. Caught by hand while writing
+`docs/superpowers/plans/2026-08-13-fixture-rebuild.md`: `grep` went silent on the file, the
+tell from AGENTS.md, and `check:chars` said nothing until the file was staged.
+
+Fix is presumably swapping `git ls-files` for something that includes untracked-but-not-
+ignored files (`git ls-files --others --exclude-standard` alongside the tracked list, or
+just dropping the git-awareness and globbing the working tree directly, excluding
+`node_modules` and the like by hand).
+
 ### `svelte-check` warnings, standing since phase 4 (line numbers current as of phase 6)
 
 `npm run check` reports 0 errors and 5 warnings across three files. None fail the build, and
@@ -59,30 +77,3 @@ this list is shorter than it was.
   which would break the seeding on purpose. Anywhere the capture is intentional, say so in a
   comment the way `+page.svelte` does at
   the root, so the next reader does not have to re-derive it.
-
-### Manual check: a container restart mid-sync loses nothing
-
-Phase 6's survival spec (`e2e/offline-survival.spec.ts`) proves a full **browser** kill —
-IndexedDB, not `sessionStorage` — survives. It does not, and cannot from Playwright alone,
-prove a **container** restart while a workout is still queued: the built-server e2e project
-starts a fresh `node build` process per run, which exercises "the server process restarted"
-but not "the server process restarted with the previous run's SQLite file and a client
-outbox still holding unacked ops," since the client and server processes are never actually
-killed independently of each other in that harness.
-
-The real guarantee here is unchanged from earlier phases — `set_log`, `workout`,
-`metric_value`, `deviation` and `activity` are ordinary SQLite rows in a file under
-`DATA_DIR`, which is a mounted volume, so a container restart loses nothing already synced
-— but a queued-and-not-yet-synced op only lives in the browser's IndexedDB until the client
-flushes it. To close this out with actual evidence rather than an inference:
-
-1. Start a session on a real device against a running container.
-2. Log a couple of sets.
-3. `docker compose restart` (or equivalent) while still mid-session, before reconnecting is
-   even relevant — this is testing the server side, not the offline path.
-4. Confirm the session resumes cleanly and nothing already-synced was lost.
-5. Repeat once more, this time going offline first (airplane mode), logging a set queued
-   client-side, restarting the container while offline, then reconnecting — confirming the
-   still-queued op flushes and lands once the container is back.
-
-Delete this item once done — it's a one-time manual verification, not a recurring task.
