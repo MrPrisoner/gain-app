@@ -249,3 +249,19 @@ function selectByClientId(
     { id: string } | undefined;
   return row?.id;
 }
+
+/**
+ * Resolve a workout by the client-generated id its start op carried (phase 6).
+ *
+ * `startWorkout` already answers this for the op that creates the row, but ops for one
+ * workout can span several batches, so a later batch's set has to find a workout that a
+ * previous request created.
+ */
+export function resolveWorkoutIdByClientId(userDb: UserDb, clientId: string): string | undefined {
+  return selectByClientId(userDb, "workout", clientId);
+}
+
+/** Resolve a `set_log` row by its client id, for a `scope: 'set'` metric op. */
+export function resolveSetLogIdByClientId(userDb: UserDb, clientId: string): string | undefined {
+  return selectByClientId(userDb, "set_log", clientId);
+}
