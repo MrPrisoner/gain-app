@@ -54,6 +54,102 @@
   <title>GAIN</title>
 </svelte:head>
 
+{#snippet sparkleIcon()}
+  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+    <path
+      d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linejoin="round"
+    />
+  </svg>
+{/snippet}
+
+{#snippet copyIcon()}
+  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+    <rect
+      x="9"
+      y="9"
+      width="11"
+      height="11"
+      rx="2"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+    />
+    <path
+      d="M5 15V5a2 2 0 0 1 2-2h10"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </svg>
+{/snippet}
+
+{#snippet checkIcon()}
+  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+    <path
+      d="M20 6 9 17l-5-5"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </svg>
+{/snippet}
+
+{#snippet checkCircleIcon()}
+  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+    <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2" />
+    <path
+      d="m8 12 3 3 5-6"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </svg>
+{/snippet}
+
+{#snippet downloadIcon()}
+  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+    <path
+      d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </svg>
+{/snippet}
+
+{#snippet externalLinkIcon()}
+  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+    <path
+      d="M9 15 20 4M20 4h-6M20 4v6"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M19 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h6"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </svg>
+{/snippet}
+
 {#if data.displayName}
   <p class="greeting">Hi, {data.displayName}.</p>
 {/if}
@@ -97,7 +193,7 @@
         Anything to work around
         <input type="text" name="constraints" placeholder="e.g. a dodgy lower back" />
       </label>
-      <button type="submit" class="primary">Generate the prompt</button>
+      <button type="submit" class="primary">{@render sparkleIcon()}Generate the prompt</button>
     </form>
   </section>
 
@@ -111,9 +207,12 @@
       <textarea class="doc" readonly rows="14" value={form.prompt}></textarea>
       <div class="actions">
         <button type="button" class="primary" onclick={copyPrompt}>
+          {@render (copied === "prompt" ? checkIcon : copyIcon)()}
           {copied === "prompt" ? "Copied" : "Copy prompt"}
         </button>
-        <button type="button" class="secondary" onclick={downloadPrompt}>Download .md</button>
+        <button type="button" class="secondary" onclick={downloadPrompt}>
+          {@render downloadIcon()}Download .md
+        </button>
       </div>
     </section>
   {/if}
@@ -133,7 +232,9 @@
         placeholder="Paste the plan document here…"
         bind:value={pasted}></textarea>
       <div class="actions">
-        <button type="submit" class="primary" disabled={!pasted.trim()}>Check the plan</button>
+        <button type="submit" class="primary" disabled={!pasted.trim()}>
+          {@render checkIcon()}Check the plan
+        </button>
       </div>
     </form>
   </section>
@@ -156,7 +257,9 @@
           </li>
         {/each}
       </ul>
-      <a class="export-link" href={`/plan/${plan.slug}/export`}>Export for review</a>
+      <a class="export-link" href={`/plan/${plan.slug}/export`}>
+        {@render externalLinkIcon()}Export for review
+      </a>
     </section>
   {/each}
 
@@ -174,7 +277,9 @@
         placeholder="Paste the plan document here…"
         bind:value={pasted}></textarea>
       <div class="actions">
-        <button type="submit" class="primary" disabled={!pasted.trim()}>Check the plan</button>
+        <button type="submit" class="primary" disabled={!pasted.trim()}>
+          {@render checkIcon()}Check the plan
+        </button>
       </div>
     </form>
   </section>
@@ -205,6 +310,7 @@
       <pre class="report">{form.importFailure.report}</pre>
       <div class="actions">
         <button type="button" class="primary" onclick={copyReport}>
+          {@render (copied === "report" ? checkIcon : copyIcon)()}
           {copied === "report" ? "Copied" : "Copy report for the AI"}
         </button>
       </div>
@@ -239,7 +345,7 @@
     <form method="POST" action="?/confirmImport" use:enhance>
       <input type="hidden" name="source_md" value={form.source ?? ""} />
       <div class="actions">
-        <button type="submit" class="primary">Commit import</button>
+        <button type="submit" class="primary">{@render checkCircleIcon()}Commit import</button>
       </div>
     </form>
   </section>
@@ -338,6 +444,9 @@
   }
 
   button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
     border: none;
     border-radius: var(--r-sm);
     padding: 0.7rem 1.25rem;
@@ -390,7 +499,9 @@
   }
 
   .export-link {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
     padding: 0.7rem 1.25rem;
     border-radius: var(--r-sm);
     background: var(--raised);

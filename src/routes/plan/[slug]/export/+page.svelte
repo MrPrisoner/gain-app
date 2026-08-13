@@ -33,6 +33,67 @@
   <title>Export — {data.planName}</title>
 </svelte:head>
 
+{#snippet sparkleIcon()}
+  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+    <path
+      d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linejoin="round"
+    />
+  </svg>
+{/snippet}
+
+{#snippet copyIcon()}
+  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+    <rect
+      x="9"
+      y="9"
+      width="11"
+      height="11"
+      rx="2"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+    />
+    <path
+      d="M5 15V5a2 2 0 0 1 2-2h10"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </svg>
+{/snippet}
+
+{#snippet checkIcon()}
+  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+    <path
+      d="M20 6 9 17l-5-5"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </svg>
+{/snippet}
+
+{#snippet downloadIcon()}
+  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+    <path
+      d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </svg>
+{/snippet}
+
 <section class="card">
   <h1>Export for review</h1>
   <p class="muted">
@@ -79,7 +140,7 @@
     {/if}
 
     <div class="actions">
-      <button type="submit" class="primary">Generate the export</button>
+      <button type="submit" class="primary">{@render sparkleIcon()}Generate the export</button>
     </div>
   </form>
 
@@ -98,9 +159,12 @@
     <textarea class="doc" readonly rows="14" value={form.bundle}></textarea>
     <div class="actions">
       <button type="button" class="primary" onclick={copyBundle}>
+        {@render (copied ? checkIcon : copyIcon)()}
         {copied ? "Copied" : "Copy export"}
       </button>
-      <button type="button" class="secondary" onclick={download}>Download .md</button>
+      <button type="button" class="secondary" onclick={download}>
+        {@render downloadIcon()}Download .md
+      </button>
     </div>
   </section>
 {/if}
@@ -209,6 +273,9 @@
   }
 
   button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
     border: none;
     border-radius: var(--r-sm);
     padding: 0.7rem 1.25rem;
