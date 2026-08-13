@@ -33,14 +33,14 @@ const WEEK_DATES = [
 const MAIN_LIFTS = new Set([
   "goblet-squat",
   "db-floor-press",
-  "supported-one-arm-row",
+  "prone-row",
   "db-shoulder-press",
   "split-squat",
 ]);
 
 /** `${workoutId}:${exerciseId}` keys for the scripted deviations. */
 const SKIPPED = new Set(["wk-1-D:reverse-crunch"]);
-const SUBSTITUTED = new Map([["wk-1-B:overhead-triceps-extension", "lying-triceps-extension"]]);
+const SUBSTITUTED = new Map([["wk-1-B:db-shoulder-press", "seated-floor-shoulder-press"]]);
 const DROPPED_SET = new Set(["wk-2-C:split-squat"]);
 
 function progress(value: IntOrRange | undefined, week: number): number {
@@ -132,13 +132,15 @@ export function buildSyntheticLogs(contract: GainContract): Logs {
               }
               set_logs.push(log);
 
-              // The optional set-scope symptom metric, where it matters.
+              // The set-scope half of `symptoms_during`, which the plan also declares at
+              // session scope. Emitting both is the point: anything indexing metric values
+              // on the bare key merges these two unrelated series into a wrong number.
               if (slug === "reverse-crunch" && week === 0 && setNo === 1 && side === undefined) {
                 metric_values.push({
                   id: nextMetricId(),
-                  key: "set_symptom",
+                  key: "symptoms_during",
                   ref: { scope: "set", set_log_id: id },
-                  value_num: 0,
+                  value_num: 3,
                 });
               }
             }
@@ -155,7 +157,7 @@ export function buildSyntheticLogs(contract: GainContract): Logs {
               id: nextMetricId(),
               key: "technique",
               ref: { scope: "exercise", workout_id: workoutId, exercise_slug: slug },
-              value_text: slug === "supported-one-arm-row" && week === 1 ? "Acceptable" : "Good",
+              value_text: slug === "prone-row" && week === 1 ? "Acceptable" : "Good",
             });
           }
         }
@@ -171,11 +173,8 @@ export function buildSyntheticLogs(contract: GainContract): Logs {
       };
 
       const symptomLevel = session.key === "D" && week === 1 ? 2 : 0;
-      sessionMetric("energy_before", 7 - (week % 2));
       sessionMetric("squash_since_last", sessionIndex === 0 ? 2 : 1);
       sessionMetric("symptoms_during", symptomLevel);
-      sessionMetric("symptoms_after", symptomLevel);
-      sessionMetric("energy_after", 6);
       sessionMetric("symptoms_next_morning", symptomLevel > 0 ? 1 : 0);
     });
   });
@@ -192,11 +191,11 @@ export function buildSyntheticLogs(contract: GainContract): Logs {
     {
       id: "dev-002",
       workout_id: "wk-1-B",
-      exercise_slug: "overhead-triceps-extension",
+      exercise_slug: "db-shoulder-press",
       kind: "substitute",
       reason_code: "comfort",
-      note: "Overhead position encouraged lumbar arching; took the lying variation the plan already names.",
-      substitute_exercise_slug: "lying-triceps-extension",
+      note: "Caught myself leaning back to finish the set; took the seated floor version the plan already names.",
+      substitute_exercise_slug: "seated-floor-shoulder-press",
     },
     {
       id: "dev-003",

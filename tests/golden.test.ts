@@ -31,7 +31,7 @@ import { buildSyntheticLogs } from "./helpers/synthetic-logs";
 const ROOT = new URL("..", import.meta.url);
 const read = (path: string): string => readFileSync(new URL(path, ROOT), "utf8");
 
-const fixtureMd = read("fixtures/plans/home-dumbbell-v1.md");
+const fixtureMd = read("fixtures/plans/home-training-v1.md");
 const contractMd = read("docs/CONTRACT.md");
 const bootstrapTemplate = read("templates/bootstrap-prompt.md");
 const instructionsTemplate = read("templates/default-ai-instructions.md");
@@ -48,10 +48,10 @@ describe("golden round trip", () => {
     expect(imported.source_md).toBe(fixtureMd);
   });
 
-  it("parses the fixture's declared shape: 4 sessions, 23 exercises, 60 prescriptions", () => {
+  it("parses the fixture's declared shape: 4 sessions, 26 exercises, 49 prescriptions", () => {
     expect(imported.contract.sessions).toHaveLength(4);
-    expect(imported.contract.exercises).toHaveLength(23);
-    expect(countPrescriptions(imported.contract)).toBe(60);
+    expect(imported.contract.exercises).toHaveLength(26);
+    expect(countPrescriptions(imported.contract)).toBe(49);
   });
 
   // -- Log synthetic workouts, export.
@@ -106,11 +106,11 @@ describe("golden round trip", () => {
     const before = imported.contract.exercises.map((e) => e.id).sort();
     const after = reimported.contract.exercises.map((e) => e.id).sort();
     expect(after).toEqual(before);
-    expect(after).toContain("lying-triceps-extension"); // substitute-only movement
+    expect(after).toContain("seated-floor-shoulder-press"); // substitute-only movement
   });
 
-  it("preserves every prescription — all 60 occurrences, every set of targets", () => {
-    expect(countPrescriptions(reimported.contract)).toBe(60);
+  it("preserves every prescription — all 49 occurrences, every set of targets", () => {
+    expect(countPrescriptions(reimported.contract)).toBe(49);
     expect(deepEqual(reimported.contract, imported.contract)).toBe(true);
   });
 
@@ -151,9 +151,7 @@ describe("golden round trip", () => {
   });
 
   it("renders the export title and Section 0 from the instructions template", () => {
-    expect(
-      bundle.startsWith("# GAIN Export — 4-Week Home Dumbbell Training Plan — weeks 1–4\n"),
-    ).toBe(true);
+    expect(bundle.startsWith("# GAIN Export — Home Training Plan — weeks 1–4\n")).toBe(true);
 
     const start = bundle.indexOf("## 0. Your task\n\n");
     const end = bundle.indexOf("\n## 1. The current plan");
@@ -168,7 +166,7 @@ describe("golden round trip", () => {
     expect(instructionsTemplate).toContain("{{weeks_elapsed}}");
     expect(section0).not.toMatch(/\{\{/);
     expect(section0).toContain("12 workouts logged over");
-    expect(section0).toContain("4 weeks of 4-Week Home Dumbbell Training Plan v1");
+    expect(section0).toContain("4 weeks of Home Training Plan v1");
     expect(section0).toContain("covering\nweeks 1–4");
     expect(section0).toContain("Today is 2026-09-01");
   });
@@ -181,5 +179,17 @@ describe("golden round trip", () => {
     expect(bundle).toContain("```csv");
     expect(bundle).toContain("workout_id,date,session_key,exercise,set_no");
     expect(bundle).toContain("goblet-squat");
+  });
+
+  it("keeps a metric declared at two scopes as two series in the summary", () => {
+    // `symptoms_during` is declared at set AND session scope. The summary's metric
+    // table keys on the pair, so both rows must appear — one merged row would be a
+    // plausible wrong number rather than a visible failure.
+    const rows = bundle
+      .split("\n")
+      .filter((line) => line.startsWith("|") && line.includes("`symptoms_during`"));
+    expect(rows).toHaveLength(2);
+    expect(rows.some((r) => r.startsWith("| set |"))).toBe(true);
+    expect(rows.some((r) => r.startsWith("| session |"))).toBe(true);
   });
 });
