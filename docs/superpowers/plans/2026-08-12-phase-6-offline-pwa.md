@@ -44,7 +44,7 @@
 | `tests/server/sync-route.test.ts` | 401, 400 and success paths | 4 |
 | `tests/sync/replay.property.test.ts` | fast-check properties over replay | 5 |
 | `src/lib/sync/idb.ts` | IndexedDB implementation of `OutboxStore` | 6 |
-| `src/lib/sync/client.ts` | Flush loop, online/offline, backoff, 401 state, reactive status | 6 |
+| `src/lib/sync/client.svelte.ts` | Flush loop, online/offline, backoff, 401 state, reactive status | 6 |
 | `src/routes/+layout.svelte` | Sync banner (modify) | 6 |
 | `src/routes/plan/[slug]/session/[key]/+page.server.ts` | Expose `planVersionId`; delete the four write actions (modify) | 7 |
 | `src/routes/plan/[slug]/session/[key]/*.svelte` | Call `logWrite` instead of posting forms (modify, six files) | 7 |
@@ -1374,7 +1374,7 @@ git commit -m "test(sync): prove replay is order-independent and never duplicate
 
 **Files:**
 - Create: `src/lib/sync/idb.ts`
-- Create: `src/lib/sync/client.ts`
+- Create: `src/lib/sync/client.svelte.ts`
 - Modify: `src/routes/+layout.svelte` — the sync banner
 
 **Interfaces:**
@@ -1493,7 +1493,7 @@ export async function openOutbox(): Promise<OutboxStore> {
 
 - [ ] **Step 2: Write the flush loop**
 
-Create `src/lib/sync/client.ts`:
+Create `src/lib/sync/client.svelte.ts`:
 
 ```ts
 /**
@@ -1665,9 +1665,9 @@ Open the app, confirm the banner is absent on a clean load and that no console e
 - [ ] **Step 5: Verify and commit**
 
 ```bash
-npx prettier --write src/lib/sync/idb.ts src/lib/sync/client.ts src/routes/+layout.svelte
+npx prettier --write src/lib/sync/idb.ts src/lib/sync/client.svelte.ts src/routes/+layout.svelte
 npm run verify
-git add src/lib/sync/idb.ts src/lib/sync/client.ts src/routes/+layout.svelte
+git add src/lib/sync/idb.ts src/lib/sync/client.svelte.ts src/routes/+layout.svelte
 git commit -m "feat(sync): persist the outbox to IndexedDB and flush it on reconnect"
 ```
 
