@@ -35,9 +35,15 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends tzdata \
     && rm -rf /var/lib/apt/lists/*
 
+# CI passes the release tag it already computes for the image tag (--build-arg
+# APP_VERSION=...); it's baked in here rather than read from package.json,
+# which nothing keeps in sync with the actual tag.
+ARG APP_VERSION=dev
+
 ENV NODE_ENV=production \
     PORT=3000 \
-    DATA_DIR=/data
+    DATA_DIR=/data \
+    APP_VERSION=$APP_VERSION
 
 # Production dependencies (better-sqlite3 loads its bundled prebuild at
 # runtime), the package manifest, and the built server.

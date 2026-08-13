@@ -74,6 +74,7 @@
     <!-- AGPL §13: a running instance must offer its source to its users. -->
     GAIN is free software under AGPL-3.0 —
     <a href={REPO_URL} rel="external">source</a>
+    · {data.appVersion}
   </footer>
 </div>
 

@@ -37,6 +37,8 @@ export type GainConfig = {
   /** Sliding session idle timeout. */
   sessionIdleMs: number;
   auth: AuthConfig;
+  /** Release tag baked into the image at build time (`APP_VERSION`); `"dev"` outside CI. */
+  appVersion: string;
 };
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -122,6 +124,7 @@ export function loadConfig(
     sessionSecret,
     sessionIdleMs: SEVEN_DAYS_MS,
     auth,
+    appVersion: env.APP_VERSION?.trim() || "dev",
   };
 }
 

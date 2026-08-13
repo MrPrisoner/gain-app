@@ -130,4 +130,16 @@ describe("loadConfig", () => {
     const config = loadConfig({ GAIN_DEV_USER: "me" }, "development");
     expect(config.sessionIdleMs).toBe(7 * 24 * 60 * 60 * 1000);
   });
+
+  describe("appVersion", () => {
+    it("defaults to dev when APP_VERSION is not set", () => {
+      const config = loadConfig({ GAIN_DEV_USER: "me" }, "development");
+      expect(config.appVersion).toBe("dev");
+    });
+
+    it("passes through APP_VERSION when set", () => {
+      const config = loadConfig({ GAIN_DEV_USER: "me", APP_VERSION: "v0.3.0" }, "development");
+      expect(config.appVersion).toBe("v0.3.0");
+    });
+  });
 });
