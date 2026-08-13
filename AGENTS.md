@@ -62,9 +62,6 @@ Commands (Node 24 LTS — see `.nvmrc` and the `engines` field):
   imports or the Vite config — code that passes both and still cannot ship is a real
   failure mode, not a hypothetical one
 
-**One agent at a time.** Agents do not work concurrently in this repository. If you find
-uncommitted changes you did not make, stop and ask rather than committing around them.
-
 Read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) first, then
 [`docs/CONTRACT.md`](docs/CONTRACT.md), before doing anything substantive. The twelve
 design decisions in ARCHITECTURE §2 are settled — implement against them rather than
