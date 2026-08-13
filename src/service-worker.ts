@@ -71,10 +71,15 @@ sw.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== sw.location.origin) return;
 
-  // Content-hashed, so a cache hit can never be stale.
+  // Content-hashed, so a cache hit can never be stale. A precached path can still miss
+  // the cache in practice — `cache.addAll` during install is all-or-nothing, so one
+  // failed fetch leaves every other precached entry uncached too — and `respondWith`
+  // resolving to `undefined` is a hard crash for that request, not a soft failure, so
+  // this falls back to the network exactly like an unlisted path rather than trusting
+  // the list against what the cache actually holds.
   if (PRECACHED.includes(url.pathname)) {
     event.respondWith(
-      caches.open(CACHE).then((cache) => cache.match(request) as Promise<Response>),
+      caches.open(CACHE).then(async (cache) => (await cache.match(request)) ?? fetch(request)),
     );
     return;
   }
