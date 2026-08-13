@@ -20,25 +20,6 @@ Then clear it up behind you:
 
 ## Items
 
-### Show session summary before start
-
-Currently, when clicking a session button, it starts the session. What I have in mind:
-
-- clicking the session button expands it to show a very short summary of what will be covered in the session. Consider showing the session note, plus the exercise names, grouped by block.
-- button at the bottom (with icon) to start the session.
-
-The current session button uses a blue accent colour. If we change it to an expandable section, the button should perhaps not be blue so that the new Start Session button can use the blue accent colour.
-
-### Add version number to UI
-
-The current flow for deploying a new version of the app to portainer is:
-
-- create a new release on github
-- wait for CI pipeline and image build to complete
-- redeploy the stack on portainer
-
-Having the release version on the UI would help testers and users when logging issues etc. Recommend ideal placement according to accepted industry standards.
-
 ### Admin section
 
 Admin page with basic functionality:
