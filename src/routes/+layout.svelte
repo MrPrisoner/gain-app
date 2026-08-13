@@ -1,9 +1,45 @@
 <script lang="ts">
   import "../app.css";
   import { REPO_URL } from "$lib/repo";
+  import { syncStatus } from "$lib/sync/client.svelte";
   import type { LayoutData } from "./$types";
 
   let { data, children }: { data: LayoutData; children: import("svelte").Snippet } = $props();
+
+  /**
+   * The one sync banner for the whole app (design spec §3, §8) — a queue can be pending
+   * on any screen, and a sync state visible only where it was created is a sync state
+   * nobody sees. Nothing renders when there is nothing to say: idle with an empty queue
+   * and no quarantined ops.
+   */
+  const bannerText = $derived.by(() => {
+    const { state, pending, quarantined } = syncStatus;
+    const parts: string[] = [];
+
+    switch (state) {
+      case "syncing":
+        parts.push(`Syncing ${pending} workout${pending === 1 ? "" : "s"}…`);
+        break;
+      case "offline":
+        parts.push(`Offline — ${pending} saved on this device`);
+        break;
+      case "needs-auth":
+        parts.push("Signed out — your workout is saved. Reconnect to sync");
+        break;
+      case "error":
+        parts.push(`Sync failed — ${pending} saved on this device. Retrying`);
+        break;
+      case "idle":
+        if (pending > 0) parts.push(`${pending} saved on this device`);
+        break;
+    }
+
+    if (quarantined > 0) {
+      parts.push(`${quarantined} ${quarantined === 1 ? "entry" : "entries"} could not sync`);
+    }
+
+    return parts.join(" — ");
+  });
 </script>
 
 <div class="shell">
@@ -20,6 +56,15 @@
       {/if}
     </div>
   </header>
+
+  {#if bannerText}
+    <p class="sync-banner" role="status">
+      {bannerText}
+      {#if syncStatus.state === "needs-auth"}
+        <a href="/login">Sign in</a>
+      {/if}
+    </p>
+  {/if}
 
   <main class="content">
     {@render children()}
@@ -87,6 +132,21 @@
   .linklike:hover {
     color: var(--text);
     text-decoration: underline;
+  }
+
+  .sync-banner {
+    margin: 0;
+    padding: 0.5rem 1.25rem;
+    background: var(--amber-soft);
+    color: var(--amber);
+    font-size: 0.85rem;
+    text-align: center;
+  }
+
+  .sync-banner a {
+    color: inherit;
+    text-decoration: underline;
+    font-weight: 700;
   }
 
   .content {
