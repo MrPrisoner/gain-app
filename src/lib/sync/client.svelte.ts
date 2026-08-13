@@ -46,7 +46,12 @@ export async function opsForWorkout(workoutClientId: string): Promise<SyncOp[]> 
 }
 
 export async function flushNow(planSlug: string): Promise<void> {
-  if (flushing || syncStatus.state === "needs-auth") return;
+  // `retryTimer` set means a retry is already pending — including a `needs-auth` retry.
+  // A 401 must not be a dead end: nothing else in this module ever transitions a
+  // "needs-auth" state back to a retryable one, so an early return keyed on that state
+  // (rather than on whether a retry is scheduled) would leave the queue stuck forever
+  // the moment the session actually recovers, since nothing would be listening for that.
+  if (flushing || retryTimer !== undefined) return;
   flushing = true;
 
   try {
@@ -74,12 +79,15 @@ export async function flushNow(planSlug: string): Promise<void> {
     });
 
     /**
-     * The one response that must not look like a failure to retry. The gate answers a
-     * fetch with 401 rather than a 303 precisely so this branch can exist (§4): hold
-     * everything, stop trying, and let the banner ask for a sign-in.
+     * The gate answers a fetch with 401 rather than a 303 precisely so this branch can
+     * exist (§4): hold everything and let the banner ask for a sign-in — but still retry
+     * on the same backoff as any other failure, because re-authenticating in this app
+     * (dev bypass or OIDC) is a real navigation, and this module's state survives a
+     * client-side route change back to this page. Without a scheduled retry, nothing
+     * would ever notice the session came back.
      */
     if (response.status === 401) {
-      syncStatus.state = "needs-auth";
+      scheduleRetry(planSlug, "needs-auth");
       return;
     }
 
@@ -114,21 +122,34 @@ export async function flushNow(planSlug: string): Promise<void> {
 function scheduleRetry(planSlug: string, state: SyncStatus["state"]): void {
   syncStatus.state = state;
   clearTimeout(retryTimer);
-  retryTimer = setTimeout(() => void flushNow(planSlug), backoffMs);
+  retryTimer = setTimeout(() => {
+    // Cleared before calling `flushNow`, not after — `flushNow`'s own guard checks
+    // `retryTimer !== undefined`, so clearing it first is what lets this scheduled
+    // attempt actually run instead of immediately bouncing off its own pending marker.
+    retryTimer = undefined;
+    void flushNow(planSlug);
+  }, backoffMs);
   backoffMs = Math.min(backoffMs * 2, 60_000);
+}
+
+/** Cancels a pending backoff and flushes immediately — used by both `startSyncLoop`
+ * listeners below, which are each a strong signal that a retry is worth trying right
+ * away rather than waiting out whatever backoff a previous failure scheduled. */
+function retryNow(planSlug: string): void {
+  backoffMs = 1_000;
+  clearTimeout(retryTimer);
+  retryTimer = undefined;
+  void flushNow(planSlug);
 }
 
 /** Flush on reconnect and whenever the tab comes back — the phone-lock case. */
 export function startSyncLoop(planSlug: string): () => void {
-  const onOnline = () => {
-    backoffMs = 1_000;
-    void flushNow(planSlug);
-  };
+  const onOnline = () => retryNow(planSlug);
   const onOffline = () => {
     syncStatus.state = "offline";
   };
   const onVisible = () => {
-    if (document.visibilityState === "visible") void flushNow(planSlug);
+    if (document.visibilityState === "visible") retryNow(planSlug);
   };
 
   addEventListener("online", onOnline);
