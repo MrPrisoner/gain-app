@@ -957,10 +957,14 @@ export function replayOps(userDb: UserDb, planId: string, ops: readonly SyncOp[]
 function applyOp(userDb: UserDb, planId: string, op: SyncOp): void {
   switch (op.kind) {
     case "start":
+      // The workout's replay identity is `workoutClientId`, not the start op's own id —
+      // `id` and `workoutClientId` are independent fields on `StartOp` (ops.ts), and every
+      // later "set"/"deviation"/"finish" op resolves the workout through `workoutClientId`
+      // (`requireWorkout` below), so that is what must land in `workout.client_id`.
       startWorkout(userDb, {
         planVersionId: op.planVersionId,
         sessionKey: op.sessionKey,
-        clientId: op.id,
+        clientId: op.workoutClientId,
         now: new Date(op.startedAt),
       });
       return;
@@ -1050,7 +1054,7 @@ Expected: PASS, 8 tests.
 
 - [ ] **Step 6: Write the endpoint's failing test**
 
-Create `tests/server/sync-route.test.ts`, following the shape of `tests/server/export-route.test.ts` (read it first for how that suite fakes `locals` and a `RequestEvent`). It must cover:
+Create `tests/server/sync-route.test.ts`, following the shape of `tests/server/first-run.test.ts` (read it first for how that suite fakes `locals` and a minimal `RequestEvent`-like object to drive a handler directly — `export-route.test.ts` tests `buildExportBundle`, a plain function, and has no such pattern). It must cover:
 
 - an unauthenticated request gets **401**, and the response body says nothing about the data;
 - a body failing `syncBatchSchema` gets **400** with a readable message, and writes nothing;
