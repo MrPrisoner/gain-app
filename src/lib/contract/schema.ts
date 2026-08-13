@@ -379,6 +379,22 @@ const PLAN_SYNONYMS: Record<string, string> = {
 };
 
 /**
+ * The same discipline as `PLAN_SYNONYMS`, for the progression block. `progression` is a
+ * `looseObject` on purpose — CONTRACT §3 calls these fields "largely free-text" and real
+ * plans carry extras like `notes` and `future_progressions` — but that tolerance is
+ * exactly what let a plan write `keep_load_when` and have it silently swallowed. Reject
+ * the known synonyms by name; let genuinely new keys through.
+ */
+const PROGRESSION_SYNONYMS: Record<string, string> = {
+  keep_load_when: "hold_load_when",
+  maintain_load_when: "hold_load_when",
+  add_load_when: "increase_load_when",
+  raise_load_when: "increase_load_when",
+  decrease_load_when: "reduce_load_when",
+  lower_load_when: "reduce_load_when",
+};
+
+/**
  * `plan` is optional in the shape and required by refinement: that way the synonym
  * check below runs even when the AI wrote `program:` instead of `plan:` (the base
  * parse succeeds, and the refinement reports the real mistake rather than a bare
@@ -594,6 +610,17 @@ export const contractSchema = contractBase.superRefine((c, ctx) => {
   };
   checkSessionRefs(c.scheduling?.sequence, "sequence");
   checkSessionRefs(c.scheduling?.drop_order, "drop_order");
+
+  // -- progression: known synonyms rejected by name (see PROGRESSION_SYNONYMS).
+  for (const [wrong, right] of Object.entries(PROGRESSION_SYNONYMS)) {
+    if (c.progression !== undefined && wrong in c.progression) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["progression", wrong],
+        message: `\`${wrong}\` is not a contract key — use \`${right}\`. The two mean the same thing, and only \`${right}\` is read.`,
+      });
+    }
+  }
 });
 
 /**

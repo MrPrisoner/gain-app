@@ -292,8 +292,12 @@ progression:
     - week: 1
       rir: [3, 3]
       focus: "Establish — learn technique, identify starting loads"
-  increase_load_when:
+  increase_load_when:               # these three key names are exact — synonyms are rejected
     - "Top of rep range achieved across all sets"
+  hold_load_when:
+    - "Reps are still climbing within the range"
+  reduce_load_when:
+    - "Bottom of the range is not reachable with good technique"
 
 safety:
   symptom_framework:

@@ -257,4 +257,29 @@ describe("contract schema", () => {
     };
     expect(issuesOf(data).join("\n")).toContain("duplicate metric key");
   });
+
+  // -- Progression: known synonyms rejected, free-text extras still allowed.
+
+  it("rejects `keep_load_when` as a synonym of `hold_load_when`", () => {
+    const data = clone();
+    data.progression = { model: "double_progression", keep_load_when: ["Reps still climbing"] };
+    const result = contractSchema.safeParse(data);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const messages = result.error.issues.map((i) => i.message).join("\n");
+      expect(messages).toContain("hold_load_when");
+      expect(messages).toContain("keep_load_when");
+    }
+  });
+
+  it("still accepts free-text extras alongside the declared progression keys", () => {
+    const data = clone();
+    data.progression = {
+      model: "double_progression",
+      hold_load_when: ["Reps still climbing"],
+      notes: ["Smallest increment is 1 kg per dumbbell"],
+      future_progressions: ["Load the split squat once bodyweight is comfortable"],
+    };
+    expect(contractSchema.safeParse(data).success).toBe(true);
+  });
 });
