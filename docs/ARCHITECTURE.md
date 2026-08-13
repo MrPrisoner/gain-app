@@ -765,7 +765,7 @@ actually be built. It belongs to phase 3, when a shell exists to put it in.
 | 3 | OIDC auth, group gate, session handling, container + compose, AGPL §13 source link, **first run: empty state → prompt out → paste a plan in** | Deploys to Portainer; unauthorised user gets a clean 403; a user with an empty account copies the bootstrap prompt and pastes a plan back into a working app |
 | 4 | Session runner UI, online only | A full session of the real plan can be logged on a phone |
 | 5 | **Export UI** — route, window picker, copy with download fallback | A logged block leaves GAIN as one pasteable document, in one tap |
-| 6 | Offline PWA: IndexedDB, sync queue, idempotency | Airplane-mode session syncs cleanly on reconnect; property tests pass |
+| 6 | Offline PWA: IndexedDB, sync queue, idempotency | Airplane-mode session syncs cleanly on reconnect; property tests pass; a workout survives a full browser kill |
 | 7 | Progress, history, charts, **and the Home screen** — suggested next session, activity logging, the next-morning prompt | Double-progression state matches hand-calculated expectations; Home suggests the right next session |
 | 8 | Revision diff review, template editor | A logged block exports, comes back revised, and the diff is reviewed and committed — the loop closes |
 

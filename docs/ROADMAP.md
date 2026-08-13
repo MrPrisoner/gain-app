@@ -29,13 +29,14 @@ line, the README status banner, and AGENTS.md's "Current state" paragraph.
 
 ## Status
 
-Phases 1–5 are done: the pure round-trip core, the per-user storage layer, the web app with
-OIDC and first run, the session runner, and the export UI. A full session of the fixture
-plan can be logged on a phone and exported back out as one pasteable document, and
-`e2e/session-runner-walkthrough-a.spec.ts`, `-d.spec.ts` and `e2e/export-walkthrough.spec.ts`
-prove it.
+Phases 1–6 are done: the pure round-trip core, the per-user storage layer, the web app with
+OIDC and first run, the session runner, the export UI, and the offline PWA. A full session
+of the fixture plan can be started, logged and finished with no connection at all — including
+across a full browser kill, not just a reload — and syncs cleanly once reconnected, and
+`e2e/session-runner-walkthrough-a.spec.ts`, `-d.spec.ts`, `e2e/export-walkthrough.spec.ts` and
+`e2e/offline-*.spec.ts` prove it.
 
-**Phase 6 is next.**
+**Phase 7 is next.**
 
 | Phase | Deliverable | State |
 |---|---|---|
@@ -44,7 +45,7 @@ prove it.
 | 3 | OIDC auth and group gate, container, AGPL §13 source link, first run | Done |
 | 4 | Session runner UI, online only | Done |
 | 5 | Export UI — the loop's return crossing | Done |
-| 6 | Offline PWA: IndexedDB, sync queue, idempotency | Not started |
+| 6 | Offline PWA: IndexedDB, sync queue, idempotency | Done |
 | 7 | Progress, history & the Home screen | Not started |
 | 8 | Revision diff review, template editor | Not started |
 
@@ -108,21 +109,31 @@ target. `src/lib/server/gate.ts` already answers non-navigation requests with 40
 than a 303, so an expired session cannot turn a queued POST into a body-discarding GET. The
 server half of idempotency is largely done; this phase is the client.
 
-- [ ] **Service worker + app-shell precache.** `static/site.webmanifest` exists and is linked
-      from `src/app.html`, so GAIN looks installable today and is not offline-capable — the
-      worst of both.
-- [ ] **IndexedDB as the workout store.** The runner currently keeps the workout's
-      `client_id` in `sessionStorage`, which dies with the tab. `src/lib/session/resume.ts`
-      already reconstructs the full ledger from rows and is unit-tested — it is the
-      persistence underneath it that is missing, not the reconstruction.
-- [ ] **The sync queue**: append-only per workout, client-generated ULIDs, replay on
-      reconnect. Last-write-wins on the workout record, union on set logs (§9).
-- [ ] **A 401 never discards queued data.** The UI shows a "reconnect to sync" state and
-      holds. Losing a workout to a token expiry is unacceptable (§4).
-- [ ] **Property tests on replay** (§12): any subset of the queue, in any order, produces no
-      duplicate sets and no data loss.
-- [ ] **The explicit survival test**: connection loss, phone lock, browser kill, container
-      restart.
+- [x] **Service worker + app-shell precache.** `src/service-worker.ts` precaches the app
+      shell and `/offline`, is version-keyed, and serves a `network-first` strategy with an
+      `/offline` fallback on a navigation miss; `src/lib/sync/precache.ts` asks it to cache
+      each plan's session data on the Home screen. `static/site.webmanifest` gained `id`,
+      `start_url`, `scope` and a maskable icon (`983ec12`).
+- [x] **IndexedDB as the workout store.** The runner's `client_id` moved from
+      `sessionStorage` to `localStorage` plus an IndexedDB outbox
+      (`src/lib/sync/idb.ts`), and `+page.server.ts`'s write actions were deleted in favour
+      of writing through that outbox directly (`9ee0d34`, `8f66333`).
+- [x] **The sync queue**: append-only per workout, client-generated ULIDs, batched and
+      replayed through `POST /api/sync` on reconnect. Last-write-wins on the workout
+      record, union on set logs (§9). `src/lib/sync/{ops,queue,history}.ts` (`8218b77`,
+      `a1acd1c`, `2ee2e83`), `src/lib/sync/replay.ts` and `src/routes/api/sync/+server.ts`
+      (`d906c07`).
+- [x] **A 401 never discards queued data.** `client.svelte.ts`'s flush loop enters a
+      `needs-auth` state that holds the queue and recovers automatically once
+      re-authenticated, rather than sticking forever (`9ee0d34`, fixed in `58121b4`).
+- [x] **Property tests on replay** (§12): fast-check properties over arbitrary op subsets
+      and orderings, asserting no duplicate sets and no data loss.
+      `tests/sync/replay.property.test.ts` (`c955238`).
+- [x] **The explicit survival test**: connection loss and a full browser kill — proving
+      IndexedDB, not `sessionStorage`, is what survives — plus a `visibilitychange`-driven
+      flush as the phone-lock proxy. `e2e/offline-*.spec.ts` (`144478a`). Container restart
+      is a documented manual check (`todo.md`) rather than an automated one — the harness
+      cannot kill the client and server processes independently of each other.
 
 ---
 

@@ -78,3 +78,30 @@ this list is shorter than it was.
   which would break the seeding on purpose. Anywhere the capture is intentional, say so in a
   comment the way `+page.svelte` does at
   the root, so the next reader does not have to re-derive it.
+
+### Manual check: a container restart mid-sync loses nothing
+
+Phase 6's survival spec (`e2e/offline-survival.spec.ts`) proves a full **browser** kill —
+IndexedDB, not `sessionStorage` — survives. It does not, and cannot from Playwright alone,
+prove a **container** restart while a workout is still queued: the built-server e2e project
+starts a fresh `node build` process per run, which exercises "the server process restarted"
+but not "the server process restarted with the previous run's SQLite file and a client
+outbox still holding unacked ops," since the client and server processes are never actually
+killed independently of each other in that harness.
+
+The real guarantee here is unchanged from earlier phases — `set_log`, `workout`,
+`metric_value`, `deviation` and `activity` are ordinary SQLite rows in a file under
+`DATA_DIR`, which is a mounted volume, so a container restart loses nothing already synced
+— but a queued-and-not-yet-synced op only lives in the browser's IndexedDB until the client
+flushes it. To close this out with actual evidence rather than an inference:
+
+1. Start a session on a real device against a running container.
+2. Log a couple of sets.
+3. `docker compose restart` (or equivalent) while still mid-session, before reconnecting is
+   even relevant — this is testing the server side, not the offline path.
+4. Confirm the session resumes cleanly and nothing already-synced was lost.
+5. Repeat once more, this time going offline first (airplane mode), logging a set queued
+   client-side, restarting the container while offline, then reconnecting — confirming the
+   still-queued op flushes and lands once the container is back.
+
+Delete this item once done — it's a one-time manual verification, not a recurring task.

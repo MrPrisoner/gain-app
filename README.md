@@ -4,14 +4,16 @@ Self-hosted training tracker for AI-authored exercise plans. Import a plan as
 Markdown, run and log sessions from an offline-capable PWA, then export your full
 plan and progress for an AI to review and revise.
 
-> **Status: phase 5 of 8.** The round-trip core (contract parser, diff engine, export
+> **Status: phase 6 of 8.** The round-trip core (contract parser, diff engine, export
 > generator, prompt templates), the per-user storage layer, the web app, the session
-> runner and the export UI are built: OIDC sign-in against Authentik, the container,
-> first run — copy a bootstrap prompt into any AI chat, paste the plan back, and it
-> imports — a full session of a real plan logged on a phone, rest timers and deviations
-> included, and a logged block leaving GAIN as one pasteable document for the next AI
-> review. Offline sync, progress charts and revision diff review are still ahead — see
-> [`docs/ROADMAP.md`](docs/ROADMAP.md).
+> runner, the export UI and offline sync are built: OIDC sign-in against Authentik, the
+> container, first run — copy a bootstrap prompt into any AI chat, paste the plan back,
+> and it imports — a full session of a real plan logged on a phone, rest timers and
+> deviations included, a logged block leaving GAIN as one pasteable document for the next
+> AI review, and a session that can be started, run and finished with no connection at
+> all — surviving a dropped connection, a locked phone, or the browser itself being
+> killed — syncing cleanly once reconnected. Progress charts and revision diff review are
+> still ahead — see [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ---
 

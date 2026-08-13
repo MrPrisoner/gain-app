@@ -5,7 +5,7 @@ else that reads this file. It is the single source of truth; `CLAUDE.md` points 
 
 ## Current state
 
-**Phases 1–5 are done.** Phase 1 is the pure round-trip core: contract schema
+**Phases 1–6 are done.** Phase 1 is the pure round-trip core: contract schema
 (`src/lib/contract/`), parser (`src/lib/parse/`), diff engine (`src/lib/diff/`), export
 generator (`src/lib/export/`) and both prompt templates (`src/lib/templates/`) — pure
 functions over plain data, no I/O. Phase 2 is the storage layer (`src/lib/db/`): the
@@ -29,8 +29,16 @@ picker's options from the plan's own `block_length_weeks` rather than a constant
 the middle option entirely when a plan declares none; and the route assembles, previews and
 archives the bundle, copy-with-download-fallback exactly as the bootstrap prompt does.
 `e2e/export-walkthrough.spec.ts` logs a session and exports it as the durable proof that
-Section 1 comes back byte-identical to the imported document. Phases 6–8 have not started.
-**Phase 6 (the offline PWA) is next.**
+Section 1 comes back byte-identical to the imported document. Phase 6 is the offline PWA:
+a client write layer (`src/lib/sync/`) appends ops to an IndexedDB outbox and flushes them
+as ordered batches to `POST /api/sync`, which replays them idempotently through
+`src/lib/db/workout.ts`; the session runner (`src/routes/plan/[slug]/session/[key]/`) was
+rewired to write through that layer instead of SvelteKit form actions, so a session can be
+started, logged and finished with no connection at all, including across a full browser
+kill — proven by `e2e/offline-*.spec.ts` on a real production build, since
+`$service-worker`'s precache manifest is empty under `vite dev`. `src/service-worker.ts`
+precaches the app shell and each visited plan's session data. Phases 7–8 have not started.
+**Phase 7 (progress, history & the Home screen) is next.**
 
 Two files hold the plan: the build-order table in ARCHITECTURE §12 is the map, and
 [`docs/ROADMAP.md`](docs/ROADMAP.md) is the itinerary — the remaining work item by item,
@@ -46,7 +54,10 @@ Commands (Node 24 LTS — see `.nvmrc` and the `engines` field):
   exactly why it is deliberately kept out of `npm run verify` — CI's few-seconds check
   never downloads a browser. `e2e/` is still typechecked, linted and formatted by
   `verify`; it is only never _executed_ by it
-- `npm run typecheck` — strict TypeScript, `tsc --noEmit`; `tsc` never sees `.svelte`
+- `npm run typecheck` — strict TypeScript, `tsc --noEmit`, plus a second `tsc --noEmit -p
+tsconfig.worker.json` pass for `src/service-worker.ts` — SvelteKit's generated tsconfig
+  deliberately excludes that file (WebWorker lib vs. DOM lib conflict), so it needs its own
+  project or it silently never typechecks at all; `tsc` never sees `.svelte`
 - `npm run check` — `svelte-check` covers the `.svelte` files typecheck cannot
 - `npm run dev` / `npm run build` — Vite dev server / adapter-node production build
   (`node build` serves it; `ORIGIN` required outside dev)
@@ -267,6 +278,14 @@ That idempotency is physical: every table the client writes to — `workout`, `s
 log table needs one. A log table without that column looks fine until the day a queue is
 replayed, and then it silently doubles someone's history.
 
+**A quarantined op is held, never dropped, and never retried forever.** An op that can
+never succeed — an `exerciseSlug` a plan revision removed, a payload that fails its schema
+— is retained, marked failed, and surfaced in the UI rather than discarded or retried
+indefinitely against the ops behind it. This is the one place "hold everything" and "never
+lose anything" conflict, and it resolves in favour of keeping the data and telling the
+user (design spec §6). An invisible quarantined op — one the banner does not surface — is
+exactly the data loss this whole phase exists to prevent, just moved one step later.
+
 ## Invariants
 
 These break things quietly. The test suite catches some of them — the golden round-trip
@@ -311,6 +330,14 @@ protect:
   whatever order the rows arrived in. The summary is Markdown tables built by string
   concatenation, so every free-text value — session names, metric labels, user notes —
   gets its `|` escaped or it eats the rest of the row.
+- **Prefill can be stale during an offline streak, and that is accepted rather than
+  solved.** Pre-fill reads from the server's `set_log` rows, so a second session logged
+  offline before the first has synced is pre-filled from the last _synced_ performance,
+  not the still-queued one. It self-corrects on any reconnect. This is fine specifically
+  because prefill is a suggestion and the ledger stores what was submitted, not what was
+  offered — a stale prefill is a one-tap-correctable annoyance, and unlike every other
+  number in this phase it can never reach the export or the reviewing AI (design spec §2,
+  decision 5).
 - **`weight_kg` is always the total kilograms being lifted**, everywhere — the log, the
   charts, the export. Settled 2026-08-10: the contract has no field meaning "this movement
   is paired", `per_side` is not that field, and adding one was rejected because
@@ -450,6 +477,56 @@ every prescription in the fixture rendering as a typo.
 could not shrink, and nothing in `verify` could ever have seen it. `npm run test:e2e`
 asserts no horizontal overflow on every screen at three viewports in both themes; see
 UI-DECISIONS §12.
+
+Phase 6 rewired the runner from form actions onto the client write layer described above.
+It kept phase 4's shape — pure logic in `$lib`, a thin route — and reused
+`hydrateSession`/`resume.ts` unchanged, projecting the outbox into the same row shape
+rather than writing a second reconstruction path.
+
+### What the phase-6 review changed
+
+**Module-level reactive state needs an explicit way back out of every state it can enter.**
+`client.svelte.ts`'s flush loop set a `needs-auth` state on a 401 and nothing ever cleared
+it — re-authentication is a same-origin SPA navigation, which does not reset module state,
+so a queue that hit one 401 stayed stuck forever even after the user signed back in. The
+fix folded `needs-auth` into the same retry/backoff path as every other failure
+(`scheduleRetry`, guarded on whether a retry is pending rather than on the state value)
+instead of giving it its own terminal branch. Any state a module can enter on its own
+needs a way back out that does not depend on the page reloading.
+
+**A precache lookup must match how the app actually requests the resource, not how it was
+stored.** `precacheSessions` stores a route's `__data.json` at its bare URL; SvelteKit's
+own client router appends `?x-sveltekit-invalidated=...` to every data fetch. An exact
+`cache.match` therefore never hit, and the miss looked like the whole precache had failed
+rather than like a query-string mismatch. Scope `ignoreSearch` narrowly (here, to
+`__data.json` paths) rather than globally, or an unrelated cached route starts serving
+stale content on any query string at all.
+
+**A public-path allowlist must include every asset the install step touches, or the first
+load loops.** `/offline` was left off `isPublicPath`, and `cache.addAll` is all-or-nothing
+— a single 401 from a gated `/offline` fetch failed the entire service-worker install,
+silently, on the very first page load, since installation happens before the user has
+authenticated at all.
+
+**A read path and a write path must not both be able to create the same row.** `?/start`
+originally called `startWorkout` unconditionally, so a client that had already created the
+workout offline (with its own client-stamped `startedAt`) could race the server into
+creating a second, server-timestamped one on the next online load. Making `start` strictly
+read-only — resolve by `client_id`, never create — removed the race instead of arbitrating
+it.
+
+**Local state alone is not sufficient to resume from, once anything can have synced.**
+`ack()` deletes an op from the outbox the moment the server confirms it, so a reload that
+rebuilt the ledger from IndexedDB alone would silently drop everything already synced.
+Resume merges server hydration with whatever local ops remain, rather than trusting either
+source alone.
+
+**A generated tsconfig's exclusions are silent.** SvelteKit's own generated
+`.svelte-kit/tsconfig.json` excludes `src/service-worker.ts` (it needs the WebWorker lib,
+which conflicts with the app's DOM lib), so the file passed `npm run typecheck` while never
+actually being typechecked — confirmed by deliberately injecting a type error and watching
+`tsc` stay green. A file excluded from the project it appears to belong to needs its own
+project (`tsconfig.worker.json`) or it is unverified, not verified-and-clean.
 
 ## Non-goals
 
