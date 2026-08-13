@@ -39,6 +39,15 @@
   let copied = $state<"prompt" | "report" | null>(null);
   let copyTimer: ReturnType<typeof setTimeout> | undefined = $state(undefined);
 
+  // Accordion: at most one session summary open at a time (keyed on
+  // `plan.slug:session.key` so two plans sharing a session key, e.g. both
+  // using "A", don't open in lockstep).
+  let openSession = $state<string | null>(null);
+
+  function toggleSession(id: string) {
+    openSession = openSession === id ? null : id;
+  }
+
   function flashCopied(which: "prompt" | "report") {
     copied = which;
     clearTimeout(copyTimer);
@@ -138,6 +147,25 @@
   <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
     <path
       d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </svg>
+{/snippet}
+
+{#snippet playIcon()}
+  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+    <path d="M7 4v16l14-8L7 4z" fill="currentColor" />
+  </svg>
+{/snippet}
+
+{#snippet chevronIcon(open: boolean)}
+  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" class="chevron" class:open>
+    <path
+      d="m6 9 6 6 6-6"
       fill="none"
       stroke="currentColor"
       stroke-width="2"
@@ -267,11 +295,38 @@
       </p>
       <ul class="sessions">
         {#each plan.sessions as session (session.key)}
+          {@const id = `${plan.slug}:${session.key}`}
+          {@const isOpen = openSession === id}
           <li>
-            <a href={`/plan/${plan.slug}/session/${session.key}`} class="session-link">
-              <span class="key">{session.key}</span>
-              {session.name}
-            </a>
+            <button
+              type="button"
+              class="secondary session-toggle"
+              aria-expanded={isOpen}
+              aria-controls={`session-summary-${plan.slug}-${session.key}`}
+              onclick={() => toggleSession(id)}
+            >
+              <span class="session-name">
+                <span class="key">{session.key}</span>
+                {session.name}
+              </span>
+              {@render chevronIcon(isOpen)}
+            </button>
+            {#if isOpen}
+              <div class="session-summary" id={`session-summary-${plan.slug}-${session.key}`}>
+                {#if session.note}
+                  <p class="muted">{session.note}</p>
+                {/if}
+                {#each session.blocks as block (block.key)}
+                  <div class="block-summary">
+                    <h3>{block.name}</h3>
+                    <p>{block.exercises.join(", ")}</p>
+                  </div>
+                {/each}
+                <a class="session-link" href={`/plan/${plan.slug}/session/${session.key}`}>
+                  {@render playIcon()}Start session
+                </a>
+              </div>
+            {/if}
           </li>
         {/each}
       </ul>
@@ -501,9 +556,45 @@
     font-weight: 800;
   }
 
+  .session-toggle {
+    width: 100%;
+  }
+
+  .session-name {
+    flex: 1;
+    text-align: left;
+  }
+
+  .chevron {
+    flex-shrink: 0;
+    transition: transform 0.15s ease;
+  }
+
+  .chevron.open {
+    transform: rotate(180deg);
+  }
+
+  .session-summary {
+    padding: 0.85rem 1rem 0.25rem;
+    display: grid;
+    gap: 0.6rem;
+  }
+
+  .block-summary h3 {
+    margin: 0 0 0.15rem;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+
+  .block-summary p {
+    margin: 0;
+    font-size: 0.9rem;
+  }
+
   .session-link {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 0.4rem;
     padding: 0.7rem 1.25rem;
     border-radius: var(--r-sm);

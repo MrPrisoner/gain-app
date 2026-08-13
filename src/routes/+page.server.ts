@@ -14,6 +14,7 @@ import { getUserDbFor } from "$lib/server/app-state";
 import { bootstrapPromptTemplate, contractMd } from "$lib/server/assets";
 import { countPrescriptions, parsePlanDocument } from "$lib/parse/parser";
 import { contractOfVersion, getCurrentVersion, listPlans } from "$lib/db/read";
+import { deriveExerciseName, type GainContract } from "$lib/contract/schema";
 import { prepareImportReview } from "$lib/db/review";
 import { importPlan } from "$lib/db/import-plan";
 import { renderBootstrapPrompt, type BootstrapAnswers } from "$lib/templates/render";
@@ -42,7 +43,16 @@ export const load: PageServerLoad = ({ locals }) => {
         sessions: contract.sessions
           .slice()
           .sort((a, b) => a.order - b.order)
-          .map((session) => ({ key: session.key, name: session.name })),
+          .map((session) => ({
+            key: session.key,
+            name: session.name,
+            note: session.note,
+            blocks: session.blocks.map((block) => ({
+              key: block.key,
+              name: block.name,
+              exercises: block.exercises.map((rx) => exerciseName(contract, rx.id)),
+            })),
+          })),
         counts: {
           sessions: contract.sessions.length,
           exercises: contract.exercises.length,
@@ -122,6 +132,12 @@ export const actions: Actions = {
     throw redirect(303, "/");
   },
 };
+
+/** Display name for a prescription's exercise id, resolved via the catalogue. */
+function exerciseName(contract: GainContract, exerciseId: string): string {
+  const def = contract.exercises.find((e) => e.id === exerciseId);
+  return def?.name ?? deriveExerciseName(exerciseId);
+}
 
 /**
  * FormData values are `string | File`; a text field is always the string, and
