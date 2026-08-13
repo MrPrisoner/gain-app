@@ -16,7 +16,6 @@ const W = "01JZ000000000000000000000W";
 describe("replayOps", () => {
   let dataDir: string;
   let userDb: UserDb;
-  let planId: string;
   let planVersionId: string;
 
   beforeEach(() => {
@@ -26,7 +25,6 @@ describe("replayOps", () => {
     if (!parsed.ok) throw new Error(`fixture failed to parse: ${parsed.kind}`);
     const result = importPlan(userDb, { parsed, now: NOW });
     if (!result.ok) throw new Error(result.message);
-    planId = result.plan_id;
     planVersionId = result.plan_version_id;
   });
 
@@ -60,16 +58,17 @@ describe("replayOps", () => {
   }
 
   it("applies a start and its sets", () => {
-    const ack = replayOps(userDb, planId, [start(), set("02", 1), set("03", 2)]);
+    const ack = replayOps(userDb, [start(), set("02", 1), set("03", 2)]);
     expect(ack.applied).toEqual(["01", "02", "03"]);
     expect(ack.failed).toEqual([]);
+    expect(ack.pending).toEqual([]);
 
     const rows = userDb.db.prepare("SELECT COUNT(*) AS n FROM set_log").get() as { n: number };
     expect(rows.n).toBe(2);
   });
 
   it("stamps the workout with the client's clock, not the server's", () => {
-    replayOps(userDb, planId, [start()]);
+    replayOps(userDb, [start()]);
     const row = userDb.db.prepare("SELECT started_at FROM workout WHERE client_id = ?").get(W) as {
       started_at: string;
     };
@@ -77,7 +76,7 @@ describe("replayOps", () => {
   });
 
   it("binds the workout to the version the op names, not the plan's current one", () => {
-    replayOps(userDb, planId, [start()]);
+    replayOps(userDb, [start()]);
     const row = userDb.db
       .prepare("SELECT plan_version_id FROM workout WHERE client_id = ?")
       .get(W) as { plan_version_id: string };
@@ -86,10 +85,12 @@ describe("replayOps", () => {
 
   it("is idempotent — replaying the same batch writes nothing new", () => {
     const ops = [start(), set("02", 1), set("03", 2)];
-    replayOps(userDb, planId, ops);
-    const second = replayOps(userDb, planId, ops);
+    replayOps(userDb, ops);
+    const second = replayOps(userDb, ops);
 
     expect(second.applied).toEqual(["01", "02", "03"]);
+    expect(second.failed).toEqual([]);
+    expect(second.pending).toEqual([]);
     const rows = userDb.db.prepare("SELECT COUNT(*) AS n FROM set_log").get() as { n: number };
     expect(rows.n).toBe(2);
   });
@@ -105,23 +106,25 @@ describe("replayOps", () => {
       difficulty: "medium",
     };
 
-    const ack = replayOps(userDb, planId, [start(), ghost, set("03", 1)]);
+    const ack = replayOps(userDb, [start(), ghost, set("03", 1)]);
     expect(ack.applied).toEqual(["01", "03"]);
     expect(ack.failed).toHaveLength(1);
     expect(ack.failed[0]?.id).toBe("02");
+    expect(ack.pending).toEqual([]);
 
     const rows = userDb.db.prepare("SELECT COUNT(*) AS n FROM set_log").get() as { n: number };
     expect(rows.n).toBe(1);
   });
 
   it("retries — rather than quarantines — a set whose workout has not arrived yet", () => {
-    const ack = replayOps(userDb, planId, [set("02", 1)]);
+    const ack = replayOps(userDb, [set("02", 1)]);
     expect(ack.applied).toEqual([]);
     expect(ack.failed).toEqual([]);
+    expect(ack.pending).toEqual(["02"]);
   });
 
   it("finishes a workout with the client's completion time", () => {
-    replayOps(userDb, planId, [
+    replayOps(userDb, [
       start(),
       {
         kind: "finish",
@@ -139,7 +142,7 @@ describe("replayOps", () => {
   });
 
   it("resolves a set-scope metric through the set's client id", () => {
-    replayOps(userDb, planId, [
+    replayOps(userDb, [
       start(),
       set("02", 1),
       {

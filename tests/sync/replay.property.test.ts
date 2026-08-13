@@ -18,7 +18,7 @@ const W = "01JZ000000000000000000000W";
  * failure, which is a different property and belongs in the example-based suite. */
 const SLUGS = ["goblet-squat", "dead-bug", "bird-dog"] as const;
 
-type Harness = { userDb: UserDb; planId: string; planVersionId: string; dataDir: string };
+type Harness = { userDb: UserDb; planVersionId: string; dataDir: string };
 
 function freshDb(): Harness {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "gain-replay-prop-"));
@@ -27,7 +27,7 @@ function freshDb(): Harness {
   if (!parsed.ok) throw new Error(`fixture failed to parse: ${parsed.kind}`);
   const result = importPlan(userDb, { parsed, now: NOW });
   if (!result.ok) throw new Error(result.message);
-  return { userDb, planId: result.plan_id, planVersionId: result.plan_version_id, dataDir };
+  return { userDb, planVersionId: result.plan_version_id, dataDir };
 }
 
 function dispose(harness: Harness): void {
@@ -111,8 +111,8 @@ describe("replay properties", () => {
             const permuted = [...ops].sort(
               (a, b) => (shuffleSeed[ops.indexOf(a)] ?? 0) - (shuffleSeed[ops.indexOf(b)] ?? 0),
             );
-            replayOps(ordered.userDb, ordered.planId, forHarness(ops, ordered));
-            replayOps(shuffled.userDb, shuffled.planId, forHarness(permuted, shuffled));
+            replayOps(ordered.userDb, forHarness(ops, ordered));
+            replayOps(shuffled.userDb, forHarness(permuted, shuffled));
             expect(setLogClientIds(shuffled.userDb)).toEqual(setLogClientIds(ordered.userDb));
           } finally {
             dispose(ordered);
@@ -138,7 +138,7 @@ describe("replay properties", () => {
             try {
               const rewritten = forHarness(ops, harness);
               for (let i = 0; i < redeliveries; i += 1) {
-                replayOps(harness.userDb, harness.planId, rewritten);
+                replayOps(harness.userDb, rewritten);
               }
               const ids = setLogClientIds(harness.userDb);
               const expected = ops
@@ -170,7 +170,7 @@ describe("replay properties", () => {
             try {
               const rewritten = forHarness(ops, harness);
               for (let i = 0; i < rewritten.length; i += batchSize) {
-                replayOps(harness.userDb, harness.planId, rewritten.slice(i, i + batchSize));
+                replayOps(harness.userDb, rewritten.slice(i, i + batchSize));
               }
               const expected = ops
                 .filter((op) => op.kind === "set")
@@ -198,7 +198,7 @@ describe("replay properties", () => {
           try {
             const rewritten = forHarness(ops, harness);
             const prefix = rewritten.slice(0, (cut % rewritten.length) + 1);
-            replayOps(harness.userDb, harness.planId, prefix);
+            replayOps(harness.userDb, prefix);
             const expected = prefix
               .filter((op) => op.kind === "set")
               .map((op) => op.id)

@@ -153,16 +153,18 @@ export function logMetric(userDb: UserDb, input: LogMetricInput): { id: string }
   // twice), and this one is correction safety for a *different* tap at the same metric.
   // Taking `client_id` with the new value keeps the row's replay identity pointing at the
   // write that actually produced its current value.
-  //
-  // Phase 6 caveat: a replay queue that delivers two corrections out of order would land
-  // on the earlier answer. Ordering the queue is the queue's job — there is no timestamp
-  // on `metric_value` to arbitrate with here.
   const prior = selectMetricByReference(userDb, input);
   if (prior) {
+    // A strictly older correction arriving after a newer one already won must not revert
+    // it — client_id doubles as the row's replay identity, so overwriting it on every
+    // correction would otherwise let a redelivered (lost-ack) older op silently undo a
+    // newer one. ULIDs sort chronologically, so this is a plain string comparison.
+    if (input.clientId < prior.clientId) return { id: prior.id };
+
     userDb.db
       .prepare("UPDATE metric_value SET value_num = ?, value_text = ?, client_id = ? WHERE id = ?")
-      .run(input.valueNum ?? null, input.valueText ?? null, input.clientId, prior);
-    return { id: prior };
+      .run(input.valueNum ?? null, input.valueText ?? null, input.clientId, prior.id);
+    return { id: prior.id };
   }
 
   const id = newId();
@@ -211,33 +213,37 @@ export function logDeviation(userDb: UserDb, input: LogDeviationInput): { id: st
 }
 
 /**
- * The id of the row already holding this metric's answer, if there is one — looked up by
- * the metric's own identity rather than by `client_id`: `metric_key` plus whichever
- * reference columns the scope defines (a set, an exercise within a workout, or the
- * workout itself). See `logMetric` for why that is the right key.
+ * The row already holding this metric's answer, if there is one — looked up by the
+ * metric's own identity rather than by `client_id`: `metric_key` plus whichever reference
+ * columns the scope defines (a set, an exercise within a workout, or the workout itself).
+ * See `logMetric` for why that is the right key, and for why the row's current
+ * `client_id` travels with it — the correction-ordering guard needs it.
  */
-function selectMetricByReference(userDb: UserDb, input: LogMetricInput): string | undefined {
+function selectMetricByReference(
+  userDb: UserDb,
+  input: LogMetricInput,
+): { id: string; clientId: string } | undefined {
   const row = (
     input.scope === "set"
       ? userDb.db
           .prepare(
-            "SELECT id FROM metric_value WHERE scope = 'set' AND set_log_id = ? AND metric_key = ?",
+            "SELECT id, client_id AS clientId FROM metric_value WHERE scope = 'set' AND set_log_id = ? AND metric_key = ?",
           )
           .get(input.setLogId, input.metricKey)
       : input.scope === "exercise"
         ? userDb.db
             .prepare(
-              `SELECT id FROM metric_value
+              `SELECT id, client_id AS clientId FROM metric_value
                  WHERE scope = 'exercise' AND workout_id = ? AND exercise_def_id = ? AND metric_key = ?`,
             )
             .get(input.workoutId, input.exerciseDefId, input.metricKey)
         : userDb.db
             .prepare(
-              "SELECT id FROM metric_value WHERE scope = 'session' AND workout_id = ? AND metric_key = ?",
+              "SELECT id, client_id AS clientId FROM metric_value WHERE scope = 'session' AND workout_id = ? AND metric_key = ?",
             )
             .get(input.workoutId, input.metricKey)
-  ) as { id: string } | undefined;
-  return row?.id;
+  ) as { id: string; clientId: string } | undefined;
+  return row;
 }
 
 function selectByClientId(
@@ -264,4 +270,17 @@ export function resolveWorkoutIdByClientId(userDb: UserDb, clientId: string): st
 /** Resolve a `set_log` row by its client id, for a `scope: 'set'` metric op. */
 export function resolveSetLogIdByClientId(userDb: UserDb, clientId: string): string | undefined {
   return selectByClientId(userDb, "set_log", clientId);
+}
+
+/** Resolve a workout's plan version id by its server id — the other half of resolving
+ * which plan a non-start op belongs to, since only `start` ops carry `planVersionId`
+ * directly. */
+export function resolvePlanVersionIdForWorkout(
+  userDb: UserDb,
+  workoutId: string,
+): string | undefined {
+  const row = userDb.db
+    .prepare("SELECT plan_version_id FROM workout WHERE id = ?")
+    .get(workoutId) as { plan_version_id: string } | undefined;
+  return row?.plan_version_id;
 }

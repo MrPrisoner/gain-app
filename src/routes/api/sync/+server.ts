@@ -13,11 +13,10 @@
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 import { getUserDbFor } from "$lib/server/app-state";
-import { getPlanBySlug } from "$lib/db/read";
 import { syncBatchSchema } from "$lib/sync/ops";
 import { replayOps } from "$lib/sync/replay";
 
-export const POST: RequestHandler = async ({ request, locals, url }) => {
+export const POST: RequestHandler = async ({ request, locals }) => {
   if (!locals.user) return json({ error: "Not signed in." }, { status: 401 });
 
   let body: unknown;
@@ -32,12 +31,7 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid batch." }, { status: 400 });
   }
 
-  const planSlug = url.searchParams.get("plan");
-  if (!planSlug) return json({ error: "Missing `plan`." }, { status: 400 });
-
   const userDb = getUserDbFor(locals.user.id);
-  const plan = getPlanBySlug(userDb, planSlug);
-  if (!plan) return json({ error: "No such plan." }, { status: 400 });
 
-  return json(replayOps(userDb, plan.id, parsed.data.ops));
+  return json(replayOps(userDb, parsed.data.ops));
 };

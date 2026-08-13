@@ -63,10 +63,9 @@ afterEach(() => {
 // for the page actions).
 // ---------------------------------------------------------------------------
 
-function event(opts: { authed?: boolean; body?: unknown; plan?: string | null }) {
-  const { authed = true, body, plan = "home-dumbbell" } = opts;
+function event(opts: { authed?: boolean; body?: unknown }) {
+  const { authed = true, body } = opts;
   const url = new URL("https://gain.example.com/api/sync");
-  if (plan !== null) url.searchParams.set("plan", plan);
   return {
     request: { json: () => Promise.resolve(body) },
     locals: authed ? { user: { id: USER_ID, bypass: true } } : { user: null },
@@ -139,8 +138,8 @@ describe("POST /api/sync", () => {
     const res = await POST(event({ body: validBatch() }));
     expect(res.status).toBe(200);
 
-    const data = (await res.json()) as { applied: string[]; failed: unknown[] };
-    expect(data).toEqual({ applied: ["01", "02"], failed: [] });
+    const data = (await res.json()) as { applied: string[]; failed: unknown[]; pending: string[] };
+    expect(data).toEqual({ applied: ["01", "02"], failed: [], pending: [] });
     expect(counts()).toEqual({ workouts: 1, sets: 1 });
   });
 
@@ -152,8 +151,12 @@ describe("POST /api/sync", () => {
     const second = await POST(event({ body: validBatch() }));
     expect(second.status).toBe(200);
 
-    const data = (await second.json()) as { applied: string[]; failed: unknown[] };
-    expect(data).toEqual({ applied: ["01", "02"], failed: [] });
+    const data = (await second.json()) as {
+      applied: string[];
+      failed: unknown[];
+      pending: string[];
+    };
+    expect(data).toEqual({ applied: ["01", "02"], failed: [], pending: [] });
     expect(counts()).toEqual({ workouts: 1, sets: 1 });
   });
 });

@@ -223,14 +223,14 @@ describe("workout write layer", () => {
       workoutId: workout.id,
       metricKey: "energy_after",
       valueNum: 2,
-      clientId: "mv-correction-mistap",
+      clientId: "mv-correction-01-mistap",
     });
     const corrected = logMetric(userDb, {
       scope: "session",
       workoutId: workout.id,
       metricKey: "energy_after",
       valueNum: 8,
-      clientId: "mv-correction-fixed",
+      clientId: "mv-correction-02-fixed",
     });
     expect(corrected.id, "the correction must land on the same row").toBe(mistap.id);
 
@@ -241,7 +241,7 @@ describe("workout write layer", () => {
       workoutId: workout.id,
       metricKey: "energy_after",
       valueNum: 8,
-      clientId: "mv-correction-fixed",
+      clientId: "mv-correction-02-fixed",
     });
     expect(replay.id).toBe(corrected.id);
 
@@ -251,7 +251,7 @@ describe("workout write layer", () => {
            WHERE workout_id = ? AND scope = 'session' AND metric_key = 'energy_after'`,
       )
       .all(workout.id) as { value_num: number; client_id: string }[];
-    expect(rows).toEqual([{ value_num: 8, client_id: "mv-correction-fixed" }]);
+    expect(rows).toEqual([{ value_num: 8, client_id: "mv-correction-02-fixed" }]);
 
     // A different metric key in the same workout is a different question, so it gets its
     // own row rather than overwriting the one above.
@@ -266,6 +266,61 @@ describe("workout write layer", () => {
       .prepare("SELECT COUNT(*) AS n FROM metric_value WHERE workout_id = ? AND scope = 'session'")
       .get(workout.id) as { n: number };
     expect(all.n).toBe(2);
+  });
+
+  it("does not let a redelivered older correction revert a newer one", () => {
+    const workout = startWorkout(userDb, {
+      planVersionId,
+      sessionKey: "A",
+      clientId: "wk-client-metric-reorder",
+      now: NOW,
+    });
+
+    // client_id doubles as the row's replay identity, so a lost ack (queue.ts's "silence
+    // is not success" rule) can cause an older op to be redelivered after a newer one
+    // already landed. ULIDs are chronological, so "05" is older than "09".
+    logMetric(userDb, {
+      scope: "session",
+      workoutId: workout.id,
+      metricKey: "energy_after",
+      valueNum: 2,
+      clientId: "05",
+    });
+    logMetric(userDb, {
+      scope: "session",
+      workoutId: workout.id,
+      metricKey: "energy_after",
+      valueNum: 8,
+      clientId: "09",
+    });
+
+    // "05" redelivered — the row's client_id is now "09", so the client_id lookup misses
+    // and this falls through to the by-reference upsert. It must not win.
+    const replayed = logMetric(userDb, {
+      scope: "session",
+      workoutId: workout.id,
+      metricKey: "energy_after",
+      valueNum: 2,
+      clientId: "05",
+    });
+
+    const row = userDb.db
+      .prepare(
+        `SELECT value_num, client_id FROM metric_value
+           WHERE workout_id = ? AND scope = 'session' AND metric_key = 'energy_after'`,
+      )
+      .get(workout.id) as { value_num: number; client_id: string };
+    expect(row).toEqual({ value_num: 8, client_id: "09" });
+
+    // The redelivery still resolves to the same row rather than erroring or minting a
+    // new one — it is a correctly-ignored write, not a rejected one.
+    const idRow = userDb.db
+      .prepare(
+        `SELECT id FROM metric_value
+           WHERE workout_id = ? AND scope = 'session' AND metric_key = 'energy_after'`,
+      )
+      .get(workout.id) as { id: string };
+    expect(replayed.id).toBe(idRow.id);
   });
 
   it("rejects a set-scope metric missing setLogId", () => {

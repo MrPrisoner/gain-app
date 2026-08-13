@@ -34,6 +34,11 @@ export interface OutboxStore {
 export type AckResponse = {
   applied: string[];
   failed: { id: string; error: string }[];
+  /** Ops the server saw but could not yet apply — e.g. a set whose start op hasn't
+   * arrived. Not a failure: the client should keep these queued and retry. Optional so
+   * existing constructions of this type don't need updating; `replayOps` always
+   * populates it. */
+  pending?: string[];
 };
 
 /** What the sync banner renders from. */

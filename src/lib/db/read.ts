@@ -80,6 +80,15 @@ export function getDefaultTemplate(userDb: UserDb): string | undefined {
   return row?.body_md;
 }
 
+/** Resolve a plan version's owning plan id — for the offline sync replay path, where a
+ * `start` op names its plan version directly rather than a plan slug. */
+export function getPlanIdForVersion(userDb: UserDb, planVersionId: string): string | undefined {
+  const row = userDb.db
+    .prepare("SELECT plan_id FROM plan_version WHERE id = ?")
+    .get(planVersionId) as { plan_id: string } | undefined;
+  return row?.plan_id;
+}
+
 /** The stable `exercise_def.id` for a catalogue slug, or undefined if never imported. */
 export function getExerciseDefIdBySlug(
   userDb: UserDb,
