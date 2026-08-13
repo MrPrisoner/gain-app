@@ -20,6 +20,33 @@ Then clear it up behind you:
 
 ## Items
 
+### Show session summary before start
+
+Currently, when clicking a session button, it starts the session. What I have in mind:
+
+- clicking the session button expands it to show a very short summary of what will be covered in the session. Consider showing the session note, plus the exercise names, grouped by block.
+- button at the bottom (with icon) to start the session.
+
+The current session button uses a blue accent colour. If we change it to an expandable section, the button should perhaps not be blue so that the new Start Session button can use the blue accent colour.
+
+### Add version number to UI
+
+The current flow for deploying a new version of the app to portainer is:
+
+- create a new release on github
+- wait for CI pipeline and image build to complete
+- redeploy the stack on portainer
+
+Having the release version on the UI would help testers and users when logging issues etc. Recommend ideal placement according to accepted industry standards.
+
+### Admin section
+
+Admin page with basic functionality:
+
+- See which users are registered with stats (last active, plan count, session count, etc.), no plan or exercise details.
+- Ability to delete user data. Would be especially useful during alpha testing so that users can start fresh if they want to. Might even be worth it to give users a way to wipe their own data, should they want to.
+- Should only be available to an admin user, which can be specified using env var.
+
 ### `svelte-check` warnings, standing since phase 4
 
 `npm run check` reports 0 errors and 9 warnings across three files. None fail the build, and
