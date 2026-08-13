@@ -691,6 +691,15 @@ git commit -m "feat(sync): project the outbox into the resume layer's row shape"
 
 ### Task 4: Server replay and the sync endpoint
 
+**Superseded by the Tasks 1-5 final review's fix wave** (`fix(sync): close four gaps the
+whole-branch review found`, dispatched after Task 5). The code sketches below are the
+historical starting point, not the final shape: `replayOps` no longer takes a `planId`
+parameter (each op resolves its own plan — see `requirePlanForWorkout` and
+`getPlanIdForVersion` in the real `src/lib/sync/replay.ts`), and `AckResponse` gained a
+`pending` field alongside `applied`/`failed`. Tasks 1-5 are already built and committed;
+read the actual files under `src/lib/sync/` and `src/lib/db/` rather than transcribing this
+section if implementing anything new against them.
+
 **Files:**
 - Modify: `src/lib/db/workout.ts` — export two client-id resolvers
 - Create: `src/lib/sync/replay.ts`
@@ -1104,12 +1113,17 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
   if (!planSlug) return json({ error: "Missing `plan`." }, { status: 400 });
 
   const userDb = getUserDbFor(locals.user.id);
-  const plan = getPlanBySlug(userDb, planSlug);
-  if (!plan) return json({ error: "No such plan." }, { status: 400 });
-
-  return json(replayOps(userDb, plan.id, parsed.data.ops));
+  return json(replayOps(userDb, parsed.data.ops));
 };
 ```
+
+**This sketch is superseded.** The Tasks 1-5 final whole-branch review found that a single
+caller-supplied `planId` wrongly quarantines a batch mixing ops from two plans, so the fix
+(`fix(sync): close four gaps the whole-branch review found`) removed the `?plan=` query
+param and `getPlanBySlug` call shown above entirely — `replayOps` now takes no `planId`
+argument and resolves each op's plan itself. The code block above reflects the corrected,
+actually-committed shape; the earlier drafts of `planSlug`/`getPlanBySlug`/`url.searchParams`
+in this section are historical and should not be re-implemented.
 
 - [ ] **Step 8: Run the endpoint tests and verify they pass**
 
@@ -1542,7 +1556,14 @@ export async function flushNow(planSlug: string): Promise<void> {
 
     syncStatus.state = "syncing";
 
-    const response = await fetch(`/api/sync?plan=${encodeURIComponent(planSlug)}`, {
+    // No `?plan=` on this URL: the endpoint resolves each op's plan itself, from the op's
+    // own `planVersionId` (a `start` op) or its already-resolved workout's plan version
+    // (every other kind) — never from a caller-supplied hint. A batch mixing ops from two
+    // plans (the user switched plans while offline) is why: a single URL-level plan would
+    // wrongly quarantine whichever plan wasn't named in it as "unknown exercise", which is
+    // exactly the bug the Tasks 1-5 final review found and fixed (`replayOps` no longer
+    // takes a `planId` parameter at all — see `src/lib/sync/replay.ts`).
+    const response = await fetch("/api/sync", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ ops: batch }),
