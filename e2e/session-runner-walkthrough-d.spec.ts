@@ -43,7 +43,7 @@ async function skipCurrent(page: Page): Promise<void> {
   await page.locator(".log-strip .strip-change").click();
   const sheet = page.locator(".sheet");
   await expect(sheet).toBeVisible();
-  await sheet.locator("button[type=submit]").click();
+  await sheet.getByRole("button", { name: "Save" }).click();
   await expect(sheet).toHaveCount(0);
 }
 

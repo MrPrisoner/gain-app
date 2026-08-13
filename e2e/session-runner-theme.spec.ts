@@ -92,7 +92,7 @@ async function openWithLoggedSet(page: Page): Promise<void> {
   await dismissPreSessionPrompt(page);
   await expect(page.locator(".log-strip")).toBeVisible();
 
-  await page.locator('.log-strip button[value="medium"]').click();
+  await page.locator('.log-strip button[data-difficulty="medium"]').click();
   const rest = page.locator(".rest-overlay");
   await expect(rest).toBeVisible();
   await rest.getByRole("button", { name: "Start next set" }).click();

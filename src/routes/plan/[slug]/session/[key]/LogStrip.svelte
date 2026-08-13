@@ -14,25 +14,26 @@
    * only layout that both fits and is usable one-handed mid-set.
    */
 
-  import { ulid } from "ulidx";
-  import { applyAction, enhance } from "$app/forms";
-  import type { ActionResult } from "@sveltejs/kit";
   import { SvelteMap } from "svelte/reactivity";
   import type { LoggedSet, ResolvedExercise, SetSlot } from "$lib/session/session-view";
+  import { newOpId } from "$lib/sync/ops";
+  import { logWrite } from "$lib/sync/client.svelte";
 
   let {
-    workoutId,
+    planSlug,
+    workoutClientId,
     exercise,
     slot,
     context,
     lastPerformance,
     prefill,
     onLogged,
-    onResult,
+    onError,
     onDeviate,
     height = $bindable(0),
   }: {
-    workoutId: string;
+    planSlug: string;
+    workoutClientId: string;
     exercise: ResolvedExercise;
     /** The slot the next tap writes, or `undefined` once every offered set is logged. */
     slot: SetSlot | undefined;
@@ -41,10 +42,11 @@
     /** "Last time 11 at 12 kg" (`formatLastPerformance`). */
     lastPerformance: string;
     prefill: { reps?: number; weightKg?: number; durationS?: number };
-    /** Reports what was *actually submitted*, read back off the outgoing `FormData`. */
+    /** Reports what was *actually submitted* — read straight off the op this component
+     * built, never off the pre-fill the steppers happened to start at. */
     onLogged: (slot: SetSlot, logged: LoggedSet) => void;
-    /** The page's single action-error surface. */
-    onResult: (result: ActionResult) => void;
+    /** The page's single error surface. */
+    onError: (message: string | undefined) => void;
     onDeviate: () => void;
     /** Measured, so the ledger can reserve exactly this much scroll padding. */
     height?: number;
@@ -60,22 +62,6 @@
    * exercise and coming back.
    */
   const edits = new SvelteMap<string, Partial<Record<Field, string>>>();
-
-  /**
-   * One ULID per slot, minted lazily and reused for every retry of that same set —
-   * `logSet` is idempotent on `client_id`, so a double tap, or a retry after a failed
-   * submission, can never write the set twice. Deliberately a plain object rather than
-   * reactive state: it is filled during render, and a `SvelteMap` here would invalidate
-   * the very render that filled it.
-   */
-  const clientIds: Record<string, string> = {};
-  function clientIdFor(key: string): string {
-    const existing = clientIds[key];
-    if (existing) return existing;
-    const minted = ulid();
-    clientIds[key] = minted;
-    return minted;
-  }
 
   const draft = $derived(slot ? (edits.get(slot.key) ?? {}) : {});
   const repsValue = $derived(draft.reps ?? asText(prefill.reps));
@@ -108,26 +94,17 @@
     setField(field, String(Math.round(next * 100) / 100));
   }
 
-  function numberFrom(form: FormData, name: string): number | undefined {
-    const raw = form.get(name);
-    if (typeof raw !== "string" || raw.trim() === "") return undefined;
-    const value = Number(raw);
-    return Number.isFinite(value) ? value : undefined;
-  }
-
-  function difficultyFrom(form: FormData): LoggedSet["difficulty"] {
-    const raw = form.get("difficulty");
-    return raw === "easy" || raw === "medium" || raw === "hard" ? raw : undefined;
+  function parseNumeric(value: string): number | undefined {
+    if (value.trim() === "") return undefined;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
   }
 
   /**
    * UI-DECISIONS §2: tapping an effort key logs the set — and *only* tapping an effort
-   * key does. HTML implicit submission would otherwise break that: pressing Go/Enter on a
-   * phone keyboard while a dial input has focus fires a click at the form's default
-   * button, which is the first submit button in tree order — the Easy key. The set would
-   * log at an effort the user never chose, and the ledger is read-only with no delete, so
-   * there is no undoing it. Enter dismisses the keyboard instead, which is what it should
-   * have done anyway.
+   * key does. Kept for the same reason it existed under a `<form>`: Enter dismisses the
+   * keyboard rather than doing anything else, which is what it should do regardless of
+   * how the tap is wired up.
    */
   function onDialKeydown(event: KeyboardEvent & { currentTarget: HTMLInputElement }): void {
     if (event.key !== "Enter") return;
@@ -136,14 +113,55 @@
   }
 
   /**
-   * True from the moment an effort key is tapped until that submission resolves, success
-   * or failure. Without it a second tap inside the round trip lands *after* `onLogged`
-   * has advanced the cursor, writing a real set against N+1 that the user never
-   * performed — and with a fresh `client_id` for a genuinely different slot, so `logSet`'s
-   * idempotency cannot catch it. The old per-set rows got this for free by disabling
-   * themselves once logged; one shared strip has to hold the flag itself.
+   * True from the moment an effort key is tapped until `logWrite` resolves, success or
+   * failure. Without it a second tap inside that window lands *after* `onLogged` has
+   * advanced the cursor, writing a real set against N+1 that the user never performed —
+   * and with a fresh op id for a genuinely different slot, so idempotency on the id alone
+   * cannot catch it. The old per-set rows got this for free by disabling themselves once
+   * logged; one shared strip has to hold the flag itself.
    */
   let submitting = $state(false);
+
+  /**
+   * `logWrite` writes to IndexedDB, which either succeeds or throws atomically — unlike
+   * the network round trip this replaces, there is no "it might have landed, we just
+   * lost the response" ambiguity, so a retry after a failure needs no stable op id to
+   * stay idempotent against: nothing was written the first time. A fresh id per tap is
+   * exactly as safe here as a reused one, and simpler.
+   */
+  async function submitEffort(difficulty: "easy" | "medium" | "hard"): Promise<void> {
+    if (submitting || !slot) return;
+    const loggedSlot = slot;
+
+    const submitted: LoggedSet = {
+      reps: exercise.type === "time" ? undefined : parseNumeric(repsValue),
+      weightKg: exercise.type === "time" || !showLoadDial ? undefined : parseNumeric(weightValue),
+      durationS: exercise.type === "time" ? parseNumeric(durationValue) : undefined,
+      difficulty,
+    };
+
+    submitting = true;
+    try {
+      await logWrite(planSlug, {
+        kind: "set",
+        id: newOpId(),
+        workoutClientId,
+        exerciseSlug: exercise.slug,
+        setNo: loggedSlot.setNo,
+        side: loggedSlot.side,
+        reps: submitted.reps,
+        weightKg: submitted.weightKg,
+        durationS: submitted.durationS,
+        difficulty: submitted.difficulty,
+      });
+      onLogged(loggedSlot, submitted);
+      onError(undefined);
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      submitting = false;
+    }
+  }
 
   const efforts = [
     { level: "easy", label: "Easy" },
@@ -166,46 +184,7 @@
   {#if slot}
     <p class="strip-last">{lastPerformance}</p>
 
-    <form
-      method="POST"
-      action="?/logSet"
-      use:enhance={({ formData, cancel }) => {
-        // Bug 9: the ledger renders from what was submitted, read straight off the
-        // outgoing FormData — not from the pre-fill the steppers happened to start at.
-        const submitted: LoggedSet = {
-          reps: numberFrom(formData, "reps"),
-          weightKg: numberFrom(formData, "weight_kg"),
-          durationS: numberFrom(formData, "duration_s"),
-          difficulty: difficultyFrom(formData),
-        };
-        const loggedSlot = slot;
-
-        // Nothing writes a set without an effort on it (§2), and nothing writes a second
-        // one while the first is still in flight — the `disabled` below closes the second
-        // window a frame later than the tap does, so it is re-checked here.
-        if (submitting || submitted.difficulty === undefined || !loggedSlot) {
-          cancel();
-          return;
-        }
-        submitting = true;
-
-        return async ({ result }: { result: ActionResult }) => {
-          try {
-            await applyAction(result);
-            onResult(result);
-            if (result.type === "success") onLogged(loggedSlot, submitted);
-          } finally {
-            submitting = false;
-          }
-        };
-      }}
-    >
-      <input type="hidden" name="workout_id" value={workoutId} />
-      <input type="hidden" name="exercise_slug" value={exercise.slug} />
-      <input type="hidden" name="set_no" value={slot.setNo} />
-      {#if slot.side}<input type="hidden" name="side" value={slot.side} />{/if}
-      <input type="hidden" name="client_id" value={clientIdFor(slot.key)} />
-
+    <div class="log-fields">
       <div class="dials" class:dials--single={!showLoadDial}>
         {#if exercise.type === "time"}
           <div class="dial">
@@ -219,7 +198,6 @@
               <input
                 type="text"
                 inputmode="numeric"
-                name="duration_s"
                 class="dial-n tabular"
                 aria-label="Seconds held"
                 value={durationValue}
@@ -247,7 +225,6 @@
               <input
                 type="text"
                 inputmode="numeric"
-                name="reps"
                 class="dial-n tabular"
                 aria-label="Reps"
                 value={repsValue}
@@ -276,7 +253,6 @@
                 <input
                   type="text"
                   inputmode="numeric"
-                  name="weight_kg"
                   class="dial-n tabular"
                   aria-label="Load in total kilograms"
                   value={weightValue}
@@ -302,11 +278,11 @@
       <div class="efforts">
         {#each efforts as effort, i (effort.level)}
           <button
-            type="submit"
-            name="difficulty"
-            value={effort.level}
+            type="button"
             class="effort-key"
+            data-difficulty={effort.level}
             disabled={submitting}
+            onclick={() => submitEffort(effort.level)}
           >
             <span class="effort-name">{effort.label}</span>
             <span class="effort-fill">
@@ -317,7 +293,7 @@
           </button>
         {/each}
       </div>
-    </form>
+    </div>
   {:else}
     <p class="strip-done">Nice — every set's logged. Open the next exercise.</p>
   {/if}

@@ -79,7 +79,7 @@ test("a reload restores a skip and the wrap-up's already-answered metrics", asyn
   // Skip: `kind` defaults to skip and `reason_code` to Symptoms, so Save is the whole
   // gesture (see session-runner-exercise-state.spec.ts).
   await page.locator(".log-strip .strip-change").click();
-  await page.locator(".sheet button[type=submit]").click();
+  await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
   const squat = page.locator(".exercise", { hasText: "Goblet squat" }).first();
   await expect(squat.locator(".exercise-meta")).toHaveText("Skipped");
 

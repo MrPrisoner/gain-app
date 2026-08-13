@@ -1,9 +1,14 @@
 /**
- * The session runner's data and actions (phase 4, ARCHITECTURE §9). Loads the resolved
- * session plus pre-fill data for every exercise in it; every write goes through
- * `$lib/db/workout`, which is idempotent on the client-generated `client_id` the
- * runner's Svelte components mint via `ulidx` — the server never mints one, because
- * phase 6 replays these ids (ARCHITECTURE §9).
+ * The session runner's data load (phase 4/6, ARCHITECTURE §9). Loads the resolved
+ * session plus pre-fill data for every exercise in it.
+ *
+ * `start` is the only action left. Every other write — sets, metrics, deviations,
+ * finishing the workout — now goes through the outbox (`$lib/sync/client.svelte`) as an
+ * op, replayed server-side by `$lib/sync/replay` via `POST /api/sync`, never through a
+ * form action (phase 6, design spec §3). `start` survives as the fallback hydration path
+ * for a device with no local record — a different browser, or cleared storage — reading
+ * the workout's rows back the same way it always has if the idempotent lookup resolves an
+ * existing row.
  */
 
 import { error, fail, redirect } from "@sveltejs/kit";
@@ -18,12 +23,11 @@ import {
 } from "$lib/db/read";
 import { recentSetLogsForExercise } from "$lib/db/recent-sets";
 import { workoutHistoryFor } from "$lib/db/workout-history";
-import { finishWorkout, logDeviation, logMetric, logSet, startWorkout } from "$lib/db/workout";
+import { resolveWorkoutIdByClientId } from "$lib/db/workout";
 import type { UserDb } from "$lib/db/user-db";
 import { pickPrefill, type PrefillByExercise } from "$lib/session/prefill";
 import { hydrateSession, type SessionHydration } from "$lib/session/resume";
 import { resolveLoad, resolveSession, sessionMetrics } from "$lib/session/session-view";
-import type { DeviationKind } from "$lib/logs/types";
 import type { IntOrRange } from "$lib/contract/schema";
 
 export const load: PageServerLoad = ({ params, locals }) => {
@@ -104,6 +108,9 @@ export const load: PageServerLoad = ({ params, locals }) => {
 
   return {
     planSlug: plan.slug,
+    // The start op carries this: a revision imported while a workout is queued must not
+    // rebind that workout to a version it never ran under (design spec §4).
+    planVersionId: version.id,
     session,
     prefillByExercise,
     // The whole catalogue and load table, so a swap can be resolved client-side
@@ -122,175 +129,42 @@ export const load: PageServerLoad = ({ params, locals }) => {
 };
 
 export const actions: Actions = {
+  /**
+   * Read-only fallback hydration (phase 6, design spec §5). Its only remaining caller is
+   * the runner's own `fetchServerHydration`, used when local reconstruction alone might
+   * be incomplete — `idb.ts`'s `ack()` deletes a synced op from the outbox the moment the
+   * server confirms it, so once anything has synced, the local outbox no longer has the
+   * whole picture.
+   *
+   * Deliberately never creates a workout — that responsibility belongs entirely to the
+   * offline `start` op replayed through `/api/sync` now. A version of this action that
+   * could still create one would race that path: whichever reached the server first would
+   * win, and if this read-only-looking fallback won, the workout would be stamped with
+   * this request's server-received time rather than the client's true offline start
+   * time — silently reintroducing the clock bug the offline replay path was built to
+   * avoid. Resolving by `client_id` first and returning nothing when it is not found
+   * keeps this action honestly read-only.
+   */
   start: async ({ request, params, locals }) => {
     if (!locals.user) throw redirect(303, "/login");
     const form = await request.formData();
 
     try {
       const clientId = requireText(form, "client_id");
-
       const userDb = getUserDbFor(locals.user.id);
+
+      const workoutId = resolveWorkoutIdByClientId(userDb, clientId);
+      if (!workoutId) return { workoutId: undefined, hydration: undefined };
+
       const plan = getPlanBySlug(userDb, params.slug);
       if (!plan) return fail(404, { actionError: "No such plan." });
       const version = getCurrentVersion(userDb, plan.id);
       if (!version) return fail(404, { actionError: "This plan has no imported version." });
 
-      const workout = startWorkout(userDb, {
-        planVersionId: version.id,
-        sessionKey: params.key,
-        clientId,
-        now: new Date(),
-      });
-
-      /**
-       * Resume (ARCHITECTURE §9). The page holds the workout's `client_id` in `sessionStorage` and
-       * posts it here on mount, which is already how a reload lands back on the same
-       * workout row rather than starting a second one. `load` runs before that POST and
-       * cannot see the id, so the read-back rides along on this same response: one round
-       * trip, one idempotent lookup, and the same lookup phase 6 will replay through.
-       *
-       * A fresh start has nothing to read back, so it does none of this work.
-       */
-      const hydration = workout.resumed
-        ? hydrateResumedWorkout(userDb, version, params.key, workout.id)
-        : undefined;
-
-      return { workoutId: workout.id, hydration };
-    } catch (err) {
-      return fail(400, { actionError: err instanceof Error ? err.message : "Invalid request." });
-    }
-  },
-
-  logSet: async ({ request, params, locals }) => {
-    if (!locals.user) throw redirect(303, "/login");
-    const form = await request.formData();
-    const userDb = getUserDbFor(locals.user.id);
-    const plan = getPlanBySlug(userDb, params.slug);
-    if (!plan) return fail(404, { actionError: "No such plan." });
-
-    try {
-      const slug = requireText(form, "exercise_slug");
-      const exerciseDefId = getExerciseDefIdBySlug(userDb, plan.id, slug);
-      if (!exerciseDefId) return fail(400, { actionError: `Unknown exercise \`${slug}\`.` });
-
-      const side = optionalText(form, "side");
-      if (side !== undefined && side !== "left" && side !== "right") {
-        return fail(400, { actionError: "Invalid side." });
-      }
-
-      const difficulty = optionalText(form, "difficulty");
-      if (
-        difficulty !== undefined &&
-        difficulty !== "easy" &&
-        difficulty !== "medium" &&
-        difficulty !== "hard"
-      ) {
-        return fail(400, { actionError: "Invalid difficulty." });
-      }
-
-      const result = logSet(userDb, {
-        workoutId: requireText(form, "workout_id"),
-        exerciseDefId,
-        setNo: Number(requireText(form, "set_no")),
-        side,
-        reps: optionalNumber(form, "reps"),
-        weightKg: optionalNumber(form, "weight_kg"),
-        durationS: optionalNumber(form, "duration_s"),
-        difficulty,
-        clientId: requireText(form, "client_id"),
-      });
-      return { setLogId: result.id };
-    } catch (err) {
-      return fail(400, { actionError: err instanceof Error ? err.message : "Invalid request." });
-    }
-  },
-
-  logMetric: async ({ request, params, locals }) => {
-    if (!locals.user) throw redirect(303, "/login");
-    const form = await request.formData();
-    const userDb = getUserDbFor(locals.user.id);
-
-    try {
-      const scope = requireText(form, "scope");
-      if (scope !== "set" && scope !== "exercise" && scope !== "session") {
-        return fail(400, { actionError: "Invalid metric scope." });
-      }
-
-      let exerciseDefId: string | undefined;
-      const exerciseSlug = optionalText(form, "exercise_slug");
-      if (exerciseSlug !== undefined) {
-        const plan = getPlanBySlug(userDb, params.slug);
-        exerciseDefId = plan ? getExerciseDefIdBySlug(userDb, plan.id, exerciseSlug) : undefined;
-      }
-
-      const result = logMetric(userDb, {
-        scope,
-        setLogId: optionalText(form, "set_log_id"),
-        workoutId: optionalText(form, "workout_id"),
-        exerciseDefId,
-        metricKey: requireText(form, "metric_key"),
-        valueNum: optionalNumber(form, "value_num"),
-        valueText: optionalText(form, "value_text"),
-        clientId: requireText(form, "client_id"),
-      });
-      return { metricValueId: result.id };
-    } catch (err) {
-      return fail(400, {
-        actionError: err instanceof Error ? err.message : "Invalid metric value.",
-      });
-    }
-  },
-
-  logDeviation: async ({ request, params, locals }) => {
-    if (!locals.user) throw redirect(303, "/login");
-    const form = await request.formData();
-    const userDb = getUserDbFor(locals.user.id);
-    const plan = getPlanBySlug(userDb, params.slug);
-    if (!plan) return fail(404, { actionError: "No such plan." });
-
-    try {
-      const slug = requireText(form, "exercise_slug");
-      const exerciseDefId = getExerciseDefIdBySlug(userDb, plan.id, slug);
-      if (!exerciseDefId) return fail(400, { actionError: `Unknown exercise \`${slug}\`.` });
-
-      const kind = requireText(form, "kind");
-      if (!DEVIATION_KINDS.includes(kind as DeviationKind)) {
-        return fail(400, { actionError: `Invalid deviation kind \`${kind}\`.` });
-      }
-
-      const result = logDeviation(userDb, {
-        workoutId: requireText(form, "workout_id"),
-        exerciseDefId,
-        kind: kind as DeviationKind,
-        reasonCode: optionalText(form, "reason_code"),
-        note: optionalText(form, "note"),
-        substituteExerciseSlug: optionalText(form, "substitute_exercise_slug"),
-        clientId: requireText(form, "client_id"),
-      });
-      return { deviationId: result.id };
-    } catch (err) {
-      return fail(400, { actionError: err instanceof Error ? err.message : "Invalid request." });
-    }
-  },
-
-  finish: async ({ request, locals }) => {
-    if (!locals.user) throw redirect(303, "/login");
-    const form = await request.formData();
-    const userDb = getUserDbFor(locals.user.id);
-
-    try {
-      const status = requireText(form, "status");
-      if (status !== "completed" && status !== "partial" && status !== "stopped") {
-        return fail(400, { actionError: "Invalid workout status." });
-      }
-
-      finishWorkout(userDb, {
-        workoutId: requireText(form, "workout_id"),
-        status,
-        note: optionalText(form, "note"),
-        now: new Date(),
-      });
-      return { finished: true };
+      return {
+        workoutId,
+        hydration: hydrateResumedWorkout(userDb, version, params.key, workoutId),
+      };
     } catch (err) {
       return fail(400, { actionError: err instanceof Error ? err.message : "Invalid request." });
     }
@@ -315,41 +189,19 @@ function hydrateResumedWorkout(
   return hydrateSession(session, workoutHistoryFor(userDb, workoutId));
 }
 
-/** The schema's CHECK constraint on `deviation.kind` (`schema.ts`) — kept in sync by hand
- * with the `DeviationKind` union it validates against. */
-const DEVIATION_KINDS: DeviationKind[] = [
-  "skip",
-  "substitute",
-  "add_set",
-  "drop_set",
-  "stop_red_flag",
-];
-
 function formText(form: FormData, name: string): string {
   const value = form.get(name);
   return typeof value === "string" ? value : "";
 }
 
 /**
- * Throws a plain `Error` on a missing/malformed field. Every call site is inside an
- * action's own `try`/`catch`, which converts that throw into `fail(400, { actionError })`
- * before it can reach SvelteKit — nothing in `actions` is allowed to throw except
- * `redirect` (ARCHITECTURE §9; AGENTS.md, "What the phase-4 review changed").
+ * Throws a plain `Error` on a missing/malformed field. The `start` action's own
+ * `try`/`catch` converts that throw into `fail(400, { actionError })` before it can reach
+ * SvelteKit — nothing in `actions` is allowed to throw except `redirect` (ARCHITECTURE §9;
+ * AGENTS.md, "What the phase-4 review changed").
  */
 function requireText(form: FormData, name: string): string {
   const value = formText(form, name).trim();
   if (!value) throw new Error(`missing required form field \`${name}\``);
   return value;
-}
-
-function optionalText(form: FormData, name: string): string | undefined {
-  const value = formText(form, name).trim();
-  return value === "" ? undefined : value;
-}
-
-function optionalNumber(form: FormData, name: string): number | undefined {
-  const value = optionalText(form, name);
-  if (value === undefined) return undefined;
-  const num = Number(value);
-  return Number.isFinite(num) ? num : undefined;
 }

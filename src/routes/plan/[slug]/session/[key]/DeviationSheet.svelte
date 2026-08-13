@@ -1,15 +1,15 @@
 <script lang="ts">
-  import { ulid } from "ulidx";
-  import { applyAction, enhance } from "$app/forms";
-  import type { ActionResult } from "@sveltejs/kit";
   import type { DeviationKind } from "$lib/logs/types";
   import { trapFocus } from "$lib/actions/focus-trap";
+  import { newOpId } from "$lib/sync/ops";
+  import { logWrite } from "$lib/sync/client.svelte";
 
   let {
     exerciseSlug,
     substitutes,
     canChangeSetCount,
-    workoutId,
+    planSlug,
+    workoutClientId,
     onClose,
     onApplied,
     onRedFlagStop,
@@ -25,12 +25,13 @@
      * the sheet would close, the row would be written, and the ledger would not budge.
      */
     canChangeSetCount: boolean;
-    workoutId: string;
+    planSlug: string;
+    workoutClientId: string;
     onClose: () => void;
     /**
-     * Reports a deviation that the server actually accepted, so the runner can make it
-     * *true* rather than only recorded — a skip has to collapse the exercise, a swap has
-     * to change what the strip logs against, an add/drop has to change the ledger. Fired
+     * Reports a deviation that was actually written, so the runner can make it *true*
+     * rather than only recorded — a skip has to collapse the exercise, a swap has to
+     * change what the strip logs against, an add/drop has to change the ledger. Fired
      * before `onClose`, and never for `stop_red_flag` (that path ends the workout through
      * `onRedFlagStop` instead).
      */
@@ -39,9 +40,9 @@
       substituteSlug: string | undefined,
     ) => void;
     onRedFlagStop: (note: string | undefined) => void;
-    /** Reports a failed `?/logDeviation` submission (or clears a prior one on success) into
-     * the parent page's single shared action-error surface — this sheet has no error UI of
-     * its own — the runner has one error surface, not two (UI-DECISIONS §2). */
+    /** Reports a failed write (or clears a prior one on success) into the parent page's
+     * single shared error surface — this sheet has no error UI of its own — the runner
+     * has one error surface, not two (UI-DECISIONS §2). */
     onError: (message: string | undefined) => void;
   } = $props();
 
@@ -58,6 +59,39 @@
   let reasonCode = $state<string>("pain");
   let substituteSlug = $state<string | undefined>(substitutes[0]);
   let note = $state("");
+  let submitting = $state(false);
+
+  async function save(): Promise<void> {
+    if (submitting) return;
+    submitting = true;
+    try {
+      await logWrite(planSlug, {
+        kind: "deviation",
+        id: newOpId(),
+        workoutClientId,
+        exerciseSlug,
+        deviationKind: kind,
+        reasonCode,
+        note: note || undefined,
+        substituteExerciseSlug: kind === "substitute" ? substituteSlug : undefined,
+      });
+
+      onError(undefined);
+      if (kind === "stop_red_flag") {
+        onRedFlagStop(note || undefined);
+      } else {
+        // The row is written; now make it true. `onApplied` runs before `onClose` so the
+        // runner's state has already moved (skipped / swapped / ledger resized) by the
+        // time this sheet unmounts.
+        onApplied(kind, kind === "substitute" ? substituteSlug : undefined);
+        onClose();
+      }
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      submitting = false;
+    }
+  }
 </script>
 
 <div class="sheet-backdrop" onclick={onClose} role="presentation">
@@ -66,45 +100,14 @@
        `$lib/actions/focus-trap`) moves focus to the heading below on open, cycles Tab
        within the sheet, restores focus on close, and treats Escape the same as
        Cancel. -->
-  <form
-    method="POST"
-    action="?/logDeviation"
+  <div
     class="sheet"
     role="dialog"
     aria-modal="true"
     aria-labelledby="deviation-heading"
     onclick={(e) => e.stopPropagation()}
     use:trapFocus={{ onEscape: onClose }}
-    use:enhance={() => {
-      return async ({ result }: { result: ActionResult }) => {
-        await applyAction(result);
-        if (result.type === "success") {
-          onError(undefined);
-          if (kind === "stop_red_flag") {
-            onRedFlagStop(note || undefined);
-          } else {
-            // The row is written; now make it true. `onApplied` runs before `onClose` so
-            // the runner's state has already moved (skipped / swapped / ledger resized)
-            // by the time this sheet unmounts.
-            onApplied(kind, kind === "substitute" ? substituteSlug : undefined);
-            onClose();
-          }
-        } else if (result.type === "failure") {
-          const data = result.data as { actionError?: string } | undefined;
-          onError(
-            typeof data?.actionError === "string" ? data.actionError : "Something went wrong.",
-          );
-        }
-      };
-    }}
   >
-    <input type="hidden" name="workout_id" value={workoutId} />
-    <input type="hidden" name="exercise_slug" value={exerciseSlug} />
-    <input type="hidden" name="client_id" value={ulid()} />
-    {#if kind === "substitute" && substituteSlug}
-      <input type="hidden" name="substitute_exercise_slug" value={substituteSlug} />
-    {/if}
-
     <h3 id="deviation-heading" tabindex="-1" data-trap-focus-heading>Change this set</h3>
 
     <div class="kind-row">
@@ -142,15 +145,14 @@
     </div>
 
     <textarea
-      name="note"
       placeholder="Optional note — exported as signal for the revising AI."
       bind:value={note}></textarea>
 
     <div class="sheet-actions">
       <button type="button" class="secondary" onclick={onClose}>Cancel</button>
-      <button type="submit" class="primary">Save</button>
+      <button type="button" class="primary" disabled={submitting} onclick={save}>Save</button>
     </div>
-  </form>
+  </div>
 </div>
 
 <style>

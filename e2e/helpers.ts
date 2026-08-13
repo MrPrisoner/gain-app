@@ -41,7 +41,7 @@ export function openExercise(page: Page) {
 export async function logSet(page: Page): Promise<void> {
   const context = page.locator(".log-strip .strip-set");
   const before = await context.innerText();
-  await page.locator('.log-strip button[value="medium"]').click();
+  await page.locator('.log-strip button[data-difficulty="medium"]').click();
   await expect(context).not.toHaveText(before);
 }
 
@@ -61,11 +61,12 @@ export async function logSetThroughRest(page: Page): Promise<void> {
   }
 }
 
-/** The workout's `client_id` — the page mints it and keeps it in `sessionStorage`, and it
- * is the only handle a spec has on *its own* workout in the shared database. */
+/** The workout's `client_id` — the page mints it and keeps it in `localStorage` (design
+ * spec §7: it must survive a browser kill, which `sessionStorage` cannot), and it is the
+ * only handle a spec has on *its own* workout in the shared database. */
 export async function workoutClientId(page: Page, sessionKey: string): Promise<string> {
   const key = `gain:workout:${E2E_PLAN_SLUG}:${sessionKey}`;
-  const clientId = await page.evaluate((k) => sessionStorage.getItem(k), key);
+  const clientId = await page.evaluate((k) => localStorage.getItem(k), key);
   expect(clientId, "the runner must have stored a workout client_id").toBeTruthy();
   return clientId as string;
 }

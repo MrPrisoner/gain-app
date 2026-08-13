@@ -12,7 +12,11 @@
  *    than merely annoying the user. Before the rebuild, tapping "Swap: dead-bug" on the
  *    conditional reverse-crunch logged the deviation and then kept posting
  *    `exercise_slug=reverse-crunch`, so the file said you did the movement the plan told
- *    you to avoid. The assertion is on the POST body, not on rendered text.
+ *    you to avoid. Phase 6 moved the write off the network entirely (`logWrite` appends
+ *    straight to the IndexedDB outbox), so this now asserts on the database row the set
+ *    actually produced once it syncs, rather than on a POST body — a stronger check of
+ *    the same property, since it proves the data that reaches the export, not just an
+ *    outgoing request.
  * 3. **A skip actually skips** — before the rebuild it wrote a deviation row and left the
  *    exercise expanded and fully loggable.
  *
@@ -21,21 +25,14 @@
 
 import { expect, test, type Page } from "@playwright/test";
 import { E2E_PLAN_SLUG } from "./env";
-import { dismissPreSessionPrompt, logSet, logSetThroughRest, openExercise } from "./helpers";
-
-/** The `exercise_slug` field of every `?/logSet` POST that leaves the browser. */
-async function captureLoggedSlugs(page: Page): Promise<string[]> {
-  const slugs: string[] = [];
-  await page.route(/\?\/logSet/, async (route) => {
-    const request = route.request();
-    if (request.method() === "POST") {
-      const slug = new URLSearchParams(request.postData() ?? "").get("exercise_slug");
-      if (slug) slugs.push(slug);
-    }
-    await route.continue();
-  });
-  return slugs;
-}
+import {
+  dismissPreSessionPrompt,
+  logSet,
+  logSetThroughRest,
+  openExercise,
+  setLogsOf,
+  workoutClientId,
+} from "./helpers";
 
 /** Opens a collapsed row by its rendered name. */
 async function open(page: Page, name: string): Promise<void> {
@@ -64,7 +61,6 @@ test("finishing an exercise opens the next one in prescribed order", async ({ pa
 });
 
 test("a swap logs against the substitute, not the movement it replaced", async ({ page }) => {
-  const loggedSlugs = await captureLoggedSlugs(page);
   await page.goto(`/plan/${E2E_PLAN_SLUG}/session/D`);
   await dismissPreSessionPrompt(page);
   await expect(page.locator(".log-strip")).toBeVisible();
@@ -82,9 +78,16 @@ test("a swap logs against the substitute, not the movement it replaced", async (
   await expect(openExercise(page).locator(".ledger-row")).toHaveCount(2);
   await expect(page.locator(".log-strip .strip-exercise")).toHaveText("Dead bug");
 
+  const clientId = await workoutClientId(page, "D");
   await logSet(page);
 
-  expect(loggedSlugs, "the set must be recorded against the substitute").toEqual(["dead-bug"]);
+  // The database row — not just the rendered label — carries the substitute's slug: the
+  // check that catches the export writing "you did the movement the plan told you to
+  // avoid."
+  expect(
+    setLogsOf(clientId).map((row) => row.slug),
+    "the set must be recorded against the substitute",
+  ).toEqual(["dead-bug"]);
 });
 
 test("a skip collapses the exercise, says so, and advances", async ({ page }) => {
@@ -95,7 +98,7 @@ test("a skip collapses the exercise, says so, and advances", async ({ page }) =>
 
   await page.locator(".log-strip .strip-change").click();
   // `kind` defaults to skip and `reason_code` to Symptoms, so Save is the whole gesture.
-  await page.locator(".sheet button[type=submit]").click();
+  await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
 
   const squat = page.locator(".exercise", { hasText: "Goblet squat" }).first();
   await expect(squat.locator(".exercise-meta")).toHaveText("Skipped");

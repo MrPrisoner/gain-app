@@ -1,35 +1,58 @@
 <script lang="ts">
   import { SvelteMap } from "svelte/reactivity";
-  import { applyAction, enhance } from "$app/forms";
-  import type { ActionResult } from "@sveltejs/kit";
   import type { MetricDef } from "$lib/contract/schema";
   import { trapFocus } from "$lib/actions/focus-trap";
+  import { newOpId } from "$lib/sync/ops";
+  import { logWrite } from "$lib/sync/client.svelte";
   import MetricRow from "./MetricRow.svelte";
 
   /**
    * The end-of-session sheet (UI-DECISIONS §8): end metrics, a note about which metrics
-   * are deliberately not asked here, and the `?/finish` submission that ends the
-   * workout. Only ever rendered while `workoutId` is set (the caller's `{#if showWrapUp
-   * && workoutId}`), so it is required here rather than optional — `DeviationSheet`
+   * are deliberately not asked here, and the finish op that ends the workout. Only ever
+   * rendered while `workoutClientId` is set (the caller's `{#if showWrapUp &&
+   * workoutClientId}`), so it is required here rather than optional — `DeviationSheet`
    * follows the same convention.
    */
   let {
-    workoutId,
+    planSlug,
+    workoutClientId,
     endMetrics,
     nextMorningMetrics,
     sessionMetricValues,
     storageKey,
     onClose,
-    onResult,
+    onError,
   }: {
-    workoutId: string;
+    planSlug: string;
+    workoutClientId: string;
     endMetrics: MetricDef[];
     nextMorningMetrics: MetricDef[];
     sessionMetricValues: SvelteMap<string, number | string>;
     storageKey: string;
     onClose: () => void;
-    onResult: (result: ActionResult) => void;
+    onError: (message: string | undefined) => void;
   } = $props();
+
+  let finishing = $state(false);
+
+  async function finish(): Promise<void> {
+    if (finishing) return;
+    finishing = true;
+    try {
+      await logWrite(planSlug, {
+        kind: "finish",
+        id: newOpId(),
+        workoutClientId,
+        status: "completed",
+        finishedAt: new Date().toISOString(),
+      });
+      if (typeof localStorage !== "undefined") localStorage.removeItem(storageKey);
+      window.location.href = "/";
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Something went wrong.");
+      finishing = false;
+    }
+  }
 </script>
 
 <div class="sheet-backdrop" role="presentation">
@@ -50,10 +73,11 @@
     {#each endMetrics as metric (metric.key)}
       <MetricRow
         {metric}
-        {workoutId}
+        {planSlug}
+        {workoutClientId}
         selected={sessionMetricValues.get(metric.key)}
         onSelected={(value) => sessionMetricValues.set(metric.key, value)}
-        {onResult}
+        {onError}
       />
     {/each}
 
@@ -68,27 +92,12 @@
       </p>
     {/if}
 
-    <form
-      method="POST"
-      action="?/finish"
-      use:enhance={() => {
-        return async ({ result }) => {
-          await applyAction(result);
-          onResult(result);
-          if (result.type === "success") {
-            sessionStorage.removeItem(storageKey);
-            window.location.href = "/";
-          }
-        };
-      }}
-    >
-      <input type="hidden" name="workout_id" value={workoutId} />
-      <input type="hidden" name="status" value="completed" />
-      <div class="sheet-actions">
-        <button type="button" class="secondary" onclick={onClose}>Back</button>
-        <button type="submit" class="primary">Finish session</button>
-      </div>
-    </form>
+    <div class="sheet-actions">
+      <button type="button" class="secondary" onclick={onClose}>Back</button>
+      <button type="button" class="primary" disabled={finishing} onclick={finish}>
+        Finish session
+      </button>
+    </div>
   </div>
 </div>
 

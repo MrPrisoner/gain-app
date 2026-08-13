@@ -1,6 +1,5 @@
 <script lang="ts">
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
-  import type { ActionResult } from "@sveltejs/kit";
   import {
     formatRepsOrDuration,
     setLogKey,
@@ -29,10 +28,11 @@
     openSlug,
     addedSets,
     dismissedConditions,
-    workoutId,
+    planSlug,
+    workoutClientId,
     onOpen,
     applySubstitute,
-    onResult,
+    onError,
     onStartNextRound,
   }: {
     block: ResolvedBlock;
@@ -42,14 +42,15 @@
     openSlug: string | undefined;
     addedSets: SvelteMap<string, number>;
     dismissedConditions: SvelteSet<string>;
-    workoutId: string | undefined;
+    planSlug: string;
+    workoutClientId: string;
     onOpen: (key: string) => void;
     applySubstitute: (
       blockKey: string,
       prescribed: ResolvedExercise,
       substituteSlug: string,
     ) => void;
-    onResult: (result: ActionResult) => void;
+    onError: (message: string | undefined) => void;
     onStartNextRound: (block: ResolvedBlock) => void;
   } = $props();
 
@@ -111,10 +112,11 @@
           {openSlug}
           {addedSets}
           {dismissedConditions}
-          {workoutId}
+          {planSlug}
+          {workoutClientId}
           {onOpen}
           {applySubstitute}
-          {onResult}
+          {onError}
         />
       {/each}
     </ul>

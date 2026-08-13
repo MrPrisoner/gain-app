@@ -1,8 +1,7 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
-  import { ulid } from "ulidx";
-  import { applyAction, enhance } from "$app/forms";
-  import type { ActionResult } from "@sveltejs/kit";
+  import { deserialize } from "$app/forms";
   import type { ActionData, PageData } from "./$types";
   import {
     formatSlotContext,
@@ -29,9 +28,12 @@
     type SessionLedger,
     type UpNext,
   } from "$lib/session/ledger";
-  import type { SessionHydration } from "$lib/session/resume";
+  import { hydrateSession, type SessionHydration } from "$lib/session/resume";
   import type { DeviationKind } from "$lib/logs/types";
   import { formatLastPerformance } from "$lib/session/prefill";
+  import { newOpId } from "$lib/sync/ops";
+  import { logWrite, opsForWorkout, startSyncLoop } from "$lib/sync/client.svelte";
+  import { historyFromOps } from "$lib/sync/history";
   import RestTimer from "./RestTimer.svelte";
   import DeviationSheet from "./DeviationSheet.svelte";
   import LogStrip from "./LogStrip.svelte";
@@ -40,77 +42,153 @@
   import WrapUpSheet from "./WrapUpSheet.svelte";
   import { restSpecFrom, type RestSpec } from "$lib/session/rest-timer";
 
-  let { data, form }: { data: PageData; form: ActionData } = $props();
+  let { data }: { data: PageData; form: ActionData } = $props();
 
-  // The workout row is created once per session attempt and kept in sessionStorage so
-  // a reload resumes the same row via its client_id instead of starting a new one
-  // (Global Constraints: phase 4 has no IndexedDB, so surviving a full browser kill is
-  // out of scope — surviving a reload is not). The `?/start` action below answers that
-  // same idempotent lookup with everything the workout has already written, which
-  // `applyHydration` pours back into the maps declared here — so a reload keeps the
-  // ledger, the cursor, the skips, the swaps and the wrap-up's answers, not just the row.
-  const storageKey = `gain:workout:${data.planSlug}:${data.session.key}`;
-  let workoutClientId = $state(
-    typeof sessionStorage !== "undefined"
-      ? (sessionStorage.getItem(storageKey) ?? mintAndStore())
-      : ulid(),
-  );
-  let workoutId = $state<string | undefined>(form?.workoutId);
+  /**
+   * The workout's local identity (design spec §5, §7), kept in `localStorage` rather than
+   * IndexedDB itself. A `start` op carries `planVersionId`, not `planSlug` (ARCHITECTURE
+   * §8: a workout stays bound to the plan version it ran under, and that binding must
+   * survive a later revision) — so it cannot be looked up by *route* identity once a plan
+   * is revised, and the outbox alone cannot answer "is there already a local workout for
+   * `/plan/<slug>/session/<key>`". This one small persisted pointer sidesteps that; the
+   * workout's actual data still lives entirely in the IndexedDB outbox (`opsForWorkout`),
+   * which is what makes a browser kill survivable — the pointer only has to survive long
+   * enough to find that data again. `localStorage`, not `sessionStorage`: `sessionStorage`
+   * is exactly what phase 4 used and dies with the tab, which is the one failure this
+   * phase exists to fix.
+   */
+  const storageKey = untrack(() => `gain:workout:${data.planSlug}:${data.session.key}`);
 
-  // Pre-session metrics (ARCHITECTURE §9, UI-DECISIONS §8): a genuinely fresh
-  // start gates the runner behind `data.startMetrics` until "Continue to session" is
-  // tapped — asking "how do you feel before you start" makes no sense on a workout
-  // already in progress, so a *resumed* workout (the `?/start` response carries
-  // `hydration`) skips this gate entirely and never sets it true. Set once, in the
-  // `?/start` handler below, from the same `hydration` signal the resume path already threads
-  // back — never re-derived anywhere else. If the plan declares no `start` metrics at
-  // all there is nothing to show, so the gate is skipped rather than surfacing an empty
-  // sheet with only a Continue button.
+  // `undefined` until the mount effect below resolves the local pointer (and, for a fresh
+  // workout, writes its `start` op) — nothing below renders a logging control until then,
+  // the same "quiet placeholder over a live-looking strip that would 400 on every tap"
+  // rule phase 4 established (UI-DECISIONS §2), now guarding against a tap racing
+  // IndexedDB instead of a network round trip.
+  let workoutClientId = $state<string | undefined>(undefined);
+
+  // Pre-session metrics (ARCHITECTURE §9, UI-DECISIONS §8): a genuinely fresh start gates
+  // the runner behind `data.startMetrics` until "Continue to session" is tapped — asking
+  // "how do you feel before you start" makes no sense on a workout already in progress, so
+  // a workout resumed from an existing local pointer skips this gate entirely and never
+  // sets it true. Set once, in the mount effect below, from the same local-vs-fresh signal
+  // that decides whether to hydrate — never re-derived anywhere else. If the plan declares
+  // no `start` metrics at all there is nothing to show, so the gate is skipped rather than
+  // surfacing an empty sheet with only a Continue button.
   let showPreSession = $state(false);
 
-  // The one action-error surface for the whole runner (UI-DECISIONS §2) — every
-  // enhanced form on this page, and `DeviationSheet` via its `onError` prop, funnels into
-  // this single piece of state so there is exactly one place an action error renders, one
-  // visual treatment, one dismiss control.
-  let actionError = $state<string | undefined>(form?.actionError);
+  // The one error surface for the whole runner (UI-DECISIONS §2) — every write below, and
+  // `DeviationSheet` via its `onError` prop, funnels into this single piece of state so
+  // there is exactly one place an error renders, one visual treatment, one dismiss
+  // control. Unlike phase 4, a write here can only fail *locally* now (IndexedDB itself
+  // throwing) — a write the server later rejects is quarantined and surfaced through the
+  // sync banner instead (`+layout.svelte`), because that failure is discovered
+  // asynchronously, often long after the control that caused it has scrolled away.
+  let actionError = $state<string | undefined>(undefined);
 
-  function afterAction(result: ActionResult): void {
-    if (result.type === "failure") {
-      const data = result.data as { actionError?: string } | undefined;
-      actionError =
-        typeof data?.actionError === "string" ? data.actionError : "Something went wrong.";
-    } else if (result.type === "success") {
-      actionError = undefined;
+  function setError(message: string | undefined): void {
+    actionError = message;
+  }
+
+  /**
+   * Ask the server for whatever it already has under this `client_id` (still `?/start`,
+   * now demoted to a fallback per design spec §5). This is the half local-only
+   * reconstruction cannot cover: `idb.ts`'s `ack()` deletes an op from the outbox the
+   * moment the server confirms it, so once anything has synced — the common case for
+   * anyone online through most of a session — `opsForWorkout` alone would reconstruct an
+   * *incomplete* ledger on reload, missing exactly the sets that synced successfully.
+   * Offline, or any other failure here, is not fatal: every real write already reached
+   * `logWrite` and is safe in the outbox regardless of whether this call succeeds, so a
+   * failed fetch just means the local hydration below is the whole picture until the next
+   * sync fills in the rest.
+   */
+  async function fetchServerHydration(clientId: string): Promise<SessionHydration | undefined> {
+    try {
+      const body = new FormData();
+      body.set("client_id", clientId);
+      const response = await fetch("?/start", { method: "POST", body });
+      const result = deserialize(await response.text());
+      if (result.type !== "success") return undefined;
+      const resultData = result.data as { hydration?: SessionHydration } | undefined;
+      return resultData?.hydration;
+    } catch {
+      return undefined;
     }
   }
 
-  function mintAndStore(): string {
-    const id = ulid();
-    sessionStorage.setItem(storageKey, id);
-    return id;
-  }
+  $effect(() => {
+    let cancelled = false;
 
-  let startForm: HTMLFormElement | undefined = $state();
+    (async () => {
+      const existing =
+        typeof localStorage !== "undefined" ? localStorage.getItem(storageKey) : null;
+      const resumed = existing !== null;
+      const clientId = existing ?? newOpId();
+
+      if (!resumed) {
+        if (typeof localStorage !== "undefined") localStorage.setItem(storageKey, clientId);
+        await logWrite(data.planSlug, {
+          kind: "start",
+          id: newOpId(),
+          workoutClientId: clientId,
+          planVersionId: data.planVersionId,
+          sessionKey: data.session.key,
+          startedAt: new Date().toISOString(),
+        });
+      }
+
+      if (cancelled) return;
+      workoutClientId = clientId;
+
+      if (resumed) {
+        // Server first (already-synced history), then local pending ops (whatever the
+        // server does not know about yet) — `applyHydration` sets per key, so a pending
+        // op's more recent value wins over whatever the server last saw for that same
+        // slot, and a slot only one side covers is simply the union of both.
+        const [serverHydration, localOps] = await Promise.all([
+          fetchServerHydration(clientId),
+          opsForWorkout(clientId),
+        ]);
+        if (cancelled) return;
+        if (serverHydration) applyHydration(serverHydration);
+        if (localOps.length > 0) {
+          applyHydration(hydrateSession(data.session, historyFromOps(localOps)));
+        }
+      } else if (data.startMetrics.length > 0) {
+        showPreSession = true;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  });
 
   $effect(() => {
-    if (!workoutId) startForm?.requestSubmit();
+    if (!workoutClientId) return;
+    return startSyncLoop(data.planSlug);
   });
 
   // A red-flag stop (DeviationSheet, `kind: stop_red_flag`) immediately finishes the
   // workout with `status=stopped` — the plan's own design says a red flag ends the
   // workout, it doesn't just log a deviation and leave `status='partial'` forever.
-  let redFlagFinishForm: HTMLFormElement | undefined = $state();
-  let redFlagNote = $state<string | undefined>(undefined);
-  let redFlagTriggered = $state(false);
-
-  $effect(() => {
-    if (redFlagTriggered) redFlagFinishForm?.requestSubmit();
-  });
-
-  function onRedFlagStop(note: string | undefined) {
-    redFlagNote = note;
+  // `DeviationSheet` has already written the deviation op itself by the time this runs;
+  // this only writes the matching finish op and leaves.
+  async function onRedFlagStop(note: string | undefined): Promise<void> {
     deviationFor = undefined;
-    redFlagTriggered = true;
+    const clientId = workoutClientId;
+    if (!clientId) return;
+
+    await logWrite(data.planSlug, {
+      kind: "finish",
+      id: newOpId(),
+      workoutClientId: clientId,
+      status: "stopped",
+      note,
+      finishedAt: new Date().toISOString(),
+    });
+
+    if (typeof localStorage !== "undefined") localStorage.removeItem(storageKey);
+    window.location.href = "/";
   }
 
   // Which exercise is expanded — UI-DECISIONS §1: exactly one, the others collapse.
@@ -351,10 +429,14 @@
   }
 
   /**
-   * A resumed workout's own rows, reconstructed server-side (`$lib/session/resume`) and
-   * poured into the very same maps the live interactive paths above fill — so nothing
-   * downstream (the ledger, `openContext`'s cursor, `doneExercises`, the wrap-up sheet)
-   * needs to know whether a workout was resumed or started fresh.
+   * A resumed workout's own rows — from the server (`fetchServerHydration`), from local
+   * pending ops (`historyFromOps`), or both — poured into the very same maps the live
+   * interactive paths above fill, so nothing downstream (the ledger, `openContext`'s
+   * cursor, `doneExercises`, the wrap-up sheet) needs to know whether a workout was
+   * resumed or started fresh, or where a given piece of its history came from. Safe to
+   * call more than once for one mount: every field is applied by `set()`/`add()` on its
+   * own key, so a second call layers in rather than resetting anything the first call
+   * already wrote.
    *
    * Substitutes arrive as bare slugs and go through `applySubstitute`, the same function a
    * live swap uses, rather than as pre-resolved exercises from the server: `resolveSubstitute`
@@ -390,52 +472,6 @@
   <title>{data.session.name} — GAIN</title>
 </svelte:head>
 
-<form
-  bind:this={startForm}
-  method="POST"
-  action="?/start"
-  use:enhance={() => {
-    return async ({ result }) => {
-      await applyAction(result);
-      afterAction(result);
-      if (result.type === "success" && result.data?.workoutId) {
-        workoutId = result.data.workoutId as string;
-        // Only ever present when the idempotent lookup resumed an existing workout.
-        const hydration = result.data.hydration as SessionHydration | undefined;
-        if (hydration) {
-          applyHydration(hydration);
-        } else if (data.startMetrics.length > 0) {
-          showPreSession = true;
-        }
-      }
-    };
-  }}
-  hidden
->
-  <input type="hidden" name="client_id" value={workoutClientId} />
-</form>
-
-<form
-  bind:this={redFlagFinishForm}
-  method="POST"
-  action="?/finish"
-  use:enhance={() => {
-    return async ({ result }) => {
-      await applyAction(result);
-      afterAction(result);
-      if (result.type === "success") {
-        sessionStorage.removeItem(storageKey);
-        window.location.href = "/";
-      }
-    };
-  }}
-  hidden
->
-  <input type="hidden" name="workout_id" value={workoutId ?? ""} />
-  <input type="hidden" name="status" value="stopped" />
-  <input type="hidden" name="note" value={redFlagNote ?? ""} />
-</form>
-
 <header class="runner-head">
   <h1>{data.session.name}</h1>
   {#if data.session.note}<p class="note">{data.session.note}</p>{/if}
@@ -455,14 +491,14 @@
   </div>
 {/if}
 
-{#if !workoutId}
-  <!-- UI-DECISIONS §2: nothing below posts a real workout_id until the
-       async `?/start` round-trip resolves, so no logging control renders until then —
-       a quiet "starting" state beats a live-looking strip that 400s on every tap. -->
+{#if !workoutClientId}
+  <!-- UI-DECISIONS §2: nothing below renders until the mount effect resolves a local
+       workout client id — a quiet "starting" state beats a live-looking strip that
+       writes against an id that does not exist yet. -->
   <p class="starting">Starting your session…</p>
 {:else if showPreSession}
   <!-- Pre-session metrics (ARCHITECTURE §9): a genuine gate, following the same "quiet placeholder
-       until satisfied" precedent as the `!workoutId` branch above — the runner itself
+       until satisfied" precedent as the `!workoutClientId` branch above — the runner itself
        does not render underneath, rather than a dismissible overlay on top of it, so
        nothing here can be tapped before the pre-session prompt is dealt with. -->
   <div class="pre-session">
@@ -470,10 +506,11 @@
     {#each data.startMetrics as metric (metric.key)}
       <MetricRow
         {metric}
-        {workoutId}
+        planSlug={data.planSlug}
+        {workoutClientId}
         selected={sessionMetricValues.get(metric.key)}
         onSelected={(value) => sessionMetricValues.set(metric.key, value)}
-        onResult={afterAction}
+        onError={setError}
       />
     {/each}
     <div class="sheet-actions">
@@ -498,10 +535,11 @@
         {openSlug}
         {addedSets}
         {dismissedConditions}
-        {workoutId}
+        planSlug={data.planSlug}
+        {workoutClientId}
         onOpen={openExercise}
         {applySubstitute}
-        onResult={afterAction}
+        onError={setError}
         onStartNextRound={startNextRound}
       />
     {/each}
@@ -522,7 +560,7 @@
   </div>
 {/if}
 
-{#if workoutId && !showPreSession && openContext}
+{#if workoutClientId && !showPreSession && openContext}
   {@const ctx = openContext}
   {@const slot = ctx.next}
   {@const fill = prefillFor(
@@ -536,14 +574,15 @@
   )}
   <LogStrip
     bind:height={stripHeight}
-    {workoutId}
+    planSlug={data.planSlug}
+    {workoutClientId}
     exercise={ctx.exercise}
     {slot}
     context={slot ? formatSlotContext(ctx.block, slot, ctx.shownSets) : "All sets logged"}
     lastPerformance={formatLastPerformance(fill, ctx.exercise.type)}
     prefill={fill}
     onLogged={onSetLogged}
-    onResult={afterAction}
+    onError={setError}
     onDeviate={() => (deviationFor = { blockKey: ctx.block.key, slug: ctx.prescribed.slug })}
   />
 {/if}
@@ -557,7 +596,7 @@
   <RestTimer spec={rest.spec} upNext={rest.upNext} onSkip={onRestDismissed} />
 {/if}
 
-{#if deviationTarget && workoutId}
+{#if deviationTarget && workoutClientId}
   {@const target = deviationTarget}
   <!-- `exercise_slug` is the movement actually being performed (the substitute, after a
        swap) — that is what is being skipped, added to or dropped. `substitutes` comes
@@ -567,23 +606,25 @@
     exerciseSlug={target.exercise.slug}
     substitutes={target.prescribed.substitutes}
     canChangeSetCount={target.block.type !== "rounds"}
-    {workoutId}
+    planSlug={data.planSlug}
+    {workoutClientId}
     onClose={() => (deviationFor = undefined)}
     onApplied={onDeviationApplied}
     {onRedFlagStop}
-    onError={(message) => (actionError = message)}
+    onError={setError}
   />
 {/if}
 
-{#if showWrapUp && workoutId}
+{#if showWrapUp && workoutClientId}
   <WrapUpSheet
-    {workoutId}
+    planSlug={data.planSlug}
+    {workoutClientId}
     endMetrics={data.endMetrics}
     nextMorningMetrics={data.nextMorningMetrics}
     {sessionMetricValues}
     {storageKey}
     onClose={() => (showWrapUp = false)}
-    onResult={afterAction}
+    onError={setError}
   />
 {/if}
 

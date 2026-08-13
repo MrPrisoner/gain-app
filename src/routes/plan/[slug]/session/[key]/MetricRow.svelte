@@ -1,8 +1,7 @@
 <script lang="ts">
-  import { ulid } from "ulidx";
-  import { applyAction, enhance } from "$app/forms";
-  import type { ActionResult } from "@sveltejs/kit";
   import type { MetricDef } from "$lib/contract/schema";
+  import { newOpId } from "$lib/sync/ops";
+  import { logWrite } from "$lib/sync/client.svelte";
 
   /**
    * One metric prompt (UI-DECISIONS §8), shared by the pre-session gate and the wrap-up
@@ -15,24 +14,48 @@
    *
    * A `fieldset`/`legend` names the group rather than a `<label>` wrapping the whole row
    * of buttons — a label associates with exactly one control, and this row is a group of
-   * several independent submit buttons, one per cell. The row is sized to its own cell
-   * count (`--cells`) rather than a fixed column count, so an 11-cell 0–10 scale and a
-   * 3-option enum each get a grid fit to what they actually render — UI-DECISIONS §8:
-   * "a row of tappable cells", not a wrap.
+   * several independent buttons, one per cell. The row is sized to its own cell count
+   * (`--cells`) rather than a fixed column count, so an 11-cell 0–10 scale and a 3-option
+   * enum each get a grid fit to what they actually render — UI-DECISIONS §8: "a row of
+   * tappable cells", not a wrap.
+   *
+   * Every metric this component ever renders is session-scope (the pre-session gate and
+   * the wrap-up sheet, both session-wide prompts) — a set-scope or exercise-scope metric
+   * has no caller here.
    */
   let {
     metric,
-    workoutId,
+    planSlug,
+    workoutClientId,
     selected,
     onSelected,
-    onResult,
+    onError,
   }: {
     metric: MetricDef;
-    workoutId: string | undefined;
+    planSlug: string;
+    workoutClientId: string;
     selected: number | string | undefined;
     onSelected: (value: number | string) => void;
-    onResult: (result: ActionResult) => void;
+    onError: (message: string | undefined) => void;
   } = $props();
+
+  async function select(value: number | string): Promise<void> {
+    try {
+      await logWrite(planSlug, {
+        kind: "metric",
+        id: newOpId(),
+        workoutClientId,
+        scope: "session",
+        metricKey: metric.key,
+        valueNum: typeof value === "number" ? value : undefined,
+        valueText: typeof value === "string" ? value : undefined,
+      });
+      onSelected(value);
+      onError(undefined);
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Something went wrong.");
+    }
+  }
 </script>
 
 {#if metric.type === "scale" || metric.type === "number"}
@@ -41,26 +64,14 @@
     <legend>{metric.label}</legend>
     <div class="scale-row" style:--cells={cellCount}>
       {#each Array.from({ length: cellCount }, (_, i) => (metric.min ?? 0) + i) as value (value)}
-        <form
-          method="POST"
-          action="?/logMetric"
-          use:enhance={() => {
-            return async ({ result }) => {
-              await applyAction(result);
-              onResult(result);
-              if (result.type === "success") onSelected(value);
-            };
-          }}
+        <button
+          type="button"
+          class="scale-cell"
+          class:selected={selected === value}
+          onclick={() => select(value)}
         >
-          <input type="hidden" name="scope" value="session" />
-          <input type="hidden" name="workout_id" value={workoutId ?? ""} />
-          <input type="hidden" name="metric_key" value={metric.key} />
-          <input type="hidden" name="value_num" {value} />
-          <input type="hidden" name="client_id" value={ulid()} />
-          <button type="submit" class="scale-cell" class:selected={selected === value}>
-            {value}
-          </button>
-        </form>
+          {value}
+        </button>
       {/each}
     </div>
   </fieldset>
@@ -70,26 +81,14 @@
     <legend>{metric.label}</legend>
     <div class="scale-row" style:--cells={options.length}>
       {#each options as option (option)}
-        <form
-          method="POST"
-          action="?/logMetric"
-          use:enhance={() => {
-            return async ({ result }) => {
-              await applyAction(result);
-              onResult(result);
-              if (result.type === "success") onSelected(option);
-            };
-          }}
+        <button
+          type="button"
+          class="scale-cell"
+          class:selected={selected === option}
+          onclick={() => select(option)}
         >
-          <input type="hidden" name="scope" value="session" />
-          <input type="hidden" name="workout_id" value={workoutId ?? ""} />
-          <input type="hidden" name="metric_key" value={metric.key} />
-          <input type="hidden" name="value_text" value={option} />
-          <input type="hidden" name="client_id" value={ulid()} />
-          <button type="submit" class="scale-cell" class:selected={selected === option}>
-            {option}
-          </button>
-        </form>
+          {option}
+        </button>
       {/each}
     </div>
   </fieldset>
@@ -114,7 +113,7 @@
      `flex-wrap`, so an 11-cell 0–10 scale renders as one clean row at 320–360px instead
      of wrapping into ragged rows, and a metric with fewer cells (an enum, a narrower
      scale) gets a grid sized to what it actually renders rather than a hardcoded 11
-     columns. Each `<form>` is itself a grid item — there is no extra wrapper — so
+     columns. Each `<button>` is itself a grid item — there is no extra wrapper — so
      `minmax(0, 1fr)` lets a cell shrink below its button's content width instead of
      forcing the row wider than the viewport. */
   .scale-row {

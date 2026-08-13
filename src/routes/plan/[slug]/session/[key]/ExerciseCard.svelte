@@ -1,8 +1,5 @@
 <script lang="ts">
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
-  import { ulid } from "ulidx";
-  import { applyAction, enhance } from "$app/forms";
-  import type { ActionResult } from "@sveltejs/kit";
   import {
     formatLoggedSet,
     formatRepsOrDurationOrDash,
@@ -16,6 +13,8 @@
     type ResolvedExercise,
   } from "$lib/session/session-view";
   import { performed, slotsFor, type SessionLedger } from "$lib/session/ledger";
+  import { newOpId } from "$lib/sync/ops";
+  import { logWrite } from "$lib/sync/client.svelte";
 
   /**
    * One exercise row of the runner (UI-DECISIONS §1): collapsed to name, target and
@@ -39,10 +38,11 @@
     openSlug,
     addedSets,
     dismissedConditions,
-    workoutId,
+    planSlug,
+    workoutClientId,
     onOpen,
     applySubstitute,
-    onResult,
+    onError,
   }: {
     block: ResolvedBlock;
     prescribed: ResolvedExercise;
@@ -51,15 +51,42 @@
     openSlug: string | undefined;
     addedSets: SvelteMap<string, number>;
     dismissedConditions: SvelteSet<string>;
-    workoutId: string | undefined;
+    planSlug: string;
+    workoutClientId: string;
     onOpen: (key: string) => void;
     applySubstitute: (
       blockKey: string,
       prescribed: ResolvedExercise,
       substituteSlug: string,
     ) => void;
-    onResult: (result: ActionResult) => void;
+    onError: (message: string | undefined) => void;
   } = $props();
+
+  let swapping = $state(false);
+
+  /** The condition-triggered swap chip's write. A `pain` reason code by default — see
+   * the markup below for why. */
+  async function submitConditionSwap(sub: string): Promise<void> {
+    if (swapping) return;
+    swapping = true;
+    try {
+      await logWrite(planSlug, {
+        kind: "deviation",
+        id: newOpId(),
+        workoutClientId,
+        exerciseSlug: prescribed.slug,
+        deviationKind: "substitute",
+        reasonCode: "pain",
+        substituteExerciseSlug: sub,
+      });
+      applySubstitute(block.key, prescribed, sub);
+      onError(undefined);
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      swapping = false;
+    }
+  }
 
   const exerciseKey = $derived(`${block.key}:${prescribed.slug}`);
   const exercise = $derived(performed(ledger, block.key, prescribed));
@@ -112,37 +139,24 @@
           {#if !substituted && prescribed.substitutes.length > 0}
             <div class="substitute-row">
               {#each prescribed.substitutes as sub (sub)}
-                <form
-                  method="POST"
-                  action="?/logDeviation"
-                  use:enhance={() => {
-                    return async ({ result }) => {
-                      await applyAction(result);
-                      onResult(result);
-                      if (result.type === "success") {
-                        applySubstitute(block.key, prescribed, sub);
-                      }
-                    };
-                  }}
+                <!-- A condition-triggered swap is symptom-driven by definition: the
+                     `condition` text these chips render beside is what makes them appear
+                     at all, and in this plan it reads "if it reproduces familiar back
+                     symptoms, replace it". `other` said nothing, and the reason is
+                     exported as signal for the revising AI (UI-DECISIONS §7), so saying
+                     nothing is a real loss. `pain` is the code behind DeviationSheet's own
+                     "Symptoms" chip (`submitConditionSwap`, above). Anything more precise
+                     needs a reason picker in this inline row, which §7 already puts in the
+                     deviation sheet — the sheet remains the way to record a swap for some
+                     other reason. -->
+                <button
+                  type="button"
+                  class="chip"
+                  disabled={swapping}
+                  onclick={() => submitConditionSwap(sub)}
                 >
-                  <input type="hidden" name="workout_id" value={workoutId ?? ""} />
-                  <input type="hidden" name="exercise_slug" value={prescribed.slug} />
-                  <input type="hidden" name="kind" value="substitute" />
-                  <!-- A condition-triggered swap is symptom-driven by definition: the
-                       `condition` text these chips render beside is what makes them
-                       appear at all, and in this plan it reads "if it reproduces
-                       familiar back symptoms, replace it". `other` said nothing, and the
-                       reason is exported as signal for the revising AI (UI-DECISIONS
-                       §7), so saying nothing is a real loss. `pain` is the code behind
-                       DeviationSheet's own "Symptoms" chip. Anything more precise needs
-                       a reason picker in this inline row, which §7 already puts in the
-                       deviation sheet — the sheet remains the way to record a swap for
-                       some other reason. -->
-                  <input type="hidden" name="reason_code" value="pain" />
-                  <input type="hidden" name="substitute_exercise_slug" value={sub} />
-                  <input type="hidden" name="client_id" value={ulid()} />
-                  <button type="submit" class="chip">Swap: {sub}</button>
-                </form>
+                  Swap: {sub}
+                </button>
               {/each}
               <button
                 type="button"

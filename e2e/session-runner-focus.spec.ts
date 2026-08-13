@@ -158,7 +158,7 @@ test("the rest overlay traps focus and Escape starts the next set", async ({ pag
   await dismissPreSessionPrompt(page);
   await expect(page.locator(".log-strip")).toBeVisible();
 
-  const trigger = page.locator('.log-strip button[value="medium"]');
+  const trigger = page.locator('.log-strip button[data-difficulty="medium"]');
   await trigger.click();
 
   const rest = page.locator(".rest-overlay");
@@ -202,13 +202,11 @@ test("the rest overlay traps focus and Escape starts the next set", async ({ pag
 
   // The two sheets above additionally assert focus returns to the control that opened
   // them. This overlay cannot make that claim, and the difference is the log strip's, not
-  // the trap's: its trigger is a `<form>` submit button, and the round trip that logs the
-  // set blurs it to `<body>` *before* the overlay mounts (a `focusin`/`focusout` trace
-  // shows button-in, button-out, body-in, and only then the overlay's heading). So the
-  // trap captures `<body>` as the thing to restore, and restoring it is a no-op. What
-  // must still hold is that focus is not stranded in the removed overlay — a detached
-  // `activeElement` is a keyboard dead end, which is the actual failure mode worth
-  // guarding.
+  // the trap's: the trigger re-renders out from under the overlay before it closes —
+  // logging a set advances the cursor, so the exact element that was focused when the
+  // overlay opened need not exist by the time it closes. What must still hold is that
+  // focus is not stranded in the removed overlay — a detached `activeElement` is a
+  // keyboard dead end, which is the actual failure mode worth guarding.
   expect(
     await page.evaluate(
       () =>
