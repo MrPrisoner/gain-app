@@ -82,8 +82,22 @@ sw.addEventListener("fetch", (event) => {
   event.respondWith(networkFirst(request));
 });
 
+/**
+ * SvelteKit's client router requests a route's `__data.json` with its own
+ * `?x-sveltekit-invalidated=...` query param appended — an internal invalidation-tracking
+ * token, not a different resource. `precacheSessions` caches the bare URL with no query
+ * string at all, so without `ignoreSearch` a precached session's data is *never* found by
+ * the real navigation that asks for it: `cache.match` misses on the query string alone,
+ * the fetch fails offline, and the client falls back to a hard navigation that isn't
+ * cached either — which is what actually happens if this match is left exact.
+ */
+function dataCacheOptions(url: URL): CacheQueryOptions | undefined {
+  return url.pathname.endsWith("/__data.json") ? { ignoreSearch: true } : undefined;
+}
+
 async function networkFirst(request: Request): Promise<Response> {
   const cache = await caches.open(CACHE);
+  const matchOptions = dataCacheOptions(new URL(request.url));
 
   try {
     const response = await fetch(request);
@@ -94,7 +108,7 @@ async function networkFirst(request: Request): Promise<Response> {
     if (response.ok) await cache.put(request, response.clone());
     return response;
   } catch {
-    const cached = await cache.match(request);
+    const cached = await cache.match(request, matchOptions);
     if (cached) return cached;
 
     if (request.mode === "navigate") {

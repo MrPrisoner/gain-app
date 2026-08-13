@@ -125,3 +125,22 @@ export async function assertNoHorizontalOverflow(page: Page): Promise<void> {
   const innerWidth = await page.evaluate(() => window.innerWidth);
   expect(scrollWidth, "no horizontal overflow, ever").toBeLessThanOrEqual(innerWidth);
 }
+
+/**
+ * Waits until `url` is sitting in some Cache Storage entry (phase 6, design spec §7) —
+ * the service worker's own precache is fire-and-forget from the page's side
+ * (`precacheSessions` posts a message and returns; there is no response channel telling
+ * the caller when `cache.addAll` actually finishes), so an offline test that goes
+ * offline immediately after navigating to the plan overview would otherwise race the
+ * worker's own `cache.addAll` and flake. Cache name isn't known here (it's
+ * version-keyed, computed only inside the worker), so this checks every cache rather
+ * than assuming which one.
+ */
+export async function waitForPrecached(page: Page, url: string): Promise<void> {
+  await page.waitForFunction(async (targetUrl: string) => {
+    for (const name of await caches.keys()) {
+      if (await (await caches.open(name)).match(targetUrl)) return true;
+    }
+    return false;
+  }, url);
+}

@@ -44,6 +44,17 @@ export const E2E_DEV_USER = "e2e";
 export const E2E_PORT = 4319;
 export const E2E_BASE_URL = `http://127.0.0.1:${E2E_PORT}`;
 
+/**
+ * The offline project's own server: a real `vite build` + `node build`, because
+ * `$service-worker`'s `build` manifest is empty under `vite dev` and the precache would
+ * be a no-op — no offline test can pass against the dev server. Separate port so it can
+ * run alongside the dev server; both `webServer` entries start together and share
+ * `E2E_DATA_DIR` (SQLite's WAL mode is what makes two nodejs processes serving the same
+ * `gain.db` concurrently safe).
+ */
+export const E2E_BUILT_PORT = E2E_PORT + 1;
+export const E2E_BUILT_BASE_URL = `http://127.0.0.1:${E2E_BUILT_PORT}`;
+
 /** `plan.slug` in `fixtures/plans/home-dumbbell-v1.md` — confirmed against the fixture and `tests/server/first-run.test.ts`. */
 export const E2E_PLAN_SLUG = "home-dumbbell";
 
