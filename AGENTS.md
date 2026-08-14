@@ -373,7 +373,8 @@ than a hand-written spec fixture.
   invariant below testable at all. `tests/fixture-coverage.test.ts` asserts this coverage
   directly, so a future edit that drops a primitive fails loudly rather than silently.
 - Its oddities are **deliberate test cases, not defects.** The documented
-  interpretations in "Import notes" should not be tidied away.
+  interpretations in "What I have estimated, and what to correct after week one" should
+  not be tidied away.
 - 26 exercises, 49 prescriptions, 4 sessions. The catalogue declares each movement once,
   so an exercise appearing in three sessions has one entry and three prescriptions — and
   three entries — `seated-floor-shoulder-press`, `overhead-triceps-extension`,

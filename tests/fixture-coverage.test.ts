@@ -19,8 +19,11 @@ const c = parsed.contract;
 const prescriptions = c.sessions.flatMap((s) => s.blocks.flatMap((b) => b.exercises));
 const byId = new Map(c.exercises.map((e) => [e.id, e]));
 const loadById = new Map(c.loads.map((l) => [l.ref, l]));
-const isBodyweight = (id: string): boolean => {
-  const ref = byId.get(id)?.load;
+/** The load actually in effect for a prescription: its own override, if any, else the
+ * exercise's catalogue default. A prescription-level override has to be checked first —
+ * looking only at the catalogue default misses it entirely. */
+const effectiveLoadIsBodyweight = (p: (typeof prescriptions)[number]): boolean => {
+  const ref = p.load ?? byId.get(p.id)?.load;
   return ref === undefined ? true : (loadById.get(ref)?.is_bodyweight ?? false);
 };
 const metricDefs = (["set", "exercise", "session"] as const).flatMap((scope) =>
@@ -86,7 +89,7 @@ describe("fixture coverage", () => {
     const perSide = prescriptions.filter((p) => byId.get(p.id)?.per_side === true);
     expect(perSide.some((p) => p.reps !== undefined)).toBe(true);
     expect(perSide.some((p) => p.duration_sec !== undefined)).toBe(true);
-    expect(perSide.some((p) => !isBodyweight(p.id) || p.load !== undefined)).toBe(true);
+    expect(perSide.some((p) => !effectiveLoadIsBodyweight(p))).toBe(true);
   });
 
   it("declares conditionals both with and without substitutes", () => {

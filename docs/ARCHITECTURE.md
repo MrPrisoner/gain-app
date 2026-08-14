@@ -446,7 +446,7 @@ the `(scope, key)` invariant (§4) testable at all. `tests/fixture-coverage.test
 asserts this coverage directly.
 
 Its 23 prescribed movements produce 49 prescriptions across the four sessions, so the
-catalogue carries its weight: the same movement is prescribed on average 1.9 times.
+catalogue carries its weight: the same movement is prescribed on average 2.1 times.
 
 ---
 

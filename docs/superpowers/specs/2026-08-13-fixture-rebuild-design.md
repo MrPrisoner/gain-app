@@ -69,15 +69,18 @@ session carries the light pair as a bridge.
 No fixture has ever declared **the same metric key at two scopes**. That is precisely what
 AGENTS.md's `(scope, key)` invariant exists to prevent — *"a plan may legally declare `rpe`
 at both set and session scope, and keying on the bare key merges two unrelated series into a
-plausible wrong number"* — and it is currently protected by no test at all. Every consumer
-that indexes metric values (the export summary, the CSV writer, phase 7's charts) is written
-as though the invariant holds, and nothing proves it.
+plausible wrong number"* — and `tests/summary.test.ts` already protects it at the unit
+level, with a hand-built contract and log set that exist for no other reason. What is
+missing is proof through the real path: nothing has ever shown the invariant surviving the
+full pipeline — parse → synthetic logs → export summary — against a fixture that itself
+looks like a plan someone would actually write, rather than a fixture manufactured to
+demonstrate this one thing.
 
-The merged fixture closes this by declaring `symptoms_during` at **both** set and session
-scope: *"symptoms on this set"* and *"symptoms during this session"*. That is how a
+The merged fixture closes that gap by declaring `symptoms_during` at **both** set and
+session scope: *"symptoms on this set"* and *"symptoms during this session"*. That is how a
 symptom-monitoring plan would genuinely be written, it satisfies primitive 1 in the same
-edit, and it makes the invariant testable for the first time. Phase 7's metric charts are
-the first consumer that would fail loudly if it broke.
+edit, and it makes the invariant testable end to end for the first time. Phase 7's metric
+charts are the first consumer that would fail loudly if it broke.
 
 ## Fictionalising
 

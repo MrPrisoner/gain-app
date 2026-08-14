@@ -181,15 +181,28 @@ describe("golden round trip", () => {
     expect(bundle).toContain("goblet-squat");
   });
 
-  it("keeps a metric declared at two scopes as two series in the summary", () => {
-    // `symptoms_during` is declared at set AND session scope. The summary's metric
-    // table keys on the pair, so both rows must appear — one merged row would be a
-    // plausible wrong number rather than a visible failure.
+  it("keeps a metric declared at two scopes as two distinct series in the summary", () => {
+    // `symptoms_during` is declared at set AND session scope. The synthetic logs give
+    // each series a shape the other cannot produce by accident: the set series is a
+    // single value of 3, the session series is twelve values topping out at 2. A row
+    // count of 2 alone doesn't prove the scopes weren't merged — `summary.ts` pushes one
+    // row per *declared* (scope, metric) pair regardless of how values were bucketed, so
+    // two identical, merged rows would still satisfy "one row per scope". Asserting the
+    // actual n/max per row is what catches a merge: under one, both rows would read
+    // n=13, max=3.
     const rows = bundle
       .split("\n")
       .filter((line) => line.startsWith("|") && line.includes("`symptoms_during`"));
     expect(rows).toHaveLength(2);
-    expect(rows.some((r) => r.startsWith("| set |"))).toBe(true);
-    expect(rows.some((r) => r.startsWith("| session |"))).toBe(true);
+
+    const setRow = rows.find((r) => r.startsWith("| set |"));
+    const sessionRow = rows.find((r) => r.startsWith("| session |"));
+    // | scope | key | label | n | first | latest | min | avg | max |
+    expect(setRow).toBe(
+      "| set | `symptoms_during` | Symptoms on this set | 1 | 3 | 3 | 3 | 3 | 3 |",
+    );
+    expect(sessionRow).toBe(
+      "| session | `symptoms_during` | Hip / lower-back symptoms during this session | 12 | 0 | 0 | 0 | 0.17 | 2 |",
+    );
   });
 });
