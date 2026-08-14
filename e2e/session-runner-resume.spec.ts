@@ -85,7 +85,9 @@ test("a reload restores a skip and the wrap-up's already-answered metrics", asyn
 
   // A session-scope wrap-up answer, which is a `metric_value` row of its own.
   await page.getByRole("button", { name: "End session" }).click();
-  const symptoms = page.locator("fieldset", { hasText: "Lower-back symptoms during session" });
+  const symptoms = page.locator("fieldset", {
+    hasText: "Hip / lower-back symptoms during this session",
+  });
   await symptoms.getByRole("button", { name: "4", exact: true }).click();
   await expect(symptoms.locator(".scale-cell.selected")).toHaveText("4");
 
@@ -100,7 +102,7 @@ test("a reload restores a skip and the wrap-up's already-answered metrics", asyn
   await page.getByRole("button", { name: "End session" }).click();
   await expect(
     page
-      .locator("fieldset", { hasText: "Lower-back symptoms during session" })
+      .locator("fieldset", { hasText: "Hip / lower-back symptoms during this session" })
       .locator(".scale-cell.selected"),
   ).toHaveText("4");
 });
@@ -121,14 +123,14 @@ test("a reload restores a swap, so the strip still logs the substitute", async (
   // session — so the swapped slot is collapsed, and its *collapsed* row is already proof
   // the swap survived: the head renders the movement being performed.
   const finisher = page.locator("section.block", { hasText: "Abdominal finisher" });
-  const swapped = finisher.locator(".exercise").nth(3);
+  const swapped = finisher.locator(".exercise").nth(2);
   await expect(swapped.locator(".exercise-name")).toHaveText("Dead bug");
 
   await swapped.locator(".exercise-head").click();
-  // Still says which prescription it is filling, and still carries the substitute's own
-  // `per_side` shape (`dead-bug` is per-side, `reverse-crunch` is not) — the swap is the
-  // real thing after a reload, not a repainted label.
+  // Still says which prescription it is filling, and its ledger still shows the `rounds`
+  // block's one current-round row (neither `dead-bug` nor `reverse-crunch` is `per_side`)
+  // — the swap is the real thing after a reload, not a repainted label.
   await expect(swapped).toContainText("Swapped in for Reverse crunch");
-  await expect(swapped.locator(".ledger-row")).toHaveCount(2);
+  await expect(swapped.locator(".ledger-row")).toHaveCount(1);
   await expect(page.locator(".log-strip .strip-exercise")).toHaveText("Dead bug");
 });

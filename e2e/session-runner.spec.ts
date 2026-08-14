@@ -95,7 +95,7 @@ test("the deviation sheet has no horizontal overflow", async ({ page }) => {
 });
 
 // Goblet squat (Session A's first tracked exercise) declares `rest_sec: [75, 90]`
-// (fixtures/plans/home-dumbbell-v1.md), so logging its first set always fires the rest
+// (fixtures/plans/home-training-v1.md), so logging its first set always fires the rest
 // overlay — the one full-viewport surface that isn't exercised by any other overflow
 // test in this file.
 test("the rest overlay has no horizontal overflow", async ({ page }) => {

@@ -31,7 +31,7 @@ import { importPlan } from "../src/lib/db/import-plan";
 import { openUserDb } from "../src/lib/db/user-db";
 import { openControlDb, findUserBySub, createUser } from "../src/lib/server/control-db";
 
-const FIXTURE_PATH = path.join(process.cwd(), "fixtures/plans/home-dumbbell-v1.md");
+const FIXTURE_PATH = path.join(process.cwd(), "fixtures/plans/home-training-v1.md");
 const AI_INSTRUCTIONS_PATH = path.join(process.cwd(), "templates/default-ai-instructions.md");
 
 export type SeededFixture = {

@@ -49,9 +49,12 @@ test("finishing an exercise opens the next one in prescribed order", async ({ pa
   // advance is immediate — the rest-gated path is covered by `advanceAfterRest` in the
   // runner and would only add flake here.
   await open(page, "Dead bug");
-  // `per_side: true`, so one round is two slots: left then right.
-  await logSet(page);
-  await logSet(page);
+  // Alternating sides within the set, not `per_side`, so one round is a single slot — and
+  // since the block's round number doesn't advance until every exercise in the round is
+  // done, the strip's context text stays "Round 1 of 2" across this click (`logSet`'s
+  // usual "context changed" check does not hold here), so this taps the strip directly
+  // and asserts on the exercise that opens next instead.
+  await page.locator('.log-strip button[data-difficulty="medium"]').click();
 
   await expect(openExercise(page).locator(".exercise-name")).toHaveText("McGill curl-up");
   // The finished exercise collapsed to what it actually was, not to its target.
@@ -66,16 +69,19 @@ test("a swap logs against the substitute, not the movement it replaced", async (
   await expect(page.locator(".log-strip")).toBeVisible();
 
   await open(page, "Reverse crunch");
-  await expect(openExercise(page).locator(".condition")).toContainText("familiar back symptoms");
+  await expect(openExercise(page).locator(".condition")).toContainText(
+    "familiar hip or lower-back symptoms",
+  );
   await openExercise(page).getByRole("button", { name: "Swap: dead-bug" }).click();
 
   // The row renames itself to the movement now being performed, and says which prescribed
   // slot it is filling.
   await expect(openExercise(page).locator(".exercise-name")).toHaveText("Dead bug");
   await expect(openExercise(page)).toContainText("Swapped in for Reverse crunch");
-  // `dead-bug` is `per_side` where `reverse-crunch` is not, so the ledger really did
-  // re-shape around the substitute rather than repainting the original's rows.
-  await expect(openExercise(page).locator(".ledger-row")).toHaveCount(2);
+  // A `rounds` block only ever shows the current round's row, and neither `dead-bug` nor
+  // `reverse-crunch` is `per_side` — one row, the substitute's own, not a repainted label
+  // over the original's.
+  await expect(openExercise(page).locator(".ledger-row")).toHaveCount(1);
   await expect(page.locator(".log-strip .strip-exercise")).toHaveText("Dead bug");
 
   const clientId = await workoutClientId(page, "D");

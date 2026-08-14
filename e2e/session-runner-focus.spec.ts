@@ -151,7 +151,7 @@ test("the wrap-up sheet traps focus and Escape closes it, restoring focus", asyn
  * log a set during rest.
  *
  * Goblet squat (Session A's first tracked exercise) declares `rest_sec: [75, 90]`
- * (fixtures/plans/home-dumbbell-v1.md), so logging its first set always fires the overlay.
+ * (fixtures/plans/home-training-v1.md), so logging its first set always fires the overlay.
  */
 test("the rest overlay traps focus and Escape starts the next set", async ({ page }) => {
   await page.goto(`/plan/${E2E_PLAN_SLUG}/session/A`);

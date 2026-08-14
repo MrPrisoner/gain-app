@@ -29,7 +29,7 @@ import { expect, test } from "@playwright/test";
 import { E2E_PLAN_SLUG } from "./env";
 import { dismissPreSessionPrompt, logSetThroughRest, waitForPrecached } from "./helpers";
 
-const SESSION_NAME = "Full Body Strength + Abs";
+const SESSION_NAME = "Squat, Press & Row";
 
 test("a full session can be started, logged and finished entirely offline", async ({
   page,
@@ -39,13 +39,13 @@ test("a full session can be started, logged and finished entirely offline", asyn
 
   // -- Online: the first visit registers and activates the service worker...
   await page.goto("/");
-  await expect(page.locator(".session-link", { hasText: SESSION_NAME })).toBeVisible();
+  await expect(page.locator(".session-toggle", { hasText: SESSION_NAME })).toBeVisible();
   await page.evaluate(() => navigator.serviceWorker.ready);
 
   // -- ...the second is what the now-active worker actually caches, opportunistically —
   // matching a real returning user, whose worker isn't installing for the first time.
   await page.reload();
-  await expect(page.locator(".session-link", { hasText: SESSION_NAME })).toBeVisible();
+  await expect(page.locator(".session-toggle", { hasText: SESSION_NAME })).toBeVisible();
   await waitForPrecached(page, `/plan/${E2E_PLAN_SLUG}/session/A/__data.json`);
 
   // -- Go offline.
@@ -53,7 +53,10 @@ test("a full session can be started, logged and finished entirely offline", asyn
 
   // -- Reach the session via a client-side navigation from the already-loaded shell —
   // see the module comment for why this can't be a fresh `page.goto` to the session URL.
-  await page.locator(".session-link", { hasText: SESSION_NAME }).click();
+  // The session summary is an accordion (`+page.svelte`'s `toggleSession`): expand it to
+  // reveal the "Start session" link, which is what actually navigates.
+  await page.locator(".session-toggle", { hasText: SESSION_NAME }).click();
+  await page.locator(".session-link").click();
   await dismissPreSessionPrompt(page);
   await expect(page.locator(".log-strip")).toBeVisible();
 
@@ -79,7 +82,7 @@ test("a full session can be started, logged and finished entirely offline", asyn
   await page.waitForURL(/\/$/);
 
   // Home renders offline too, now that the second online visit above cached it.
-  await expect(page.getByRole("heading", { name: "4-Week" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Home Training Plan" })).toBeVisible();
 
   // -- Reconnect, and let the outbox drain.
   await context.setOffline(false);

@@ -15,7 +15,7 @@ import { E2E_PLAN_SLUG } from "./env";
 import { assertNoHorizontalOverflow, dismissPreSessionPrompt, logSetThroughRest } from "./helpers";
 
 const fixtureMd = fs.readFileSync(
-  path.join(process.cwd(), "fixtures/plans/home-dumbbell-v1.md"),
+  path.join(process.cwd(), "fixtures/plans/home-training-v1.md"),
   "utf8",
 );
 

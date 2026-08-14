@@ -55,8 +55,8 @@ export const E2E_BASE_URL = `http://127.0.0.1:${E2E_PORT}`;
 export const E2E_BUILT_PORT = E2E_PORT + 1;
 export const E2E_BUILT_BASE_URL = `http://127.0.0.1:${E2E_BUILT_PORT}`;
 
-/** `plan.slug` in `fixtures/plans/home-dumbbell-v1.md` — confirmed against the fixture and `tests/server/first-run.test.ts`. */
-export const E2E_PLAN_SLUG = "home-dumbbell";
+/** `plan.slug` in `fixtures/plans/home-training-v1.md` — confirmed against the fixture and `tests/server/first-run.test.ts`. */
+export const E2E_PLAN_SLUG = "home-training";
 
 /** Session keys exercised by the harness — the fixture's actual keys (`A`–`D`), not the "Session A" prose shorthand. */
 export const E2E_SESSION_KEYS = ["A", "D"] as const;
