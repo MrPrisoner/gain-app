@@ -55,11 +55,20 @@ export default defineConfig({
 
   webServer: [
     {
-      command: `npm run dev -- --port ${E2E_PORT} --strictPort`,
+      command: `npm run dev -- --host 127.0.0.1 --port ${E2E_PORT} --strictPort`,
       url: E2E_BASE_URL,
       // A fresh, unique DATA_DIR per run (e2e/env.ts) means an already-running
       // server on this port is never bound to the directory `globalSetup` just
       // seeded — always start a new one rather than risk reusing a stale one.
+      //
+      // `--host` is explicit rather than left to resolve `localhost` itself: Vite's dev
+      // server binds to a single address from a plain `net.Server.listen(port, host)`,
+      // not dual-stack, so it takes whichever of ::1/127.0.0.1 the machine's resolver
+      // returns first for "localhost". `E2E_BASE_URL` below is hardcoded to 127.0.0.1,
+      // so a resolver that prefers IPv6 (Node's dns.lookup default order varies by
+      // machine) leaves the server listening on ::1 while Playwright polls 127.0.0.1
+      // and every webServer readiness check times out. Binding explicitly removes the
+      // dependency on resolver order entirely.
       reuseExistingServer: false,
       timeout: 30_000,
       env: {
