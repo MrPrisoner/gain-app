@@ -20,13 +20,29 @@ Then clear it up behind you:
 
 ## Items
 
-### Admin section
+### Ability to update a log
 
-Admin page with basic functionality:
+Currently, once a user has logged an exercise, there is no way to change that log. A user might make a mistake and would want to change what they logged. For example, forgetting to change the number of reps.
 
-- See which users are registered with stats (last active, plan count, session count, etc.), no plan or exercise details.
-- Ability to delete user data. Would be especially useful during alpha testing so that users can start fresh if they want to. Might even be worth it to give users a way to wipe their own data, should they want to.
-- Should only be available to an admin user, which can be specified using env var.
+### Consider adding an icon framework
+
+We are starting to add some icons throughout the app. The next couple of todo items will probably introduce more icons. Consider replacing the custom svg icons with an icon library such as Iconify (Pure CSS) or an alternative recommended approach.
+
+### Better indicator for completed exercises
+
+Currently, a completed exercise doesn't look much different to an incomplete one. User should have better visibility, it also motivates users to see progress through the session. Consider a completed icon next to the exercise name, or suggest an alternative better visual indicator.
+
+Check-off exercises like warmups get highlighted, so already visually show completion. The style might not work for exercises, an icon might be better. Whichever direction is chosen, apply the same indicator/style to both, don't use different completion indicator styles for different types of exercises, it should be consistent.
+
+Consider also doing this for blocks, depending on how it looks.
+
+Do not apply this to sets within an exercise, might be too cluttered, and sets already show logged reps/weight/difficulty which should stay as-is.
+
+### Celebration animation on completed session
+
+Currently when a user hits the End Session button, and completes the wrapup, they simply land back on the home screen.
+
+I want to introduce a celebration popup or page, before they hit the homepage again. It should show a motivational message (randomized from a list of predefined messages) with a full page animation effect, like confetti or sparkles or stars.
 
 ### `check:chars` only scans tracked files
 
@@ -45,6 +61,17 @@ Fix is presumably swapping `git ls-files` for something that includes untracked-
 ignored files (`git ls-files --others --exclude-standard` alongside the tracked list, or
 just dropping the git-awareness and globbing the working tree directly, excluding
 `node_modules` and the like by hand).
+
+### Admin section
+
+Admin page with basic functionality:
+
+- See a list of users registered with stats per user (last active, plan count, session count, etc.), no plan or exercise details.
+- Ability to delete all data for a specific user. Would be especially useful during alpha testing so that users can start fresh if they want to.
+- Might even be worth it to give users a way to wipe their own data, should they want to.
+- Should only be available to an admin user, which can be specified using env var. The env var value is a first-class identifier of the user, provided by oidc, such as email address.
+
+Previous recorded decisions stated that users' data should be isolated. This still stands for normal users. The admin user is typically the owner of the self-hosted app, and needs a way to manage the data they host. Admin user should still not see sensitive information such as full plan details or detailed session logs. So, for all intents and purposes, a user's data is still only seen by that user; the admin user can see basic stats as mentioned in above list, and can delete data.
 
 ### `svelte-check` warnings, standing since phase 4 (line numbers current as of phase 6)
 
