@@ -2,8 +2,8 @@
  * Import review (ARCHITECTURE §8): the same pipeline for every import, with the
  * diff step present only when there is something to compare against.
  *
- * - First import of a plan slug → summary only ("4 sessions, 23 exercises,
- *   60 prescriptions"). There is no diff to review when nothing exists yet.
+ * - First import of a plan slug → summary only ("4 sessions, 26 exercises,
+ *   49 prescriptions"). There is no diff to review when nothing exists yet.
  * - Revision import → the phase-1 diff engine compares the incoming contract
  *   against the stored current version: changed targets, added/removed
  *   exercises, unmatched slugs flagged as possible renames.

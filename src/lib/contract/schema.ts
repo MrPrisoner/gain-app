@@ -3,7 +3,7 @@
  *
  * `docs/CONTRACT.md` is authoritative; where this file and the spec disagree, the spec
  * wins. Contract changes touch three places together: `docs/CONTRACT.md`, this file,
- * and `fixtures/plans/home-dumbbell-v1.md`.
+ * and `fixtures/plans/home-training-v1.md`.
  */
 
 import { z } from "zod";

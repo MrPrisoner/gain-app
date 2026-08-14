@@ -354,22 +354,30 @@ protect:
 
 ## The fixture
 
-[`fixtures/plans/home-dumbbell-v1.md`](fixtures/plans/home-dumbbell-v1.md) is
-the spine of the phase-1 test suite.
+[`fixtures/plans/home-training-v1.md`](fixtures/plans/home-training-v1.md) is
+the spine of the phase-1 test suite — a fictionalised, current-generation plan (authored
+against this shipped `docs/CONTRACT.md`, the way the loop actually produces one) rather
+than a hand-written spec fixture.
 
 - **It is fictional, and must stay that way.** The profile, training history and symptom
   context are invented. It is modelled closely on a real AI-authored plan so it
   behaves like one, but this repository is public — never commit real health data to it,
   in fixtures, tests or examples.
-- It exercises every primitive in one file: a rounds block, checkoff warm-ups, two
-  conditional exercises, per-side reps and per-side time, ranged sets and ranged rest,
-  bodyweight-to-loaded progressions, catalogue rest defaults overridden per occurrence,
-  a movement that exists only as a substitute, and metrics at all three scopes.
-- Its oddities are **deliberate test cases, not defects.** The eight documented
+- It exercises every primitive in one file: a rounds block, checkoff warm-ups,
+  conditional exercises both with and without substitutes, per-side reps and per-side
+  time and a per-side movement carrying an external load, ranged sets, scalar and ranged
+  reps/duration/rest, catalogue rest defaults overridden per occurrence, a
+  prescription-level load and substitute override, movements that exist only as
+  substitutes, and metrics at all three scopes — including one key, `symptoms_during`,
+  declared at **both** set and session scope, which is what makes the `(scope, key)`
+  invariant below testable at all. `tests/fixture-coverage.test.ts` asserts this coverage
+  directly, so a future edit that drops a primitive fails loudly rather than silently.
+- Its oddities are **deliberate test cases, not defects.** The documented
   interpretations in "Import notes" should not be tidied away.
-- 23 exercises, 60 prescriptions, 4 sessions. The catalogue declares each movement once,
+- 26 exercises, 49 prescriptions, 4 sessions. The catalogue declares each movement once,
   so an exercise appearing in three sessions has one entry and three prescriptions — and
-  one entry, `lying-triceps-extension`, has none, because it is only ever a substitute.
+  three entries — `seated-floor-shoulder-press`, `overhead-triceps-extension`,
+  `side-plank-knees` — have none, because each is only ever a substitute.
 
 ## Build order
 

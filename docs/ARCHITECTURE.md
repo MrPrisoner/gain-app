@@ -65,7 +65,7 @@ A plan document is two things at once:
 | **Skeleton** | A catalogue of movements, then sessions → blocks → prescriptions, with stable IDs | The session-runner UI | ~350 lines |
 | **Context** | Rationale, form cues, pain rules, progression philosophy, exclusions | The AI, on the next revision | ~500 lines |
 
-The reference plan is ~900 lines. Almost none of the context is needed to render
+The reference plan is ~800 lines. Almost none of the context is needed to render
 "exercise 3 of 8 — log your reps". All of it is needed when you ask an AI to write
 block 2.
 
@@ -277,16 +277,17 @@ Three defences, in order:
 
 ### Exercise types the model must handle on day one
 
-Drawn directly from the reference plan, all of which appear in a single session:
+Drawn directly from the reference plan:
 
-- **Rep-based with load** — `3 × 8–12`, heavy config (goblet squat)
-- **Rep-based, per side** — `3 × 10–12/side` (supported one-arm row)
-- **Time-based, per side** — `2 × 20–40 sec/side` (side plank)
+- **Rep-based with load** — `3 × 8–12`, goblet squat (Session A)
+- **Rep-based, per side, with a load override** — split squat, `2 × 10–12/side` at the
+  light pair (Session C)
+- **Time-based, per side** — side plank, `2 × 20–40 sec/side` (Session A)
 - **Bodyweight, progressing to loaded** — glute bridge
 - **Conditional** — reverse crunch, "omit if it reproduces symptoms", with named
   substitutes
 - **Rounds/circuit** — Session D's two-round abdominal finisher
-- **Ranged rest** — `75–90 sec`
+- **Ranged sets and ranged rest** — `sets: [2, 3]`, `75–90 sec`
 
 A model that only does `sets × reps × weight` will not survive first contact with this
 plan. Build all seven now.
@@ -303,8 +304,8 @@ the info string `gain-plan`; everything outside it is context prose.
 schema_version: 1
 
 plan:
-  slug: home-dumbbell
-  name: 4-Week Home Dumbbell Training Plan
+  slug: home-training
+  name: Home Training Plan
   version: 2
   based_on_version: 1
   block_length_weeks: 4
@@ -423,22 +424,29 @@ that spec. Parse failures produce field-level errors in the import UI, never a s
 partial import.
 
 **A reference plan is already written.**
-[`fixtures/plans/home-dumbbell-v1.md`](../fixtures/plans/home-dumbbell-v1.md)
-is a complete example: ~500 lines of prose context plus the contract block in Appendix
-A, structuring 4 sessions and 23 distinct exercises. Its "Import notes" section records
-the eight interpretations made when structuring it.
+[`fixtures/plans/home-training-v1.md`](../fixtures/plans/home-training-v1.md)
+is a complete example, current-generation rather than hand-written: ~320 lines of prose
+context plus the contract block in the appendix, structuring 4 sessions and 26 distinct
+exercises. Its "What I have estimated, and what to correct after week one" section
+records what was confirmed directly against what was guessed — one of the most realistic
+things a first, untrained plan can carry, and exactly the kind of thing a hand-written
+spec fixture would never think to include.
 
 The plan is **fictional** — profile, training history and symptom context are
 invented. It is written in the style a real AI-authored plan uses, because its job
 is to behave like one. No real health data belongs in this repository.
 
 It is also the phase-1 test fixture, chosen because it exercises every primitive in one
-file: a rounds block, checkoff warm-ups, two conditional exercises, per-side reps and
-per-side time, ranged sets and ranged rest, bodyweight-to-loaded progressions, catalogue
-rest defaults overridden per occurrence, and a movement that exists only as a substitute.
+file: a rounds block, checkoff warm-ups, conditionals both with and without substitutes,
+per-side reps and per-side time and a per-side movement carrying an external load, ranged
+sets, catalogue rest defaults overridden per occurrence, a prescription-level load and
+substitute override, movements that exist only as a substitute, and metrics at all three
+scopes — including one key declared at both set and session scope, which is what makes
+the `(scope, key)` invariant (§4) testable at all. `tests/fixture-coverage.test.ts`
+asserts this coverage directly.
 
-Its 22 prescribed movements produce 60 prescriptions across the four sessions, so the
-catalogue carries its weight: the same movement is prescribed on average 2.7 times.
+Its 23 prescribed movements produce 49 prescriptions across the four sessions, so the
+catalogue carries its weight: the same movement is prescribed on average 1.9 times.
 
 ---
 
@@ -472,7 +480,7 @@ generate prompt = bootstrap template + answers + CONTRACT.md verbatim
       ↓
 [ user's own AI chat: it interviews them, then emits a plan document ]
       ↓  one paste
-import → "4 sessions, 23 exercises, 60 prescriptions" → commit
+import → "4 sessions, 26 exercises, 49 prescriptions" → commit
       ↓
 Today screen, session A
 ```
@@ -717,7 +725,7 @@ This constrains the design, and the constraints are already baked into the above
 - **Schema-first, not convention-first.** The Zod contract schema, the SQLite DDL and
   the API types are the specification. Agents implement against types, not prose.
 - **Golden-file tests on the real document.**
-  [`fixtures/plans/home-dumbbell-v1.md`](../fixtures/plans/home-dumbbell-v1.md)
+  [`fixtures/plans/home-training-v1.md`](../fixtures/plans/home-training-v1.md)
   is committed as a fixture. The round-trip test is the project's spine:
   `import → log synthetic workouts → export → extract Section 1 → re-import` must
   preserve every exercise ID, every set, and `context_md` byte-for-byte. Write this test

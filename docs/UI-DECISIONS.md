@@ -1,7 +1,7 @@
 # GAIN UI decisions — the session runner
 
 Settled in a design pass against
-[`fixtures/plans/home-dumbbell-v1.md`](../fixtures/plans/home-dumbbell-v1.md),
+[`fixtures/plans/home-training-v1.md`](../fixtures/plans/home-training-v1.md),
 before any code existed. **Built in phase 4**, at
 `src/routes/plan/[slug]/session/[key]/` with the pure logic in `src/lib/session/`; the
 architectural half is ARCHITECTURE §9.
@@ -98,7 +98,7 @@ at arm's length, dismissible — and **not in `var(--red)`**, which §5 has spok
 ## 3. Load is total kilograms
 
 A paired lift shows **12 kg**, not "6 kg each", with `2 × 6` beneath it as a quiet check.
-Single-dumbbell movements (goblet squat, supported one-arm row) show the single dumbbell's
+Single-dumbbell movements (goblet squat, floor pullover) show the single dumbbell's
 weight, because that is the total load being lifted.
 
 One number, meaning the same thing in the log, the charts and the export.

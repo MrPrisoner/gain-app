@@ -51,8 +51,8 @@ fails with an explicit error and nothing is written.
 
 ```yaml
 plan:
-  slug: home-dumbbell                    # STABLE. Identifies the plan across all versions
-  name: 4-Week Home Dumbbell Plan
+  slug: home-training                    # STABLE. Identifies the plan across all versions
+  name: Home Training Plan
   version: 2                             # integer, increment on every revision
   based_on_version: 1                    # null for a first import
   block_length_weeks: 4                  # optional
