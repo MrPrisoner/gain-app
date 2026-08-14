@@ -1,7 +1,10 @@
 # AGENTS.md
 
 Guidance for AI agents working in this repository — Claude Code, Cline, and anything
-else that reads this file. It is the single source of truth; `CLAUDE.md` points here.
+else that reads this file. It is the single source of truth. `CLAUDE.md` is a symlink to
+it rather than a note pointing here, because Claude Code loads `CLAUDE.md` automatically
+and does not load this file: a pointer costs a hop that a session can simply not take,
+and an agent that skips it gets none of the invariants below while failing silently.
 
 ## Current state
 
@@ -48,19 +51,28 @@ before picking up work; it will save you rebuilding something phase 1 already wr
 Commands (Node 24 LTS — see `.nvmrc` and the `engines` field):
 
 - `npm install` — dependencies
-- `npm test` — Vitest; includes the golden round-trip test, the project's spine
-- `npm run test:e2e` — Playwright, the session runner in a real browser at three
-  viewports. Needs `npx playwright install chromium` once first (~150MB), which is
-  exactly why it is deliberately kept out of `npm run verify` — CI's few-seconds check
-  never downloads a browser. `e2e/` is still typechecked, linted and formatted by
-  `verify`; it is only never _executed_ by it
+- `npm test` — Vitest; includes the golden round-trip test, the project's spine.
+  `npx vitest run tests/parse.test.ts` runs a single file
+- `npm run test:e2e` — Playwright: the session runner at three viewports against
+  `vite dev`, plus a fourth `offline` project that builds and runs a real `node build`
+  server on its own port — `$service-worker`'s precache manifest is empty under `vite
+dev`, so no offline spec can pass there. The build step means this project alone can
+  take noticeably longer than the other three. Needs `npx playwright install chromium`
+  once first (~150MB), which is exactly why it is deliberately kept out of `npm run
+verify` — CI's few-seconds check never downloads a browser. `e2e/` is still
+  typechecked, linted and formatted by `verify`; it is only never _executed_ by it.
+  Narrow a run with `npx playwright test --project=offline e2e/offline-session.spec.ts`
+  rather than paying for the production build four times over
 - `npm run typecheck` — strict TypeScript, `tsc --noEmit`, plus a second `tsc --noEmit -p
 tsconfig.worker.json` pass for `src/service-worker.ts` — SvelteKit's generated tsconfig
   deliberately excludes that file (WebWorker lib vs. DOM lib conflict), so it needs its own
   project or it silently never typechecks at all; `tsc` never sees `.svelte`
 - `npm run check` — `svelte-check` covers the `.svelte` files typecheck cannot
 - `npm run dev` / `npm run build` — Vite dev server / adapter-node production build
-  (`node build` serves it; `ORIGIN` required outside dev)
+  (`node build` serves it; `ORIGIN` required outside dev). `GAIN_DEV_USER=you npm run dev`
+  bypasses OIDC so the UI can be driven without an Authentik to point at; per-developer
+  variables belong in the git-ignored `.env.local`, and the bottom of `.env.example` says
+  which ones are allowed there
 - `npm run lint` — ESLint
 - `npm run format` / `npm run format:check` — Prettier. `docs/`, `fixtures/`,
   `templates/` and `design/` are byte-sensitive and excluded from formatting; never
@@ -92,11 +104,15 @@ Node version, package manager, lint/format and CI are settled in ARCHITECTURE §
 "Toolchain, settled". Implement those choices; do not make them again.
 
 **Every dependency here is on a current major, and probably a newer one than you
-remember.** Zod 4, TypeScript 6, ESLint 10, Vitest 4, Node 24, better-sqlite3 13. Zod is
-the one that bites: this repo uses `z.strictObject`, `z.looseObject` and `error:`, and a
-model reaching for Zod 3 from memory writes `z.object().strict()` and `message:` — then
-"fixes" correct code into broken code. Check `package.json` and the real API before
-changing schema code, rather than trusting recall. If a docs lookup is available, use it.
+remember.** Zod 4, Svelte 5, TypeScript 6, ESLint 10, Vitest 4, Node 24 and
+better-sqlite3 13. Two of them bite. Zod: this repo uses `z.strictObject`,
+`z.looseObject` and `error:`, and a model reaching for Zod 3 from memory writes
+`z.object().strict()` and `message:` — then "fixes" correct code into broken code.
+Svelte: every component is runes mode (`$state`, `$derived`, `$props`, `$effect`), and
+there is not one `export let` or `createEventDispatcher` anywhere in `src/` — phase 7 is
+mostly new components, so it is the trap with the most surface area still ahead of it.
+Check `package.json` and the real API before changing schema or component code, rather
+than trusting recall. If a docs lookup is available, use it.
 
 ### Agent tooling
 
@@ -154,7 +170,7 @@ ROADMAP is a checklist and should read like one. Match the document you are in.
 
 ### Keep the status current
 
-Three files state where the build has got to, and a stale one costs the next agent a
+Four files state where the build has got to, and a stale one costs the next agent a
 wasted rebuild of something that already exists. When work closes, update them in the same
 commit:
 
@@ -163,13 +179,21 @@ commit:
   two e2e specs.
 - **`docs/ROADMAP.md`** — tick the item, append the commit SHA. Finishing a phase also
   means moving the "next" marker and the phase table's state column.
-- **`AGENTS.md`** — the "Current state" paragraph above, when a whole phase closes.
+- **`AGENTS.md`** — the "Current state" paragraph above, when a whole phase closes, and
+  a "What the phase-N review changed" subsection under Build order if the build
+  surfaced rules worth carrying forward rather than one-off fixes.
+- **`docs/ARCHITECTURE.md` §12** — the build-order table's "Done when" column, kept in
+  sync with what ROADMAP says the phase actually shipped.
 
-`todo.md` is the inbox for findings from manual testing, not a plan. Anything in it bigger
-than a single commit gets moved into the roadmap under the phase it belongs to; anything
-smaller gets done and deleted rather than struck through. A design decision that falls out
-of a to-do item belongs in the Invariants section below — that is where the `weight_kg`
-ruling went, and it is why it survived.
+A closing phase can also surface a survival or acceptance scenario the automated suite
+structurally cannot cover — phase 6's e2e harness can kill a browser but not the server
+process independently of the client, so a container-restart-while-queued check went into
+`todo.md` as a manual step with exact commands, rather than left implied by a ticked
+roadmap item. `todo.md` is otherwise the inbox for findings from manual testing, not a
+plan. Anything in it bigger than a single commit gets moved into the roadmap under the
+phase it belongs to; anything smaller gets done and deleted rather than struck through. A
+design decision that falls out of a to-do item belongs in the Invariants section below —
+that is where the `weight_kg` ruling went, and it is why it survived.
 
 ### Commit messages, settled
 
