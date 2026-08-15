@@ -162,4 +162,25 @@ describe("replayOps", () => {
       .get("02") as { v: number };
     expect(row.v).toBe(8);
   });
+
+  describe("the activity op", () => {
+    it("writes once, replayed twice", () => {
+      const op: SyncOp = {
+        kind: "activity",
+        id: "01ACT0000000000000000000001",
+        activityKind: "squash",
+        occurredAt: "2026-09-08T08:00:00.000Z",
+      };
+
+      const first = replayOps(userDb, [op]);
+      expect(first.applied).toEqual([op.id]);
+      const second = replayOps(userDb, [op]);
+      expect(second.applied).toEqual([op.id]);
+
+      const count = userDb.db.prepare("SELECT COUNT(*) AS n FROM activity").get() as {
+        n: number;
+      };
+      expect(count.n).toBe(1);
+    });
+  });
 });

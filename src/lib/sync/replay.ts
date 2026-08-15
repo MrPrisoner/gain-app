@@ -32,6 +32,7 @@
 
 import {
   finishWorkout,
+  logActivity,
   logDeviation,
   logMetric,
   logSet,
@@ -156,6 +157,19 @@ function applyOp(userDb: UserDb, op: SyncOp): void {
         status: op.status,
         note: op.note,
         now: new Date(op.finishedAt),
+      });
+      return;
+
+    case "activity":
+      // No workout to resolve and nothing that can arrive out of order relative to —
+      // unlike every other op kind, this one can never be NotYet.
+      logActivity(userDb, {
+        kind: op.activityKind,
+        occurredAt: new Date(op.occurredAt),
+        durationMin: op.durationMin,
+        intensity: op.intensity,
+        note: op.note,
+        clientId: op.id,
       });
       return;
 

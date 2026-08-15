@@ -13,6 +13,7 @@ import { getExerciseDefIdBySlug, getPlanBySlug } from "../../src/lib/db/read";
 import { openUserDb, type UserDb } from "../../src/lib/db/user-db";
 import {
   finishWorkout,
+  logActivity,
   logDeviation,
   logMetric,
   logSet,
@@ -450,5 +451,49 @@ describe("workout write layer", () => {
     };
     expect(row.status).toBe("stopped");
     expect(row.note).toContain("Red-flag");
+  });
+
+  it("logs an activity once, idempotently on client_id", () => {
+    const first = logActivity(userDb, {
+      kind: "squash",
+      occurredAt: NOW,
+      durationMin: 60,
+      intensity: "hard",
+      clientId: "act-client-1",
+    });
+    const second = logActivity(userDb, {
+      kind: "squash",
+      occurredAt: NOW,
+      durationMin: 60,
+      intensity: "hard",
+      clientId: "act-client-1",
+    });
+    expect(second.id).toBe(first.id);
+
+    const row = userDb.db.prepare("SELECT * FROM activity WHERE id = ?").get(first.id) as {
+      kind: string;
+      duration_min: number;
+      intensity: string;
+      note: string | null;
+    };
+    expect(row.kind).toBe("squash");
+    expect(row.duration_min).toBe(60);
+    expect(row.intensity).toBe("hard");
+    expect(row.note).toBeNull();
+
+    const count = userDb.db.prepare("SELECT COUNT(*) AS n FROM activity").get() as { n: number };
+    expect(count.n).toBe(1);
+  });
+
+  it("logs an activity with only the required fields", () => {
+    const { id } = logActivity(userDb, { kind: "rest", occurredAt: NOW, clientId: "act-client-2" });
+    const row = userDb.db
+      .prepare("SELECT duration_min, intensity, note FROM activity WHERE id = ?")
+      .get(id) as {
+      duration_min: number | null;
+      intensity: string | null;
+      note: string | null;
+    };
+    expect(row).toEqual({ duration_min: null, intensity: null, note: null });
   });
 });

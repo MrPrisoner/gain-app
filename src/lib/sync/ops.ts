@@ -94,12 +94,23 @@ const finishOpSchema = z.strictObject({
   finishedAt: isoTimestamp,
 });
 
+const activityOpSchema = z.strictObject({
+  kind: z.literal("activity"),
+  id: opId,
+  activityKind: z.string().min(1),
+  occurredAt: isoTimestamp,
+  durationMin: z.number().int().nonnegative().optional(),
+  intensity: z.string().min(1).optional(),
+  note: z.string().optional(),
+});
+
 export const syncOpSchema = z.discriminatedUnion("kind", [
   startOpSchema,
   setOpSchema,
   metricOpSchema,
   deviationOpSchema,
   finishOpSchema,
+  activityOpSchema,
 ]);
 
 export const syncBatchSchema = z.strictObject({
@@ -111,5 +122,6 @@ export type SetOp = z.infer<typeof setOpSchema>;
 export type MetricOp = z.infer<typeof metricOpSchema>;
 export type DeviationOp = z.infer<typeof deviationOpSchema>;
 export type FinishOp = z.infer<typeof finishOpSchema>;
+export type ActivityOp = z.infer<typeof activityOpSchema>;
 export type SyncOp = z.infer<typeof syncOpSchema>;
 export type SyncBatch = z.infer<typeof syncBatchSchema>;

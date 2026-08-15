@@ -57,3 +57,34 @@ describe("sync op schema", () => {
     expect([...ids].sort()).toEqual(ids);
   });
 });
+
+describe("the activity op", () => {
+  const ACTIVITY = {
+    kind: "activity",
+    id: "01JZ0000000000000000000005",
+    activityKind: "squash",
+    occurredAt: "2026-09-08T08:00:00.000Z",
+  };
+
+  it("accepts the minimal shape", () => {
+    expect(syncOpSchema.parse(ACTIVITY)).toEqual(ACTIVITY);
+  });
+
+  it("accepts the optional fields", () => {
+    const op = { ...ACTIVITY, durationMin: 60, intensity: "hard", note: "felt great" };
+    expect(syncOpSchema.parse(op)).toEqual(op);
+  });
+
+  it("carries no workoutClientId — an activity hangs off no workout", () => {
+    const parsed = syncOpSchema.parse(ACTIVITY) as Record<string, unknown>;
+    expect("workoutClientId" in parsed).toBe(false);
+  });
+
+  it("rejects a non-ISO occurredAt", () => {
+    expect(() => syncOpSchema.parse({ ...ACTIVITY, occurredAt: "yesterday" })).toThrow();
+  });
+
+  it("rejects an empty activityKind", () => {
+    expect(() => syncOpSchema.parse({ ...ACTIVITY, activityKind: "" })).toThrow();
+  });
+});

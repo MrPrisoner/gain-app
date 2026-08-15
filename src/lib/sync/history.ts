@@ -63,6 +63,7 @@ export function historyFromOps(ops: readonly SyncOp[]): WorkoutHistory {
         break;
       case "start":
       case "finish":
+      case "activity":
         break;
     }
   }

@@ -65,6 +65,15 @@ export type LogDeviationInput = {
   clientId: string;
 };
 
+export type LogActivityInput = {
+  kind: string;
+  occurredAt: Date;
+  durationMin?: number;
+  intensity?: string;
+  note?: string;
+  clientId: string;
+};
+
 /**
  * Start (or, on replay, resume) a workout. Created with status `partial` — see
  * ARCHITECTURE §5 on why the schema has no "in progress" state.
@@ -212,6 +221,30 @@ export function logDeviation(userDb: UserDb, input: LogDeviationInput): { id: st
   return { id };
 }
 
+/** `activity` is the one log table with no workout to hang off — the whole reason it
+ * needs its own idempotency check rather than piggybacking on a workout's. */
+export function logActivity(userDb: UserDb, input: LogActivityInput): { id: string } {
+  const existing = selectByClientId(userDb, "activity", input.clientId);
+  if (existing) return { id: existing };
+
+  const id = newId();
+  userDb.db
+    .prepare(
+      `INSERT INTO activity (id, kind, occurred_at, duration_min, intensity, note, client_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      id,
+      input.kind,
+      input.occurredAt.toISOString(),
+      input.durationMin ?? null,
+      input.intensity ?? null,
+      input.note ?? null,
+      input.clientId,
+    );
+  return { id };
+}
+
 /**
  * The row already holding this metric's answer, if there is one — looked up by the
  * metric's own identity rather than by `client_id`: `metric_key` plus whichever reference
@@ -248,7 +281,7 @@ function selectMetricByReference(
 
 function selectByClientId(
   userDb: UserDb,
-  table: "workout" | "set_log" | "metric_value" | "deviation",
+  table: "workout" | "set_log" | "metric_value" | "deviation" | "activity",
   clientId: string,
 ): string | undefined {
   const row = userDb.db.prepare(`SELECT id FROM ${table} WHERE client_id = ?`).get(clientId) as

@@ -102,6 +102,21 @@ describe("historyFromOps", () => {
     expect(history.metrics).toEqual([]);
   });
 
+  it("ignores activity ops too — an activity hangs off no workout, so it has no history row", () => {
+    const ops: SyncOp[] = [
+      {
+        kind: "activity",
+        id: "01",
+        activityKind: "squash",
+        occurredAt: "2026-09-08T08:00:00.000Z",
+      },
+    ];
+    const history = historyFromOps(ops);
+    expect(history.sets).toEqual([]);
+    expect(history.deviations).toEqual([]);
+    expect(history.metrics).toEqual([]);
+  });
+
   it("feeds hydrateSession, so a local rebuild produces the same ledger a server resume does", () => {
     const ops: SyncOp[] = [
       {
