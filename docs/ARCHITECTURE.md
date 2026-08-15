@@ -755,7 +755,17 @@ choosing them, and so two agents do not choose differently.
 | Tests | **Vitest** | Already decision 9's stack. The golden round-trip test is plain Vitest, no harness |
 | Browser tests | **Playwright**, Chromium only, `npm run test:e2e`, added in phase 4 | The session runner's worst failures are layout ones — they exist only at a real viewport width, and no amount of unit testing sees them. Kept deliberately *outside* `npm run verify` so CI's few-second check never downloads a browser |
 | Lint / format | **ESLint + Prettier**, plus `svelte-check` | What `sv create` scaffolds. Formatting arguments are not a good use of anyone's attention |
-| CI | **GitHub Actions**: typecheck, lint and test on push and PR; build and push the image on a tag | Minimal. The round-trip test failing must be loud |
+| CI | **GitHub Actions**: typecheck, lint, test and an unpushed image build on every PR; nothing runs on a plain push to `main`; a `v*` tag re-runs the same checks and pushes the image | Minimal, and every commit that reaches `main` was already vetted by its PR — re-running the identical checks again on the merge is cost with no new information. A tag is a distinct, deliberate event: "this commit is a release", not "this commit reached `main`" |
+
+**Releasing is a manual tag, on purpose.** No auto-versioning tool, no bot: after merging to
+`main`, `git tag vX.Y.Z && git push origin vX.Y.Z` on the tip is the entire release
+process, matching how `v0.1.0`–`v0.6.0` were already cut before this was written down. The
+version is git's, never `package.json`'s — the Dockerfile takes `APP_VERSION` as a build
+arg sourced from `GITHUB_REF` on a tag push (`ci.yml`), so `package.json`'s `version` field
+is never read at build or run time and is not kept in sync. Picking the next number is a
+human call (feature vs. fix vs. breaking), not a call worth automating until the commit
+history is large enough that Conventional-Commits-driven auto-bumping would save more than
+it costs to get an edge case wrong.
 
 **No per-file licence headers.** The AGPL does not require them, they are noise, and agents
 apply them inconsistently. `LICENSE` at the root plus the README note is the whole of it.

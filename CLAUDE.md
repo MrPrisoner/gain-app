@@ -97,6 +97,16 @@ relitigating them. The same applies to
 [`docs/UI-DECISIONS.md`](docs/UI-DECISIONS.md), which settles how the session runner
 behaves; read it before touching anything user-facing.
 
+### Releasing
+
+`git tag vX.Y.Z && git push origin vX.Y.Z` on `main`, after merging — nothing else. CI
+(ARCHITECTURE §12) runs the full check-and-build on every PR and does nothing on a plain
+push to `main`, since the commit was already vetted there; a `v*` tag is the one event
+that re-validates and pushes the image, so it is also the one event that means "this is a
+release." Picking `X.Y.Z` is a human judgement call (breaking / feature / fix), not
+something to automate from commit history. Never create the tag yourself without being
+asked — pushing one triggers a public image push to GHCR.
+
 ### Stack
 
 TypeScript + SvelteKit, single Node container, SQLite via `better-sqlite3`, Zod for
