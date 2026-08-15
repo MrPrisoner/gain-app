@@ -229,6 +229,23 @@ describe("importing the reference plan", () => {
     expect(data.plans[0]?.counts).toEqual({ sessions: 4, exercises: 26, prescriptions: 49 });
   });
 
+  it("suggests the sequence's first session, and lists rest among the activity kinds", async () => {
+    await runExpectingRedirect(() => action("confirmImport")(event({ source_md: FIXTURE })));
+
+    const data = (await load(loadEvent())) as {
+      plans: { suggestion: { suggestedKey: string; lastSession: unknown } }[];
+      activityKinds: string[];
+      nextMorningCandidates: unknown[];
+    };
+
+    // fixtures/plans/home-training-v1.md declares `scheduling.sequence: [A, B, C, D]` and
+    // no workouts exist yet, so the suggestion is the sequence's first entry.
+    expect(data.plans[0]?.suggestion.suggestedKey).toBe("A");
+    expect(data.plans[0]?.suggestion.lastSession).toBeUndefined();
+    expect(data.activityKinds).toContain("rest");
+    expect(data.nextMorningCandidates).toEqual([]);
+  });
+
   it("refuses a re-import of the same version, and says why in the plan's terms", async () => {
     await runExpectingRedirect(() => action("confirmImport")(event({ source_md: FIXTURE })));
 
