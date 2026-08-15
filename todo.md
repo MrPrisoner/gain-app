@@ -24,12 +24,6 @@ Then clear it up behind you:
 
 Currently, once a user has logged an exercise, there is no way to change that log. A user might make a mistake and would want to change what they logged. For example, forgetting to change the number of reps.
 
-### Celebration animation on completed session
-
-Currently when a user hits the End Session button, and completes the wrapup, they simply land back on the home screen.
-
-I want to introduce a celebration popup or page, before they hit the homepage again. It should show a motivational message (randomized from a list of predefined messages) with a full page animation effect, like confetti or sparkles or stars.
-
 ### `check:chars` only scans tracked files
 
 `npm run check:chars` (and the `gain/no-control-characters` ESLint rule) exist because a

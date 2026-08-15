@@ -211,6 +211,12 @@ of what red means everywhere else in this app.
 Semantic colour and accent colour must stay separate. Do not introduce a green "success"
 state or a red "error" state that competes with the symptom scale.
 
+**One narrow exception, settled 2026-08-15:** the post-session celebration screen's
+confetti (§8) is accent, gold and silver — genuinely decorative, and deliberately kept out
+of the green/amber/red triad rather than added to it. It is confined to a single
+full-screen moment that carries no plan or symptom data; nothing else in the app gets this
+exception.
+
 ## 6. The awkward primitives, and how each renders
 
 The fixture exists to exercise these. A design that only handles `3 × 10 @ 20 kg` is not
@@ -246,6 +252,44 @@ the answer to the prompt, so re-asking it on the movement you just chose is nois
 the substitute's `type` differs from the original's — the fixture's reverse-crunch →
 front-plank, reps replaced by time — the plan has simply never said how long to hold it,
 so the target renders as the set count alone rather than inventing a number.
+
+### Settled 2026-08-15: a celebration screen sits between Finish and home
+
+Tapping Finish used to write the finish op and navigate straight to `/`. It now shows a
+full-screen celebration first — a randomised one-line message and a burst of falling
+confetti — with a single "Back to home" button, dismissed by that button, Escape, or
+nothing else. `WrapUpSheet` no longer navigates on success at all; it reports
+`onFinished()` and the session route decides what comes after, which is what makes this
+addable without touching where the finish op is written or what it does.
+
+**The screen is a moment, never a step.** It renders after the finish op has already
+landed and the workout's local key has already been cleared — `WrapUpSheet`'s `finish()`
+does both before calling `onFinished()`. A user who backgrounds the phone, kills the
+browser or otherwise never taps through has still finished a completed workout; nothing
+about the screen is on the critical path of anything the export depends on.
+
+**A red-flag stop does not reach it.** `onRedFlagStop` still ends the workout and
+navigates home directly. A session that ended because something hurt is not an occasion,
+and confetti over it would be the app cheering at the wrong moment — the same reasoning
+that keeps `stopped` off any progress framing elsewhere in the export.
+
+**The message claims only what GAIN actually knows.** The plan is authored and progressed
+by an AI outside this app, so GAIN has no goal, streak or personal best to congratulate —
+claiming one would be inventing a fact. Every message says only that a session was started
+and finished, which is always and exactly true whenever the screen shows.
+
+**Colour stays inside §5, with one named exception.** The confetti uses the accent hue
+plus gold and silver rather than the plan's green/amber/red symptom triad — genuinely
+multi-hued confetti would put "stop" red on screen in the moment right after training,
+which is the opposite of what red means here. This is the one deliberately decorative use
+of colour in the whole app, scoped to a single full-screen, session-agnostic moment that
+carries no plan data; §5's rule against a green "success" state stands everywhere else.
+
+**`prefers-reduced-motion: reduce` removes the particle field, not the screen.** The
+message and the way home stay exactly as they are; only the falling motion goes. This is
+the first reduced-motion handling anywhere in the app, on the one screen most likely to
+need it — forty-odd animating elements across the full viewport is exactly the kind of
+motion the preference exists to suppress.
 
 ## 7. Deviation is always one tap away
 

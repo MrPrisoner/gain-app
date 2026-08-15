@@ -41,6 +41,7 @@
   import MetricRow from "./MetricRow.svelte";
   import BlockSection from "./BlockSection.svelte";
   import WrapUpSheet from "./WrapUpSheet.svelte";
+  import CelebrationOverlay from "./CelebrationOverlay.svelte";
   import { restSpecFrom, type RestSpec } from "$lib/session/rest-timer";
 
   let { data }: { data: PageData; form: ActionData } = $props();
@@ -256,6 +257,12 @@
 
   // Whether the end-of-session wrap-up sheet is showing.
   let showWrapUp = $state(false);
+  // Whether the celebration screen is showing. Set only once the finish op is written, so
+  // it never gates anything: the workout is already complete by the time this is true, and
+  // a user who backgrounds the phone here loses nothing but the confetti. A red-flag stop
+  // never sets it — `onRedFlagStop` leaves straight away, because a session that ended
+  // because something hurt is not an occasion.
+  let celebrating = $state(false);
   // Tap-to-select values for session-scope metrics, keyed by metric key — held here for
   // display only; each tap fires its own `?/logMetric` submission (UI-DECISIONS §8).
   const sessionMetricValues = new SvelteMap<string, number | string>();
@@ -616,8 +623,16 @@
     {sessionMetricValues}
     {storageKey}
     onClose={() => (showWrapUp = false)}
+    onFinished={() => {
+      showWrapUp = false;
+      celebrating = true;
+    }}
     onError={setError}
   />
+{/if}
+
+{#if celebrating}
+  <CelebrationOverlay onDismiss={() => (window.location.href = "/")} />
 {/if}
 
 <style>

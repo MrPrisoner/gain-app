@@ -392,6 +392,13 @@ protect:
   success state here: §5's symptom triad is the only place green, amber and red mean
   anything, and a list that traffic-lights progress competes with the one scale that has
   to stay readable.
+- **The post-session celebration is a moment, never a step, and carries no colour §5
+  otherwise reserves.** It renders after the finish op is already written and the
+  workout's local key already cleared, so dismissing it — or never dismissing it — cannot
+  change what reaches the export; a red-flag stop skips it entirely. Its confetti is
+  accent/gold/silver, a deliberate, narrow exception to §5's green/amber/red symptom
+  triad, confined to this one full-screen moment. Full reasoning in UI-DECISIONS §8,
+  "Settled 2026-08-15".
 - **The contract key is `plan`, and synonyms are not accepted.** `plan.slug`,
   `plan_version`, `plan_id`. The word was chosen partly because it is spelled
   identically in every variety of English, unlike `programme`/`program` — but a revising

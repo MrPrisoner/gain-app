@@ -27,7 +27,12 @@
 
 import { expect, test } from "@playwright/test";
 import { E2E_PLAN_SLUG } from "./env";
-import { dismissPreSessionPrompt, logSetThroughRest, waitForPrecached } from "./helpers";
+import {
+  dismissPreSessionPrompt,
+  finishSession,
+  logSetThroughRest,
+  waitForPrecached,
+} from "./helpers";
 
 const SESSION_NAME = "Squat, Press & Row";
 
@@ -78,8 +83,7 @@ test("a full session can be started, logged and finished entirely offline", asyn
 
   // -- Wrap-up, offline.
   await page.getByRole("button", { name: "End session" }).click();
-  await page.getByRole("button", { name: "Finish session" }).click();
-  await page.waitForURL(/\/$/);
+  await finishSession(page);
 
   // Home renders offline too, now that the second online visit above cached it.
   await expect(page.getByRole("heading", { name: "Home Training Plan" })).toBeVisible();

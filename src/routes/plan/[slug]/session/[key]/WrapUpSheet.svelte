@@ -21,6 +21,7 @@
     sessionMetricValues,
     storageKey,
     onClose,
+    onFinished,
     onError,
   }: {
     planSlug: string;
@@ -30,6 +31,9 @@
     sessionMetricValues: SvelteMap<string, number | string>;
     storageKey: string;
     onClose: () => void;
+    /** The workout is finished and its local key cleared. The caller decides what
+     * happens next — today, the celebration screen, and the navigation home after it. */
+    onFinished: () => void;
     onError: (message: string | undefined) => void;
   } = $props();
 
@@ -47,7 +51,12 @@
         finishedAt: new Date().toISOString(),
       });
       if (typeof localStorage !== "undefined") localStorage.removeItem(storageKey);
-      window.location.href = "/";
+      // Deliberately no navigation from here any more. The finish op is written and the
+      // local key is gone, so the workout is complete whatever happens next — the caller
+      // is free to put a screen in front of the way home without any of it being load
+      // bearing. `finishing` stays true so the button cannot be tapped a second time
+      // while the caller swaps the sheet out.
+      onFinished();
     } catch (err) {
       onError(err instanceof Error ? err.message : "Something went wrong.");
       finishing = false;

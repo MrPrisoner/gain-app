@@ -24,6 +24,7 @@ import { expect, test } from "@playwright/test";
 import { E2E_PLAN_SLUG } from "./env";
 import {
   dismissPreSessionPrompt,
+  finishSession,
   logSet,
   logSetThroughRest,
   openExercise,
@@ -151,8 +152,7 @@ test("Session A end-to-end: warm-up, four working exercises, rest, a deviation, 
   await symptoms.getByRole("button", { name: "4", exact: true }).click();
   await expect(symptoms.locator(".scale-cell.selected")).toHaveText("4");
 
-  await page.getByRole("button", { name: "Finish session" }).click();
-  await page.waitForURL(/\/$/);
+  await finishSession(page);
   await expect(page.getByRole("heading", { name: "Home Training Plan" })).toBeVisible();
 
   // The finished workout: the full 18 working sets, never duplicated by the reload above.

@@ -39,6 +39,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { E2E_PLAN_SLUG } from "./env";
 import {
   dismissPreSessionPrompt,
+  finishSession,
   logSetThroughRest,
   openExercise,
   setLogsOf,
@@ -230,7 +231,6 @@ test("Session D end-to-end: a ranged set surviving a substitute, the two-round a
   await symptoms.getByRole("button", { name: "3", exact: true }).click();
   await expect(symptoms.locator(".scale-cell.selected")).toHaveText("3");
 
-  await page.getByRole("button", { name: "Finish session" }).click();
-  await page.waitForURL(/\/$/);
+  await finishSession(page);
   await expect(page.getByRole("heading", { name: "Home Training Plan" })).toBeVisible();
 });

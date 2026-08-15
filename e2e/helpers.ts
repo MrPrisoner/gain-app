@@ -61,6 +61,23 @@ export async function logSetThroughRest(page: Page): Promise<void> {
   }
 }
 
+/**
+ * Taps the wrap-up sheet's Finish, clears the celebration screen that follows, and waits
+ * for the home screen. Every spec that finishes a session goes through here, so the shape
+ * of the ending is asserted in one place rather than three that can drift apart.
+ *
+ * Note what this proves incidentally: the finish op is written *before* the celebration is
+ * shown, so a spec that never dismissed it would still find the workout complete in the
+ * database. The celebration is a moment, never a step.
+ */
+export async function finishSession(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Finish session" }).click();
+  const celebration = page.locator(".celebrate-card");
+  await expect(celebration).toBeVisible();
+  await celebration.getByRole("button", { name: "Back to home" }).click();
+  await page.waitForURL(/\/$/);
+}
+
 /** The workout's `client_id` — the page mints it and keeps it in `localStorage` (design
  * spec §7: it must survive a browser kill, which `sessionStorage` cannot), and it is the
  * only handle a spec has on *its own* workout in the shared database. */
@@ -95,6 +112,20 @@ export function setLogsOf(clientId: string): SetLogRow[] {
          ORDER BY s.id`,
       )
       .all(clientId) as SetLogRow[];
+  } finally {
+    db.close();
+  }
+}
+
+/** The workout's `status` — `completed` for a normal finish, `stopped` for a red flag.
+ * Lives here rather than in the one spec that needs it for the reason this file's own
+ * header gives: a second copy of a database query is how two of them end up disagreeing. */
+export function workoutStatusOf(clientId: string): string | undefined {
+  const db = openSeededUserDb(seededDataDir());
+  try {
+    const row = db.prepare("SELECT status FROM workout WHERE client_id = ?").get(clientId) as
+      { status: string } | undefined;
+    return row?.status;
   } finally {
     db.close();
   }
