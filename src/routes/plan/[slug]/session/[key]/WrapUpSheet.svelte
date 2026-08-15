@@ -4,7 +4,7 @@
   import { trapFocus } from "$lib/actions/focus-trap";
   import { newOpId } from "$lib/sync/ops";
   import { logWrite } from "$lib/sync/client.svelte";
-  import MetricRow from "./MetricRow.svelte";
+  import MetricRow from "$lib/components/MetricRow.svelte";
 
   /**
    * The end-of-session sheet (UI-DECISIONS §8): end metrics, a note about which metrics

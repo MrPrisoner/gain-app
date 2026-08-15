@@ -38,7 +38,7 @@
   import RestTimer from "./RestTimer.svelte";
   import DeviationSheet from "./DeviationSheet.svelte";
   import LogStrip from "./LogStrip.svelte";
-  import MetricRow from "./MetricRow.svelte";
+  import MetricRow from "$lib/components/MetricRow.svelte";
   import BlockSection from "./BlockSection.svelte";
   import WrapUpSheet from "./WrapUpSheet.svelte";
   import CelebrationOverlay from "./CelebrationOverlay.svelte";
