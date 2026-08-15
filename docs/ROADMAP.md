@@ -18,12 +18,12 @@ Three files, three jobs:
 
 **The triage rule:** anything in `todo.md` bigger than a single commit moves here, into the
 phase it belongs to. Anything smaller gets done and deleted. A design decision that comes
-out of a to-do item belongs in `AGENTS.md` under Invariants, not in either list — that is
+out of a to-do item belongs in `CLAUDE.md` under Invariants, not in either list — that is
 where the `weight_kg` ruling went, and it is why it survived.
 
 **Closing an item** means ticking it and appending the commit SHA, the same convention the
 build has used so far. Closing a *phase* means updating three places together: §12's status
-line, the README status banner, and AGENTS.md's "Current state" paragraph.
+line, the README status banner, and CLAUDE.md's "Current state" paragraph.
 
 ---
 
@@ -92,7 +92,7 @@ round-trip test. Nothing pure needs writing.
       `e2e/export-walkthrough.spec.ts` (`0e235bf`).
 
 **Watch for:** the progress summary is arithmetic the reviewing AI will trust and not check
-(AGENTS.md, Invariants). Load is per set, "first" and "latest" are chronological, and every
+(CLAUDE.md, Invariants). Load is per set, "first" and "latest" are chronological, and every
 free-text value gets its `|` escaped or it eats the rest of the Markdown row.
 
 ---

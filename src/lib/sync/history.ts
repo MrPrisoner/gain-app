@@ -6,7 +6,7 @@
  * back joined to their slug and ordered by ULID; an op log holds slugs and ULIDs
  * natively. So the local rebuild and the server resume feed *the same* pure
  * reconstruction, and the two can produce the same ledger by construction rather than by
- * two implementations agreeing — the failure mode AGENTS.md warns about wherever the
+ * two implementations agreeing — the failure mode CLAUDE.md warns about wherever the
  * same derivation exists twice.
  *
  * Start and finish ops describe the workout row, not its history, so they project to

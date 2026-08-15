@@ -5,7 +5,7 @@
  * the session runner's logic in `$lib` and the route thin.
  *
  * Returns a result rather than throwing, because its one caller is a form action and a
- * thrown `Error` there is a 500 that renders `+error.svelte` (AGENTS.md, phase-4 review).
+ * thrown `Error` there is a 500 that renders `+error.svelte` (CLAUDE.md, phase-4 review).
  */
 
 import fs from "node:fs";

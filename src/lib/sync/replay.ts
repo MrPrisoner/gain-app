@@ -59,7 +59,7 @@ export function replayOps(userDb: UserDb, ops: readonly SyncOp[]): AckResponse {
   const ordered = [...ops].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
   // IMMEDIATE for the same reason import uses it: reads that later writes depend on must
-  // not race another connection (AGENTS.md, Invariants).
+  // not race another connection (CLAUDE.md, Invariants).
   userDb.db
     .transaction(() => {
       for (const op of ordered) {

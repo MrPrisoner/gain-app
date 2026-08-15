@@ -1,6 +1,6 @@
 /**
  * The fixture's job is to exercise every contract primitive in one document
- * (AGENTS.md, "The fixture"). That job is invisible: dropping a primitive breaks
+ * (CLAUDE.md, "The fixture"). That job is invisible: dropping a primitive breaks
  * no test, it just quietly stops proving something. This asserts the coverage
  * directly, so the next edit to the fixture cannot lose it silently.
  */

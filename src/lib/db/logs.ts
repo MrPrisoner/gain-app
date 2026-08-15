@@ -19,7 +19,7 @@
  * there is no cross-user row to leak here in the first place (ARCHITECTURE decision 4).
  *
  * Slugs come from joins on `exercise_def`: log rows store `exercise_def_id`, and every
- * identity the export keys on is a slug (`exercise_def.slug` is load-bearing, AGENTS.md).
+ * identity the export keys on is a slug (`exercise_def.slug` is load-bearing, CLAUDE.md).
  */
 
 import type {

@@ -1,5 +1,5 @@
 /**
- * Form-action failure handling (AGENTS.md, "What the phase-4 review changed"): an action must
+ * Form-action failure handling (CLAUDE.md, "What the phase-4 review changed"): an action must
  * never bare-`throw` on a missing required field — before this task, `requireText`
  * (`+page.server.ts`) threw a plain `Error`, which SvelteKit turns into an unhandled
  * 500 and `+error.svelte` replaces the whole in-progress runner. This test drives the

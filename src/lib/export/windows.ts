@@ -82,7 +82,7 @@ export function exportWindowOptions(context: ExportWindowContext): ExportWindowO
  * The option a submitted picker value names, or undefined when it names none.
  *
  * Undefined is the caller's cue to `fail(400)` rather than to substitute a default:
- * a form action must never throw (AGENTS.md, phase-4 review), and silently exporting
+ * a form action must never throw (CLAUDE.md, phase-4 review), and silently exporting
  * a different span than the one asked for mislabels the bundle the AI then reads.
  */
 export function resolveExportWindow(

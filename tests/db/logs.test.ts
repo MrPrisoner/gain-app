@@ -169,7 +169,7 @@ describe("logsForPlan", () => {
   it("keeps two same-named metrics at different scopes apart", () => {
     // The contract only requires a metric key to be unique WITHIN its scope, so a
     // plan may legally declare `rpe` at set scope and at session scope. Losing the
-    // scope here merges two unrelated series downstream (AGENTS.md, Invariants).
+    // scope here merges two unrelated series downstream (CLAUDE.md, Invariants).
     const { id: workoutId } = startWorkout(userDb, {
       planVersionId,
       sessionKey: "A",

@@ -198,7 +198,7 @@ function formText(form: FormData, name: string): string {
  * Throws a plain `Error` on a missing/malformed field. The `start` action's own
  * `try`/`catch` converts that throw into `fail(400, { actionError })` before it can reach
  * SvelteKit — nothing in `actions` is allowed to throw except `redirect` (ARCHITECTURE §9;
- * AGENTS.md, "What the phase-4 review changed").
+ * CLAUDE.md, "What the phase-4 review changed").
  */
 function requireText(form: FormData, name: string): string {
   const value = formText(form, name).trim();

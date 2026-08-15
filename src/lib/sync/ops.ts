@@ -12,7 +12,7 @@
  * - `startedAt` / `finishedAt` are the **client's** clock. The write layer stamps server
  *   time today, so a session logged on Tuesday and synced on Friday would be dated
  *   Friday — and the export's summary requires "first" and "latest" to be chronological
- *   (AGENTS.md, Invariants). The client clock is trusted here because physical per-user
+ *   (CLAUDE.md, Invariants). The client clock is trusted here because physical per-user
  *   isolation means a skewed one can corrupt nobody else's data.
  * - `planVersionId` travels with the start op. Resolving the plan's *current* version at
  *   replay time would rebind a queued workout to a version it never ran under, breaking

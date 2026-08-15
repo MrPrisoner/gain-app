@@ -3,7 +3,7 @@
  *
  * The minimal valid block is the one from CONTRACT §6. Everything else exercises
  * the validation behaviour listed in CONTRACT §7 and the round-trip defences from
- * AGENTS.md (synonyms rejected loudly, slugs protected).
+ * CLAUDE.md (synonyms rejected loudly, slugs protected).
  */
 
 import { describe, expect, it } from "vitest";
