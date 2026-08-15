@@ -3,13 +3,17 @@
   import { enhance } from "$app/forms";
   import { copyText, downloadText } from "$lib/copy";
   import { precacheSessions } from "$lib/sync/precache";
+  import NextSessionCard from "./NextSessionCard.svelte";
+  import SessionOverrideList from "./SessionOverrideList.svelte";
+  import ActivityStrip from "./ActivityStrip.svelte";
+  import NextMorningPrompt from "./NextMorningPrompt.svelte";
+  import { dueNextMorningPrompts } from "$lib/home/next-morning";
+  import { startSyncLoop } from "$lib/sync/client.svelte";
   import IconCheck from "~icons/lucide/check";
-  import IconChevronDown from "~icons/lucide/chevron-down";
   import IconCircleCheck from "~icons/lucide/circle-check";
   import IconCopy from "~icons/lucide/copy";
   import IconDownload from "~icons/lucide/download";
   import IconExternalLink from "~icons/lucide/external-link";
-  import IconPlay from "~icons/lucide/play";
   import IconSparkles from "~icons/lucide/sparkles";
   import type { ActionData, PageData } from "./$types";
 
@@ -47,14 +51,59 @@
   let copied = $state<"prompt" | "report" | null>(null);
   let copyTimer: ReturnType<typeof setTimeout> | undefined = $state(undefined);
 
-  // Accordion: at most one session summary open at a time (keyed on
-  // `plan.slug:session.key` so two plans sharing a session key, e.g. both
-  // using "A", don't open in lockstep).
-  let openSession = $state<string | null>(null);
+  // The next-morning prompt's dismissal is local and permanent for that workout (design
+  // spec §6) — not synced, and not re-derived from server data, so a dismissal survives
+  // even if the answer op never syncs.
+  const DISMISS_KEY = "gain:next-morning-dismissed";
 
-  function toggleSession(id: string) {
-    openSession = openSession === id ? null : id;
+  function readDismissed(): string[] {
+    if (typeof localStorage === "undefined") return [];
+    try {
+      const raw = localStorage.getItem(DISMISS_KEY);
+      return raw ? (JSON.parse(raw) as string[]) : [];
+    } catch {
+      return [];
+    }
   }
+
+  let dismissed = $state<string[]>(untrack(() => readDismissed()));
+
+  function dismissNextMorning(workoutClientId: string): void {
+    if (dismissed.includes(workoutClientId)) return;
+    dismissed = [...dismissed, workoutClientId];
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(DISMISS_KEY, JSON.stringify(dismissed));
+    }
+  }
+
+  // `nowMs` is read only after mount (never at module/SSR eval time), so the server-
+  // rendered markup never has to agree with a client-only clock — the next-morning
+  // card simply does not render until this effect has run once.
+  let nowMs = $state<number | undefined>(undefined);
+
+  $effect(() => {
+    nowMs = Date.now();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") nowMs = Date.now();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  });
+
+  const dueNextMorning = $derived(
+    nowMs === undefined || data.view !== "plan"
+      ? []
+      : dueNextMorningPrompts(data.nextMorningCandidates, nowMs, dismissed),
+  );
+
+  // Activities have no owning plan (design spec §5) and this route otherwise never
+  // registers the reconnect/visibility listeners `startSyncLoop` provides (only the
+  // session runner does today) — without this, an activity op queued while offline
+  // would only retry via its own internal backoff timer, never immediately on
+  // reconnect. "home" is inert here for the same reason ActivitySheet's logWrite call
+  // is: `$lib/sync/client.svelte.ts` never uses this argument to address or filter
+  // anything.
+  $effect(() => startSyncLoop("home"));
 
   function flashCopied(which: "prompt" | "report") {
     copied = which;
@@ -178,51 +227,43 @@
     </form>
   </section>
 {:else}
+  {#each dueNextMorning as candidate (candidate.workoutClientId)}
+    <NextMorningPrompt
+      planSlug={candidate.planSlug}
+      sessionKey={candidate.sessionKey}
+      workoutClientId={candidate.workoutClientId}
+      metrics={candidate.metrics}
+      onDismiss={dismissNextMorning}
+    />
+  {/each}
+
   {#each data.plans as plan (plan.slug)}
-    <section class="card">
+    <NextSessionCard
+      planSlug={plan.slug}
+      planName={plan.name}
+      suggestedKey={plan.suggestion.suggestedKey}
+      lastSession={plan.suggestion.lastSession}
+      sessions={plan.sessions}
+    />
+  {/each}
+
+  <ActivityStrip kinds={data.activityKinds} />
+
+  {#each data.plans as plan (plan.slug)}
+    <SessionOverrideList
+      planSlug={plan.slug}
+      suggestedKey={plan.suggestion.suggestedKey}
+      sessions={plan.sessions}
+      schedulingRules={plan.schedulingRules}
+      dropOrder={plan.dropOrder}
+    />
+    <section class="card plan-admin">
       <h2>{plan.name}</h2>
       <p class="muted">
         version {plan.version_no} · imported {plan.imported_at} ·
         {plan.counts.sessions} sessions, {plan.counts.exercises} exercises,
         {plan.counts.prescriptions} prescriptions
       </p>
-      <ul class="sessions">
-        {#each plan.sessions as session (session.key)}
-          {@const id = `${plan.slug}:${session.key}`}
-          {@const isOpen = openSession === id}
-          <li>
-            <button
-              type="button"
-              class="secondary session-toggle"
-              aria-expanded={isOpen}
-              aria-controls={`session-summary-${plan.slug}-${session.key}`}
-              onclick={() => toggleSession(id)}
-            >
-              <span class="session-name">
-                <span class="key">{session.key}</span>
-                {session.name}
-              </span>
-              <IconChevronDown class="chevron {isOpen ? 'open' : ''}" />
-            </button>
-            {#if isOpen}
-              <div class="session-summary" id={`session-summary-${plan.slug}-${session.key}`}>
-                {#if session.note}
-                  <p class="muted">{session.note}</p>
-                {/if}
-                {#each session.blocks as block (block.key)}
-                  <div class="block-summary">
-                    <h3>{block.name}</h3>
-                    <p>{block.exercises.join(", ")}</p>
-                  </div>
-                {/each}
-                <a class="session-link" href={`/plan/${plan.slug}/session/${session.key}`}>
-                  <IconPlay />Start session
-                </a>
-              </div>
-            {/if}
-          </li>
-        {/each}
-      </ul>
       <a class="export-link" href={`/plan/${plan.slug}/export`}>
         <IconExternalLink />Export for review
       </a>
@@ -433,75 +474,6 @@
     background: var(--raised);
     border: 1px solid var(--line);
     color: var(--text);
-  }
-
-  .sessions {
-    list-style: none;
-    margin: 0 0 0.75rem;
-    padding: 0;
-    display: grid;
-    gap: 0.35rem;
-  }
-
-  .sessions .key {
-    display: inline-block;
-    min-width: 1.6em;
-    font-weight: 800;
-  }
-
-  .session-toggle {
-    width: 100%;
-  }
-
-  .session-name {
-    flex: 1;
-    text-align: left;
-  }
-
-  /* `:global` because the chevron is now `~icons/lucide/chevron-down`, and Svelte's
-     scoping hash is never applied to another component's markup — a plain `.chevron`
-     rule would compile to a selector that matches nothing. Kept under `.session-toggle`
-     so the global escape hatch is still confined to this button. */
-  .session-toggle :global(.chevron) {
-    flex-shrink: 0;
-    transition: transform 0.15s ease;
-  }
-
-  .session-toggle :global(.chevron.open) {
-    transform: rotate(180deg);
-  }
-
-  .session-summary {
-    padding: 0.85rem 1rem 0.25rem;
-    display: grid;
-    gap: 0.6rem;
-  }
-
-  .block-summary h3 {
-    margin: 0 0 0.15rem;
-    font-size: 0.85rem;
-    color: var(--muted);
-  }
-
-  .block-summary p {
-    margin: 0;
-    font-size: 0.9rem;
-  }
-
-  .session-link {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.4rem;
-    padding: 0.7rem 1.25rem;
-    border-radius: var(--r-sm);
-    background: var(--accent);
-    color: var(--accent-in);
-    font-weight: 700;
-  }
-
-  .session-link:hover {
-    text-decoration: none;
   }
 
   .export-link {
