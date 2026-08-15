@@ -114,6 +114,19 @@ mostly new components, so it is the trap with the most surface area still ahead 
 Check `package.json` and the real API before changing schema or component code, rather
 than trusting recall. If a docs lookup is available, use it.
 
+**Icons come from `~icons/lucide/*` and are inlined at build time.** `unplugin-icons`
+plus `@iconify-json/lucide`, both devDependencies, wired up in `vite.config.ts` — the
+import resolves to a Svelte component compiled into the bundle, so an icon costs one
+inline `<svg>` and no runtime anything. Reach for `@iconify/svelte` instead and it will
+look identical in development and render blank squares on a phone in a garage: that
+integration fetches each icon from `api.iconify.design` on first use, which is a network
+call, and offline is a hard requirement here rather than a nicety. Icons carry no colour
+or size of their own — Lucide ships them 1em square in `currentColor`, and one rule in
+`src/app.css` sizes every `<svg>` in the app relative to the text beside it. Do not add a
+`width`/`height` to a call site; change the font-size of what it sits in. And note that a
+class passed to an icon needs `:global()` to style, since Svelte never applies its scoping
+hash to another component's markup.
+
 ### Agent tooling
 
 Committed so every agent gets the same setup. It is a convenience, not the contract:

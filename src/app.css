@@ -135,6 +135,21 @@ table,
   font-variant-numeric: tabular-nums;
 }
 
+/* Every `<svg>` in the app is an icon from `~icons/lucide/*` — there is no illustrative
+   SVG anywhere in the DOM, so this can be a bare element selector rather than a class
+   nobody would remember to apply. Lucide ships each icon as 1em square in `currentColor`,
+   which is why nothing here sets a colour: an icon takes the colour of the text it sits
+   beside, in both themes, for free. Sizing is relative for the same reason — 1.15em keeps
+   the glyph a touch larger than the cap height next to it at every type scale, instead of
+   the fixed 18px the hand-written snippets used to hardcode. `flex: none` because almost
+   every icon here sits in a flex row beside a label that is allowed to wrap; without it
+   the icon is the thing that squashes at 360px. */
+svg {
+  width: 1.15em;
+  height: 1.15em;
+  flex: none;
+}
+
 a {
   color: var(--accent);
   text-decoration: none;

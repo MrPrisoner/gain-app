@@ -34,6 +34,7 @@
   import { newOpId } from "$lib/sync/ops";
   import { logWrite, opsForWorkout, startSyncLoop } from "$lib/sync/client.svelte";
   import { historyFromOps } from "$lib/sync/history";
+  import IconFlag from "~icons/lucide/flag";
   import RestTimer from "./RestTimer.svelte";
   import DeviationSheet from "./DeviationSheet.svelte";
   import LogStrip from "./LogStrip.svelte";
@@ -545,16 +546,7 @@
     {/each}
 
     <button type="button" class="end-session" onclick={() => (showWrapUp = true)}>
-      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-        <path
-          d="M5 3v18M5 4h11l-2.5 4L16 12H5"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
-      </svg>
+      <IconFlag />
       End session
     </button>
   </div>

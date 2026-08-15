@@ -24,10 +24,6 @@ Then clear it up behind you:
 
 Currently, once a user has logged an exercise, there is no way to change that log. A user might make a mistake and would want to change what they logged. For example, forgetting to change the number of reps.
 
-### Consider adding an icon framework
-
-We are starting to add some icons throughout the app. The next couple of todo items will probably introduce more icons. Consider replacing the custom svg icons with an icon library such as Iconify (Pure CSS) or an alternative recommended approach.
-
 ### Better indicator for completed exercises
 
 Currently, a completed exercise doesn't look much different to an incomplete one. User should have better visibility, it also motivates users to see progress through the session. Consider a completed icon next to the exercise name, or suggest an alternative better visual indicator.
