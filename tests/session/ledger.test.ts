@@ -12,6 +12,7 @@ import {
 } from "../../src/lib/session/session-view";
 import type { PrefillByExercise } from "../../src/lib/session/prefill";
 import {
+  blockIsComplete,
   computeDoneExercises,
   currentRoundOf,
   exerciseAt,
@@ -230,6 +231,90 @@ describe("computeDoneExercises", () => {
     const warmup = block(d, "warmup");
     const key = `${warmup.key}:${warmup.exercises[0]?.slug}`;
     expect(computeDoneExercises(d, emptyLedger()).has(key)).toBe(false);
+  });
+});
+
+describe("blockIsComplete", () => {
+  /** Every offered slot of every exercise in a block, logged. */
+  function logWholeBlock(s: ResolvedSession, blockKey: string): Map<string, LoggedSet> {
+    const b = block(s, blockKey);
+    const loggedSets = new Map<string, LoggedSet>();
+    for (const prescribed of b.exercises) {
+      for (const slot of slotsFor(emptyLedger(), b, prescribed)) loggedSets.set(slot.key, {});
+    }
+    return loggedSets;
+  }
+
+  it("is false for a checkoff block with nothing checked off", () => {
+    const a = session("A");
+    expect(blockIsComplete(block(a, "warmup"), emptyLedger(), new Set())).toBe(false);
+  });
+
+  it("is false for a checkoff block with only some pills checked off", () => {
+    const a = session("A");
+    const warmup = block(a, "warmup");
+    const loggedSets = new Map<string, LoggedSet>();
+    loggedSets.set(setLogKey(warmup.key, warmup.exercises[0]!.slug, 1), {});
+    expect(blockIsComplete(warmup, emptyLedger({ loggedSets }), new Set())).toBe(false);
+  });
+
+  it("is true for a checkoff block once every pill is checked off", () => {
+    const a = session("A");
+    const warmup = block(a, "warmup");
+    const loggedSets = new Map<string, LoggedSet>();
+    for (const e of warmup.exercises) loggedSets.set(setLogKey(warmup.key, e.slug, 1), {});
+    expect(blockIsComplete(warmup, emptyLedger({ loggedSets }), new Set())).toBe(true);
+  });
+
+  it("is true for a sequence block once every exercise is done", () => {
+    const a = session("A");
+    const loggedSets = logWholeBlock(a, "main");
+    const ledger = emptyLedger({ loggedSets });
+    expect(blockIsComplete(block(a, "main"), ledger, computeDoneExercises(a, ledger))).toBe(true);
+  });
+
+  it("is false for a sequence block while one exercise is still unlogged", () => {
+    const a = session("A");
+    const main = block(a, "main");
+    const loggedSets = logWholeBlock(a, "main");
+    // Drop one slot of the last exercise back off again.
+    const last = main.exercises.at(-1)!;
+    loggedSets.delete(slotsFor(emptyLedger(), main, last).at(-1)!.key);
+    const ledger = emptyLedger({ loggedSets });
+    expect(blockIsComplete(main, ledger, computeDoneExercises(a, ledger))).toBe(false);
+  });
+
+  it("counts a skipped exercise towards its block, exactly as `computeDoneExercises` does", () => {
+    const a = session("A");
+    const main = block(a, "main");
+    const skipped = main.exercises.at(-1)!;
+    const skippedExercises = new Set([`${main.key}:${skipped.slug}`]);
+    const loggedSets = new Map<string, LoggedSet>();
+    for (const prescribed of main.exercises) {
+      if (prescribed.slug === skipped.slug) continue;
+      for (const slot of slotsFor(emptyLedger(), main, prescribed)) loggedSets.set(slot.key, {});
+    }
+    const ledger = emptyLedger({ loggedSets, skippedExercises });
+    expect(blockIsComplete(main, ledger, computeDoneExercises(a, ledger))).toBe(true);
+  });
+
+  // A rounds block only ever offers the *current* round's slots, so "every exercise
+  // done" is true at the end of round 1 of 2 — which is exactly when the block is least
+  // finished. The round counter is the only honest signal here.
+  it("is false for a rounds block with rounds still to go, even with the round fully logged", () => {
+    const d = session("D");
+    const finisher = block(d, "ab-finisher");
+    const loggedSets = logWholeBlock(d, "ab-finisher");
+    const ledger = emptyLedger({ loggedSets, completedRounds: new Map([[finisher.key, 1]]) });
+    expect(finisher.rounds).toBe(2);
+    expect(blockIsComplete(finisher, ledger, computeDoneExercises(d, ledger))).toBe(false);
+  });
+
+  it("is true for a rounds block once every round is complete", () => {
+    const d = session("D");
+    const finisher = block(d, "ab-finisher");
+    const ledger = emptyLedger({ completedRounds: new Map([[finisher.key, 2]]) });
+    expect(blockIsComplete(finisher, ledger, computeDoneExercises(d, ledger))).toBe(true);
   });
 });
 

@@ -7,7 +7,8 @@
     type ResolvedBlock,
     type ResolvedExercise,
   } from "$lib/session/session-view";
-  import type { SessionLedger } from "$lib/session/ledger";
+  import { blockIsComplete, type SessionLedger } from "$lib/session/ledger";
+  import IconCheck from "~icons/lucide/check";
   import ExerciseCard from "./ExerciseCard.svelte";
 
   /**
@@ -55,10 +56,21 @@
   } = $props();
 
   const completed = $derived(ledger.completedRounds.get(block.key) ?? 0);
+  const isComplete = $derived(blockIsComplete(block, ledger, doneExercises));
 </script>
 
 <section class="block">
   <div class="block-head">
+    <!-- Same mark, same reserved slot and same `role="img"` reasoning as the exercise
+         row's — see `ExerciseCard`. Consistency is the point: one indicator for
+         "finished", wherever finished is being shown. -->
+    <span
+      class="block-status"
+      role={isComplete ? "img" : undefined}
+      aria-label={isComplete ? "Block complete" : undefined}
+    >
+      {#if isComplete}<IconCheck />{/if}
+    </span>
     <span class="block-name">{block.name}</span>
     {#if block.tracking === "checkoff"}<span class="tag">Check off</span>{/if}
     {#if block.type === "rounds"}
@@ -87,15 +99,26 @@
     <div class="checkoff-pills">
       {#each block.exercises as exercise (exercise.slug)}
         {@const key = setLogKey(block.key, exercise.slug, 1)}
+        {@const isDone = loggedSets.has(key)}
+        <!-- `aria-pressed` is what carries the state now that the accent fill is gone:
+             the pill is a toggle, and its check icon is decorative for the same reason
+             the exercise row's is not — here the button itself is announced pressed. -->
         <button
           type="button"
           class="pill"
-          class:done={loggedSets.has(key)}
+          class:done={isDone}
+          aria-pressed={isDone}
           onclick={() => {
-            if (loggedSets.has(key)) loggedSets.delete(key);
+            if (isDone) loggedSets.delete(key);
             else loggedSets.set(key, {});
           }}
         >
+          <!-- Unlike the exercise row's, this slot is *not* reserved when empty. Pills
+               are a wrap layout with nothing to align down a column, so an always-present
+               1.15em bought no tidiness and cost the warm-up two extra rows at 360px —
+               against UI-DECISIONS §9, which wants these small enough to stay out of the
+               way. -->
+          {#if isDone}<IconCheck class="pill-check" />{/if}
           {exercise.name}
           <span class="pill-target tabular">{formatRepsOrDuration(exercise)}</span>
         </button>
@@ -145,6 +168,14 @@
   .block-name {
     font-weight: 700;
   }
+  .block-status {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.15em;
+    color: var(--accent);
+  }
   .tag {
     font-size: 0.75rem;
     color: var(--muted);
@@ -177,11 +208,18 @@
     flex-wrap: wrap;
     gap: 0.5rem;
   }
+  /* The check icon is the *only* completion signal in the runner, warm-up pills included.
+     The accent fill and accent border a done pill used to carry were a second, unrelated
+     way of saying the same thing, and a screen where a checked-off pill and a finished
+     exercise announce themselves differently makes the user learn two vocabularies for
+     one idea. What is left is the treatment the exercise rows already use: the mark, plus
+     weight and luminance. An unchecked pill recedes; a checked one reads at full
+     strength. */
   .pill {
     min-height: 2.75rem;
     border: 1px solid var(--line);
     background: var(--raised);
-    color: var(--text);
+    color: var(--muted);
     border-radius: var(--r-lg);
     padding: 0.5rem 0.9rem;
     display: flex;
@@ -189,10 +227,18 @@
     align-items: center;
   }
   .pill.done {
-    background: var(--accent-soft);
-    border-color: var(--accent);
+    color: var(--text);
+    font-weight: 600;
+  }
+  /* `:global` because the check is `~icons/lucide/check`, and Svelte's scoping hash is
+     never applied to another component's markup. */
+  .pill :global(.pill-check) {
+    color: var(--accent);
   }
   .pill-target {
+    color: var(--dim);
+  }
+  .pill.done .pill-target {
     color: var(--muted);
   }
   .exercises {

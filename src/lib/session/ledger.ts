@@ -179,6 +179,43 @@ export function computeDoneExercises(session: ResolvedSession, ledger: SessionLe
 }
 
 /**
+ * Whether a whole block needs nothing more from the user — what draws the block head's
+ * completion mark. `doneExercises` is the set `computeDoneExercises` already derives once
+ * per render, passed in rather than recomputed per block.
+ *
+ * Each block type answers this differently, and the differences are not cosmetic:
+ *
+ * - **checkoff** is excluded from `doneExercises` entirely (it has no slots to log), so
+ *   it is read straight off `loggedSets` — every pill toggled on, using the same
+ *   `setLogKey(block, slug, 1)` the pill itself writes.
+ * - **sequence** is every exercise done, which includes the skipped ones: a skip is a
+ *   recorded decision that this block is finished with, not an omission, and
+ *   `computeDoneExercises` has always treated it that way.
+ * - **rounds** is the round counter alone, and deliberately ignores `doneExercises`. A
+ *   rounds block only ever offers the *current* round's slots, so every exercise in it
+ *   reads as done at the end of round 1 of 3 — the moment the block is least finished.
+ *   Trusting the exercises there would mark a circuit complete two thirds early.
+ *
+ * A block with no exercises is never complete: `every` over an empty list is vacuously
+ * true, and a completion mark against nothing is a lie the user has no way to read.
+ */
+export function blockIsComplete(
+  block: ResolvedBlock,
+  ledger: SessionLedger,
+  doneExercises: ReadonlySet<string>,
+): boolean {
+  if (block.exercises.length === 0) return false;
+  if (block.tracking === "checkoff") {
+    return block.exercises.every((e) => ledger.loggedSets.has(setLogKey(block.key, e.slug, 1)));
+  }
+  if (block.type === "rounds") {
+    const rounds = block.rounds ?? 0;
+    return rounds > 0 && (ledger.completedRounds.get(block.key) ?? 0) >= rounds;
+  }
+  return block.exercises.every((e) => doneExercises.has(`${block.key}:${e.slug}`));
+}
+
+/**
  * Everything the pinned strip needs about the one open exercise (UI-DECISIONS §1: one
  * exercise open, §2: the strip logs exactly one set). `next` is `undefined` once every
  * offered set is logged — the strip then shows its finished state rather than

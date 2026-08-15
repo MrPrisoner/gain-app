@@ -47,6 +47,37 @@ you are now on".
 
 Hierarchy is carried by **weight and luminance**, not by colour — see §5.
 
+### Settled 2026-08-15: one completion mark, everywhere
+
+Weight and luminance alone turned out to be too quiet to answer the question a user
+actually asks mid-session, which is not "where am I" but "how much of this have I
+done". A finished row read as a slightly greyer version of an unfinished one, and the
+warm-up pills had drifted into saying the same thing a completely different way — an
+accent fill and an accent border, which is the visual language this app otherwise
+reserves for *the thing you are about to tap*.
+
+So there is now exactly one mark for finished, and it appears in three places: beside a
+finished exercise's name, beside a checked-off warm-up pill, and beside a block heading
+once everything in that block is done. A skip takes a dash rather than a tick and stays
+neutral — a skip is finished-with, not achieved, and the export will say so too. The mark
+is a tick in the accent hue, which keeps §5 intact: this is not a green "success" state
+and must never become one.
+
+Two consequences worth stating, because both were arrived at by trying the alternative:
+
+- **The exercise row reserves the mark's width even when empty**, so names stay
+  left-aligned down the list. **The pills deliberately do not**, because they are a wrap
+  layout with no column to align, and reserving there cost the warm-up two extra rows at
+  360 px — directly against §9.
+- **Blocks are not exercises.** A `type: rounds` block only ever offers the current
+  round's slots, so every exercise inside it reads as finished at the end of round 1 of 3.
+  A rounds block's completion is the round counter and nothing else; anything that asks
+  its exercises instead will mark a circuit complete two thirds early.
+
+Sets are excluded on purpose. A set row already shows the reps, load and effort that were
+logged, which is a stronger statement than a tick, and marking each one as well is clutter
+in the densest part of the screen.
+
 ## 2. Effort is the commit action
 
 The log strip is pinned to the bottom of the viewport, in the thumb zone. It contains a

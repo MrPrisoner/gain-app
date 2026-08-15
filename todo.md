@@ -24,16 +24,6 @@ Then clear it up behind you:
 
 Currently, once a user has logged an exercise, there is no way to change that log. A user might make a mistake and would want to change what they logged. For example, forgetting to change the number of reps.
 
-### Better indicator for completed exercises
-
-Currently, a completed exercise doesn't look much different to an incomplete one. User should have better visibility, it also motivates users to see progress through the session. Consider a completed icon next to the exercise name, or suggest an alternative better visual indicator.
-
-Check-off exercises like warmups get highlighted, so already visually show completion. The style might not work for exercises, an icon might be better. Whichever direction is chosen, apply the same indicator/style to both, don't use different completion indicator styles for different types of exercises, it should be consistent.
-
-Consider also doing this for blocks, depending on how it looks.
-
-Do not apply this to sets within an exercise, might be too cluttered, and sets already show logged reps/weight/difficulty which should stay as-is.
-
 ### Celebration animation on completed session
 
 Currently when a user hits the End Session button, and completes the wrapup, they simply land back on the home screen.

@@ -15,6 +15,8 @@
   import { performed, slotsFor, type SessionLedger } from "$lib/session/ledger";
   import { newOpId } from "$lib/sync/ops";
   import { logWrite } from "$lib/sync/client.svelte";
+  import IconCheck from "~icons/lucide/check";
+  import IconMinus from "~icons/lucide/minus";
 
   /**
    * One exercise row of the runner (UI-DECISIONS §1): collapsed to name, target and
@@ -122,9 +124,24 @@
   class="exercise"
   class:open={isOpen}
   class:done={!isOpen && isDone}
+  class:skipped={isSkipped}
   class:upcoming={!isOpen && !isDone}
 >
   <button type="button" class="exercise-head" onclick={() => onOpen(exerciseKey)}>
+    <!-- The completion mark. `role="img"` for the same reason as `.led-effort` below and
+         `.rounds-indicator` in BlockSection: a bare `<span>` maps to the generic role and
+         most screen readers drop its label, so the state would be visual only. It carries
+         a label only when there is a state to announce — an exercise not yet reached says
+         nothing rather than announcing an empty box. The slot is rendered either way so
+         names stay left-aligned down the list instead of jumping a character sideways the
+         moment a set lands. -->
+    <span
+      class="exercise-status"
+      role={isSkipped || isDone ? "img" : undefined}
+      aria-label={isSkipped ? "Skipped" : isDone ? "Done" : undefined}
+    >
+      {#if isSkipped}<IconMinus />{:else if isDone}<IconCheck />{/if}
+    </span>
     <span class="exercise-name">{exercise.name}</span>
     <span class="exercise-meta tabular">{headline}</span>
   </button>
@@ -252,6 +269,23 @@
     color: var(--muted);
     font-size: 0.85rem;
     text-align: right;
+    margin-left: auto;
+  }
+  /* Always laid out, even empty, so the name starts at the same x on every row — a mark
+     that pushes its own row sideways turns a scannable column into a ragged one. `1.15em`
+     is what `app.css` sizes an icon to, so the reserved slot and the glyph agree. */
+  .exercise-status {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.15em;
+    color: var(--accent);
+  }
+  /* A skip is finished-with, not achieved, so it gets the dash rather than the tick and
+     stays neutral instead of taking the accent. */
+  .exercise.skipped .exercise-status {
+    color: var(--dim);
   }
   /* UI-DECISIONS §1/§5: the three states of a row are carried entirely by weight and
      luminance — no colour anywhere below, because colour in this app means symptoms and

@@ -383,6 +383,15 @@ protect:
   Do not implement it, do not add a `paired` field, and do not infer pairing from a slug
   or a load label. The full reasoning, including the one honest consequence it leaves
   behind, is in UI-DECISIONS §3.
+- **There is one completion mark in the runner, and it is not a colour.** A tick in the
+  accent hue beside a finished exercise, a checked-off warm-up pill and a completed block
+  heading — the same mark in all three, because a screen that says "done" two different
+  ways makes the user learn two vocabularies for one idea. Settled 2026-08-15; the
+  reasoning, including why the pills do not reserve space and why a rounds block asks its
+  round counter rather than its exercises, is in UI-DECISIONS §1. Do not add a green
+  success state here: §5's symptom triad is the only place green, amber and red mean
+  anything, and a list that traffic-lights progress competes with the one scale that has
+  to stay readable.
 - **The contract key is `plan`, and synonyms are not accepted.** `plan.slug`,
   `plan_version`, `plan_id`. The word was chosen partly because it is spelled
   identically in every variety of English, unlike `programme`/`program` — but a revising

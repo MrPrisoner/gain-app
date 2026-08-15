@@ -112,6 +112,64 @@ test("a skip collapses the exercise, says so, and advances", async ({ page }) =>
   await expect(openExercise(page).locator(".exercise-name")).toHaveText("Dumbbell floor press");
 });
 
+/**
+ * The completion mark, in all three places it appears. It is one indicator on purpose —
+ * a checked-off warm-up pill and a finished working exercise used to say "done" in two
+ * unrelated visual languages (an accent fill on one, a font-weight shift on the other),
+ * and the fix is only a fix for as long as they stay the same mark. Asserting on
+ * `.exercise-status svg` rather than on a class is deliberate: the class could survive an
+ * edit that renders nothing inside it.
+ */
+test("one completion mark covers exercises, warm-up pills and whole blocks", async ({ page }) => {
+  await page.goto(`/plan/${E2E_PLAN_SLUG}/session/A`);
+  await dismissPreSessionPrompt(page);
+  await expect(page.locator(".log-strip")).toBeVisible();
+
+  const warmup = page.locator(".block", { hasText: "Warm-up" });
+  const pills = warmup.locator(".pill");
+  const pillCount = await pills.count();
+
+  // Nothing is done yet: no mark on any pill, on the block, or on the first exercise.
+  await expect(warmup.locator(".pill svg")).toHaveCount(0);
+  await expect(warmup.locator(".block-status svg")).toHaveCount(0);
+  const squat = page.locator(".exercise", { hasText: "Goblet squat" }).first();
+  await expect(squat.locator(".exercise-status svg")).toHaveCount(0);
+
+  // One pill marks itself and nothing else — in particular not the block, which is not
+  // done until every pill is.
+  await pills.nth(0).click();
+  await expect(pills.nth(0)).toHaveAttribute("aria-pressed", "true");
+  await expect(warmup.locator(".pill svg")).toHaveCount(1);
+  await expect(warmup.locator(".block-status svg")).toHaveCount(0);
+
+  // The whole block marks itself only once the last pill lands.
+  for (let i = 1; i < pillCount; i++) await pills.nth(i).click();
+  await expect(warmup.locator(".block-status")).toHaveAttribute("aria-label", "Block complete");
+  await expect(warmup.locator(".block-status svg")).toHaveCount(1);
+
+  // A finished exercise takes the same mark, labelled for a screen reader — the collapsed
+  // row's summary ("8 · 8 · 8 at 10 kg") says what was done but never that it is finished.
+  await logSetThroughRest(page);
+  await logSetThroughRest(page);
+  await logSetThroughRest(page);
+  await expect(squat).toHaveClass(/done/);
+  await expect(squat.locator(".exercise-status")).toHaveAttribute("aria-label", "Done");
+  await expect(squat.locator(".exercise-status svg")).toHaveCount(1);
+});
+
+test("a skipped exercise is marked finished-with, not achieved", async ({ page }) => {
+  await page.goto(`/plan/${E2E_PLAN_SLUG}/session/A`);
+  await dismissPreSessionPrompt(page);
+  await expect(page.locator(".log-strip")).toBeVisible();
+
+  await page.locator(".log-strip .strip-change").click();
+  await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
+
+  const squat = page.locator(".exercise", { hasText: "Goblet squat" }).first();
+  await expect(squat.locator(".exercise-status")).toHaveAttribute("aria-label", "Skipped");
+  await expect(squat).toHaveClass(/skipped/);
+});
+
 /** Opens the deviation sheet on whatever exercise is currently expanded. */
 async function openDeviationSheet(page: Page) {
   await page.locator(".log-strip .strip-change").click();
