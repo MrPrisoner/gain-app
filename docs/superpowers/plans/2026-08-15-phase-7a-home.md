@@ -518,21 +518,34 @@ const METRIC: MetricDef = {
   prompt_when: "next_morning",
 };
 
+/**
+ * A local instant (the runner's own timezone, whatever it is), so fixtures agree with
+ * `dueNextMorningPrompts`'s local-calendar-day semantics wherever the suite happens to
+ * run. A fixed UTC instant does not: `new Date("2026-08-13T23:59:59.999Z")` is still
+ * August 13 in a UTC or negative-offset runner but has already rolled onto August 14 in
+ * any positive-offset one (UTC+1 and later — most of Africa, Europe, Asia, Australia),
+ * so a "midnight boundary" case built from fixed UTC strings passes or fails depending on
+ * where `npm test` happens to run rather than on what the function actually does.
+ */
+function localMs(year: number, month1to12: number, day: number, hour = 0, minute = 0, second = 0): number {
+  return new Date(year, month1to12 - 1, day, hour, minute, second).getTime();
+}
+
 function candidate(overrides: Partial<NextMorningCandidate> = {}): NextMorningCandidate {
   return {
     workoutClientId: "wk-1",
     planSlug: "home-training",
     sessionKey: "A",
-    finishedAt: "2026-08-14T20:00:00.000Z",
+    finishedAt: new Date(localMs(2026, 8, 14, 20, 0, 0)).toISOString(),
     metrics: [METRIC],
     answeredKeys: [],
     ...overrides,
   };
 }
 
-// "Now" fixed at 2026-08-15T09:00:00Z — the candidate's finishedAt (Aug 14, evening) is
-// the previous UTC calendar day.
-const NOW = Date.parse("2026-08-15T09:00:00.000Z");
+// "Now" is local 2026-08-15 09:00 — the candidate's finishedAt (local Aug 14, evening) is
+// the previous local calendar day.
+const NOW = localMs(2026, 8, 15, 9, 0, 0);
 
 describe("dueNextMorningPrompts", () => {
   it("surfaces a candidate finished the previous calendar day", () => {
@@ -540,18 +553,23 @@ describe("dueNextMorningPrompts", () => {
   });
 
   it("excludes a candidate finished two days ago", () => {
-    const old = candidate({ finishedAt: "2026-08-13T20:00:00.000Z" });
+    const old = candidate({ finishedAt: new Date(localMs(2026, 8, 13, 20, 0, 0)).toISOString() });
     expect(dueNextMorningPrompts([old], NOW, [])).toHaveLength(0);
   });
 
   it("excludes a candidate finished today", () => {
-    const today = candidate({ finishedAt: "2026-08-15T02:00:00.000Z" });
+    const today = candidate({ finishedAt: new Date(localMs(2026, 8, 15, 2, 0, 0)).toISOString() });
     expect(dueNextMorningPrompts([today], NOW, [])).toHaveLength(0);
   });
 
-  it("respects the UTC day boundary right at midnight", () => {
-    const justBefore = candidate({ finishedAt: "2026-08-13T23:59:59.999Z" });
-    const justAfter = candidate({ workoutClientId: "wk-2", finishedAt: "2026-08-14T00:00:00.000Z" });
+  it("respects the local calendar-day boundary right at midnight", () => {
+    const justBefore = candidate({
+      finishedAt: new Date(localMs(2026, 8, 13, 23, 59, 59) + 999).toISOString(),
+    });
+    const justAfter = candidate({
+      workoutClientId: "wk-2",
+      finishedAt: new Date(localMs(2026, 8, 14, 0, 0, 0)).toISOString(),
+    });
     expect(dueNextMorningPrompts([justBefore], NOW, [])).toHaveLength(0);
     expect(dueNextMorningPrompts([justAfter], NOW, [])).toHaveLength(1);
   });
@@ -661,13 +679,17 @@ git commit -m "feat(home): add the next-morning prompt windowing"
 - Modify: `src/lib/db/workout.ts`
 - Modify: `src/lib/sync/ops.ts`
 - Modify: `src/lib/sync/replay.ts`
+- Modify: `src/lib/sync/history.ts`
 - Modify: `tests/db/workout.test.ts`
 - Modify: `tests/sync/ops.test.ts`
 - Modify: `tests/sync/replay.test.ts`
+- Modify: `tests/sync/history.test.ts`
 
 **Interfaces:**
 - Consumes: `newId` (`./ulid`, already imported in `workout.ts`).
 - Produces: `logActivity(userDb, input): { id: string }` from `workout.ts`; `ActivityOp` type and the `"activity"` member of `SyncOp`/`syncOpSchema` from `ops.ts`. Task 6 does not depend on this (it only reads); tasks 10 and 13 depend on the `activity` op shape to write one via `logWrite`.
+
+**Pre-flight note:** `src/lib/sync/history.ts`'s `historyFromOps` also switches on `op.kind` (`set`, `deviation`, `metric`, `start`, `finish`), but — unlike `replay.ts` — with no `default: { const x: never = op }` guard, so adding the `activity` member does **not** fail `npm run typecheck` here even though the switch does not handle it. In practice this is unreachable (an `activity` op carries no `workoutClientId`, so it can never appear in the per-workout op list this function receives — same reasoning as task 5's `idb.ts` note), but leaving it as a silent fallthrough is exactly the failure mode `replay.ts`'s own comment says an exhaustiveness guard exists to prevent. Add an explicit `case "activity": break;` alongside the existing `case "start": case "finish": break;`, so the choice to skip it here is visible rather than accidental.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -777,10 +799,29 @@ describe("the activity op", () => {
 });
 ```
 
+In `tests/sync/history.test.ts`, add (mirrors the existing `"ignores start and finish ops"` case just above it):
+
+```ts
+it("ignores activity ops too — an activity hangs off no workout, so it has no history row", () => {
+  const ops: SyncOp[] = [
+    {
+      kind: "activity",
+      id: "01",
+      activityKind: "squash",
+      occurredAt: "2026-09-08T08:00:00.000Z",
+    },
+  ];
+  const history = historyFromOps(ops);
+  expect(history.sets).toEqual([]);
+  expect(history.deviations).toEqual([]);
+  expect(history.metrics).toEqual([]);
+});
+```
+
 - [ ] **Step 2: Run the tests and confirm they fail**
 
-Run: `npx vitest run tests/db/workout.test.ts tests/sync/ops.test.ts tests/sync/replay.test.ts`
-Expected: `logActivity` is not exported, `"activity"` is rejected by `syncOpSchema`, `case "activity"` does not exist.
+Run: `npx vitest run tests/db/workout.test.ts tests/sync/ops.test.ts tests/sync/replay.test.ts tests/sync/history.test.ts`
+Expected: `logActivity` is not exported, `"activity"` is rejected by `syncOpSchema`, `case "activity"` does not exist in `replay.ts`. `history.test.ts`'s new case passes trivially even before Step 3 (`vitest` does not type-check, and `historyFromOps`'s `switch` already produces empty arrays for an unhandled `kind`) — it is included here so it stays green through Step 4 rather than being introduced only after the fact.
 
 - [ ] **Step 3: Implement**
 
@@ -913,10 +954,24 @@ import {
 
 Place it directly above the existing `default:` block inside `applyOp`'s `switch`.
 
+In `src/lib/sync/history.ts`, add an explicit case beside the existing `start`/`finish` one so the skip is visible rather than an accidental silent fallthrough (see the Pre-flight note above):
+
+```ts
+// Change:
+      case "start":
+      case "finish":
+        break;
+// To:
+      case "start":
+      case "finish":
+      case "activity":
+        break;
+```
+
 - [ ] **Step 4: Run the tests and confirm they pass**
 
-Run: `npx vitest run tests/db/workout.test.ts tests/sync/ops.test.ts tests/sync/replay.test.ts`
-Expected: all pass, including every pre-existing test in these three files (the `never` exhaustiveness guard in `replay.ts` means a missing case is a compile error, so `npm run typecheck` — run it here too — is part of confirming this step).
+Run: `npx vitest run tests/db/workout.test.ts tests/sync/ops.test.ts tests/sync/replay.test.ts tests/sync/history.test.ts`
+Expected: all pass, including every pre-existing test in these four files (the `never` exhaustiveness guard in `replay.ts` means a missing case is a compile error, so `npm run typecheck` — run it here too — is part of confirming this step).
 
 Run: `npx tsc --noEmit -p tsconfig.json`
 Expected: no errors.
@@ -924,8 +979,8 @@ Expected: no errors.
 - [ ] **Step 5: Format and commit**
 
 ```bash
-npx prettier --write src/lib/db/workout.ts src/lib/sync/ops.ts src/lib/sync/replay.ts tests/db/workout.test.ts tests/sync/ops.test.ts tests/sync/replay.test.ts
-git add src/lib/db/workout.ts src/lib/sync/ops.ts src/lib/sync/replay.ts tests/db/workout.test.ts tests/sync/ops.test.ts tests/sync/replay.test.ts
+npx prettier --write src/lib/db/workout.ts src/lib/sync/ops.ts src/lib/sync/replay.ts src/lib/sync/history.ts tests/db/workout.test.ts tests/sync/ops.test.ts tests/sync/replay.test.ts tests/sync/history.test.ts
+git add src/lib/db/workout.ts src/lib/sync/ops.ts src/lib/sync/replay.ts src/lib/sync/history.ts tests/db/workout.test.ts tests/sync/ops.test.ts tests/sync/replay.test.ts tests/sync/history.test.ts
 git commit -m "feat(sync): add the activity op, the outbox's sixth kind"
 ```
 
