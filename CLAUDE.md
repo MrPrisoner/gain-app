@@ -165,6 +165,12 @@ Committed so every agent gets the same setup. It is a convenience, not the contr
 before saying the work is done. That is all the hook and `/verify` automate, and an agent
 that does it manually is in exactly the same position as one that does not have to.
 
+**Do not use git worktrees in this repo, including to resume a session that hit a token
+limit.** A session's history lives with the workspace that was open when it ran; move
+that session into a worktree and it drops out of the VS Code extension's history tab,
+making an incomplete session unrecoverable there. Work directly in the main checkout
+instead.
+
 **Where the hook changes what you see.** It rewrites the file after your edit, so a
 follow-up edit whose target region was reformatted will not match — read the file back
 first. It also typechecks the whole project on every edit, so during a multi-file
