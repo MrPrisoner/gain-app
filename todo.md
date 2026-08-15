@@ -20,45 +20,6 @@ Then clear it up behind you:
 
 ## Items
 
-### The e2e harness shares one seeded database across concurrently-run projects
-
-`E2E_DATA_DIR` (`e2e/env.ts`) is unique per Playwright *invocation*, not per *project* —
-one `mkdtempSync` at module load, published once by `global-setup.ts`, read by every
-worker. Every spec until phase 7a scoped its own DB assertions by `client_id`
-(`setLogsOf`, `workoutStatusOf`, `workoutCountFor`...), which happens to sidestep the
-sharing: two projects' workers can each own a differently-`client_id`'d row in the same
-`gain.db` without colliding.
-
-`e2e/home-walkthrough.spec.ts` is the first spec to assert on a whole-account aggregate
-view instead (`.next-morning`'s count) — because that is what the Home screen's
-suggestion and next-morning surfaces actually are: there is no `workoutClientId` on the
-DOM to scope by, by design, matching ARCHITECTURE's one-account-per-user model. Running
-more than one viewport project for this spec in the same invocation — which is exactly
-what a bare `npm run test:e2e` does, `fullyParallel: true` across `small-android`,
-`iphone`, `tablet-portrait` — makes each project's browser independently finish "session
-A, yesterday" around the same moment, so the Home page ends up with one `.next-morning`
-card per concurrent worker and the spec fails on a Playwright strict-mode violation
-(`resolved to 2 elements`). Confirmed: passes reliably every time run as a single
-project (`--project=iphone` alone); fails every time two or more of
-`small-android`/`iphone`/`tablet-portrait` run together for this spec.
-
-Not a defect in the spec's own logic — a gap in the harness's isolation model, newly
-exposed because Home is the first feature with an account-wide (rather than
-workout-scoped) view. Two ways to close it, either touching files outside phase 7a's
-scope (`playwright.config.ts`, `e2e/env.ts`, or `src/routes/` for a `data-workout-*`
-DOM hook):
-
-1. Give each project its own seeded `DATA_DIR` rather than sharing one across the whole
-   invocation — fixes this category of race for every future whole-account-view spec,
-   not just this one.
-2. Expose enough on the DOM (e.g. a `data-workout-client-id` attribute) that a spec can
-   scope its own assertion the way every `client_id`-keyed helper already does — smaller
-   surface change, but only fixes specs that opt into using it.
-
-Until one of these lands, run `home-walkthrough.spec.ts` as a single project per
-invocation (as CLAUDE.md's own "narrow a run with `--project=X`" guidance already
-recommends doing for any one spec) rather than via a bare `npm run test:e2e`.
-
 ### Ability to update a log
 
 Currently, once a user has logged an exercise, there is no way to change that log. A user might make a mistake and would want to change what they logged. For example, forgetting to change the number of reps.

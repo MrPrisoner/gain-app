@@ -205,3 +205,18 @@ Small, real, and owned by no phase. Pick them up wherever they fit.
       and unanswerable in the UI.
 - [ ] **Plan archiving.** `plan.archived_at` is filtered on read in `src/routes/+page.server.ts`
       and nothing ever sets it.
+- [ ] **The e2e harness shares one seeded database across concurrently-run projects.**
+      `E2E_DATA_DIR` (`e2e/env.ts`) is unique per Playwright *invocation*, not per
+      *project*, so a bare `npm run test:e2e` (`fullyParallel: true` across
+      `small-android`/`iphone`/`tablet-portrait`) runs every spec's assertions against one
+      shared `gain.db`. Every spec before phase 7a sidesteps this by scoping its own DB
+      reads by `client_id`; `e2e/home-walkthrough.spec.ts` is the first to assert on a
+      whole-account aggregate view instead (Home's suggestion/next-morning surfaces have
+      no `workoutClientId` on the DOM to scope by, by design), so it's the first to hit
+      the race: concurrent projects each finish "session A, yesterday" around the same
+      moment and the Home page ends up with one `.next-morning` card per worker. Passes
+      reliably as a single project (`--project=iphone` alone); fails whenever two or more
+      of the three run together. Fix is either a `DATA_DIR` per project rather than one
+      shared per invocation, or a `data-workout-client-id` DOM hook a spec can scope by —
+      the former closes this category of race for every future whole-account-view spec,
+      not just this one.
