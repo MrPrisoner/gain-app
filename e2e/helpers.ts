@@ -148,6 +148,20 @@ export function workoutCountFor(clientId: string): number {
   }
 }
 
+export type ActivityRow = { kind: string; occurred_at: string };
+
+/** Every logged activity, most-recent-first — mirrors `setLogsOf`'s direct-read shape. */
+export function activitiesOf(): ActivityRow[] {
+  const db = openSeededUserDb(seededDataDir());
+  try {
+    return db
+      .prepare("SELECT kind, occurred_at FROM activity ORDER BY occurred_at DESC")
+      .all() as ActivityRow[];
+  } finally {
+    db.close();
+  }
+}
+
 /** `document.documentElement.scrollWidth` must never exceed `window.innerWidth` — the
  * one assertion behind every "no horizontal overflow" test, in the base runner, in each
  * `position: fixed` overlay, and in both theme forcings. */
