@@ -173,6 +173,11 @@
     border-radius: var(--r-xs);
     background: var(--raised);
     color: var(--text);
+    /* Without this, "Earlier today" wraps onto two lines and the radio input — which has
+       no pinned intrinsic width in this flex layout — expands to fill the freed-up
+       horizontal space instead of staying at its native size, rendering as an oversized
+       oval next to the other two normal-sized radios. */
+    white-space: nowrap;
   }
   .row2 {
     display: grid;
