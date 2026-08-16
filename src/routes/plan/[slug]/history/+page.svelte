@@ -1,6 +1,7 @@
 <!-- src/routes/plan/[slug]/history/+page.svelte -->
 <script lang="ts">
   import { goto } from "$app/navigation";
+  import { resolve } from "$app/paths";
   import type { PageData } from "./$types";
   let { data }: { data: PageData } = $props();
 </script>
@@ -29,10 +30,20 @@
 
 <div class="pager">
   {#if data.page > 0}
-    <button type="button" onclick={() => goto(`?page=${data.page - 1}`)}>Newer</button>
+    <button
+      type="button"
+      onclick={() =>
+        goto(resolve(`/plan/[slug]/history?page=${data.page - 1}`, { slug: data.planSlug }))}
+      >Newer</button
+    >
   {/if}
   {#if data.hasMore}
-    <button type="button" onclick={() => goto(`?page=${data.page + 1}`)}>Older</button>
+    <button
+      type="button"
+      onclick={() =>
+        goto(resolve(`/plan/[slug]/history?page=${data.page + 1}`, { slug: data.planSlug }))}
+      >Older</button
+    >
   {/if}
 </div>
 
