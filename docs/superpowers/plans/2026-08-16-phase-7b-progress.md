@@ -2831,7 +2831,7 @@ links tie them together). Mirrors Part 4's list-then-detail shape for metrics.
 - Produces: the route `/plan/[slug]/progress/metrics`, linked to by each row's detail
   page (Task 14).
 
-- [ ] **Step 1: Implement the load function**
+- [x] **Step 1: Implement the load function**
 
 ```typescript
 // src/routes/plan/[slug]/progress/metrics/+page.server.ts
@@ -2878,7 +2878,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 };
 ```
 
-- [ ] **Step 2: Implement the page**
+- [x] **Step 2: Implement the page**
 
 ```svelte
 <!-- src/routes/plan/[slug]/progress/metrics/+page.svelte -->
@@ -2934,7 +2934,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 </style>
 ```
 
-- [ ] **Step 3: Format, typecheck, check, commit**
+- [x] **Step 3: Format, typecheck, check, commit**
 
 ```bash
 npx prettier --write src/routes/plan/\[slug\]/progress/metrics/+page.server.ts src/routes/plan/\[slug\]/progress/metrics/+page.svelte
@@ -2960,7 +2960,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 - Consumes: `numericMetricDefs`, `numericMetricSeries` (Task 4); `Sparkline` (Task 8).
 - Produces: the route each Task 13 row links to.
 
-- [ ] **Step 1: Implement the load function**
+- [x] **Step 1: Implement the load function**
 
 ```typescript
 // src/routes/plan/[slug]/progress/metrics/[scope]/[key]/+page.server.ts
@@ -3020,7 +3020,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 };
 ```
 
-- [ ] **Step 2: Implement the page**
+- [x] **Step 2: Implement the page**
 
 ```svelte
 <!-- src/routes/plan/[slug]/progress/metrics/[scope]/[key]/+page.svelte -->
@@ -3074,7 +3074,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 </style>
 ```
 
-- [ ] **Step 3: Format, typecheck, check, commit**
+- [x] **Step 3: Format, typecheck, check, commit**
 
 ```bash
 npx prettier --write "src/routes/plan/[slug]/progress/metrics/[scope]/[key]/+page.server.ts" "src/routes/plan/[slug]/progress/metrics/[scope]/[key]/+page.svelte"
