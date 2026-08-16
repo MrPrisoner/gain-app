@@ -1450,14 +1450,14 @@ module, and adds the one new DB read `History` needs later. No new routes yet.
   table's content changes (rows now key on `(session, exercise)`, plus a new Readiness
   column). `renderExerciseSets` is untouched.
 
-- [ ] **Step 1: Read the current per-exercise section**
+- [x] **Step 1: Read the current per-exercise section**
 
 Open `src/lib/export/summary.ts` and locate the block starting
 `// -- Per-exercise progression, catalogue order, only exercises with logs.` (currently
 around line 129) through the `lines.push("");` that ends it (currently around line 179).
 This whole block is replaced in Step 3.
 
-- [ ] **Step 2: Write the failing test for the new behaviour**
+- [x] **Step 2: Write the failing test for the new behaviour**
 
 Add to `tests/summary.test.ts`, inside the existing `describe("buildProgressSummary", ...)`
 block (reuse the file's existing `contract`/`logs` fixtures where possible, extending
@@ -1513,7 +1513,7 @@ block (reuse the file's existing `contract`/`logs` fixtures where possible, exte
   });
 ```
 
-- [ ] **Step 3: Run to verify the second test's premise, then implement**
+- [x] **Step 3: Run to verify the second test's premise, then implement**
 
 Run: `npx vitest run tests/summary.test.ts`
 Expected: The "splits the same exercise" test FAILs (current code merges into one row);
@@ -1592,7 +1592,7 @@ from the `import { deriveExerciseName } from "../contract/schema"` line, or dele
 whole line if nothing else in the file uses it (check with a search — `renderExerciseSets`
 and the rest of `buildProgressSummary` do not call it).
 
-- [ ] **Step 4: Run every existing summary/export/golden test**
+- [x] **Step 4: Run every existing summary/export/golden test**
 
 ```bash
 npx vitest run tests/summary.test.ts tests/export.test.ts tests/golden.test.ts tests/server/export-route.test.ts
@@ -1604,7 +1604,7 @@ actually pinning the old shape or just checking a substring; per the design spec
 was found pinning the exact merged format, so this should be additive rather than
 destructive.
 
-- [ ] **Step 5: Format, typecheck, verify, commit**
+- [x] **Step 5: Format, typecheck, verify, commit**
 
 ```bash
 npx prettier --write src/lib/export/summary.ts tests/summary.test.ts
@@ -1636,7 +1636,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 - Produces (consumed by Tasks 15, 16):
   - `function versionsByWorkout(userDb: UserDb, planId: string): Map<string, { versionNo: number; importedAt: string }>`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Mirrors `tests/db/logs.test.ts`'s setup exactly (same helper functions, same fixture,
 same revision-building pattern its own "spans every version of the plan" test uses):
@@ -1731,12 +1731,12 @@ describe("versionsByWorkout", () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `npx vitest run tests/db/history.test.ts`
 Expected: FAIL — module does not exist.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```typescript
 // src/lib/db/history.ts
@@ -1769,12 +1769,12 @@ export function versionsByWorkout(
 }
 ```
 
-- [ ] **Step 4: Run to verify pass**
+- [x] **Step 4: Run to verify pass**
 
 Run: `npx vitest run tests/db/history.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Format, typecheck, commit**
+- [x] **Step 5: Format, typecheck, commit**
 
 ```bash
 npx prettier --write src/lib/db/history.ts tests/db/history.test.ts
