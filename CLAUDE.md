@@ -38,8 +38,18 @@ rewired to write through that layer instead of SvelteKit form actions, so a sess
 started, logged and finished with no connection at all, including across a full browser
 kill — proven by `e2e/offline-*.spec.ts` on a real production build, since
 `$service-worker`'s precache manifest is empty under `vite dev`. `src/service-worker.ts`
-precaches the app shell and each visited plan's session data. Phases 7–8 have not started.
-**Phase 7 (progress, history & the Home screen) is next.**
+precaches the app shell and each visited plan's session data. Phase 7 is progress, history
+& the Home screen: `src/lib/progress/double-progression.ts` is the one pure module double
+progression's "one session from a load increase" state is computed in, consumed by both
+`src/lib/export/summary.ts`'s per-exercise table and the exercises list/detail routes
+rather than reimplemented twice; `src/lib/progress/exercise-series.ts`,
+`session-stats.ts` and `metric-series.ts` back the per-exercise, per-session-type and
+metric-trend charts under `src/routes/plan/[slug]/progress/`; and
+`src/lib/db/history.ts` backs the reverse-chronological workout list and detail
+drill-down under `src/routes/plan/[slug]/history/`, both reachable from the Home plan
+card. `e2e/progress-walkthrough.spec.ts` and `e2e/history-walkthrough.spec.ts` walk both
+end to end as the durable proof. Phase 8 has not started. **Phase 8 (revision diff review,
+template editor) is next.**
 
 Two files hold the plan: the build-order table in ARCHITECTURE §12 is the map, and
 [`docs/ROADMAP.md`](docs/ROADMAP.md) is the itinerary — the remaining work item by item,
@@ -610,6 +620,35 @@ which conflicts with the app's DOM lib), so the file passed `npm run typecheck` 
 actually being typechecked — confirmed by deliberately injecting a type error and watching
 `tsc` stay green. A file excluded from the project it appears to belong to needs its own
 project (`tsconfig.worker.json`) or it is unverified, not verified-and-clean.
+
+### What the phase-7 review changed
+
+**A component that always renders its wrapper regardless of data makes an assertion
+against that wrapper pass vacuously.** `Sparkline.svelte` renders its `<svg
+aria-label>` in both the populated and empty-state branches — only the inner content
+swaps — so `e2e/progress-walkthrough.spec.ts`'s original duration-chart assertion passed
+even though the workout it logged was never finished, and `sessionTypeStats`'s
+`completed_at`-gated duration series never got a point to plot. The fix
+(`e2e/progress-walkthrough.spec.ts` now finishes the workout before asserting, `c4a0f4c`)
+is smaller than the rule it surfaces: an e2e assertion on a chart or summary component has
+to prove the underlying data path fired, not just that the component's shell rendered.
+Check what state actually populates the component before asserting on it — every chart in
+this phase renders its container unconditionally, so this is not a one-off.
+
+**`exerciseOccurrences` only enumerates directly-prescribed pairs, and a mid-session
+swap is invisible to it.** `src/lib/progress/exercise-series.ts`'s `exerciseOccurrences`
+walks `contract.sessions` and each session's resolved blocks looking for a
+`(session, exercise)` pairing the plan itself prescribes; it never looks at
+`logs.set_logs`, so an exercise a user swapped in mid-session — never prescribed, only
+logged — has no occurrence to attach its sets to. Its sets stay visible in the raw CSV
+export and the Deviations row, but not on the Progress exercises list or the export's
+per-exercise summary table. This surfaced during the `summary.ts` per-exercise refactor
+and was carried forward, deliberately unfixed, into the exercises list built on top of it
+— it is a real, accepted gap rather than a defect in either diff. Fixing it needs its own
+design decision (what resolved prescription or range does a substitute-only occurrence
+carry? nothing today specifies one) and its own tests; anyone extending per-exercise
+progress or summary views on `exerciseOccurrences` should know the gap exists before
+building on it.
 
 ## Non-goals
 

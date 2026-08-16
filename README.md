@@ -4,16 +4,18 @@ Self-hosted training tracker for AI-authored exercise plans. Import a plan as
 Markdown, run and log sessions from an offline-capable PWA, then export your full
 plan and progress for an AI to review and revise.
 
-> **Status: phase 6 of 8.** The round-trip core (contract parser, diff engine, export
+> **Status: phase 7 of 8.** The round-trip core (contract parser, diff engine, export
 > generator, prompt templates), the per-user storage layer, the web app, the session
-> runner, the export UI and offline sync are built: OIDC sign-in against Authentik, the
-> container, first run — copy a bootstrap prompt into any AI chat, paste the plan back,
-> and it imports — a full session of a real plan logged on a phone, rest timers and
-> deviations included, a logged block leaving GAIN as one pasteable document for the next
-> AI review, and a session that can be started, run and finished with no connection at
-> all — surviving a dropped connection, a locked phone, or the browser itself being
-> killed — syncing cleanly once reconnected. Progress charts and revision diff review are
-> still ahead — see [`docs/ROADMAP.md`](docs/ROADMAP.md).
+> runner, the export UI, offline sync and progress & history are built: OIDC sign-in
+> against Authentik, the container, first run — copy a bootstrap prompt into any AI chat,
+> paste the plan back, and it imports — a full session of a real plan logged on a phone,
+> rest timers and deviations included, a logged block leaving GAIN as one pasteable
+> document for the next AI review, a session that can be started, run and finished with
+> no connection at all — surviving a dropped connection, a locked phone, or the browser
+> itself being killed — syncing cleanly once reconnected, and a Home screen that suggests
+> the next session and charts double progression, per-exercise and per-session-type
+> trends, metric history and a full workout drill-down. Revision diff review is still
+> ahead — see [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ---
 

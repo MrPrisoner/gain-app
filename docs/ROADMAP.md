@@ -29,14 +29,17 @@ line, the README status banner, and CLAUDE.md's "Current state" paragraph.
 
 ## Status
 
-Phases 1–6 are done: the pure round-trip core, the per-user storage layer, the web app with
-OIDC and first run, the session runner, the export UI, and the offline PWA. A full session
-of the fixture plan can be started, logged and finished with no connection at all — including
-across a full browser kill, not just a reload — and syncs cleanly once reconnected, and
-`e2e/session-runner-walkthrough-a.spec.ts`, `-d.spec.ts`, `e2e/export-walkthrough.spec.ts` and
-`e2e/offline-*.spec.ts` prove it.
+Phases 1–7 are done: the pure round-trip core, the per-user storage layer, the web app with
+OIDC and first run, the session runner, the export UI, the offline PWA, and progress, history
+& the Home screen. A full session of the fixture plan can be started, logged and finished with
+no connection at all — including across a full browser kill, not just a reload — and syncs
+cleanly once reconnected, and `e2e/session-runner-walkthrough-a.spec.ts`, `-d.spec.ts`,
+`e2e/export-walkthrough.spec.ts` and `e2e/offline-*.spec.ts` prove it.
+Double-progression state, per-exercise and per-session-type charts, metric trends and the
+reverse-chronological History all render from real logged sets, and
+`e2e/progress-walkthrough.spec.ts` and `e2e/history-walkthrough.spec.ts` walk both end to end.
 
-**Phase 7 is next.**
+**Phase 8 is next.**
 
 | Phase | Deliverable | State |
 |---|---|---|
@@ -46,7 +49,7 @@ across a full browser kill, not just a reload — and syncs cleanly once reconne
 | 4 | Session runner UI, online only | Done |
 | 5 | Export UI — the loop's return crossing | Done |
 | 6 | Offline PWA: IndexedDB, sync queue, idempotency | Done |
-| 7 | Progress, history & the Home screen | Not started |
+| 7 | Progress, history & the Home screen | Done |
 | 8 | Revision diff review, template editor | Not started |
 
 ---
@@ -147,18 +150,30 @@ and each is currently a promise the app does not keep. They are folded in here.
 **Done when:** double-progression state matches hand-calculated expectations, and the Home
 screen suggests the right next session for the fixture plan's `scheduling.sequence`.
 
-- [ ] **Double-progression state as one pure module.** "12/11/11 — one session from a load
+- [x] **Double-progression state as one pure module.** "12/11/11 — one session from a load
       increase" does not exist anywhere yet. Build it once and have *both* the charts and
       `src/lib/export/summary.ts` consume it. Two implementations of this arithmetic is
       exactly the silent-wrong-number failure the export invariant warns about.
-- [ ] **Per-exercise progress**: load × reps over time, estimated volume, difficulty
-      distribution.
-- [ ] **Per-session-type**: duration, completion rate, deviation count.
-- [ ] **Metric trends.** Any numeric plan-declared metric is chartable, keyed on
+      `src/lib/progress/double-progression.ts` (`848c3e1`), consumed by
+      `src/lib/export/summary.ts` (`b9341c6`) and the exercises list/detail routes
+      (`261fea3`, `9569f1a`).
+- [x] **Per-exercise progress**: load × reps over time, estimated volume, difficulty
+      distribution. `src/lib/progress/exercise-series.ts` (`928bf74`),
+      `src/routes/plan/[slug]/progress/exercises/` — list (`261fea3`) and detail
+      (`9569f1a`).
+- [x] **Per-session-type**: duration, completion rate, deviation count.
+      `src/lib/progress/session-stats.ts` (`6545edf`),
+      `src/routes/plan/[slug]/progress/+page.server.ts` (`04b244e`).
+- [x] **Metric trends.** Any numeric plan-declared metric is chartable, keyed on
       `(scope, key)` — a plan may legally declare `rpe` at both set and session scope, and
       keying on the bare key merges two unrelated series into a plausible wrong number.
-- [ ] **History**: reverse-chronological workout list, drilling into full set detail and the
-      plan version it ran under.
+      `src/lib/progress/metric-series.ts` (`32f62c5`),
+      `src/routes/plan/[slug]/progress/metrics/` — list (`7e3852f`) and detail
+      (`21a6073`).
+- [x] **History**: reverse-chronological workout list, drilling into full set detail and the
+      plan version it ran under. `src/lib/db/history.ts` (`9c2c386`),
+      `src/routes/plan/[slug]/history/` — list (`3dbfc4f`, fix `308a6e9`) and detail
+      (`633538c`).
 - [x] **Home: the suggested next session**, from `scheduling.sequence`, with any session
       selectable as an override. `src/lib/home/next-session.ts`, `src/routes/+page.server.ts`
       (`b7a419b`, `6eb0487`).
