@@ -132,10 +132,23 @@ type DoubleProgressionState =
   | { status: "ready"; latest: number[] };
 ```
 
-`ready` means every set in the most recent workout met or exceeded the range's upper
-bound. `in_progress` means there is history but the latest workout did not. The headline
-text ("12/11/11 — one session from a load increase") is a presentation-layer format of
-this value, not part of the pure module's return shape.
+`ready` means the most recent workout carried at least as many sets as the prescription
+asks for, and every one of them met or exceeded the range's upper bound. `in_progress`
+means there is history but the latest workout did not clear both tests. The headline text
+("12/11/11 — one session from a load increase") is a presentation-layer format of this
+value, not part of the pure module's return shape.
+
+The set count is part of the test rather than an afterthought because this verdict is one
+of the numbers `summary.ts` puts in front of the reviewing AI, which CLAUDE.md's export
+invariant says will trust it and not check it. One set at the top of the range out of a
+prescribed three is not a session that earned more load, and reporting it as one turns
+into a prescription the user cannot perform.
+
+A **ranged** set count takes its lower bound: `sets: [2, 3]` (the fixture's session-D
+goblet squat) means the plan itself sanctions two, so two sets at the top of the range is
+ready. Requiring three would leave a user who reliably does two reading "in progress"
+indefinitely — a silent wrong answer in the other direction. Extra sets beyond the
+prescription count in the user's favour, since an `add_set` deviation is ordinary.
 
 ---
 
@@ -304,6 +317,14 @@ forward), and ARCHITECTURE §12's "Done when" column.
 ---
 
 ## 13. Out of scope
+
+**Offline.** These are server-rendered read screens, and nothing here extends
+`src/service-worker.ts`'s precache: offline, Progress and History fall through to
+`/offline` like any other unvisited route. That is the right line rather than an
+oversight. Offline is a hard requirement because a workout must survive a garage with no
+signal (ARCHITECTURE §4) — logging is the thing that cannot wait and cannot be redone.
+Reading a chart can wait for a connection, and precaching every plan's analytics would
+grow the install step for a screen nobody opens mid-set.
 
 Editing or deleting a logged set, deviation or activity. Browsing an old plan version's
 actual document (ROADMAP loose end, unowned). Plan archiving (same). Automating

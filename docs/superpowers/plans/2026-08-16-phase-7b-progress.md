@@ -30,10 +30,11 @@ Playwright. Charts are hand-rolled inline SVG — no new dependency.
   prescribing the same exercise collapse to one occurrence. This is a known, accepted
   limit (see `src/lib/session/resume.ts`'s own comment on the same gap), not something
   this phase fixes.
-- **Double-progression readiness reads range vs. reps/duration only** — never a metric
-  value (`rir`, `symptoms_during`, …). Metric keys are plan-specific free text with no
-  structural meaning; ARCHITECTURE explicitly restricts GAIN to acting automatically on
-  `scheduling.sequence` alone.
+- **Double-progression readiness reads the prescription and the log, nothing else** —
+  the rep/duration range, and how many sets the prescription asks for. Never a metric
+  value (`rir`, `symptoms_during`, …): metric keys are plan-specific free text with no
+  structural meaning, and ARCHITECTURE explicitly restricts GAIN to acting automatically
+  on `scheduling.sequence` alone.
 - **One exception to "full unwindowed history" for readiness: `src/lib/export/summary.ts`
   computes it from the same windowed series as that row's other columns**, so one export
   row never disagrees with itself about what "latest" means. Every other consumer
@@ -49,6 +50,28 @@ Playwright. Charts are hand-rolled inline SVG — no new dependency.
   hover-only handler.
 - **Windowing reuses `src/lib/export/windows.ts` and `src/lib/export/bundle.ts`'s
   `filterLogsToWindow`** — no second definition of "windowed" anywhere in this phase.
+  Note one deliberate divergence from that module's own doc comment: it says an
+  unresolvable window id is the caller's cue to `fail(400)` rather than substitute a
+  default, because a mislabelled *export bundle* misleads the reviewing AI. A chart
+  screen reached by a hand-edited query string carries no such label into the loop, so
+  these routes fall back to `options[0]` instead of erroring. Say so in a comment at each
+  fallback rather than leaving it looking like an oversight.
+- **A movement that carries no load still needs a first chart.** Most of the fixture's
+  exercises are bodyweight (`dead-bug`, `mcgill-curl-up`, `side-plank-knees`, the whole
+  warm-up), and several are timed rather than counted. Plotting `weight_kg ?? 0` for those
+  draws a flat line at zero with nothing to read, which is why `topSetChartPoints` (Task 1)
+  decides per series whether load or effort is the quantity worth plotting.
+- **Nothing here is precached, and that is the decision** (spec §13). Progress and History
+  are server-rendered read screens that fall through to `/offline` without a connection;
+  `src/service-worker.ts` is not touched by this phase. Offline is a hard requirement for
+  *logging*, which cannot wait and cannot be redone — reading a chart can.
+- **Only `set` and `session` scope metrics are chartable in practice today.** `exercise`
+  scope is declared in the fixture (`rir`) and supported by the sync ops, but nothing in
+  the runner writes one yet, so `numericMetricSeries` returns nothing for it and the list
+  filters the row out. Do not special-case it — but be aware that when exercise-scope
+  values do start arriving, one workout yields several values at one `started_at`, and
+  the line chart will need a decision (mean per workout, or one series per exercise) that
+  is deliberately out of this phase's scope.
 - **Reads go through `logsForPlan`** (`src/lib/db/logs.ts`), exactly as
   `buildProgressSummary` already does. No new bulk read module for sets, workouts,
   metric values or deviations — `src/lib/db/history.ts` adds exactly the one thing
@@ -63,17 +86,13 @@ Playwright. Charts are hand-rolled inline SVG — no new dependency.
 
 ```
 src/lib/progress/
-  exercise-series.ts          buildExerciseSeries, exerciseOccurrences,
-                               topSetPoints, volumePoints, difficultyDistribution
-  exercise-series.test.ts
-  double-progression.ts       doubleProgressionState, formatDoubleProgressionState
-  double-progression.test.ts
+  exercise-series.ts          buildExerciseSeries, exerciseOccurrences, topSetPoints,
+                               topSetChartPoints, volumePoints, difficultyDistribution
+  double-progression.ts       doubleProgressionState, formatDoubleProgressionState,
+                               formatReadiness
   session-stats.ts            sessionTypeStats
-  session-stats.test.ts
   metric-series.ts            numericMetricDefs, numericMetricSeries
-  metric-series.test.ts
   chart-geometry.ts           layoutLineChart, layoutBarChart
-  chart-geometry.test.ts
 
 src/lib/components/
   Sparkline.svelte            generic single-series line chart
@@ -84,9 +103,8 @@ src/lib/db/
 src/lib/export/
   summary.ts                  MODIFIED — per-exercise section refactored
 
-tests/progress/
-  exercise-series.test.ts (mirrors src/lib/progress/, see above — Vitest convention:
-  tests live under tests/, not beside the source)
+tests/progress/                one file per module above — this repo's tests live under
+  exercise-series.test.ts      tests/, mirroring src/lib/, never beside the source
   double-progression.test.ts
   session-stats.test.ts
   metric-series.test.ts
@@ -145,8 +163,10 @@ touching a single route.
   - `function buildExerciseSeries(logs: Logs, sessionKey: string, exerciseSlug: string): ExerciseSeriesPoint[]`
   - `type ExerciseOccurrence = { sessionKey: string; sessionName: string; exerciseSlug: string; exerciseName: string; resolved: ResolvedExercise }`
   - `function exerciseOccurrences(contract: GainContract): ExerciseOccurrence[]`
-  - `type LoadRepsPoint = { startedAt: string; weightKg: number | undefined; reps: number | undefined }`
+  - `type LoadRepsPoint = { startedAt: string; weightKg: number | undefined; reps: number | undefined; durationS: number | undefined }`
   - `function topSetPoints(series: readonly ExerciseSeriesPoint[], side: "left" | "right" | undefined): LoadRepsPoint[]`
+  - `type EffortChartSeries = { plots: "load" | "effort"; unit: "kg" | "reps" | "s"; points: { startedAt: string; value: number; label: string | undefined }[] }`
+  - `function topSetChartPoints(series: readonly ExerciseSeriesPoint[], side: "left" | "right" | undefined, type: "reps" | "time"): EffortChartSeries`
   - `type VolumePoint = { startedAt: string; volumeKg: number }`
   - `function volumePoints(series: readonly ExerciseSeriesPoint[], side: "left" | "right" | undefined): VolumePoint[]`
   - `function difficultyDistribution(series: readonly ExerciseSeriesPoint[], side: "left" | "right" | undefined): { easy: number; medium: number; hard: number }`
@@ -162,6 +182,7 @@ import {
   buildExerciseSeries,
   difficultyDistribution,
   exerciseOccurrences,
+  topSetChartPoints,
   topSetPoints,
   volumePoints,
 } from "../../src/lib/progress/exercise-series";
@@ -266,9 +287,60 @@ describe("topSetPoints", () => {
   it("picks the heaviest set per workout and its reps", () => {
     const series = buildExerciseSeries(logs, "A", "goblet-squat");
     expect(topSetPoints(series, undefined)).toEqual([
-      { startedAt: "2026-08-01T07:00:00Z", weightKg: 6, reps: 8 },
-      { startedAt: "2026-08-08T07:00:00Z", weightKg: 6, reps: 12 },
+      { startedAt: "2026-08-01T07:00:00Z", weightKg: 6, reps: 8, durationS: undefined },
+      { startedAt: "2026-08-08T07:00:00Z", weightKg: 6, reps: 12, durationS: undefined },
     ]);
+  });
+});
+
+describe("topSetChartPoints", () => {
+  it("plots the load and labels the reps when the movement carries a load", () => {
+    const series = buildExerciseSeries(logs, "A", "goblet-squat");
+    expect(topSetChartPoints(series, undefined, "reps")).toEqual({
+      plots: "load",
+      unit: "kg",
+      points: [
+        { startedAt: "2026-08-01T07:00:00Z", value: 6, label: "8" },
+        { startedAt: "2026-08-08T07:00:00Z", value: 6, label: "12" },
+      ],
+    });
+  });
+
+  it("plots the reps themselves for a bodyweight movement — a flat zero-load line says nothing", () => {
+    const bodyweight: Logs = {
+      ...EMPTY_LOGS,
+      workouts: [
+        { id: "w1", session_key: "A", started_at: "2026-08-01T07:00:00Z", status: "completed" },
+      ],
+      set_logs: [
+        { id: "s1", workout_id: "w1", exercise_slug: "dead-bug", set_no: 1, reps: 14 },
+        { id: "s2", workout_id: "w1", exercise_slug: "dead-bug", set_no: 2, reps: 16 },
+      ],
+    };
+    const series = buildExerciseSeries(bodyweight, "A", "dead-bug");
+    expect(topSetChartPoints(series, undefined, "reps")).toEqual({
+      plots: "effort",
+      unit: "reps",
+      points: [{ startedAt: "2026-08-01T07:00:00Z", value: 16, label: undefined }],
+    });
+  });
+
+  it("plots seconds for a timed bodyweight movement", () => {
+    const timed: Logs = {
+      ...EMPTY_LOGS,
+      workouts: [
+        { id: "w1", session_key: "A", started_at: "2026-08-01T07:00:00Z", status: "completed" },
+      ],
+      set_logs: [
+        { id: "s1", workout_id: "w1", exercise_slug: "side-plank", set_no: 1, duration_s: 30 },
+      ],
+    };
+    const series = buildExerciseSeries(timed, "A", "side-plank");
+    expect(topSetChartPoints(series, undefined, "time")).toEqual({
+      plots: "effort",
+      unit: "s",
+      points: [{ startedAt: "2026-08-01T07:00:00Z", value: 30, label: undefined }],
+    });
   });
 });
 
@@ -417,9 +489,14 @@ function setsForSide(
   return point.sets.filter((s) => (s.side ?? undefined) === side);
 }
 
-export type LoadRepsPoint = { startedAt: string; weightKg: number | undefined; reps: number | undefined };
+export type LoadRepsPoint = {
+  startedAt: string;
+  weightKg: number | undefined;
+  reps: number | undefined;
+  durationS: number | undefined;
+};
 
-/** The heaviest set logged that workout, and the reps done at that weight — the single
+/** The heaviest set logged that workout, and the effort done at that weight — the single
  * chart in spec §5 that plots both quantities without a second (dual) axis. */
 export function topSetPoints(
   series: readonly ExerciseSeriesPoint[],
@@ -432,9 +509,69 @@ export function topSetPoints(
     const top = sets.reduce((best, s) =>
       (s.weight_kg ?? -Infinity) > (best.weight_kg ?? -Infinity) ? s : best,
     );
-    points.push({ startedAt: point.startedAt, weightKg: top.weight_kg, reps: top.reps });
+    points.push({
+      startedAt: point.startedAt,
+      weightKg: top.weight_kg,
+      reps: top.reps,
+      durationS: top.duration_s,
+    });
   }
   return points;
+}
+
+export type EffortChartSeries = {
+  plots: "load" | "effort";
+  unit: "kg" | "reps" | "s";
+  points: { startedAt: string; value: number; label: string | undefined }[];
+};
+
+/**
+ * What the detail page's first chart actually plots (spec §5).
+ *
+ * When the movement carries a load, that load is the value and the effort done at it is
+ * the point's direct label — the single-axis "load × reps" chart, no second axis. When it
+ * carries none, plotting `weight_kg ?? 0` would draw a flat line at zero with nothing to
+ * read, and most of this fixture is bodyweight (`dead-bug`, `mcgill-curl-up`,
+ * `side-plank-knees`, every warm-up movement). So the effort itself becomes the value —
+ * best set of the workout, reps or seconds according to the prescription's own type — and
+ * carries no label, because the value already is the label.
+ */
+export function topSetChartPoints(
+  series: readonly ExerciseSeriesPoint[],
+  side: "left" | "right" | undefined,
+  type: "reps" | "time",
+): EffortChartSeries {
+  const tops = topSetPoints(series, side);
+  const plotsLoad = tops.some((p) => p.weightKg !== undefined);
+  const effortOf = (set: { reps?: number; duration_s?: number }): number | undefined =>
+    type === "time" ? set.duration_s : set.reps;
+
+  if (plotsLoad) {
+    return {
+      plots: "load",
+      unit: "kg",
+      points: tops.map((p) => {
+        const effort = type === "time" ? p.durationS : p.reps;
+        return {
+          startedAt: p.startedAt,
+          value: p.weightKg ?? 0,
+          label: effort === undefined ? undefined : String(effort),
+        };
+      }),
+    };
+  }
+
+  // No load anywhere in the series: the best effort of each workout is the series.
+  const points: EffortChartSeries["points"] = [];
+  for (const point of series) {
+    const efforts = setsForSide(point, side)
+      .map(effortOf)
+      .filter((v): v is number => v !== undefined);
+    if (efforts.length === 0) continue;
+    points.push({ startedAt: point.startedAt, value: Math.max(...efforts), label: undefined });
+  }
+
+  return { plots: "effort", unit: type === "time" ? "s" : "reps", points };
 }
 
 export type VolumePoint = { startedAt: string; volumeKg: number };
@@ -470,7 +607,7 @@ export function difficultyDistribution(
 - [ ] **Step 4: Run to verify pass**
 
 Run: `npx vitest run tests/progress/exercise-series.test.ts`
-Expected: PASS, all 9 tests.
+Expected: PASS, all 12 tests.
 
 - [ ] **Step 5: Format, typecheck, commit**
 
@@ -500,8 +637,16 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 - Produces (consumed by Tasks 6, 11, 12):
   - `type DoubleProgressionState = { status: "no_data" } | { status: "in_progress"; latest: number[] } | { status: "ready"; latest: number[] }`
   - `type DoubleProgressionBySide = { none?: DoubleProgressionState; left?: DoubleProgressionState; right?: DoubleProgressionState }`
-  - `function doubleProgressionState(series: readonly ExerciseSeriesPoint[], target: IntOrRange | undefined, type: "reps" | "time", perSide: boolean): DoubleProgressionBySide | undefined`
+  - `function doubleProgressionState(series: readonly ExerciseSeriesPoint[], target: IntOrRange | undefined, prescribedSets: IntOrRange, type: "reps" | "time", perSide: boolean): DoubleProgressionBySide | undefined`
+    — `prescribedSets` is `ResolvedExercise.sets`. Without it, one set at the top of the
+    range out of a prescribed three reads "ready for a load increase", and after Task 6
+    that verdict ships in the export, where CLAUDE.md's invariant says the AI will trust
+    it and not check.
   - `function formatDoubleProgressionState(state: DoubleProgressionState): string`
+  - `function formatReadiness(state: DoubleProgressionBySide | undefined, noRange: string): string`
+    — the one-line rendering of a whole `DoubleProgressionBySide`, shared by
+    `summary.ts` (Task 6) and the exercises list (Task 11) so the export table and the
+    app cannot describe the same state in two different sentences.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -512,6 +657,7 @@ import type { ExerciseSeriesPoint } from "../../src/lib/progress/exercise-series
 import {
   doubleProgressionState,
   formatDoubleProgressionState,
+  formatReadiness,
 } from "../../src/lib/progress/double-progression";
 
 const point = (startedAt: string, sets: ExerciseSeriesPoint["sets"]): ExerciseSeriesPoint => ({
@@ -531,26 +677,43 @@ const setOf = (set_no: number, reps: number, side?: "left" | "right") => ({
 
 describe("doubleProgressionState", () => {
   it("reports no state for a scalar target — nothing to progress through", () => {
-    expect(doubleProgressionState([], 10, "reps", false)).toBeUndefined();
-    expect(doubleProgressionState([], [10, 10], "reps", false)).toBeUndefined();
+    expect(doubleProgressionState([], 10, 1, "reps", false)).toBeUndefined();
+    expect(doubleProgressionState([], [10, 10], 1, "reps", false)).toBeUndefined();
   });
 
   it("reports no_data with no history", () => {
-    const state = doubleProgressionState([], [8, 12], "reps", false);
+    const state = doubleProgressionState([], [8, 12], 3, "reps", false);
     expect(state?.none).toEqual({ status: "no_data" });
   });
 
-  it("is ready when every set in the latest workout meets the range's top", () => {
+  it("is ready when every prescribed set in the latest workout meets the range's top", () => {
     const series = [point("2026-08-01", [setOf(1, 12), setOf(2, 12)])];
-    const state = doubleProgressionState(series, [8, 12], "reps", false);
+    const state = doubleProgressionState(series, [8, 12], 2, "reps", false);
     expect(state?.none).toEqual({ status: "ready", latest: [12, 12] });
+  });
+
+  it("is in_progress when fewer sets were logged than prescribed, however good they were", () => {
+    // One set at the top of the range out of a prescribed three is not a session at the
+    // top of the range — and this verdict reaches the reviewing AI through summary.ts.
+    const series = [point("2026-08-01", [setOf(1, 12)])];
+    const state = doubleProgressionState(series, [8, 12], 3, "reps", false);
+    expect(state?.none).toEqual({ status: "in_progress", latest: [12] });
+  });
+
+  it("takes a ranged prescription's LOWER bound as the requirement", () => {
+    // The fixture's session-D goblet squat is `sets: [2, 3]` — two sets is work the plan
+    // itself sanctions, so two at the top of the range is ready. Requiring three would
+    // leave a user who reliably does two reading "in progress" forever.
+    const series = [point("2026-08-01", [setOf(1, 15), setOf(2, 15)])];
+    const state = doubleProgressionState(series, [12, 15], [2, 3], "reps", false);
+    expect(state?.none).toEqual({ status: "ready", latest: [15, 15] });
   });
 
   it("is in_progress when the ROADMAP's own example (12/11/11) falls short of the top", () => {
     const series = [
       point("2026-08-01", [setOf(1, 12), setOf(2, 11), setOf(3, 11)]),
     ];
-    const state = doubleProgressionState(series, [8, 12], "reps", false);
+    const state = doubleProgressionState(series, [8, 12], 3, "reps", false);
     expect(state?.none).toEqual({ status: "in_progress", latest: [12, 11, 11] });
   });
 
@@ -559,7 +722,7 @@ describe("doubleProgressionState", () => {
       point("2026-08-01", [setOf(1, 8)]),
       point("2026-08-08", [setOf(1, 12)]),
     ];
-    const state = doubleProgressionState(series, [8, 12], "reps", false);
+    const state = doubleProgressionState(series, [8, 12], 1, "reps", false);
     expect(state?.none).toEqual({ status: "ready", latest: [12] });
   });
 
@@ -567,14 +730,14 @@ describe("doubleProgressionState", () => {
     const series = [
       point("2026-08-01", [setOf(1, 12, "left"), setOf(1, 9, "right")]),
     ];
-    const state = doubleProgressionState(series, [8, 12], "reps", true);
+    const state = doubleProgressionState(series, [8, 12], 1, "reps", true);
     expect(state?.left).toEqual({ status: "ready", latest: [12] });
     expect(state?.right).toEqual({ status: "in_progress", latest: [9] });
   });
 
   it("reads duration for a type: time exercise", () => {
     const series = [point("2026-08-01", [{ ...setOf(1, 0), reps: undefined, duration_s: 40 }])];
-    const state = doubleProgressionState(series, [20, 40], "time", false);
+    const state = doubleProgressionState(series, [20, 40], 1, "time", false);
     expect(state?.none).toEqual({ status: "ready", latest: [40] });
   });
 });
@@ -596,6 +759,27 @@ describe("formatDoubleProgressionState", () => {
     );
   });
 });
+
+describe("formatReadiness", () => {
+  it("returns the caller's no-range text when there is no state at all", () => {
+    expect(formatReadiness(undefined, "–")).toBe("–");
+  });
+
+  it("renders a single-sided state as one sentence", () => {
+    expect(formatReadiness({ none: { status: "ready", latest: [12] } }, "–")).toBe(
+      "12 — ready for a load increase",
+    );
+  });
+
+  it("renders both sides of a per_side state", () => {
+    expect(
+      formatReadiness(
+        { left: { status: "ready", latest: [12] }, right: { status: "in_progress", latest: [9] } },
+        "–",
+      ),
+    ).toBe("L: 12 — ready for a load increase · R: 9 — in progress");
+  });
+});
 ```
 
 - [ ] **Step 2: Run to verify failure**
@@ -609,10 +793,16 @@ Expected: FAIL — module does not exist.
 // src/lib/progress/double-progression.ts
 /**
  * "12/11/11 — one session from a load increase" (ROADMAP phase 7). Purely mechanical:
- * ready means every set in the most recent workout met or exceeded the prescribed
- * range's top. Never weighs a metric value (rir, symptoms_during, …) — ARCHITECTURE
- * restricts GAIN to acting automatically on `scheduling.sequence` alone, and a plan's
- * other metric keys are free text with no structural meaning the app can lean on.
+ * ready means the most recent workout carried at least as many sets as the prescription
+ * asks for, and every one of them met or exceeded the range's top. Never weighs a metric
+ * value (rir, symptoms_during, …) — ARCHITECTURE restricts GAIN to acting automatically
+ * on `scheduling.sequence` alone, and a plan's other metric keys are free text with no
+ * structural meaning the app can lean on.
+ *
+ * The set count is load-bearing rather than pedantry: `summary.ts` puts this verdict in
+ * the export, where CLAUDE.md's invariant says the reviewing AI trusts it and does not
+ * check it, so one strong set out of three prescribed must not read as a session that
+ * earned more load.
  */
 
 import type { IntOrRange } from "../contract/schema";
@@ -637,6 +827,17 @@ function upperBound(target: [number, number]): number {
   return target[1];
 }
 
+/**
+ * How many sets have to be at the top of the range before "ready" — the **lower** bound
+ * of a ranged prescription. `sets: [2, 3]` (the fixture's session-D goblet squat) means
+ * the plan itself sanctions two, so two at the top of the range has earned the load;
+ * requiring three would leave a user who reliably does two reading "in progress" forever,
+ * which is a silent wrong answer in the opposite direction.
+ */
+function requiredSetCount(prescribedSets: IntOrRange): number {
+  return Array.isArray(prescribedSets) ? Math.min(...prescribedSets) : prescribedSets;
+}
+
 function valueOf(set: { reps?: number; duration_s?: number }, type: "reps" | "time"): number | undefined {
   return type === "time" ? set.duration_s : set.reps;
 }
@@ -645,6 +846,7 @@ function stateForSide(
   series: readonly ExerciseSeriesPoint[],
   side: "left" | "right" | undefined,
   target: [number, number],
+  required: number,
   type: "reps" | "time",
 ): DoubleProgressionState {
   const top = upperBound(target);
@@ -653,7 +855,9 @@ function stateForSide(
     if (sets.length === 0) continue;
     const values = sets.map((s) => valueOf(s, type)).filter((v): v is number => v !== undefined);
     if (values.length === 0) continue;
-    const ready = values.length === sets.length && values.every((v) => v >= top);
+    // An added set counts in the user's favour (>=, not ===); a missing one does not.
+    const ready =
+      values.length === sets.length && values.length >= required && values.every((v) => v >= top);
     return { status: ready ? "ready" : "in_progress", latest: values };
   }
   return { status: "no_data" };
@@ -664,16 +868,18 @@ function stateForSide(
 export function doubleProgressionState(
   series: readonly ExerciseSeriesPoint[],
   target: IntOrRange | undefined,
+  prescribedSets: IntOrRange,
   type: "reps" | "time",
   perSide: boolean,
 ): DoubleProgressionBySide | undefined {
   if (!isTrueRange(target)) return undefined;
+  const required = requiredSetCount(prescribedSets);
   return perSide
     ? {
-        left: stateForSide(series, "left", target, type),
-        right: stateForSide(series, "right", target, type),
+        left: stateForSide(series, "left", target, required, type),
+        right: stateForSide(series, "right", target, required, type),
       }
-    : { none: stateForSide(series, undefined, target, type) };
+    : { none: stateForSide(series, undefined, target, required, type) };
 }
 
 export function formatDoubleProgressionState(state: DoubleProgressionState): string {
@@ -681,12 +887,29 @@ export function formatDoubleProgressionState(state: DoubleProgressionState): str
   const values = state.latest.join("/");
   return state.status === "ready" ? `${values} — ready for a load increase` : `${values} — in progress`;
 }
+
+/**
+ * One line for a whole `DoubleProgressionBySide`. Shared by the export table and the
+ * app's exercises list so the same state is never described two different ways in two
+ * places the user compares side by side. `noRange` is what a scalar prescription renders
+ * as — a dash in a Markdown table, a sentence in a list row.
+ */
+export function formatReadiness(
+  state: DoubleProgressionBySide | undefined,
+  noRange: string,
+): string {
+  if (state === undefined) return noRange;
+  if (state.none) return formatDoubleProgressionState(state.none);
+  const left = formatDoubleProgressionState(state.left ?? { status: "no_data" });
+  const right = formatDoubleProgressionState(state.right ?? { status: "no_data" });
+  return `L: ${left} · R: ${right}`;
+}
 ```
 
 - [ ] **Step 4: Run to verify pass**
 
 Run: `npx vitest run tests/progress/double-progression.test.ts`
-Expected: PASS, all 10 tests.
+Expected: PASS, all 15 tests.
 
 - [ ] **Step 5: Format, typecheck, commit**
 
@@ -697,8 +920,11 @@ git add src/lib/progress/double-progression.ts tests/progress/double-progression
 git commit -m "feat(progress): add doubleProgressionState
 
 Range-vs-reps/duration only, evaluated per side for a per_side exercise,
-reading only the most recent workout. Deliberately blind to metric values
-— see the module comment for why.
+reading only the most recent workout. Ready also requires the workout to
+have carried the prescribed number of sets — one strong set out of three
+is not a session that earned more load, and this verdict reaches the
+reviewing AI through the export. Deliberately blind to metric values —
+see the module comment for why.
 
 Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 ```
@@ -1198,7 +1424,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 
 ---
 
-**Part 1 done when:** `npx vitest run tests/progress/` passes (25 tests across 5 files),
+**Part 1 done when:** `npx vitest run tests/progress/` passes (43 tests across 5 files),
 `npm run typecheck` is clean. Nothing outside `src/lib/progress/` has changed. Safe
 stopping point — no routes, no UI, nothing user-visible yet.
 
@@ -1217,7 +1443,7 @@ module, and adds the one new DB read `History` needs later. No new routes yet.
 
 **Interfaces:**
 - Consumes: `exerciseOccurrences`, `buildExerciseSeries` from `src/lib/progress/exercise-series.ts`
-  (Task 1); `doubleProgressionState`, `formatDoubleProgressionState` from
+  (Task 1); `doubleProgressionState`, `formatReadiness` from
   `src/lib/progress/double-progression.ts` (Task 2).
 - Produces: `buildProgressSummary`'s public signature is unchanged
   (`(contract, logs, windowLabel, now) => string`); only its "Per-exercise progression"
@@ -1318,18 +1544,16 @@ Replace the block identified in Step 1 with:
 
     const target =
       occurrence.resolved.type === "time" ? occurrence.resolved.durationSec : occurrence.resolved.reps;
-    const readiness = doubleProgressionState(
-      series,
-      target,
-      occurrence.resolved.type,
-      occurrence.resolved.perSide,
+    const readinessText = formatReadiness(
+      doubleProgressionState(
+        series,
+        target,
+        occurrence.resolved.sets,
+        occurrence.resolved.type,
+        occurrence.resolved.perSide,
+      ),
+      "–",
     );
-    const readinessText =
-      readiness === undefined
-        ? "–"
-        : occurrence.resolved.perSide
-          ? `L: ${formatDoubleProgressionState(readiness.left ?? { status: "no_data" })} · R: ${formatDoubleProgressionState(readiness.right ?? { status: "no_data" })}`
-          : formatDoubleProgressionState(readiness.none ?? { status: "no_data" });
 
     exerciseRows.push(
       `| ${cell(occurrence.exerciseName)} (\`${occurrence.exerciseSlug}\`) | ${cell(occurrence.sessionName)} | ${series.length} | ${first} | ${latest} | ${lastDifficulty ?? "–"} | ${cell(readinessText)} |`,
@@ -1356,7 +1580,7 @@ Update the imports at the top of `src/lib/export/summary.ts`:
 
 ```typescript
 import type { GainContract, MetricDef, MetricScope } from "../contract/schema";
-import { doubleProgressionState, formatDoubleProgressionState } from "../progress/double-progression";
+import { doubleProgressionState, formatReadiness } from "../progress/double-progression";
 import { buildExerciseSeries, exerciseOccurrences } from "../progress/exercise-series";
 import type { Logs, MetricValue, SetLog, Workout } from "../logs/types";
 import { formatNum } from "./csv";
@@ -1589,7 +1813,7 @@ it offers don't resolve to real pages until Parts 4–5.
 **Interfaces:**
 - Consumes: `layoutLineChart`, `ChartPoint` from `src/lib/progress/chart-geometry.ts` (Task 5).
 - Produces (consumed by Tasks 10, 12, 14): a Svelte component with props
-  `{ points: ChartPoint[]; width?: number; height?: number; formatPointLabel: (point: ChartPoint, index: number, all: ChartPoint[]) => string | undefined; formatReadout: (point: ChartPoint) => string; emptyLabel?: string }`.
+  `{ points: ChartPoint[]; width?: number; height?: number; ariaLabel?: string; formatPointLabel: (point: ChartPoint, index: number, all: ChartPoint[]) => string | undefined; formatReadout: (point: ChartPoint) => string; emptyLabel?: string }`.
 
 - [ ] **Step 1: Implement**
 
@@ -1614,6 +1838,7 @@ it offers don't resolve to real pages until Parts 4–5.
     points,
     width = 320,
     height = 120,
+    ariaLabel = "trend chart",
     formatPointLabel,
     formatReadout,
     emptyLabel = "No data yet",
@@ -1621,6 +1846,9 @@ it offers don't resolve to real pages until Parts 4–5.
     points: ChartPoint[];
     width?: number;
     height?: number;
+    /** Every chart on a screen says what it is; two charts labelled alike are one
+     * chart as far as a screen reader (and a Playwright locator) is concerned. */
+    ariaLabel?: string;
     formatPointLabel: (point: ChartPoint, index: number, all: ChartPoint[]) => string | undefined;
     formatReadout: (point: ChartPoint) => string;
     emptyLabel?: string;
@@ -1628,28 +1856,40 @@ it offers don't resolve to real pages until Parts 4–5.
 
   const padding = 20;
   const layout = $derived(layoutLineChart(points, width, height, padding));
-  let tappedIndex = $state<number | undefined>(undefined);
+  let tapped = $state<number | undefined>(undefined);
+  /**
+   * The window picker re-renders this component in place with a different series, so a
+   * held index can outlive the point it named — `points[tapped]` would then be
+   * `undefined` and `formatReadout` would throw inside the template. Deriving the
+   * readout instead of storing it means a stale index simply shows nothing.
+   */
+  const readout = $derived(tapped !== undefined && points[tapped] ? formatReadout(points[tapped]) : undefined);
 </script>
 
 <figure class="sparkline">
-  <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="trend chart">
+  <!-- `role="group"`, not `role="img"`: an image's children are hidden from assistive
+       tech, and every point below is a real focusable control with its own label. -->
+  <svg viewBox={`0 0 ${width} ${height}`} role="group" aria-label={ariaLabel}>
     {#if layout.plotted.length > 0}
       <path d={layout.path} class="line" />
       {#each layout.plotted as point, i (i)}
         {@const pointLabel = formatPointLabel(points[i], i, points)}
+        <!-- Two circles: the visible 8px mark (spec §9) and a transparent 24px hit
+             target over it, because a thumb is not 8px wide. -->
+        <circle cx={point.cx} cy={point.cy} r="4" class="dot" />
         <circle
           cx={point.cx}
           cy={point.cy}
-          r="4"
-          class="dot"
+          r="12"
+          class="hit"
           role="button"
           tabindex="0"
           aria-label={formatReadout(points[i])}
-          onclick={() => (tappedIndex = i)}
+          onclick={() => (tapped = i)}
           onkeydown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              tappedIndex = i;
+              tapped = i;
             }
           }}
         />
@@ -1663,8 +1903,8 @@ it offers don't resolve to real pages until Parts 4–5.
       <text x={width / 2} y={height / 2} text-anchor="middle" class="empty">{emptyLabel}</text>
     {/if}
   </svg>
-  {#if tappedIndex !== undefined}
-    <figcaption class="readout">{formatReadout(points[tappedIndex])}</figcaption>
+  {#if readout !== undefined}
+    <figcaption class="readout">{readout}</figcaption>
   {/if}
 </figure>
 
@@ -1687,6 +1927,10 @@ it offers don't resolve to real pages until Parts 4–5.
   }
   .dot {
     fill: var(--accent);
+    pointer-events: none;
+  }
+  .hit {
+    fill: transparent;
     cursor: pointer;
   }
   .point-label {
@@ -1741,7 +1985,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 **Interfaces:**
 - Consumes: `layoutBarChart`, `BarDatum` from `src/lib/progress/chart-geometry.ts` (Task 5).
 - Produces (consumed by Tasks 10, 12): a Svelte component with props
-  `{ data: BarDatum[]; width?: number; height?: number; formatReadout: (datum: BarDatum, index: number) => string; barFill?: (datum: BarDatum, index: number) => string; emptyLabel?: string }`.
+  `{ data: BarDatum[]; width?: number; height?: number; ariaLabel?: string; formatReadout: (datum: BarDatum, index: number) => string; barFill?: (datum: BarDatum, index: number) => string; emptyLabel?: string }`.
 
 - [ ] **Step 1: Implement**
 
@@ -1761,6 +2005,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
     data,
     width = 320,
     height = 120,
+    ariaLabel = "bar chart",
     formatReadout,
     barFill,
     emptyLabel = "No data yet",
@@ -1768,6 +2013,8 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
     data: BarDatum[];
     width?: number;
     height?: number;
+    /** See Sparkline: two charts on one screen must not answer to the same name. */
+    ariaLabel?: string;
     formatReadout: (datum: BarDatum, index: number) => string;
     barFill?: (datum: BarDatum, index: number) => string;
     emptyLabel?: string;
@@ -1776,12 +2023,18 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
   const padding = 20;
   const gap = 4;
   const layout = $derived(layoutBarChart(data, width, height, padding, gap));
-  let tappedIndex = $state<number | undefined>(undefined);
+  let tapped = $state<number | undefined>(undefined);
+  /** A held index can outlive the datum it named when the window picker swaps the
+   * series — same reasoning as Sparkline's. */
+  const readout = $derived(
+    tapped !== undefined && data[tapped] ? formatReadout(data[tapped], tapped) : undefined,
+  );
   const fillOf = (datum: BarDatum, index: number) => (barFill ? barFill(datum, index) : "var(--accent)");
 </script>
 
 <figure class="bar-chart">
-  <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="bar chart">
+  <!-- `role="group"`, not `role="img"`: the bars below are real focusable controls. -->
+  <svg viewBox={`0 0 ${width} ${height}`} role="group" aria-label={ariaLabel}>
     {#if layout.length > 0}
       {#each layout as bar, i (i)}
         <rect
@@ -1793,11 +2046,11 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
           role="button"
           tabindex="0"
           aria-label={formatReadout(data[i], i)}
-          onclick={() => (tappedIndex = i)}
+          onclick={() => (tapped = i)}
           onkeydown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              tappedIndex = i;
+              tapped = i;
             }
           }}
         />
@@ -1811,8 +2064,8 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
       <text x={width / 2} y={height / 2} text-anchor="middle" class="empty">{emptyLabel}</text>
     {/if}
   </svg>
-  {#if tappedIndex !== undefined}
-    <figcaption class="readout">{formatReadout(data[tappedIndex], tappedIndex)}</figcaption>
+  {#if readout !== undefined}
+    <figcaption class="readout">{readout}</figcaption>
   {/if}
 </figure>
 
@@ -1918,6 +2171,10 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
     blockLengthWeeks: version.block_length_weeks,
     now: new Date(),
   };
+  // A hand-edited `?window=` falls back to the default rather than erroring. That is
+  // deliberately unlike the export route, which must `fail(400)`: the window's label is
+  // written into the bundle the reviewing AI reads, so a silent substitution there
+  // mislabels the document (`windows.ts`). Nothing on a chart screen leaves the app.
   const options = exportWindowOptions(context);
   const windowId = url.searchParams.get("window") ?? options[0].id;
   const window = resolveExportWindow(windowId, context) ?? options[0];
@@ -1989,6 +2246,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
       <h3>Duration</h3>
       <Sparkline
         points={session.duration}
+        ariaLabel={`${session.name} duration trend chart`}
         formatPointLabel={(p, i, all) => (i === all.length - 1 ? `${p.y}m` : undefined)}
         formatReadout={(p) => `${p.y} min on ${new Date(p.x).toISOString().slice(0, 10)}`}
       />
@@ -2104,7 +2362,7 @@ Builds on Parts 1–3. Delivers the list-then-drill-down per-exercise screens.
 
 **Interfaces:**
 - Consumes: `exerciseOccurrences`, `buildExerciseSeries` (`$lib/progress/exercise-series`,
-  Task 1); `doubleProgressionState`, `formatDoubleProgressionState`
+  Task 1); `doubleProgressionState`, `formatReadiness`
   (`$lib/progress/double-progression`, Task 2); the same read helpers Task 10 uses.
 - Produces: the route `/plan/[slug]/progress/exercises`, linked to by each row's detail
   page (Task 12).
@@ -2127,7 +2385,7 @@ import { getUserDbFor } from "$lib/server/app-state";
 import { contractOfVersion, getCurrentVersion, getPlanBySlug } from "$lib/db/read";
 import { logsForPlan } from "$lib/db/logs";
 import { buildExerciseSeries, exerciseOccurrences } from "$lib/progress/exercise-series";
-import { doubleProgressionState, formatDoubleProgressionState } from "$lib/progress/double-progression";
+import { doubleProgressionState, formatReadiness } from "$lib/progress/double-progression";
 
 export const load: PageServerLoad = ({ params, locals }) => {
   const user = locals.user;
@@ -2149,18 +2407,16 @@ export const load: PageServerLoad = ({ params, locals }) => {
 
     const target =
       occurrence.resolved.type === "time" ? occurrence.resolved.durationSec : occurrence.resolved.reps;
-    const readiness = doubleProgressionState(
-      series,
-      target,
-      occurrence.resolved.type,
-      occurrence.resolved.perSide,
+    const summary = formatReadiness(
+      doubleProgressionState(
+        series,
+        target,
+        occurrence.resolved.sets,
+        occurrence.resolved.type,
+        occurrence.resolved.perSide,
+      ),
+      "No range to progress through",
     );
-    const summary =
-      readiness === undefined
-        ? "No range to progress through"
-        : occurrence.resolved.perSide
-          ? `Left: ${formatDoubleProgressionState(readiness.left ?? { status: "no_data" })} · Right: ${formatDoubleProgressionState(readiness.right ?? { status: "no_data" })}`
-          : formatDoubleProgressionState(readiness.none ?? { status: "no_data" });
 
     return [
       {
@@ -2259,8 +2515,8 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 - Create: `src/routes/plan/[slug]/progress/exercises/[session]/[exercise]/+page.svelte`
 
 **Interfaces:**
-- Consumes: `resolveSession` (`$lib/session/session-view`); `buildExerciseSeries`,
-  `topSetPoints`, `volumePoints`, `difficultyDistribution` (`$lib/progress/exercise-series`,
+- Consumes: `buildExerciseSeries`, `exerciseOccurrences`, `topSetChartPoints`,
+  `volumePoints`, `difficultyDistribution` (`$lib/progress/exercise-series`,
   Task 1); `doubleProgressionState`, `formatDoubleProgressionState`
   (`$lib/progress/double-progression`, Task 2); `isoDate` (`$lib/export/summary`);
   `Sparkline` (Task 8), `BarChart` (Task 9).
@@ -2285,11 +2541,11 @@ import { logsForPlan } from "$lib/db/logs";
 import { filterLogsToWindow } from "$lib/export/bundle";
 import { exportWindowOptions, resolveExportWindow } from "$lib/export/windows";
 import { isoDate } from "$lib/export/summary";
-import { resolveSession } from "$lib/session/session-view";
 import {
   buildExerciseSeries,
   difficultyDistribution,
-  topSetPoints,
+  exerciseOccurrences,
+  topSetChartPoints,
   volumePoints,
 } from "$lib/progress/exercise-series";
 import { doubleProgressionState, formatDoubleProgressionState } from "$lib/progress/double-progression";
@@ -2306,14 +2562,14 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
   if (!version) throw error(409, "That plan has no current version");
   const contract = contractOfVersion(version);
 
-  const resolved = resolveSession(contract, params.session);
-  if (!resolved) throw error(404, "No such session");
-
-  const occurrence = resolved.blocks
-    .filter((b) => b.tracking !== "checkoff")
-    .flatMap((b) => b.exercises)
-    .find((e) => e.slug === params.exercise);
+  // Resolved through `exerciseOccurrences` rather than a second walk of the session's
+  // blocks: one definition of "the full-tracking occurrence of this exercise in this
+  // session", shared with the list this page is reached from and with summary.ts.
+  const occurrence = exerciseOccurrences(contract).find(
+    (o) => o.sessionKey === params.session && o.exerciseSlug === params.exercise,
+  );
   if (!occurrence) throw error(404, "That exercise is not prescribed in this session");
+  const resolved = occurrence.resolved;
 
   const logs = logsForPlan(userDb, plan.id);
   const fullSeries = buildExerciseSeries(logs, params.session, params.exercise);
@@ -2333,23 +2589,45 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
     params.exercise,
   );
 
-  const target = occurrence.type === "time" ? occurrence.durationSec : occurrence.reps;
-  const readiness = doubleProgressionState(fullSeries, target, occurrence.type, occurrence.perSide);
+  const target = resolved.type === "time" ? resolved.durationSec : resolved.reps;
+  const readiness = doubleProgressionState(
+    fullSeries,
+    target,
+    resolved.sets,
+    resolved.type,
+    resolved.perSide,
+  );
 
-  const sides: ("left" | "right" | undefined)[] = occurrence.perSide ? ["left", "right"] : [undefined];
+  const sides: ("left" | "right" | undefined)[] = resolved.perSide ? ["left", "right"] : [undefined];
 
   const charts = sides.map((side) => {
-    const volPoints = occurrence.type === "reps" ? volumePoints(windowedSeries, side) : undefined;
+    // Volume is Σ(weight × reps): meaningless without a load, and there are no reps to
+    // multiply on a timed movement (spec §5 skips it for `type: time`).
+    const effort = topSetChartPoints(windowedSeries, side, resolved.type);
+    const volPoints =
+      resolved.type === "reps" && effort.plots === "load" ? volumePoints(windowedSeries, side) : undefined;
     return {
       side,
       readiness:
         readiness === undefined
           ? undefined
           : formatDoubleProgressionState(readiness[side ?? "none"] ?? { status: "no_data" }),
-      loadReps: topSetPoints(windowedSeries, side).map((p) => ({
+      // "Load × reps" only when there is a load; otherwise the effort itself is the
+      // series, and the heading says which (see topSetChartPoints).
+      effortHeading:
+        effort.plots === "load"
+          ? resolved.type === "time"
+            ? "Load × time"
+            : "Load × reps"
+          : resolved.type === "time"
+            ? "Time held"
+            : "Reps",
+      effortUnit: effort.unit,
+      effortLabelUnit: resolved.type === "time" ? "s" : "reps",
+      loadReps: effort.points.map((p) => ({
         x: new Date(p.startedAt).getTime(),
-        y: p.weightKg ?? 0,
-        label: p.reps !== undefined ? String(p.reps) : undefined,
+        y: p.value,
+        label: p.label,
       })),
       volume: volPoints?.map((p) => ({ value: p.volumeKg })),
       volumeDates: volPoints?.map((p) => isoDate(new Date(p.startedAt))),
@@ -2359,8 +2637,8 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 
   return {
     planSlug: plan.slug,
-    sessionName: resolved.name,
-    exerciseName: occurrence.name,
+    sessionName: occurrence.sessionName,
+    exerciseName: occurrence.exerciseName,
     windowOptions: options.map((o) => ({ id: o.id, label: o.label })),
     selectedWindow: window.id,
     charts,
@@ -2422,18 +2700,22 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
       <p class="readiness">{chart.readiness}</p>
     {/if}
 
-    <h3>Load &times; reps</h3>
+    <h3>{chart.effortHeading}</h3>
     <Sparkline
       points={chart.loadReps}
+      ariaLabel={`${chart.effortHeading} trend chart`}
       formatPointLabel={(p) => p.label}
       formatReadout={(p) =>
-        `${p.y} kg on ${new Date(p.x).toISOString().slice(0, 10)}${p.label ? ` × ${p.label} reps` : ""}`}
+        `${p.y} ${chart.effortUnit} on ${new Date(p.x).toISOString().slice(0, 10)}${
+          p.label ? ` × ${p.label} ${chart.effortLabelUnit}` : ""
+        }`}
     />
 
     {#if chart.volume && chart.volumeDates}
       <h3>Volume</h3>
       <BarChart
         data={chart.volume}
+        ariaLabel="volume bar chart"
         formatReadout={(d, i) => `${d.value.toFixed(1)} kg on ${chart.volumeDates?.[i]}`}
       />
     {/if}
@@ -2441,6 +2723,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
     <h3>Difficulty</h3>
     <BarChart
       data={difficultyBars(chart.difficulty)}
+      ariaLabel="difficulty bar chart"
       formatReadout={(d) => `${d.label}: ${d.value}`}
       barFill={difficultyFill}
     />
@@ -2497,8 +2780,13 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 With the dev server running, log two or three sets of goblet-squat in session A, visit
 `/plan/<slug>/progress/exercises`, click into the goblet-squat/A row. Expected: a
 readiness line, a load-x-reps chart with a labeled point, a volume chart, a difficulty
-chart (likely all "Easy" if difficulty was never logged — the difficulty bars should
+chart (likely all zero if difficulty was never logged — the difficulty bars should
 still render at zero height rather than error).
+
+Then do the same for a bodyweight movement (session D's Dead bug) and a timed per-side
+one (session A's Side plank from knees). Expected: the first chart is headed "Reps" /
+"Time held" and plots those values rather than a flat zero-load line, no volume chart at
+all, and the per-side movement renders the whole card twice under Left and Right.
 
 - [ ] **Step 4: Format, typecheck, check, commit**
 
@@ -2518,8 +2806,11 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 
 ---
 
-**Part 4 done when:** every row on the exercises list opens a working detail page with
-three rendering charts. `npm run typecheck`/`npm run check` clean.
+**Part 4 done when:** every row on the exercises list opens a working detail page whose
+charts render. Check both shapes by hand: a loaded movement (goblet squat — load plotted,
+reps direct-labelled, plus volume and difficulty) and a bodyweight or timed one (dead-bug,
+side plank — reps or seconds plotted, no volume chart, difficulty still there).
+`npm run typecheck`/`npm run check` clean.
 
 ---
 
@@ -2757,6 +3048,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 
 <Sparkline
   points={data.points}
+  ariaLabel={`${data.label} trend chart`}
   formatPointLabel={(p, i, all) => (i === all.length - 1 ? String(p.y) : undefined)}
   formatReadout={(p) => `${p.y} on ${new Date(p.x).toISOString().slice(0, 10)}`}
 />
@@ -2831,7 +3123,7 @@ Builds on Part 2 (`history.ts`) and Part 1. Independent of Parts 3–5 at the co
 import { error, redirect } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
 import { getUserDbFor } from "$lib/server/app-state";
-import { getPlanBySlug } from "$lib/db/read";
+import { contractOfVersion, getCurrentVersion, getPlanBySlug } from "$lib/db/read";
 import { logsForPlan } from "$lib/db/logs";
 import { versionsByWorkout } from "$lib/db/history";
 
@@ -2848,6 +3140,15 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
   const logs = logsForPlan(userDb, plan.id);
   const versions = versionsByWorkout(userDb, plan.id);
 
+  // Session *names*, per spec §8 — a bare key ("A") is an identifier, not a label a
+  // person recognises. Names come from the plan as it stands now; a workout logged
+  // under an older version whose names differ falls back to its key rather than
+  // reading a second version's contract per row.
+  const current = getCurrentVersion(userDb, plan.id);
+  const sessionNames = new Map(
+    current ? contractOfVersion(current).sessions.map((s) => [s.key, s.name]) : [],
+  );
+
   const sorted = [...logs.workouts].sort((a, b) => b.started_at.localeCompare(a.started_at));
   const page = Math.max(0, Math.floor(Number(url.searchParams.get("page") ?? "0")) || 0);
   const pageWorkouts = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -2860,6 +3161,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
     workouts: pageWorkouts.map((w) => ({
       id: w.id,
       sessionKey: w.session_key,
+      sessionName: sessionNames.get(w.session_key) ?? w.session_key,
       startedAt: w.started_at,
       status: w.status,
       setCount: logs.set_logs.filter((s) => s.workout_id === w.id).length,
@@ -2889,7 +3191,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
       <li>
         <a href={`/plan/${data.planSlug}/history/${workout.id}`}>
           <span class="date">{new Date(workout.startedAt).toISOString().slice(0, 10)}</span>
-          <span class="session">Session {workout.sessionKey}</span>
+          <span class="session">{workout.sessionKey} · {workout.sessionName}</span>
           <span class="detail"
             >{workout.status} · {workout.setCount} sets{workout.versionNo
               ? ` · v${workout.versionNo}`
@@ -2996,7 +3298,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 import { error, redirect } from "@sveltejs/kit";
 import type { PageServerLoad } from "./$types";
 import { getUserDbFor } from "$lib/server/app-state";
-import { getPlanBySlug } from "$lib/db/read";
+import { contractOfVersion, getCurrentVersion, getPlanBySlug } from "$lib/db/read";
 import { logsForPlan } from "$lib/db/logs";
 import { versionsByWorkout } from "$lib/db/history";
 import { deriveExerciseName } from "$lib/contract/schema";
@@ -3017,6 +3319,17 @@ export const load: PageServerLoad = ({ params, locals }) => {
 
   const version = versionsByWorkout(userDb, plan.id).get(workout.id);
 
+  // Catalogue names, not derived ones: `deriveExerciseName("db-floor-press")` is "Db
+  // floor press" where the plan — and the runner the user logged this in — says
+  // "Dumbbell floor press". Derivation stays as the fallback for a slug the current
+  // version no longer declares, which is exactly what the contract itself specifies.
+  const current = getCurrentVersion(userDb, plan.id);
+  const contract = current ? contractOfVersion(current) : undefined;
+  const exerciseNames = new Map(
+    contract?.exercises.map((e) => [e.id, e.name ?? deriveExerciseName(e.id)]) ?? [],
+  );
+  const sessionName = contract?.sessions.find((s) => s.key === workout.session_key)?.name;
+
   const setsByExercise = new Map<string, SetLog[]>();
   for (const set of logs.set_logs) {
     if (set.workout_id !== workout.id) continue;
@@ -3026,7 +3339,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
   }
   const exercises = [...setsByExercise.entries()].map(([slug, sets]) => ({
     slug,
-    name: deriveExerciseName(slug),
+    name: exerciseNames.get(slug) ?? deriveExerciseName(slug),
     rendered: renderExerciseSets(sets),
   }));
 
@@ -3057,6 +3370,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
     planSlug: plan.slug,
     workout: {
       sessionKey: workout.session_key,
+      sessionName,
       startedAt: workout.started_at,
       status: workout.status,
       note: workout.note,
@@ -3078,7 +3392,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
   let { data }: { data: PageData } = $props();
 </script>
 
-<h1>Session {data.workout.sessionKey}</h1>
+<h1>Session {data.workout.sessionKey}{data.workout.sessionName ? ` — ${data.workout.sessionName}` : ""}</h1>
 <p class="muted">
   {new Date(data.workout.startedAt).toISOString().slice(0, 10)} · {data.workout.status}
   {#if data.version}
@@ -3194,18 +3508,21 @@ In `src/routes/+page.svelte`, find the existing Export link (currently around li
       </a>
 ```
 
-Add two more links immediately after it, inside the same `<section class="card plan-admin">`:
+Wrap it and two new links in one flex container, inside the same
+`<section class="card plan-admin">`:
 
 ```svelte
-      <a class="export-link" href={`/plan/${plan.slug}/export`}>
-        <IconExternalLink />Export for review
-      </a>
-      <a class="export-link" href={`/plan/${plan.slug}/progress`}>
-        <IconTrendingUp />Progress
-      </a>
-      <a class="export-link" href={`/plan/${plan.slug}/history`}>
-        <IconHistory />History
-      </a>
+      <nav class="plan-links">
+        <a class="export-link" href={`/plan/${plan.slug}/export`}>
+          <IconExternalLink />Export for review
+        </a>
+        <a class="export-link" href={`/plan/${plan.slug}/progress`}>
+          <IconTrendingUp />Progress
+        </a>
+        <a class="export-link" href={`/plan/${plan.slug}/history`}>
+          <IconHistory />History
+        </a>
+      </nav>
 ```
 
 Add the two new icon imports beside the existing ones near the top of the file:
@@ -3218,17 +3535,19 @@ Add the two new icon imports beside the existing ones near the top of the file:
 (keep the existing import block's alphabetical order if it has one — check the current
 list before inserting).
 
-The three `.export-link`s will now sit stacked with no gap between them since `.card`'s
-existing children don't have a row gap rule; add one small rule scoped to this section:
+The container is what makes them stack: `.export-link` is `display: inline-flex`, so
+three bare siblings flow into one line box and wrap mid-row at 360 px — a
+`margin-top` sibling rule would not separate them. Add the container's own rule inside
+the existing `<style>` block, near the existing `.export-link` rules:
 
 ```css
-  .plan-admin .export-link + .export-link {
-    margin-top: 0.5rem;
+  .plan-links {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
   }
 ```
-
-Add that rule inside the existing `<style>` block, near the existing `.export-link`
-rules.
 
 - [ ] **Step 2: Manual verification**
 
@@ -3310,8 +3629,11 @@ test("goblet squat, prescribed in two sessions, tracks as two separate progress 
 
   await rows.first().getByRole("link").click();
   await expect(page.getByRole("heading", { name: "Goblet squat" })).toBeVisible();
-  await expect(page.locator("svg[aria-label='trend chart']")).toBeVisible();
-  await expect(page.locator("svg[aria-label='bar chart']").first()).toBeVisible();
+  // Goblet squat carries a load, so the first chart plots it; a bodyweight movement
+  // would plot reps instead and be headed differently (topSetChartPoints, Task 1).
+  await expect(page.locator('svg[aria-label="Load × reps trend chart"]')).toBeVisible();
+  await expect(page.locator('svg[aria-label="volume bar chart"]')).toBeVisible();
+  await expect(page.locator('svg[aria-label="difficulty bar chart"]')).toBeVisible();
 
   await assertNoHorizontalOverflow(page);
 });
@@ -3321,7 +3643,9 @@ test("the progress hub shows a session card with a duration chart", async ({ pag
 
   await page.goto(`/plan/${E2E_PLAN_SLUG}/progress`);
   await expect(page.getByRole("heading", { name: "Squat, Press & Row" })).toBeVisible();
-  await expect(page.locator("svg[aria-label='trend chart']").first()).toBeVisible();
+  await expect(
+    page.locator('svg[aria-label="Squat, Press & Row duration trend chart"]'),
+  ).toBeVisible();
 
   await assertNoHorizontalOverflow(page);
 });
@@ -3360,15 +3684,47 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 - Create: `e2e/history-walkthrough.spec.ts`
 
 **Interfaces:**
-- Consumes: same helpers as Task 18.
+- Consumes: same helpers as Task 18, plus a new `workoutIdOf` beside the existing
+  `workoutStatusOf`/`workoutCountFor` direct reads in `e2e/helpers.ts`.
 
-- [ ] **Step 1: Write the spec**
+- [ ] **Step 1: Add the `workoutIdOf` helper**
+
+Every spec in this suite runs against **one shared seeded database** — three viewport
+projects in parallel, `fullyParallel: true` (`playwright.config.ts`). History lists every
+workout of the plan, including ones another project's spec is mid-way through logging, so
+`getByRole("listitem").filter({ hasText: "…" }).first()` can land on a *different* test's
+workout that has no sets in it yet. Resolve the row this spec created by its own
+`client_id` instead, the way `setLogsOf` and `workoutStatusOf` already do:
+
+```typescript
+/** This workout's server-side `id`, so a spec can address its own History row directly
+ * rather than scanning a list every other spec is also writing into. */
+export function workoutIdOf(clientId: string): string | undefined {
+  const db = openSeededUserDb(seededDataDir());
+  try {
+    const row = db.prepare("SELECT id FROM workout WHERE client_id = ?").get(clientId) as
+      | { id: string }
+      | undefined;
+    return row?.id;
+  } finally {
+    db.close();
+  }
+}
+```
+
+- [ ] **Step 2: Write the spec**
 
 ```typescript
 // e2e/history-walkthrough.spec.ts
 import { expect, test } from "@playwright/test";
 import { E2E_PLAN_SLUG } from "./env";
-import { assertNoHorizontalOverflow, dismissPreSessionPrompt, logSetThroughRest } from "./helpers";
+import {
+  assertNoHorizontalOverflow,
+  dismissPreSessionPrompt,
+  logSetThroughRest,
+  workoutClientId,
+  workoutIdOf,
+} from "./helpers";
 
 test("a logged workout appears in History and drills into matching set detail", async ({ page }) => {
   await page.goto(`/plan/${E2E_PLAN_SLUG}/session/A`);
@@ -3380,12 +3736,15 @@ test("a logged workout appears in History and drills into matching set detail", 
   for (let i = 0; i < pillCount; i++) await pills.nth(i).click();
   await logSetThroughRest(page);
 
-  await page.goto(`/plan/${E2E_PLAN_SLUG}/history`);
-  const row = page.getByRole("listitem").filter({ hasText: "Session A" }).first();
-  await expect(row).toBeVisible();
+  const clientId = await workoutClientId(page, "A");
+  const workoutId = workoutIdOf(clientId);
+  expect(workoutId, "the set log must have synced before History can show it").toBeTruthy();
 
-  await row.getByRole("link").click();
-  await expect(page.getByRole("heading", { name: "Session A" })).toBeVisible();
+  await page.goto(`/plan/${E2E_PLAN_SLUG}/history`);
+  await expect(page.getByRole("link", { name: /Squat, Press & Row/ }).first()).toBeVisible();
+
+  await page.goto(`/plan/${E2E_PLAN_SLUG}/history/${workoutId}`);
+  await expect(page.getByRole("heading", { name: "Squat, Press & Row" })).toBeVisible();
   await expect(page.getByText("Goblet squat")).toBeVisible();
   await expect(page.getByText(/Plan v\d+/)).toBeVisible();
 
@@ -3393,7 +3752,7 @@ test("a logged workout appears in History and drills into matching set detail", 
 });
 ```
 
-- [ ] **Step 2: Run**
+- [ ] **Step 3: Run**
 
 ```bash
 npx playwright test --project=iphone e2e/history-walkthrough.spec.ts
@@ -3401,14 +3760,18 @@ npx playwright test --project=iphone e2e/history-walkthrough.spec.ts
 
 Expected: PASS.
 
-- [ ] **Step 3: Format, verify full suite, commit**
+- [ ] **Step 4: Format, verify full suite, commit**
 
 ```bash
-npx prettier --write e2e/history-walkthrough.spec.ts
+npx prettier --write e2e/history-walkthrough.spec.ts e2e/helpers.ts
 npm run verify
 npm run test:e2e
-git add e2e/history-walkthrough.spec.ts
+git add e2e/history-walkthrough.spec.ts e2e/helpers.ts
 git commit -m "test(e2e): add the history walkthrough
+
+Resolves its own workout by client_id rather than scanning the History
+list: every spec in the suite shares one seeded database, so the newest
+"Session A" row can belong to another project's test.
 
 Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 ```

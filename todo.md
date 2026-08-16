@@ -30,6 +30,16 @@ split into seven parts, each ending in a "**Part N done when:**" line — a real
 point where `npm run typecheck`/`npm run check` (and, from Part 2 on, `npm test`) are
 clean and nothing is left half-wired.
 
+| Part | Tasks | Delivers |
+|---|---|---|
+| 1 | 1–5 | the pure `src/lib/progress/` modules, no UI |
+| 2 | 6–7 | `summary.ts` refactored onto them, `src/lib/db/history.ts` |
+| 3 | 8–10 | the two chart components and the progress hub |
+| 4 | 11–12 | the per-exercise list and detail |
+| 5 | 13–14 | the metric-trend list and detail |
+| 6 | 15–16 | the History list and detail |
+| 7 | 17–20 | Home links, both e2e specs, the documentation close-out |
+
 **To pick up a fresh session:**
 
 1. Run `git log --oneline -20` and check which tasks' commits already exist (each task's
@@ -42,9 +52,12 @@ clean and nothing is left half-wired.
    (parts are independent enough to run as their own subagent-driven pass — Part 1 has no
    UI, Parts 3–6 share no code with each other beyond Parts 1–2's foundation, per the
    plan's own File Structure section).
-4. Do the plan's pre-flight conflict scan for that part before dispatching its first
-   task — the same check phase 7a's plan used, which caught two real defects before any
-   code was written.
+4. Before dispatching a part's first task, re-read the real signatures the part's code
+   blocks lean on. The plan quotes whole files, written against the tree as it stood on
+   2026-08-16; anything landed since then (or by an earlier part of this same plan) is
+   not reflected in them. Phase 7a's plan carried a written-out "pre-flight note" that
+   caught two real defects before any code — this plan has none, so the scan is the
+   agent's own job rather than something to look for in the file.
 
 **Delete this item once phase 7 is fully closed** (Task 20 of the plan — ROADMAP ticked,
 README/CLAUDE.md/ARCHITECTURE §12 all updated) rather than leaving it to rot as a stale
