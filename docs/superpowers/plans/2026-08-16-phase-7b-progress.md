@@ -2367,7 +2367,7 @@ Builds on Parts 1–3. Delivers the list-then-drill-down per-exercise screens.
 - Produces: the route `/plan/[slug]/progress/exercises`, linked to by each row's detail
   page (Task 12).
 
-- [ ] **Step 1: Implement the load function**
+- [x] **Step 1: Implement the load function**
 
 ```typescript
 // src/routes/plan/[slug]/progress/exercises/+page.server.ts
@@ -2433,7 +2433,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 };
 ```
 
-- [ ] **Step 2: Implement the page**
+- [x] **Step 2: Implement the page**
 
 ```svelte
 <!-- src/routes/plan/[slug]/progress/exercises/+page.svelte -->
@@ -2491,7 +2491,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 </style>
 ```
 
-- [ ] **Step 3: Format, typecheck, check, commit**
+- [x] **Step 3: Format, typecheck, check, commit**
 
 ```bash
 npx prettier --write src/routes/plan/\[slug\]/progress/exercises/+page.server.ts src/routes/plan/\[slug\]/progress/exercises/+page.svelte
@@ -2522,7 +2522,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
   `Sparkline` (Task 8), `BarChart` (Task 9).
 - Produces: the route each Task 11 row links to.
 
-- [ ] **Step 1: Implement the load function**
+- [x] **Step 1: Implement the load function**
 
 ```typescript
 // src/routes/plan/[slug]/progress/exercises/[session]/[exercise]/+page.server.ts
@@ -2646,7 +2646,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 };
 ```
 
-- [ ] **Step 2: Implement the page**
+- [x] **Step 2: Implement the page**
 
 ```svelte
 <!-- src/routes/plan/[slug]/progress/exercises/[session]/[exercise]/+page.svelte -->
@@ -2775,7 +2775,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 </style>
 ```
 
-- [ ] **Step 3: Manual verification**
+- [x] **Step 3: Manual verification**
 
 With the dev server running, log two or three sets of goblet-squat in session A, visit
 `/plan/<slug>/progress/exercises`, click into the goblet-squat/A row. Expected: a
@@ -2788,7 +2788,7 @@ one (session A's Side plank from knees). Expected: the first chart is headed "Re
 "Time held" and plots those values rather than a flat zero-load line, no volume chart at
 all, and the per-side movement renders the whole card twice under Left and Right.
 
-- [ ] **Step 4: Format, typecheck, check, commit**
+- [x] **Step 4: Format, typecheck, check, commit**
 
 ```bash
 npx prettier --write "src/routes/plan/[slug]/progress/exercises/[session]/[exercise]/+page.server.ts" "src/routes/plan/[slug]/progress/exercises/[session]/[exercise]/+page.svelte"
