@@ -171,7 +171,7 @@ touching a single route.
   - `function volumePoints(series: readonly ExerciseSeriesPoint[], side: "left" | "right" | undefined): VolumePoint[]`
   - `function difficultyDistribution(series: readonly ExerciseSeriesPoint[], side: "left" | "right" | undefined): { easy: number; medium: number; hard: number }`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```typescript
 // tests/progress/exercise-series.test.ts
@@ -363,12 +363,12 @@ describe("difficultyDistribution", () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `npx vitest run tests/progress/exercise-series.test.ts`
 Expected: FAIL — `src/lib/progress/exercise-series.ts` does not exist yet.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```typescript
 // src/lib/progress/exercise-series.ts
@@ -604,12 +604,12 @@ export function difficultyDistribution(
 }
 ```
 
-- [ ] **Step 4: Run to verify pass**
+- [x] **Step 4: Run to verify pass**
 
 Run: `npx vitest run tests/progress/exercise-series.test.ts`
 Expected: PASS, all 12 tests.
 
-- [ ] **Step 5: Format, typecheck, commit**
+- [x] **Step 5: Format, typecheck, commit**
 
 ```bash
 npx prettier --write src/lib/progress/exercise-series.ts tests/progress/exercise-series.test.ts
@@ -648,7 +648,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
     `summary.ts` (Task 6) and the exercises list (Task 11) so the export table and the
     app cannot describe the same state in two different sentences.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```typescript
 // tests/progress/double-progression.test.ts
@@ -782,12 +782,12 @@ describe("formatReadiness", () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `npx vitest run tests/progress/double-progression.test.ts`
 Expected: FAIL — module does not exist.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```typescript
 // src/lib/progress/double-progression.ts
@@ -906,12 +906,12 @@ export function formatReadiness(
 }
 ```
 
-- [ ] **Step 4: Run to verify pass**
+- [x] **Step 4: Run to verify pass**
 
 Run: `npx vitest run tests/progress/double-progression.test.ts`
 Expected: PASS, all 15 tests.
 
-- [ ] **Step 5: Format, typecheck, commit**
+- [x] **Step 5: Format, typecheck, commit**
 
 ```bash
 npx prettier --write src/lib/progress/double-progression.ts tests/progress/double-progression.test.ts
@@ -943,7 +943,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
   - `type SessionTypeStats = { sessionKey: string; completionRate: number | undefined; finishedCount: number; deviationCount: number; duration: { workoutId: string; startedAt: string; minutes: number }[] }`
   - `function sessionTypeStats(logs: Logs, sessionKey: string): SessionTypeStats`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```typescript
 // tests/progress/session-stats.test.ts
@@ -1012,12 +1012,12 @@ describe("sessionTypeStats", () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `npx vitest run tests/progress/session-stats.test.ts`
 Expected: FAIL — module does not exist.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```typescript
 // src/lib/progress/session-stats.ts
@@ -1067,12 +1067,12 @@ export function sessionTypeStats(logs: Logs, sessionKey: string): SessionTypeSta
 }
 ```
 
-- [ ] **Step 4: Run to verify pass**
+- [x] **Step 4: Run to verify pass**
 
 Run: `npx vitest run tests/progress/session-stats.test.ts`
 Expected: PASS, all 5 tests.
 
-- [ ] **Step 5: Format, typecheck, commit**
+- [x] **Step 5: Format, typecheck, commit**
 
 ```bash
 npx prettier --write src/lib/progress/session-stats.ts tests/progress/session-stats.test.ts
@@ -1102,7 +1102,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
   - `type MetricSeriesPoint = { workoutId: string; startedAt: string; value: number }`
   - `function numericMetricSeries(logs: Logs, scope: MetricScope, key: string): MetricSeriesPoint[]`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```typescript
 // tests/progress/metric-series.test.ts
@@ -1165,12 +1165,12 @@ describe("numericMetricSeries", () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `npx vitest run tests/progress/metric-series.test.ts`
 Expected: FAIL — module does not exist.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```typescript
 // src/lib/progress/metric-series.ts
@@ -1221,12 +1221,12 @@ export function numericMetricSeries(logs: Logs, scope: MetricScope, key: string)
 }
 ```
 
-- [ ] **Step 4: Run to verify pass**
+- [x] **Step 4: Run to verify pass**
 
 Run: `npx vitest run tests/progress/metric-series.test.ts`
 Expected: PASS, all 4 tests.
 
-- [ ] **Step 5: Format, typecheck, commit**
+- [x] **Step 5: Format, typecheck, commit**
 
 ```bash
 npx prettier --write src/lib/progress/metric-series.ts tests/progress/metric-series.test.ts
@@ -1258,7 +1258,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
   - `type PlottedBar = { x: number; y: number; barWidth: number; barHeight: number; label: string | undefined; value: number }`
   - `function layoutBarChart(data: readonly BarDatum[], width: number, height: number, padding: number, gap: number): PlottedBar[]`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```typescript
 // tests/progress/chart-geometry.test.ts
@@ -1316,12 +1316,12 @@ describe("layoutBarChart", () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `npx vitest run tests/progress/chart-geometry.test.ts`
 Expected: FAIL — module does not exist.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```typescript
 // src/lib/progress/chart-geometry.ts
@@ -1403,12 +1403,12 @@ export function layoutBarChart(
 }
 ```
 
-- [ ] **Step 4: Run to verify pass**
+- [x] **Step 4: Run to verify pass**
 
 Run: `npx vitest run tests/progress/chart-geometry.test.ts`
 Expected: PASS, all 7 tests.
 
-- [ ] **Step 5: Format, typecheck, commit**
+- [x] **Step 5: Format, typecheck, commit**
 
 ```bash
 npx prettier --write src/lib/progress/chart-geometry.ts tests/progress/chart-geometry.test.ts
