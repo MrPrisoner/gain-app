@@ -12,6 +12,7 @@ import { E2E_PLAN_SLUG } from "./env";
 import {
   assertNoHorizontalOverflow,
   dismissPreSessionPrompt,
+  finishSession,
   logSetThroughRest,
   openExercise,
 } from "./helpers";
@@ -55,6 +56,8 @@ test("goblet squat, prescribed in two sessions, tracks as two separate progress 
 
 test("the progress hub shows a session card with a duration chart", async ({ page }) => {
   await logGobletSquat(page, "A", 1);
+  await page.getByRole("button", { name: "End session" }).click();
+  await finishSession(page);
 
   await page.goto(`/plan/${E2E_PLAN_SLUG}/progress`);
   await expect(page.getByRole("heading", { name: "Squat, Press & Row" })).toBeVisible();
