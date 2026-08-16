@@ -159,16 +159,14 @@ screen suggests the right next session for the fixture plan's `scheduling.sequen
       keying on the bare key merges two unrelated series into a plausible wrong number.
 - [ ] **History**: reverse-chronological workout list, drilling into full set detail and the
       plan version it ran under.
-- [ ] **Home: the suggested next session**, from `scheduling.sequence`, with any session
-      selectable as an override. Home currently lists every session in plan order.
-- [ ] **Home: one-tap activity logging.** The `activity` table exists, the export already
-      emits an `activities` CSV, and nothing in the app can create a row — the export format
-      is writing a cheque no UI can cash. Buttons are the user's previously-used kinds plus
-      rest plus a field for a new one. GAIN ships no list of sports (§9).
-- [ ] **The `next_morning` metric prompt on next app open.** Wrap-up deliberately does not
-      ask (UI-DECISIONS §8) and nothing else picks it up, so a plan declaring one — the
-      fixture does — collects nothing. Next-morning symptom data is worthless collected three
-      days later.
+- [x] **Home: the suggested next session**, from `scheduling.sequence`, with any session
+      selectable as an override. `src/lib/home/next-session.ts`, `src/routes/+page.server.ts`
+      (`b7a419b`, `6eb0487`).
+- [x] **Home: one-tap activity logging.** `src/lib/db/workout.ts`'s `logActivity`, the
+      sync outbox's sixth op kind, `src/routes/ActivityStrip.svelte` and
+      `ActivitySheet.svelte` (`b34bbe7`, `1aac26e`).
+- [x] **The `next_morning` metric prompt on next app open.**
+      `src/lib/home/next-morning.ts`, `src/routes/NextMorningPrompt.svelte` (`c3c3546`, `6b7d6b9`).
 
 **Charts stay simple and read well on a phone.** No dashboard sprawl (§10).
 
