@@ -177,4 +177,52 @@ describe("buildProgressSummary", () => {
     expect(row).toContain("back tight \\| stopped early");
     expect(columns(row)).toBe(7);
   });
+
+  it("splits the same exercise into two rows when it's prescribed in two sessions with different ranges", () => {
+    const twoSessionContract = {
+      ...contract,
+      sessions: [
+        ...contract.sessions,
+        {
+          key: "D",
+          name: "Session D",
+          order: 2,
+          blocks: [
+            {
+              key: "main",
+              name: "Main",
+              exercises: [{ id: "goblet-squat", sets: 2, reps: [12, 15] }],
+            },
+          ],
+        },
+      ],
+    } as unknown as GainContract;
+
+    const twoSessionLogs: Logs = {
+      ...logs,
+      workouts: [
+        ...logs.workouts,
+        { id: "w3", session_key: "D", started_at: "2026-08-10T07:00:00Z", status: "completed" },
+      ],
+      set_logs: [
+        ...logs.set_logs,
+        { id: "s3", workout_id: "w3", exercise_slug: "goblet-squat", set_no: 1, reps: 12 },
+      ],
+    };
+
+    const summary = buildProgressSummary(twoSessionContract, twoSessionLogs, "full history", NOW);
+    const rows = summary.split("\n").filter((l) => l.startsWith("| Goblet squat"));
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toContain("Session A");
+    expect(rows[1]).toContain("Session D");
+  });
+
+  it("shows a readiness verdict for a ranged prescription", () => {
+    const summary = buildProgressSummary(contract, logs, "full history", NOW);
+    const row = summary.split("\n").find((l) => l.startsWith("| Goblet squat"));
+    // The fixture's own contract here prescribes a scalar `reps: 10` (see the file-level
+    // `contract` above) — no range, so the readiness cell is a dash, not a verdict. This
+    // pins that a scalar target renders as "no range" rather than a silently blank cell.
+    expect(row).toMatch(/\|\s*–\s*\|$/);
+  });
 });

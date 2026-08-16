@@ -7,7 +7,8 @@
  */
 
 import type { GainContract, MetricDef, MetricScope } from "../contract/schema";
-import { deriveExerciseName } from "../contract/schema";
+import { doubleProgressionState, formatReadiness } from "../progress/double-progression";
+import { buildExerciseSeries, exerciseOccurrences } from "../progress/exercise-series";
 import type { Logs, MetricValue, SetLog, Workout } from "../logs/types";
 import { formatNum } from "./csv";
 
@@ -126,42 +127,45 @@ export function buildProgressSummary(
   }
   lines.push("");
 
-  // -- Per-exercise progression, catalogue order, only exercises with logs.
-  const setsByExercise = new Map<string, SetLog[]>();
-  for (const set of logs.set_logs) {
-    const list = setsByExercise.get(set.exercise_slug) ?? [];
-    list.push(set);
-    setsByExercise.set(set.exercise_slug, list);
-  }
-
-  const sortByWorkout = (a: SetLog, b: SetLog): number => {
-    const wa = workoutById.get(a.workout_id);
-    const wb = workoutById.get(b.workout_id);
-    const t = (wa?.started_at ?? "").localeCompare(wb?.started_at ?? "");
-    if (t !== 0) return t;
-    if (a.set_no !== b.set_no) return a.set_no - b.set_no;
-    return (a.side ?? "").localeCompare(b.side ?? "");
-  };
-
+  // -- Per-exercise progression, catalogue order then session order, only occurrences
+  // with logs in this window. Keyed on (session, exercise): the same movement can carry
+  // a different rep range in different sessions (goblet-squat: [8,12] in A, [12,15] in
+  // D), so a bare exercise_slug would compare a set against the wrong range. Readiness
+  // is computed from this SAME windowed series, not full history — a row whose "latest
+  // logged" is the newest workout inside the window must not sit beside a readiness
+  // verdict drawn from a workout outside it (design spec §4, the one documented
+  // exception to double-progression reading full history everywhere else).
   const exerciseRows: string[] = [];
-  for (const def of contract.exercises) {
-    const sets = setsByExercise.get(def.id);
-    if (!sets || sets.length === 0) continue;
+  for (const occurrence of exerciseOccurrences(contract)) {
+    const series = buildExerciseSeries(logs, occurrence.sessionKey, occurrence.exerciseSlug);
+    if (series.length === 0) continue;
 
-    const sorted = [...sets].sort(sortByWorkout);
-    const workoutIds = [...new Set(sorted.map((s) => s.workout_id))];
-    const firstId = workoutIds[0];
-    const lastId = workoutIds[workoutIds.length - 1];
+    const firstPoint = series[0]!;
+    const lastPoint = series[series.length - 1]!;
 
-    const first = renderExerciseSets(sorted.filter((s) => s.workout_id === firstId));
-    const latest = renderExerciseSets(sorted.filter((s) => s.workout_id === lastId));
-    const lastDifficulty = [...sorted]
+    const first = renderExerciseSets(firstPoint.sets);
+    const latest = renderExerciseSets(lastPoint.sets);
+    const lastDifficulty = [...lastPoint.sets]
       .reverse()
       .find((s) => s.difficulty !== undefined)?.difficulty;
 
-    const name = def.name ?? deriveExerciseName(def.id);
+    const target =
+      occurrence.resolved.type === "time"
+        ? occurrence.resolved.durationSec
+        : occurrence.resolved.reps;
+    const readinessText = formatReadiness(
+      doubleProgressionState(
+        series,
+        target,
+        occurrence.resolved.sets,
+        occurrence.resolved.type,
+        occurrence.resolved.perSide,
+      ),
+      "–",
+    );
+
     exerciseRows.push(
-      `| ${cell(name)} (\`${def.id}\`) | ${workoutIds.length} | ${first} | ${latest} | ${lastDifficulty ?? "–"} |`,
+      `| ${cell(occurrence.exerciseName)} (\`${occurrence.exerciseSlug}\`) | ${cell(occurrence.sessionName)} | ${series.length} | ${first} | ${latest} | ${lastDifficulty ?? "–"} | ${cell(readinessText)} |`,
     );
   }
 
@@ -172,8 +176,10 @@ export function buildProgressSummary(
   } else {
     lines.push("First and latest refer to the first and latest workout in the window.");
     lines.push("");
-    lines.push("| Exercise | Workouts | First logged | Latest logged | Last difficulty |");
-    lines.push("|---|---:|---|---|---|");
+    lines.push(
+      "| Exercise | Session | Workouts | First logged | Latest logged | Last difficulty | Readiness |",
+    );
+    lines.push("|---|---|---:|---|---|---|---|");
     lines.push(...exerciseRows);
   }
   lines.push("");
