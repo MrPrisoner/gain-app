@@ -20,6 +20,17 @@ Then clear it up behind you:
 
 ## Items
 
+### Home page UI tweaks
+
+- Too many sections - combine `override` into `next-session`. Also consider combining "Import a plan" section into `plan-admin`
+- `next-session` - the suggested next session name text is way bigger than the plan name. I would do this: plan name should be the main heading, with "Last session" below it, then next suggested session, then the start button, then "Choose a different session".
+- Export provides both copy and download options. Import should provide paste and import. Current import only has paste, no import.
+
+### Session runner tweaks
+
+- The UI for adjusting a set's reps and weight is not very intuitive - I sometimes these up and adjust the wrong field. Let's add icons (for example, mdi-sync for reps and mdi-weight-kilogram - these are just ideas, align to the app's current UI design).
+- Because of the above, it became apparent that users have no way to undo to change a logged set/exercise. If I adjusted the reps or weight incorrectly, or selected the wrong difficulty level, there is no recourse to change it.
+
 ### Resuming phase 7b across sessions
 
 Phase 7b (progress, charts & history) is being implemented across multiple separate
@@ -30,15 +41,15 @@ split into seven parts, each ending in a "**Part N done when:**" line — a real
 point where `npm run typecheck`/`npm run check` (and, from Part 2 on, `npm test`) are
 clean and nothing is left half-wired.
 
-| Part | Tasks | Delivers |
-|---|---|---|
-| 1 | 1–5 | the pure `src/lib/progress/` modules, no UI |
-| 2 | 6–7 | `summary.ts` refactored onto them, `src/lib/db/history.ts` |
-| 3 | 8–10 | the two chart components and the progress hub |
-| 4 | 11–12 | the per-exercise list and detail |
-| 5 | 13–14 | the metric-trend list and detail |
-| 6 | 15–16 | the History list and detail |
-| 7 | 17–20 | Home links, both e2e specs, the documentation close-out |
+| Part | Tasks | Delivers                                                   |
+| ---- | ----- | ---------------------------------------------------------- |
+| 1    | 1–5   | the pure `src/lib/progress/` modules, no UI                |
+| 2    | 6–7   | `summary.ts` refactored onto them, `src/lib/db/history.ts` |
+| 3    | 8–10  | the two chart components and the progress hub              |
+| 4    | 11–12 | the per-exercise list and detail                           |
+| 5    | 13–14 | the metric-trend list and detail                           |
+| 6    | 15–16 | the History list and detail                                |
+| 7    | 17–20 | Home links, both e2e specs, the documentation close-out    |
 
 **To pick up a fresh session:**
 
