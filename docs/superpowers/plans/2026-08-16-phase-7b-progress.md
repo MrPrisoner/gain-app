@@ -1815,7 +1815,7 @@ it offers don't resolve to real pages until Parts 4–5.
 - Produces (consumed by Tasks 10, 12, 14): a Svelte component with props
   `{ points: ChartPoint[]; width?: number; height?: number; ariaLabel?: string; formatPointLabel: (point: ChartPoint, index: number, all: ChartPoint[]) => string | undefined; formatReadout: (point: ChartPoint) => string; emptyLabel?: string }`.
 
-- [ ] **Step 1: Implement**
+- [x] **Step 1: Implement**
 
 ```svelte
 <!-- src/lib/components/Sparkline.svelte -->
@@ -1951,7 +1951,7 @@ it offers don't resolve to real pages until Parts 4–5.
 </style>
 ```
 
-- [ ] **Step 2: Format, typecheck, check**
+- [x] **Step 2: Format, typecheck, check**
 
 ```bash
 npx prettier --write src/lib/components/Sparkline.svelte
@@ -1963,7 +1963,7 @@ Expected: no new errors. (No unit test — this repo has no Svelte component tes
 `npm run check`/`svelte-check` plus the e2e specs in Part 7 are what verify UI code, the
 same split every other route in this codebase uses.)
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/lib/components/Sparkline.svelte
@@ -1987,7 +1987,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 - Produces (consumed by Tasks 10, 12): a Svelte component with props
   `{ data: BarDatum[]; width?: number; height?: number; ariaLabel?: string; formatReadout: (datum: BarDatum, index: number) => string; barFill?: (datum: BarDatum, index: number) => string; emptyLabel?: string }`.
 
-- [ ] **Step 1: Implement**
+- [x] **Step 1: Implement**
 
 ```svelte
 <!-- src/lib/components/BarChart.svelte -->
@@ -2100,7 +2100,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 </style>
 ```
 
-- [ ] **Step 2: Format, typecheck, check**
+- [x] **Step 2: Format, typecheck, check**
 
 ```bash
 npx prettier --write src/lib/components/BarChart.svelte
@@ -2108,7 +2108,7 @@ npm run typecheck
 npm run check
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/lib/components/BarChart.svelte
@@ -2133,7 +2133,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
   (`$lib/progress/session-stats`, Task 3); `Sparkline` (Task 8).
 - Produces: the route `/plan/[slug]/progress`, linked from Task 17's Home plan card.
 
-- [ ] **Step 1: Implement the load function**
+- [x] **Step 1: Implement the load function**
 
 ```typescript
 // src/routes/plan/[slug]/progress/+page.server.ts
@@ -2207,7 +2207,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 };
 ```
 
-- [ ] **Step 2: Implement the page**
+- [x] **Step 2: Implement the page**
 
 ```svelte
 <!-- src/routes/plan/[slug]/progress/+page.svelte -->
@@ -2314,7 +2314,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 </style>
 ```
 
-- [ ] **Step 3: Manual verification**
+- [x] **Step 3: Manual verification**
 
 ```bash
 GAIN_DEV_USER=you npm run dev
@@ -2326,7 +2326,7 @@ session you logged, "No finished workouts yet" on the others (or a rate, once on
 finished), and the two placeholder links at the bottom (they 404 until Parts 4–5 — that's
 expected at this point in the plan).
 
-- [ ] **Step 4: Format, typecheck, check, commit**
+- [x] **Step 4: Format, typecheck, check, commit**
 
 ```bash
 npx prettier --write src/routes/plan/\[slug\]/progress/+page.server.ts src/routes/plan/\[slug\]/progress/+page.svelte
