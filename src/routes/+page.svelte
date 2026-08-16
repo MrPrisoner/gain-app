@@ -14,7 +14,9 @@
   import IconCopy from "~icons/lucide/copy";
   import IconDownload from "~icons/lucide/download";
   import IconExternalLink from "~icons/lucide/external-link";
+  import IconHistory from "~icons/lucide/history";
   import IconSparkles from "~icons/lucide/sparkles";
+  import IconTrendingUp from "~icons/lucide/trending-up";
   import type { ActionData, PageData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -264,9 +266,17 @@
         {plan.counts.sessions} sessions, {plan.counts.exercises} exercises,
         {plan.counts.prescriptions} prescriptions
       </p>
-      <a class="export-link" href={`/plan/${plan.slug}/export`}>
-        <IconExternalLink />Export for review
-      </a>
+      <nav class="plan-links">
+        <a class="export-link" href={`/plan/${plan.slug}/export`}>
+          <IconExternalLink />Export for review
+        </a>
+        <a class="export-link" href={`/plan/${plan.slug}/progress`}>
+          <IconTrendingUp />Progress
+        </a>
+        <a class="export-link" href={`/plan/${plan.slug}/history`}>
+          <IconHistory />History
+        </a>
+      </nav>
     </section>
   {/each}
 
@@ -474,6 +484,13 @@
     background: var(--raised);
     border: 1px solid var(--line);
     color: var(--text);
+  }
+
+  .plan-links {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
   }
 
   .export-link {
