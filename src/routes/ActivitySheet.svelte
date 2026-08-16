@@ -42,13 +42,23 @@
     try {
       const occurredAt = new Date(occurredAtMsFor(when, Date.now())).toISOString();
       const minutes = durationMin.trim() === "" ? undefined : Number(durationMin);
+      // The op's `durationMin` must always be `undefined` or a non-negative integer —
+      // `activityOpSchema` requires `z.number().int().nonnegative()`, and `POST
+      // /api/sync` validates the whole batch at once, so one op that fails that check
+      // 400s the entire batch rather than being quarantined individually. Because the
+      // outbox is flushed in ULID order, a bad value here would then sit at the front of
+      // every future batch and block everything queued behind it. Rounding and clamping
+      // before the op is constructed means an out-of-range value can never reach it.
+      const roundedMinutes = Number.isFinite(minutes)
+        ? Math.max(0, Math.round(minutes as number))
+        : undefined;
 
       await logWrite("home", {
         kind: "activity",
         id: newOpId(),
         activityKind: slug,
         occurredAt,
-        durationMin: minutes !== undefined && Number.isFinite(minutes) ? minutes : undefined,
+        durationMin: roundedMinutes,
         intensity: intensity.trim() || undefined,
         note: note.trim() || undefined,
       });
@@ -197,8 +207,11 @@
     font: inherit;
   }
   .error {
-    color: var(--muted);
-    font-size: 0.85rem;
+    background: var(--raised);
+    color: var(--text);
+    font-weight: 700;
+    border-radius: var(--r-xs);
+    padding: 0.6rem 0.75rem;
     margin: 0;
   }
   .sheet-actions {

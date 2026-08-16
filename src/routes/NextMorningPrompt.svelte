@@ -92,8 +92,11 @@
     justify-content: center;
   }
   .error {
-    color: var(--muted);
-    font-size: 0.85rem;
+    background: var(--raised);
+    color: var(--text);
+    font-weight: 700;
+    border-radius: var(--r-xs);
+    padding: 0.6rem 0.75rem;
     margin: 0.5rem 0 0;
   }
 </style>

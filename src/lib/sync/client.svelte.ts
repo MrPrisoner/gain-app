@@ -161,6 +161,11 @@ export function startSyncLoop(planSlug: string): () => void {
     removeEventListener("online", onOnline);
     removeEventListener("offline", onOffline);
     document.removeEventListener("visibilitychange", onVisible);
+    // Clearing the timeout alone leaves `retryTimer` holding a stale, already-cancelled
+    // handle. `flushNow`'s guard is `retryTimer !== undefined`, so a later caller (e.g.
+    // another `startSyncLoop` on a different route) would bounce off a retry that isn't
+    // actually pending. Reset it in the same step so the module returns to a clean state.
     clearTimeout(retryTimer);
+    retryTimer = undefined;
   };
 }
