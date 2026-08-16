@@ -131,6 +131,19 @@ export function workoutStatusOf(clientId: string): string | undefined {
   }
 }
 
+/** This workout's server-side `id`, so a spec can address its own History row directly
+ * rather than scanning a list every other spec is also writing into. */
+export function workoutIdOf(clientId: string): string | undefined {
+  const db = openSeededUserDb(seededDataDir());
+  try {
+    const row = db.prepare("SELECT id FROM workout WHERE client_id = ?").get(clientId) as
+      { id: string } | undefined;
+    return row?.id;
+  } finally {
+    db.close();
+  }
+}
+
 /** How many `workout` rows carry this `client_id` — one, always, is the whole point of
  * resume (ARCHITECTURE §9): a reload must land back on the workout it left, not start
  * another. */
