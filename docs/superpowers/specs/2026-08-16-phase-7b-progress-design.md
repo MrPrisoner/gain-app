@@ -104,6 +104,13 @@ performance regardless of any UI filter: whether a load increase is warranted is
 about the most recent session, not about how far back the user happens to be looking on a
 chart screen.
 
+**One exception: `summary.ts`.** The export table's readiness column is computed from the
+*same windowed series* as that row's "latest logged" column, not full history. A row
+whose "latest logged" is the most recent workout inside the chosen window would otherwise
+sit beside a readiness verdict drawn from a workout outside it — two claims about
+"latest" disagreeing within one row. The live app's per-exercise page keeps the
+full-history rule; only this one export-table consumer scopes to its own window.
+
 ---
 
 ## 4. Double-progression state

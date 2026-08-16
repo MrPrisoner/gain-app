@@ -20,6 +20,36 @@ Then clear it up behind you:
 
 ## Items
 
+### Resuming phase 7b across sessions
+
+Phase 7b (progress, charts & history) is being implemented across multiple separate
+sessions rather than one sitting. The plan is
+[`docs/superpowers/plans/2026-08-16-phase-7b-progress.md`](docs/superpowers/plans/2026-08-16-phase-7b-progress.md)
+(spec: [`docs/superpowers/specs/2026-08-16-phase-7b-progress-design.md`](docs/superpowers/specs/2026-08-16-phase-7b-progress-design.md)),
+split into seven parts, each ending in a "**Part N done when:**" line — a real stopping
+point where `npm run typecheck`/`npm run check` (and, from Part 2 on, `npm test`) are
+clean and nothing is left half-wired.
+
+**To pick up a fresh session:**
+
+1. Run `git log --oneline -20` and check which tasks' commits already exist (each task's
+   commit message names the task, e.g. "feat(progress): add buildExerciseSeries") to find
+   the next unchecked task. Cross-reference against the plan's own `- [ ]`/`- [x]` boxes —
+   the plan file is the source of truth for what's done, not memory of a previous session.
+2. Read the spec's relevant section before touching the next part's tasks if it's been a
+   while — the plan argues from the spec and doesn't repeat its reasoning.
+3. Resume with `superpowers:subagent-driven-development` on the next unstarted part
+   (parts are independent enough to run as their own subagent-driven pass — Part 1 has no
+   UI, Parts 3–6 share no code with each other beyond Parts 1–2's foundation, per the
+   plan's own File Structure section).
+4. Do the plan's pre-flight conflict scan for that part before dispatching its first
+   task — the same check phase 7a's plan used, which caught two real defects before any
+   code was written.
+
+**Delete this item once phase 7 is fully closed** (Task 20 of the plan — ROADMAP ticked,
+README/CLAUDE.md/ARCHITECTURE §12 all updated) rather than leaving it to rot as a stale
+pointer to a finished plan.
+
 ### Ability to update a log
 
 Currently, once a user has logged an exercise, there is no way to change that log. A user might make a mistake and would want to change what they logged. For example, forgetting to change the number of reps.
