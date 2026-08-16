@@ -3110,7 +3110,7 @@ Builds on Part 2 (`history.ts`) and Part 1. Independent of Parts 3–5 at the co
 - Produces: the route `/plan/[slug]/history`, linked to by each row's detail page
   (Task 16).
 
-- [ ] **Step 1: Implement the load function**
+- [x] **Step 1: Implement the load function**
 
 ```typescript
 // src/routes/plan/[slug]/history/+page.server.ts
@@ -3171,7 +3171,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 };
 ```
 
-- [ ] **Step 2: Implement the page**
+- [x] **Step 2: Implement the page**
 
 ```svelte
 <!-- src/routes/plan/[slug]/history/+page.svelte -->
@@ -3256,7 +3256,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 </style>
 ```
 
-- [ ] **Step 3: Format, typecheck, check, commit**
+- [x] **Step 3: Format, typecheck, check, commit**
 
 ```bash
 npx prettier --write src/routes/plan/\[slug\]/history/+page.server.ts src/routes/plan/\[slug\]/history/+page.svelte
@@ -3283,7 +3283,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
   (`$lib/contract/schema`); `versionsByWorkout` (Task 7).
 - Produces: the route each Task 15 row links to.
 
-- [ ] **Step 1: Implement the load function**
+- [x] **Step 1: Implement the load function**
 
 ```typescript
 // src/routes/plan/[slug]/history/[workoutId]/+page.server.ts
@@ -3383,7 +3383,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 };
 ```
 
-- [ ] **Step 2: Implement the page**
+- [x] **Step 2: Implement the page**
 
 ```svelte
 <!-- src/routes/plan/[slug]/history/[workoutId]/+page.svelte -->
@@ -3455,13 +3455,13 @@ export const load: PageServerLoad = ({ params, locals }) => {
 </style>
 ```
 
-- [ ] **Step 3: Manual verification**
+- [x] **Step 3: Manual verification**
 
 Visit `/plan/<slug>/history`, click into a logged workout. Expected: sets rendered the
 same way they'd appear in an export bundle, the plan version stated as text, no crash on
 a workout with no deviations or metrics.
 
-- [ ] **Step 4: Format, typecheck, check, commit**
+- [x] **Step 4: Format, typecheck, check, commit**
 
 ```bash
 npx prettier --write "src/routes/plan/[slug]/history/[workoutId]/+page.server.ts" "src/routes/plan/[slug]/history/[workoutId]/+page.svelte"
