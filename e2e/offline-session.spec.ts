@@ -42,14 +42,19 @@ test("a full session can be started, logged and finished entirely offline", asyn
 }) => {
   test.setTimeout(60_000);
 
-  // -- Online: the first visit registers and activates the service worker...
+  // -- Online: the first visit registers and activates the service worker. The session
+  // list is a collapsed accordion (`SessionOverrideList.svelte`'s `listOpen`, default
+  // closed): open it before any `.session-toggle` is reachable.
   await page.goto("/");
+  await page.locator(".list-toggle").click();
   await expect(page.locator(".session-toggle", { hasText: SESSION_NAME })).toBeVisible();
   await page.evaluate(() => navigator.serviceWorker.ready);
 
   // -- ...the second is what the now-active worker actually caches, opportunistically —
   // matching a real returning user, whose worker isn't installing for the first time.
+  // The reload remounts the component, so the accordion is collapsed again.
   await page.reload();
+  await page.locator(".list-toggle").click();
   await expect(page.locator(".session-toggle", { hasText: SESSION_NAME })).toBeVisible();
   await waitForPrecached(page, `/plan/${E2E_PLAN_SLUG}/session/A/__data.json`);
 
@@ -59,7 +64,8 @@ test("a full session can be started, logged and finished entirely offline", asyn
   // -- Reach the session via a client-side navigation from the already-loaded shell —
   // see the module comment for why this can't be a fresh `page.goto` to the session URL.
   // The session summary is an accordion (`+page.svelte`'s `toggleSession`): expand it to
-  // reveal the "Start session" link, which is what actually navigates.
+  // reveal the "Start session" link, which is what actually navigates. The list itself is
+  // still open from the reload above, since this is the same page, not a new navigation.
   await page.locator(".session-toggle", { hasText: SESSION_NAME }).click();
   await page.locator(".session-link").click();
   await dismissPreSessionPrompt(page);
@@ -85,8 +91,11 @@ test("a full session can be started, logged and finished entirely offline", asyn
   await page.getByRole("button", { name: "End session" }).click();
   await finishSession(page);
 
-  // Home renders offline too, now that the second online visit above cached it.
-  await expect(page.getByRole("heading", { name: "Home Training Plan" })).toBeVisible();
+  // Home renders offline too, now that the second online visit above cached it. The plan
+  // name now renders twice on Home (`NextSessionCard`'s featured card and the
+  // `.plan-admin` section below it, since `90c81d0` merged the two Home cards), so a
+  // plain role query is ambiguous — `.plan-name` is unique to the featured card.
+  await expect(page.locator(".plan-name", { hasText: "Home Training Plan" })).toBeVisible();
 
   // -- Reconnect, and let the outbox drain.
   await context.setOffline(false);

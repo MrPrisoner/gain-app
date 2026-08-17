@@ -20,27 +20,6 @@ Then clear it up behind you:
 
 ## Items
 
-### e2e `offline-session.spec.ts` fails — stale selector, unrelated to phase 7b
-
-`npx playwright test --project=offline e2e/offline-session.spec.ts` fails at line 47:
-`.session-toggle` (filtered to the session name) is expected visible but isn't found.
-
-Root cause: `.session-toggle` only renders inside `SessionOverrideList.svelte`'s
-`{#if listOpen}` block, and `listOpen` defaults to `false` — the collapsed "Choose a
-different session" accordion. `939db73` ("feat(home): add SessionOverrideList",
-2026-08-15) introduced that collapsed-by-default accordion after this spec's last edit
-(`b4625c4`) and never updated the spec to open it first, so the spec has been asserting
-against markup that no longer exists unconditionally.
-
-Surfaced while working the phase 7b plan (Task 19, `e2e/history-walkthrough.spec.ts`) —
-confirmed unrelated to that work: reproduces identically in isolation, and neither
-`e2e/helpers.ts` nor any phase-7b spec touches `SessionOverrideList.svelte` or this spec.
-
-Fix is presumably one line: click `.list-toggle` to open the accordion before asserting
-`.session-toggle` is visible, matching whatever the session-runner specs already do to
-reach the same control (check `e2e/session-runner-walkthrough-a.spec.ts` or `-d.spec.ts`
-first — this may already be a solved problem there).
-
 ### Phase 7b polish — parked by the final whole-branch review
 
 The final review of the phase 7b branch (progress, history, charts) found these real but
