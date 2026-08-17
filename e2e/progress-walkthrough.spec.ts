@@ -42,6 +42,7 @@ test("goblet squat, prescribed in two sessions, tracks as two separate progress 
   await page.goto(`/plan/${E2E_PLAN_SLUG}/progress/exercises`);
   const rows = page.getByRole("listitem").filter({ hasText: "Goblet squat" });
   await expect(rows).toHaveCount(2);
+  await assertNoHorizontalOverflow(page);
 
   await rows.first().getByRole("link").click();
   await expect(page.getByRole("heading", { name: "Goblet squat" })).toBeVisible();

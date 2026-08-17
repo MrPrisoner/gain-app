@@ -35,6 +35,7 @@ test("a logged workout appears in History and drills into matching set detail", 
 
   await page.goto(`/plan/${E2E_PLAN_SLUG}/history`);
   await expect(page.getByRole("link", { name: /Squat, Press & Row/ }).first()).toBeVisible();
+  await assertNoHorizontalOverflow(page);
 
   await page.goto(`/plan/${E2E_PLAN_SLUG}/history/${workoutId}`);
   await expect(page.getByRole("heading", { name: "Squat, Press & Row" })).toBeVisible();
