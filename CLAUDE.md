@@ -6,7 +6,7 @@ now only supports Claude Code, so the indirection was dropped.
 
 ## Current state
 
-**Phases 1–6 are done.** Phase 1 is the pure round-trip core: contract schema
+**Phases 1–7 are done.** Phase 1 is the pure round-trip core: contract schema
 (`src/lib/contract/`), parser (`src/lib/parse/`), diff engine (`src/lib/diff/`), export
 generator (`src/lib/export/`) and both prompt templates (`src/lib/templates/`) — pure
 functions over plain data, no I/O. Phase 2 is the storage layer (`src/lib/db/`): the
