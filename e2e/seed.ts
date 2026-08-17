@@ -82,20 +82,28 @@ export function seedFixturePlan(dataDir: string, devUser: string, now = new Date
 }
 
 /**
- * A read-only handle on the one seeded user's `gain.db`, for specs that need to assert on
+ * A read-only handle on one seeded user's `gain.db`, for specs that need to assert on
  * what a form action actually wrote rather than only on what the page draws — resume's
  * "re-logging cannot create a duplicate `(workout, exercise, set_no, side)`" is a claim
  * about rows, and rendered state cannot make it.
  *
- * `seedFixturePlan` provisions exactly one user per data directory, so the single entry
- * under `users/` is it; the caller does not have to thread `userId` out of global setup.
- * Opened `readonly` deliberately: a test that can write to the app's database can make its
- * own assertions come true. Specs must still scope every query to their own workout —
- * three viewport projects share this one file.
+ * `devUser` resolves to a user id the same way `ensureBypassUser`
+ * (`src/lib/server/auth.ts`) does — the same synthetic `dev-bypass:<devUser>` sub — so it
+ * finds the right directory now that `seedFixturePlan` can provision more than one user
+ * under one `dataDir` (`E2E_DEV_USER` and `E2E_HOME_DEV_USER`, `e2e/env.ts`). Opened
+ * `readonly` deliberately: a test that can write to the app's database can make its own
+ * assertions come true. Specs must still scope every query to their own workout where the
+ * user is shared — three viewport projects, and every non-`home-walkthrough` spec, all
+ * read through `E2E_DEV_USER`'s one account.
  */
-export function openSeededUserDb(dataDir: string): Database.Database {
-  const usersDir = path.join(dataDir, "users");
-  const [userId] = fs.readdirSync(usersDir);
-  if (!userId) throw new Error(`no seeded user under ${usersDir}`);
-  return new Database(path.join(usersDir, userId, "gain.db"), { readonly: true });
+export function openSeededUserDb(dataDir: string, devUser: string): Database.Database {
+  const control = openControlDb(dataDir, new Date());
+  let userId: string | undefined;
+  try {
+    userId = findUserBySub(control, `dev-bypass:${devUser}`)?.id;
+  } finally {
+    control.close();
+  }
+  if (!userId) throw new Error(`no seeded user for devUser "${devUser}" under ${dataDir}`);
+  return new Database(path.join(dataDir, "users", userId, "gain.db"), { readonly: true });
 }

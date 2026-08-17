@@ -18,7 +18,7 @@
  */
 
 import { expect, type Page } from "@playwright/test";
-import { E2E_PLAN_SLUG, seededDataDir } from "./env";
+import { E2E_DEV_USER, E2E_PLAN_SLUG, seededDataDir } from "./env";
 import { openSeededUserDb } from "./seed";
 
 export async function dismissPreSessionPrompt(page: Page): Promise<void> {
@@ -99,8 +99,8 @@ export type SetLogRow = { set_no: number; side: string | null; slug: string };
  * workout — that is a different question about a different table, and it now has its own
  * helper (`workoutCountFor`) rather than a second return shape for this one.
  */
-export function setLogsOf(clientId: string): SetLogRow[] {
-  const db = openSeededUserDb(seededDataDir());
+export function setLogsOf(clientId: string, devUser: string = E2E_DEV_USER): SetLogRow[] {
+  const db = openSeededUserDb(seededDataDir(), devUser);
   try {
     return db
       .prepare(
@@ -120,8 +120,11 @@ export function setLogsOf(clientId: string): SetLogRow[] {
 /** The workout's `status` — `completed` for a normal finish, `stopped` for a red flag.
  * Lives here rather than in the one spec that needs it for the reason this file's own
  * header gives: a second copy of a database query is how two of them end up disagreeing. */
-export function workoutStatusOf(clientId: string): string | undefined {
-  const db = openSeededUserDb(seededDataDir());
+export function workoutStatusOf(
+  clientId: string,
+  devUser: string = E2E_DEV_USER,
+): string | undefined {
+  const db = openSeededUserDb(seededDataDir(), devUser);
   try {
     const row = db.prepare("SELECT status FROM workout WHERE client_id = ?").get(clientId) as
       { status: string } | undefined;
@@ -133,8 +136,8 @@ export function workoutStatusOf(clientId: string): string | undefined {
 
 /** This workout's server-side `id`, so a spec can address its own History row directly
  * rather than scanning a list every other spec is also writing into. */
-export function workoutIdOf(clientId: string): string | undefined {
-  const db = openSeededUserDb(seededDataDir());
+export function workoutIdOf(clientId: string, devUser: string = E2E_DEV_USER): string | undefined {
+  const db = openSeededUserDb(seededDataDir(), devUser);
   try {
     const row = db.prepare("SELECT id FROM workout WHERE client_id = ?").get(clientId) as
       { id: string } | undefined;
@@ -147,8 +150,8 @@ export function workoutIdOf(clientId: string): string | undefined {
 /** How many `workout` rows carry this `client_id` — one, always, is the whole point of
  * resume (ARCHITECTURE §9): a reload must land back on the workout it left, not start
  * another. */
-export function workoutCountFor(clientId: string): number {
-  const db = openSeededUserDb(seededDataDir());
+export function workoutCountFor(clientId: string, devUser: string = E2E_DEV_USER): number {
+  const db = openSeededUserDb(seededDataDir(), devUser);
   try {
     const { n } = db
       .prepare("SELECT COUNT(*) AS n FROM workout WHERE client_id = ?")
@@ -163,9 +166,12 @@ export function workoutCountFor(clientId: string): number {
 
 export type ActivityRow = { kind: string; occurred_at: string };
 
-/** Every logged activity, most-recent-first — mirrors `setLogsOf`'s direct-read shape. */
-export function activitiesOf(): ActivityRow[] {
-  const db = openSeededUserDb(seededDataDir());
+/** Every logged activity, most-recent-first — mirrors `setLogsOf`'s direct-read shape.
+ * Account-wide rather than `client_id`-scoped (activities have no owning workout), so
+ * `home-walkthrough.spec.ts` — the one spec asserting on it — passes its own dedicated
+ * `devUser` (`E2E_HOME_DEV_USER`) rather than the one every other spec shares. */
+export function activitiesOf(devUser: string = E2E_DEV_USER): ActivityRow[] {
+  const db = openSeededUserDb(seededDataDir(), devUser);
   try {
     return db
       .prepare("SELECT kind, occurred_at FROM activity ORDER BY occurred_at DESC")

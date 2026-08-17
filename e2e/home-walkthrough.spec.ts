@@ -9,10 +9,25 @@
  * noon UTC, so no local offset can push either across a date boundary.
  *
  * `GAIN_DEV_USER` bypass mode (see `session-runner.spec.ts`) means no auth setup here.
+ *
+ * This is the one spec that asserts on whole-account state (the suggested next session
+ * and the full activity list have no `client_id` to scope by) rather than its own
+ * workout, so it runs as its own dedicated bypass user (`homeDevUserFor`) instead of the
+ * one every other spec shares — otherwise a concurrently-run spec finishing an unrelated
+ * session would land in between and change what "next" means here (`docs/ROADMAP.md`,
+ * "Loose ends"). `x-gain-e2e-user` (`src/hooks.server.ts`) is how a single running dev
+ * server tells this browser context apart from every other.
+ *
+ * One user per *project*, not one shared across all three: `test.use()` cannot vary by
+ * project (it is static config, evaluated once for every project that runs this file),
+ * so the header is set from `testInfo.project.name` inside the test body instead, before
+ * the first navigation — the same three viewport projects would otherwise run this file
+ * concurrently against one account and race each other exactly like the bug this file
+ * exists to avoid.
  */
 
 import { expect, test } from "@playwright/test";
-import { E2E_PLAN_SLUG } from "./env";
+import { E2E_PLAN_SLUG, homeDevUserFor } from "./env";
 import {
   activitiesOf,
   assertNoHorizontalOverflow,
@@ -24,8 +39,11 @@ test.use({ timezoneId: "UTC" });
 
 test("home suggests the next session, logs an activity, and asks the next-morning prompt once", async ({
   page,
-}) => {
+}, testInfo) => {
   test.setTimeout(60_000);
+
+  const devUser = homeDevUserFor(testInfo.project.name);
+  await page.setExtraHTTPHeaders({ "x-gain-e2e-user": devUser });
 
   const realNow = new Date();
   const yesterdayNoon = new Date(realNow);
@@ -72,7 +90,7 @@ test("home suggests the next session, logs an activity, and asks the next-mornin
   await page.getByRole("button", { name: "Log it" }).click();
   await expect(page.locator(".sheet-backdrop")).toHaveCount(0);
 
-  const activities = activitiesOf();
+  const activities = activitiesOf(devUser);
   expect(activities.some((a) => a.kind === "squash")).toBe(true);
 
   await page.reload();

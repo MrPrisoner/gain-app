@@ -40,6 +40,32 @@ export function seededDataDir(): string {
 /** Matches `GAIN_DEV_USER` — the auth bypass (`src/lib/server/config.ts`). */
 export const E2E_DEV_USER = "e2e";
 
+/**
+ * The three viewport projects that run every non-offline spec (`playwright.config.ts`) —
+ * not `phone`/`mobile`, per CLAUDE.md's own naming note. Duplicated here as a plain
+ * array rather than read off the config object, which `global-setup.ts` cannot import
+ * without a cycle (`playwright.config.ts` itself imports this module).
+ */
+export const E2E_VIEWPORT_PROJECTS = ["small-android", "iphone", "tablet-portrait"] as const;
+
+/**
+ * A dedicated bypass user per viewport project, for any spec asserting on whole-account
+ * state (a "what session does Home suggest next" read, not scoped to one `client_id`)
+ * rather than its own workout. `E2E_DEV_USER` is shared by every other spec that starts
+ * or finishes a workout, so a whole-account spec reading through it would see another
+ * spec's workouts land in between (`docs/ROADMAP.md`, "Loose ends") — and reading through
+ * one fixed second user still wouldn't be enough, since `fullyParallel: true` runs the
+ * *same* spec file concurrently across all three viewport projects, which would then
+ * collide with each other on that one shared account. `homeDevUserFor` names one user per
+ * project instead, requested per-request via the `x-gain-e2e-user` header
+ * (`src/hooks.server.ts`) since `GAIN_DEV_USER` itself is fixed for the whole dev-server
+ * process. Any future whole-account-assertion spec should call this with its own project
+ * name too, not reuse `home-walkthrough.spec.ts`'s users.
+ */
+export function homeDevUserFor(projectName: string): string {
+  return `e2e-home-${projectName}`;
+}
+
 /** Off the beaten path, so a developer's own `npm run dev` on 5173 is untouched. */
 export const E2E_PORT = 4319;
 export const E2E_BASE_URL = `http://127.0.0.1:${E2E_PORT}`;

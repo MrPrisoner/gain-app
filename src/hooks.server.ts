@@ -54,12 +54,19 @@ export const handle: Handle = async ({ event, resolve }) => {
   const now = new Date();
 
   if (config.auth.mode === "bypass") {
+    // `x-gain-e2e-user` lets a Playwright spec ask for its own isolated bypass user
+    // instead of the one `GAIN_DEV_USER` names, without needing a second server process
+    // — `GAIN_DEV_USER` is read once at boot (module-level `config`), so there is no
+    // other way for one running dev server to answer two browser contexts as two
+    // different users. Only reachable inside this already dev-only branch: bypass mode
+    // requires `GAIN_DEV_USER` to be set, and `getConfig` refuses that in production.
+    const devUser = event.request.headers.get("x-gain-e2e-user") ?? config.auth.devUser;
     event.locals.user = {
-      id: ensureBypassUser(config.auth.devUser, now),
+      id: ensureBypassUser(devUser, now),
       bypass: true,
-      // No real OIDC identity in bypass mode; the env var stands in so the
-      // greeting can still be exercised without a live IdP.
-      displayName: config.auth.devUser,
+      // No real OIDC identity in bypass mode; the env var (or the e2e override above)
+      // stands in so the greeting can still be exercised without a live IdP.
+      displayName: devUser,
     };
     return resolve(event);
   }
