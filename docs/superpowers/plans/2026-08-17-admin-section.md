@@ -35,9 +35,19 @@ them reconnecting.
 - **No literal control characters** anywhere. Write `\u0000`, never the character.
   Enforced by `npm run check:chars` and the `gain/no-control-characters` ESLint rule.
 - **No horizontal overflow at 360 px**, in both themes. `/admin` is a card list, not a
-  table.
-- **Red is permitted on exactly one control:** the reset button and its confirm state on
-  `/admin`. Nowhere else — not admin errors, not destructive actions generally.
+  table. Any grid uses `minmax(min(100%, <size>), 1fr)`; a bare `minmax(<size>, 1fr)`
+  cannot shrink and is the phase-4 bug.
+- **Red is permitted on exactly one control:** the reset button and the panel it sits in
+  on `/admin`. Nowhere else — not the error inside that panel, not admin errors generally,
+  not destructive actions elsewhere.
+- **One type family, no monospace anywhere** (UI-DECISIONS §10). Figures that can be
+  compared vertically get the `tabular` class. Absolute dates render ISO
+  (`iso.slice(0, 10)`), matching `history/+page.svelte`.
+- **Icons come from `~icons/lucide/*`** and carry no size or colour of their own;
+  `app.css` sizes every `<svg>` at 1.15em. Never set `width`/`height` at a call site.
+- **Colours come from the existing tokens** in `src/app.css` (`--ground`, `--surface`,
+  `--raised`, `--line`, `--line-soft`, `--text`, `--muted`, `--dim`, `--accent`, `--red`).
+  Do not add global tokens for one screen.
 - **Run `npx prettier --write <file>` after editing any TypeScript/Svelte file**, and
   `npm run verify` before claiming a task is done.
 
@@ -65,27 +75,26 @@ bypass user and lets an e2e spec drive an admin and a non-admin in the same run.
 
 - [ ] **Step 1: Write the failing tests**
 
-Add to `tests/server/config.test.ts`:
+Add to `tests/server/config.test.ts`. The file already defines a `FULL_OIDC` constant and
+imports `loadConfig` by relative path (`../../src/lib/server/config`) — reuse both rather
+than introducing a second fixture or a `$lib` import this directory does not use.
 
 ```ts
 describe("admin configuration", () => {
-  const oidcEnv = {
-    OIDC_ISSUER: "https://auth.example.com/application/o/gain/",
-    OIDC_CLIENT_ID: "gain",
-    OIDC_CLIENT_SECRET: "secret",
-    OIDC_REQUIRED_GROUP: "gain-users",
+  const prodEnv = {
+    ...FULL_OIDC,
     ORIGIN: "https://gain.example.com",
-    SESSION_SECRET: "s".repeat(64),
+    SESSION_SECRET: "abc123",
   };
 
   it("carries the admin group when OIDC is complete", () => {
-    const config = loadConfig({ ...oidcEnv, OIDC_ADMIN_GROUP: "gain-admins" }, "production");
+    const config = loadConfig({ ...prodEnv, OIDC_ADMIN_GROUP: "gain-admins" }, "production");
     expect(config.adminGroup).toBe("gain-admins");
     expect(config.devAdmin).toBeNull();
   });
 
   it("defaults to no admin at all", () => {
-    const config = loadConfig(oidcEnv, "production");
+    const config = loadConfig(prodEnv, "production");
     expect(config.adminGroup).toBeNull();
   });
 
@@ -108,7 +117,7 @@ describe("admin configuration", () => {
   });
 
   it("refuses GAIN_DEV_ADMIN in production", () => {
-    expect(() => loadConfig({ ...oidcEnv, GAIN_DEV_ADMIN: "dev" }, "production")).toThrow(
+    expect(() => loadConfig({ ...prodEnv, GAIN_DEV_ADMIN: "dev" }, "production")).toThrow(
       /GAIN_DEV_ADMIN/,
     );
   });
@@ -414,8 +423,19 @@ export function deleteSessionsForUser(control: ControlDb, userId: string): numbe
 - [ ] **Step 6: Run the tests to verify they pass**
 
 Run: `npx vitest run tests/server/control-db.test.ts`
-Expected: PASS. Other suites will now fail to typecheck on `createSession` — Task 3 fixes
-the callback; fix `tests/server/auth.test.ts` call sites here by adding `isAdmin: false`.
+Expected: PASS.
+
+Adding a required `isAdmin` to `createSession` breaks two existing call sites. Fix both
+here, in this commit, or the suite does not compile:
+
+- `tests/server/auth.test.ts`'s `seedSession` helper (around line 158) — add
+  `isAdmin?: boolean` to its options object and pass
+  `isAdmin: options.isAdmin ?? false` through to `createSession`. Task 3's tests need
+  that parameter, so add it now rather than reaching back for it.
+- `src/routes/auth/callback/+server.ts` — pass `isAdmin: false` for now; Task 3 replaces
+  it with the real group check. A temporary literal is correct here: this commit has no
+  `config.adminGroup` consumer yet, and leaving the file uncompilable to "save" one line
+  would break the task boundary.
 
 - [ ] **Step 7: Verify and commit**
 
@@ -445,52 +465,85 @@ git commit -m "feat(db): add the admin, display-label and generation columns to 
 
 - [ ] **Step 1: Write the failing tests**
 
-Add to `tests/server/auth.test.ts`, following the existing helpers that mint real signed
-JWTs and a fake token endpoint:
+`tests/server/auth.test.ts` already has everything these need — do not add new harness.
+The helpers, with their real signatures:
+
+- `seedSession({ accessTtlMs, refreshToken, createdAt, idToken })` → the session **id**.
+  Task 2 added `isAdmin` to its options.
+- `deps(control, { token, userinfo, endpoints, getEndpoints })` — overrides are at the
+  HTTP level. There is no `refreshGroups` shortcut: a refresh reporting groups means a
+  `token` override returning an `id_token` that lists them.
+- `idToken(claims, issuedAt?)` → a real signed JWT. `json(body, status?)` → a `Response`.
+- `check(sessionId, now, deps)` → `Promise<SessionCheck>`.
+
+**First**, add `adminGroup: "gain-admins"` to the module-level `config` object this file
+builds — `check()` passes it to `checkSession`, so without it every case below reads as
+"no admin configured" and passes vacuously.
 
 ```ts
-describe("admin flag lifecycle", () => {
-  it("reports the stored session flag", async () => {
-    const { control, cookies, config, oidc } = await setupSession({ isAdmin: true });
-    const check = await checkSession(cookies, config, oidc, new Date(), deps(control));
-    expect(check).toMatchObject({ status: "ok", isAdmin: true });
+describe("the admin flag", () => {
+  it("reports the flag stored on the session", async () => {
+    const sessionId = seedSession({ accessTtlMs: 60 * 60_000, isAdmin: true });
+    expect(await check(sessionId, NOW, deps(control))).toMatchObject({
+      status: "ok",
+      isAdmin: true,
+    });
   });
 
   it("drops the flag when a refresh shows the admin group is gone", async () => {
-    const { control, cookies, config, oidc, sessionId } = await setupSession({
-      isAdmin: true,
-      accessExpiresInMs: -1,
-    });
-    // Refresh returns an ID token listing the required group but not the admin group.
-    const check = await checkSession(
-      cookies,
-      config,
-      oidc,
-      new Date(),
-      deps(control, { refreshGroups: ["gain-users"] }),
+    const sessionId = seedSession({ accessTtlMs: -1, isAdmin: true });
+    const result = await check(
+      sessionId,
+      NOW,
+      deps(control, {
+        token: async () =>
+          json({
+            access_token: "access-2",
+            expires_in: 3600,
+            id_token: await idToken({ groups: ["gain-users"] }),
+          }),
+      }),
     );
-    expect(check).toMatchObject({ status: "ok", isAdmin: false });
-    expect(getSession(control, sessionId, new Date())?.is_admin).toBe(0);
+    expect(result).toMatchObject({ status: "ok", isAdmin: false });
+    expect(getSession(control, sessionId, NOW)?.is_admin).toBe(0);
   });
 
-  it("leaves the flag untouched when groups cannot be established", async () => {
-    const { control, cookies, config, oidc, sessionId } = await setupSession({
-      isAdmin: true,
-      accessExpiresInMs: -1,
-    });
-    // No id_token in the refresh response and no reachable userinfo — `null`, not `[]`.
-    const check = await checkSession(
-      cookies,
-      config,
-      oidc,
-      new Date(),
-      deps(control, { refreshGroups: null }),
+  it("grants the flag when a refresh shows the group was added", async () => {
+    const sessionId = seedSession({ accessTtlMs: -1, isAdmin: false });
+    const result = await check(
+      sessionId,
+      NOW,
+      deps(control, {
+        token: async () =>
+          json({
+            access_token: "access-2",
+            expires_in: 3600,
+            id_token: await idToken({ groups: ["gain-users", "gain-admins"] }),
+          }),
+      }),
     );
-    expect(check).toMatchObject({ status: "ok", isAdmin: true });
-    expect(getSession(control, sessionId, new Date())?.is_admin).toBe(1);
+    expect(result).toMatchObject({ status: "ok", isAdmin: true });
+    expect(getSession(control, sessionId, NOW)?.is_admin).toBe(1);
+  });
+
+  it("leaves the flag untouched when membership cannot be established", async () => {
+    // No `id_token` in the refresh response, and `deps` throws for an un-overridden
+    // userinfo endpoint — which `fetchUserinfoGroups` turns into `null`, not `[]`.
+    // This is the phase-3 rule the whole design leans on; if it regresses, an IdP blip
+    // silently demotes the operator.
+    const sessionId = seedSession({ accessTtlMs: -1, isAdmin: true });
+    const result = await check(
+      sessionId,
+      NOW,
+      deps(control, { token: () => json({ access_token: "access-2", expires_in: 3600 }) }),
+    );
+    expect(result).toMatchObject({ status: "ok", isAdmin: true });
+    expect(getSession(control, sessionId, NOW)?.is_admin).toBe(1);
   });
 });
 ```
+
+`getSession` must be added to this file's imports from `../../src/lib/server/control-db`.
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
@@ -665,17 +718,33 @@ function that can return a content row — and that is what the test asserts.
 
 Create `tests/server/admin-stats.test.ts`:
 
+Note the import paths: `importPlan` lives in `src/lib/db/import-plan.ts` (**not**
+`import.ts`) and takes an already-**parsed** document, not raw Markdown —
+`importPlan(userDb, { parsed, now })`. `tests/server/` imports by relative path, not
+`$lib`. Copy the `seedPlan` helper below rather than re-deriving the parse-then-import
+dance in each test.
+
 ```ts
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { openUserDb } from "$lib/db/user-db";
-import { importPlan } from "$lib/db/import";
-import { statsForUsers } from "$lib/server/admin-stats";
-import type { ControlUser } from "$lib/server/control-db";
+import { openUserDb, type UserDb } from "../../src/lib/db/user-db";
+import { importPlan } from "../../src/lib/db/import-plan";
+import { parsePlanDocument } from "../../src/lib/parse/parser";
+import { statsForUsers } from "../../src/lib/server/admin-stats";
+import type { ControlUser } from "../../src/lib/server/control-db";
 
-const fixture = fs.readFileSync("fixtures/plans/home-training-v1.md", "utf8");
+const fixtureMd = fs.readFileSync("fixtures/plans/home-training-v1.md", "utf8");
+const NOW = new Date("2026-08-17T09:00:00Z");
+
+/** Import the fixture plan as version 1. Throws loudly rather than half-seeding. */
+function seedPlan(userDb: UserDb): void {
+  const parsed = parsePlanDocument(fixtureMd);
+  if (!parsed.ok) throw new Error(`fixture failed to parse (${parsed.kind}):\n${parsed.report}`);
+  const result = importPlan(userDb, { parsed, now: NOW });
+  if (!result.ok) throw new Error(`fixture failed to import: ${result.message}`);
+}
 
 function user(id: string): ControlUser {
   return {
@@ -712,8 +781,8 @@ describe("statsForUsers", () => {
   });
 
   it("counts a provisioned user's plans without reading their content", () => {
-    const db = openUserDb(dataDir, "alice", { now: new Date(), seedTemplates: [] });
-    importPlan(db, { sourceMd: fixture, now: new Date() });
+    const db = openUserDb(dataDir, "alice", { now: NOW, seedTemplates: [] });
+    seedPlan(db);
     db.close();
 
     const [stats] = statsForUsers(dataDir, [user("alice")]);
@@ -722,14 +791,16 @@ describe("statsForUsers", () => {
     expect(stats.planVersions).toBe(1);
     expect(stats.workoutsStarted).toBe(0);
     expect(stats.diskBytes).toBeGreaterThan(0);
-    // The plan's name appears nowhere in what the operator receives.
-    expect(JSON.stringify(stats)).not.toContain("Home");
+    // Nothing the plan says reaches the operator — not its name, not a slug.
+    const serialised = JSON.stringify(stats);
+    expect(serialised).not.toContain("Home");
+    expect(serialised).not.toContain("goblet");
   });
 
   it("opens a cold WAL database that has never been written to", () => {
     // Provision and close immediately: no -shm exists on disk. A readonly open of a
     // WAL database can fail here with SQLITE_CANTOPEN, so the module must fall back.
-    openUserDb(dataDir, "cold", { now: new Date(), seedTemplates: [] }).close();
+    openUserDb(dataDir, "cold", { now: NOW, seedTemplates: [] }).close();
     fs.rmSync(path.join(dataDir, "users", "cold", "gain.db-shm"), { force: true });
     fs.rmSync(path.join(dataDir, "users", "cold", "gain.db-wal"), { force: true });
 
@@ -738,10 +809,10 @@ describe("statsForUsers", () => {
   });
 
   it("keeps one user's counts out of another's", () => {
-    const db = openUserDb(dataDir, "alice", { now: new Date(), seedTemplates: [] });
-    importPlan(db, { sourceMd: fixture, now: new Date() });
+    const db = openUserDb(dataDir, "alice", { now: NOW, seedTemplates: [] });
+    seedPlan(db);
     db.close();
-    openUserDb(dataDir, "bob", { now: new Date(), seedTemplates: [] }).close();
+    openUserDb(dataDir, "bob", { now: NOW, seedTemplates: [] }).close();
 
     const stats = statsForUsers(dataDir, [user("alice"), user("bob")]);
     expect(stats.find((s) => s.userId === "alice")?.plans).toBe(1);
@@ -932,35 +1003,76 @@ git commit -m "feat(admin): add the count-only per-user stats reader"
 
 Create `tests/server/admin-reset.test.ts`:
 
+`resetUserData` re-provisions through `getUserDbFor`, which reads `getConfig().dataDir` —
+so this file has to point the process-wide config at its temp directory. Copy the
+`beforeEach`/`afterEach` pattern from `tests/server/first-run.test.ts` exactly (it sets
+`DATA_DIR` and `GAIN_DEV_USER`, deletes the four `OIDC_*` variables, and calls both
+`resetConfigForTests()` and `resetAppStateForTests()`); a partial copy leaves a cached
+config pointing at a directory the previous test deleted.
+
 ```ts
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { openUserDb } from "$lib/db/user-db";
-import { importPlan } from "$lib/db/import";
-import { resetUserData } from "$lib/server/admin-reset";
-import { openControlDb, createUser, createSession, getSession } from "$lib/server/control-db";
-import { getUserDbFor, resetAppStateForTests } from "$lib/server/app-state";
-import { statsForUsers, } from "$lib/server/admin-stats";
+import { openUserDb, type UserDb } from "../../src/lib/db/user-db";
+import { importPlan } from "../../src/lib/db/import-plan";
+import { parsePlanDocument } from "../../src/lib/parse/parser";
+import { resetUserData } from "../../src/lib/server/admin-reset";
+import {
+  openControlDb,
+  createUser,
+  createSession,
+  getSession,
+} from "../../src/lib/server/control-db";
+import { getUserDbFor, resetAppStateForTests } from "../../src/lib/server/app-state";
+import { resetConfigForTests } from "../../src/lib/server/config";
+import { statsForUsers } from "../../src/lib/server/admin-stats";
 
-const fixture = fs.readFileSync("fixtures/plans/home-training-v1.md", "utf8");
+const fixtureMd = fs.readFileSync("fixtures/plans/home-training-v1.md", "utf8");
+const NOW = new Date("2026-08-17T09:00:00Z");
+const NO_TOKENS = {
+  access_token: null,
+  access_expires_at: null,
+  refresh_token: null,
+  id_token: null,
+};
+
+function seedPlan(userDb: UserDb): void {
+  const parsed = parsePlanDocument(fixtureMd);
+  if (!parsed.ok) throw new Error(`fixture failed to parse (${parsed.kind}):\n${parsed.report}`);
+  const result = importPlan(userDb, { parsed, now: NOW });
+  if (!result.ok) throw new Error(`fixture failed to import: ${result.message}`);
+}
+
 let dataDir: string;
 
 beforeEach(() => {
   dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "gain-admin-reset-"));
+  process.env.DATA_DIR = dataDir;
+  process.env.GAIN_DEV_USER = "tester";
+  delete process.env.OIDC_ISSUER;
+  delete process.env.OIDC_CLIENT_ID;
+  delete process.env.OIDC_CLIENT_SECRET;
+  delete process.env.OIDC_REQUIRED_GROUP;
+  resetConfigForTests();
+  resetAppStateForTests();
 });
+
 afterEach(() => {
   resetAppStateForTests();
+  resetConfigForTests();
+  delete process.env.DATA_DIR;
+  delete process.env.GAIN_DEV_USER;
   fs.rmSync(dataDir, { recursive: true, force: true });
 });
 
 describe("resetUserData", () => {
   it("wipes the directory, bumps the generation, and re-provisions", () => {
-    const control = openControlDb(dataDir, new Date());
-    const user = createUser(control, "sub-a", new Date());
-    const db = openUserDb(dataDir, user.id, { now: new Date(), seedTemplates: [] });
-    importPlan(db, { sourceMd: fixture, now: new Date() });
+    const control = openControlDb(dataDir, NOW);
+    const user = createUser(control, "sub-a", NOW);
+    const db = openUserDb(dataDir, user.id, { now: NOW, seedTemplates: [] });
+    seedPlan(db);
     db.close();
 
     const before = statsForUsers(dataDir, [{ ...user }])[0];
@@ -977,28 +1089,27 @@ describe("resetUserData", () => {
   });
 
   it("signs the user out everywhere", () => {
-    const control = openControlDb(dataDir, new Date());
-    const user = createUser(control, "sub-a", new Date());
-    openUserDb(dataDir, user.id, { now: new Date(), seedTemplates: [] }).close();
+    const control = openControlDb(dataDir, NOW);
+    const user = createUser(control, "sub-a", NOW);
+    openUserDb(dataDir, user.id, { now: NOW, seedTemplates: [] }).close();
     const session = createSession(control, {
       userId: user.id,
-      now: new Date(),
+      now: NOW,
       idleMs: 60_000,
-      tokens: { access_token: null, access_expires_at: null, refresh_token: null, id_token: null },
+      tokens: NO_TOKENS,
       isAdmin: false,
     });
 
     resetUserData(control, dataDir, user.id);
-    expect(getSession(control, session.id, new Date())).toBeUndefined();
+    expect(getSession(control, session.id, NOW)).toBeUndefined();
     control.close();
   });
 
   it("closes the cached handle before unlinking, so the fresh db is genuinely empty", () => {
-    const control = openControlDb(dataDir, new Date());
-    const user = createUser(control, "sub-a", new Date());
+    const control = openControlDb(dataDir, NOW);
+    const user = createUser(control, "sub-a", NOW);
     // Warm the process-wide cache the way a live request would.
-    const cached = getUserDbFor(user.id);
-    importPlan(cached, { sourceMd: fixture, now: new Date() });
+    seedPlan(getUserDbFor(user.id));
 
     resetUserData(control, dataDir, user.id);
 
@@ -1010,12 +1121,12 @@ describe("resetUserData", () => {
   });
 
   it("leaves another user untouched", () => {
-    const control = openControlDb(dataDir, new Date());
-    const a = createUser(control, "sub-a", new Date());
-    const b = createUser(control, "sub-b", new Date());
+    const control = openControlDb(dataDir, NOW);
+    const a = createUser(control, "sub-a", NOW);
+    const b = createUser(control, "sub-b", NOW);
     for (const id of [a.id, b.id]) {
-      const db = openUserDb(dataDir, id, { now: new Date(), seedTemplates: [] });
-      importPlan(db, { sourceMd: fixture, now: new Date() });
+      const db = openUserDb(dataDir, id, { now: NOW, seedTemplates: [] });
+      seedPlan(db);
       db.close();
     }
 
@@ -1026,11 +1137,6 @@ describe("resetUserData", () => {
   });
 });
 ```
-
-Note: `getUserDbFor` reads `getConfig().dataDir`, so this test needs the config pointed at
-the temp directory. Set `process.env.DATA_DIR = dataDir` in `beforeEach` and call
-`resetConfigForTests()` — the same pattern `tests/server/first-run.test.ts` already uses.
-Copy that file's setup rather than inventing a second one.
 
 - [ ] **Step 2: Run the test to verify it fails**
 
@@ -1157,71 +1263,288 @@ git commit -m "feat(admin): add the ordered per-user data reset"
 
 ---
 
-### Task 6: The `/admin` route
+### Task 6: The `/admin` screen
 
 **Files:**
+- Create: `src/lib/admin/user-status.ts`
 - Create: `src/routes/admin/+page.server.ts`
 - Create: `src/routes/admin/+page.svelte`
 - Modify: `src/routes/+layout.svelte`
-- Modify: `src/routes/+layout.server.ts`
 - Modify: `docs/UI-DECISIONS.md`
-- Test: `tests/server/admin-route.test.ts`
+- Test: `tests/admin/user-status.test.ts`, `tests/server/admin-route.test.ts`
 
 **Interfaces:**
-- Consumes: `locals.user.isAdmin` (Task 3), `statsForUsers` (Task 4), `resetUserData`
-  (Task 5), `listUsers` (Task 2).
-- Produces: nothing later tasks consume, except the e2e selectors in Task 9.
+- Consumes: `locals.user.isAdmin` (Task 3), `statsForUsers` / `UserStats` (Task 4),
+  `resetUserData` (Task 5), `listUsers` (Task 2).
+- Produces: `describeActivity(stats: UserStats, now: Date): string` and
+  `confirmationFor(displayLabel: string | null, userId: string): string` from
+  `src/lib/admin/user-status.ts`. Task 9's e2e spec depends on the copy strings below
+  being exact.
 
-- [ ] **Step 1: Write the failing test**
+**`src/routes/+layout.server.ts` needs no change.** It already returns
+`user: locals.user` wholesale, so Task 3's `isAdmin` reaches the layout for free. (Task 7
+does modify it, for a different field.)
 
-Create `tests/server/admin-route.test.ts`, following `tests/server/export-route.test.ts`
-for how a route module's `load` and `actions` are invoked directly:
+#### What this screen is for
+
+The operator is one person — whoever runs the container — visiting rarely: onboarding an
+alpha tester, answering "can you wipe me", or wondering who is actually using this. Their
+real question is never "how many sets has this person logged". It is **"is this person
+alive on the platform?"** During alpha the interesting states are: signed in but never
+imported a plan; imported a plan but never trained; training; stopped training weeks ago.
+
+So the card leads with a plain-language reading of that, and keeps the counts underneath
+as the evidence for it. That interpretive line is the one idea this screen is built
+around; everything else stays deliberately quiet. A grid of raw counts would make the
+operator do the arithmetic that the screen exists to do for them.
+
+Two consequences worth stating, because both are easy to "fix" back into blandness:
+
+- **No status colour.** UI-DECISIONS §5 reserves green/amber/red, and that constraint is
+  doing real work here — it forces a sentence that says what is happening instead of a
+  dot that makes the operator learn a colour code.
+- **Relative phrasing in the status line only.** The rest of the app writes ISO dates
+  (`toISOString().slice(0, 10)`) and the evidence row keeps doing that. "Last trained 6
+  weeks ago" answers the question at a glance; `2026-07-06` does not. Both are present,
+  each doing one job.
+
+- [ ] **Step 1: Write the failing test for the status line**
+
+Create `tests/admin/user-status.test.ts`. The clock is injected — this is a pure module
+and the repo's determinism rule applies to it.
 
 ```ts
-describe("/admin guard", () => {
-  it("404s for a signed-in non-admin", async () => {
-    await expect(load({ locals: { user: { id: "u1", isAdmin: false } } } as never)).rejects.toMatchObject(
-      { status: 404 },
+import { describe, expect, it } from "vitest";
+import { confirmationFor, describeActivity } from "../../src/lib/admin/user-status";
+import type { UserStats } from "../../src/lib/server/admin-stats";
+
+const NOW = new Date("2026-08-17T09:00:00Z");
+
+function stats(overrides: Partial<UserStats> = {}): UserStats {
+  return {
+    userId: "01KZKQ4GB22EEQBF20YDKD1BYE",
+    displayLabel: "alice",
+    oidcSub: "sub-1",
+    createdAt: "2026-03-12T00:00:00.000Z",
+    lastLoginAt: "2026-08-16T00:00:00.000Z",
+    provisioned: true,
+    plans: 1,
+    planVersions: 1,
+    workoutsStarted: 4,
+    workoutsFinished: 3,
+    setLogs: 88,
+    lastWorkoutAt: "2026-08-14T07:00:00.000Z",
+    diskBytes: 1024,
+    ...overrides,
+  };
+}
+
+describe("describeActivity", () => {
+  it("names the empty account before anything else", () => {
+    expect(describeActivity(stats({ provisioned: false, plans: 0 }), NOW)).toBe("No plan yet");
+    expect(describeActivity(stats({ plans: 0 }), NOW)).toBe("No plan yet");
+  });
+
+  it("separates having a plan from having used it", () => {
+    expect(describeActivity(stats({ workoutsStarted: 0, lastWorkoutAt: null }), NOW)).toBe(
+      "Plan imported, not trained yet",
     );
   });
 
-  it("404s for an anonymous request", async () => {
-    await expect(load({ locals: { user: null } } as never)).rejects.toMatchObject({ status: 404 });
+  it("reads recent training in days", () => {
+    expect(describeActivity(stats({ lastWorkoutAt: "2026-08-17T06:00:00.000Z" }), NOW)).toBe(
+      "Last trained today",
+    );
+    expect(describeActivity(stats({ lastWorkoutAt: "2026-08-16T06:00:00.000Z" }), NOW)).toBe(
+      "Last trained yesterday",
+    );
+    expect(describeActivity(stats({ lastWorkoutAt: "2026-08-14T06:00:00.000Z" }), NOW)).toBe(
+      "Last trained 3 days ago",
+    );
   });
 
-  it("lists users for an admin", async () => {
-    const result = await load({ locals: { user: { id: "u1", isAdmin: true } } } as never);
-    expect(Array.isArray(result.users)).toBe(true);
+  it("switches to weeks, then months, as the gap grows", () => {
+    expect(describeActivity(stats({ lastWorkoutAt: "2026-08-03T06:00:00.000Z" }), NOW)).toBe(
+      "Last trained 2 weeks ago",
+    );
+    expect(describeActivity(stats({ lastWorkoutAt: "2026-05-17T06:00:00.000Z" }), NOW)).toBe(
+      "Last trained 3 months ago",
+    );
+  });
+
+  it("says 1 week rather than 7 days at the boundary", () => {
+    expect(describeActivity(stats({ lastWorkoutAt: "2026-08-10T09:00:00.000Z" }), NOW)).toBe(
+      "Last trained 1 week ago",
+    );
   });
 });
 
-describe("?/reset", () => {
-  it("returns a 400 rather than throwing when the confirmation does not match", async () => {
-    const result = await actions.reset({
-      locals: { user: { id: "u1", isAdmin: true } },
-      request: formRequest({ userId: target.id, confirmLabel: "wrong" }),
-    } as never);
-    expect(result).toMatchObject({ status: 400 });
-    expect(result.data.actionError).toMatch(/does not match/i);
+describe("confirmationFor", () => {
+  it("uses the label when there is one", () => {
+    expect(confirmationFor("alice", "01KZKQ4GB22EEQBF20YDKD1BYE")).toBe("alice");
   });
 
-  it("404s for a non-admin even with a valid confirmation", async () => {
-    await expect(
-      actions.reset({
-        locals: { user: { id: "u1", isAdmin: false } },
-        request: formRequest({ userId: target.id, confirmLabel: "alice" }),
-      } as never),
-    ).rejects.toMatchObject({ status: 404 });
+  it("falls back to the tail of the user id", () => {
+    expect(confirmationFor(null, "01KZKQ4GB22EEQBF20YDKD1BYE")).toBe("KD1BYE");
   });
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [ ] **Step 2: Run it to verify it fails**
+
+Run: `npx vitest run tests/admin/user-status.test.ts`
+Expected: FAIL — cannot resolve `../../src/lib/admin/user-status`.
+
+- [ ] **Step 3: Implement the status line**
+
+Create `src/lib/admin/user-status.ts`:
+
+```ts
+/**
+ * How the operator screen reads a user's aggregates back as a sentence.
+ *
+ * Pure, with the clock injected, so the phrasing is testable and deterministic — and
+ * because the answer is computed in `load` rather than the component: deriving "3 days
+ * ago" at render time would disagree between the server-rendered markup and hydration,
+ * the same trap `src/routes/+page.svelte` documents around its `nowMs`.
+ *
+ * The three states below are the ones that matter during alpha, in the order that
+ * distinguishes them: an account with no plan is a different problem from a plan nobody
+ * has trained, which is different again from someone who trained and stopped. UI-DECISIONS
+ * §5 reserves colour for the plan's symptom framework, so this says it in words — which
+ * is the better answer anyway, since a coloured dot would need a legend.
+ */
+
+import type { UserStats } from "../server/admin-stats";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export function describeActivity(stats: UserStats, now: Date): string {
+  if (!stats.provisioned || stats.plans === 0) return "No plan yet";
+  if (stats.lastWorkoutAt === null) return "Plan imported, not trained yet";
+  return `Last trained ${relativeDays(stats.lastWorkoutAt, now)}`;
+}
+
+/**
+ * Calendar-day difference, not elapsed hours: a session at 23:00 and a glance at 08:00
+ * the next morning is "yesterday", not "9 hours ago".
+ */
+function relativeDays(iso: string, now: Date): string {
+  const then = Date.parse(iso);
+  if (Number.isNaN(then)) return "at an unknown time";
+
+  const days = Math.max(0, Math.round((startOfDay(now) - startOfDay(new Date(then))) / DAY_MS));
+  if (days === 0) return "today";
+  if (days === 1) return "yesterday";
+  if (days < 7) return `${days} days ago`;
+
+  const weeks = Math.floor(days / 7);
+  if (weeks < 9) return `${weeks} ${weeks === 1 ? "week" : "weeks"} ago`;
+
+  const months = Math.max(1, Math.round(days / 30));
+  return `${months} ${months === 1 ? "month" : "months"} ago`;
+}
+
+function startOfDay(date: Date): number {
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+}
+
+/**
+ * What the operator must type to confirm a reset. The label when there is one; the tail
+ * of the ULID when the user has not logged in since `display_label` was added.
+ *
+ * Typing it is the safety device, not the red button: it is the one step that cannot be
+ * completed by muscle memory on the wrong card.
+ */
+export function confirmationFor(displayLabel: string | null, userId: string): string {
+  return displayLabel ?? userId.slice(-6);
+}
+```
+
+- [ ] **Step 4: Run it to verify it passes**
+
+Run: `npx vitest run tests/admin/user-status.test.ts`
+Expected: PASS.
+
+- [ ] **Step 5: Write the failing route test**
+
+Create `tests/server/admin-route.test.ts`. Model the request stand-ins on
+`tests/server/first-run.test.ts`, which drives `+page.server.ts` directly with a minimal
+`locals`/`request` object and the same `DATA_DIR` + `resetConfigForTests()` setup — copy
+that file's `beforeEach`/`afterEach` wholesale, exactly as Task 5 did.
+
+```ts
+import { describe, expect, it } from "vitest";
+import { isHttpError } from "@sveltejs/kit";
+import { actions, load } from "../../src/routes/admin/+page.server";
+
+function event(user: { id: string; isAdmin: boolean } | null, fields: Record<string, string> = {}) {
+  const form = new FormData();
+  for (const [key, value] of Object.entries(fields)) form.append(key, value);
+  return {
+    locals: { user: user && { ...user, bypass: true, displayName: null } },
+    request: { formData: () => Promise.resolve(form) },
+  } as never;
+}
+
+describe("the /admin guard", () => {
+  it("404s for a signed-in non-admin", async () => {
+    await expect(load(event({ id: "u1", isAdmin: false }))).rejects.toSatisfy(
+      (err: unknown) => isHttpError(err) && err.status === 404,
+    );
+  });
+
+  it("404s for an anonymous request", async () => {
+    await expect(load(event(null))).rejects.toSatisfy(
+      (err: unknown) => isHttpError(err) && err.status === 404,
+    );
+  });
+
+  it("404s the reset action too, not just the page", async () => {
+    // A guard on `load` alone leaves the action reachable by anyone who can POST.
+    await expect(
+      actions.reset(event({ id: "u1", isAdmin: false }, { userId: "u2", confirmLabel: "x" })),
+    ).rejects.toSatisfy((err: unknown) => isHttpError(err) && err.status === 404);
+  });
+});
+
+describe("the reset action", () => {
+  it("fails with 400 rather than throwing when the confirmation is wrong", async () => {
+    const result = await actions.reset(
+      event({ id: admin.id, isAdmin: true }, { userId: subject.id, confirmLabel: "wrong" }),
+    );
+    expect(result).toMatchObject({ status: 400 });
+    expect((result as { data: { actionError: string } }).data.actionError).toContain(
+      "does not match",
+    );
+  });
+
+  it("fails with 400 for a user id that no longer exists", async () => {
+    const result = await actions.reset(
+      event({ id: admin.id, isAdmin: true }, { userId: "gone", confirmLabel: "gone" }),
+    );
+    expect(result).toMatchObject({ status: 400 });
+  });
+
+  it("resets when the confirmation matches exactly", async () => {
+    const result = await actions.reset(
+      event({ id: admin.id, isAdmin: true }, { userId: subject.id, confirmLabel: "subject" }),
+    );
+    expect(result).toMatchObject({ resetLabel: "subject" });
+  });
+});
+```
+
+Seed `admin` and `subject` as `control_user` rows with `setDisplayLabel(…, "subject")` in
+`beforeEach`, and give `subject` a provisioned `gain.db` with the fixture plan — reuse
+Task 5's `seedPlan` helper by copying it, since `tests/helpers/` holds no equivalent.
+
+- [ ] **Step 6: Run it to verify it fails**
 
 Run: `npx vitest run tests/server/admin-route.test.ts`
 Expected: FAIL — the route module does not exist.
 
-- [ ] **Step 3: Implement the server route**
+- [ ] **Step 7: Implement the server route**
 
 Create `src/routes/admin/+page.server.ts`:
 
@@ -1230,7 +1553,9 @@ Create `src/routes/admin/+page.server.ts`:
  * The operator screen (spec §8).
  *
  * A non-admin gets **404, not 403**. A 403 confirms both that the route exists and that
- * this instance has an operator; a 404 says nothing at all.
+ * this instance has an operator configured; a 404 says nothing at all. The guard runs in
+ * `load` *and* in the action — guarding only the page leaves the destructive POST
+ * reachable by anyone who can construct one.
  */
 
 import { error, fail } from "@sveltejs/kit";
@@ -1240,21 +1565,25 @@ import { getConfig } from "$lib/server/config";
 import { listUsers } from "$lib/server/control-db";
 import { statsForUsers } from "$lib/server/admin-stats";
 import { resetUserData } from "$lib/server/admin-reset";
+import { confirmationFor, describeActivity } from "$lib/admin/user-status";
 
 function requireAdmin(locals: App.Locals): void {
   if (!locals.user?.isAdmin) throw error(404, "Not found");
 }
 
-/** What the operator must type to confirm. The label when there is one; a stable, */
-/** unambiguous tail of the ULID when there is not. */
-export function confirmationFor(displayLabel: string | null, userId: string): string {
-  return displayLabel ?? userId.slice(-6);
-}
-
 export const load: PageServerLoad = async ({ locals }) => {
   requireAdmin(locals);
-  const config = getConfig();
-  return { users: statsForUsers(config.dataDir, listUsers(getControlDb())) };
+  const now = new Date();
+  const users = statsForUsers(getConfig().dataDir, listUsers(getControlDb()));
+  return {
+    // The status sentence is resolved here, not in the component: "3 days ago" derived
+    // at render time would differ between SSR and hydration.
+    users: users.map((user) => ({
+      ...user,
+      status: describeActivity(user, now),
+      confirmation: confirmationFor(user.displayLabel, user.userId),
+    })),
+  };
 };
 
 export const actions: Actions = {
@@ -1266,8 +1595,8 @@ export const actions: Actions = {
     const typed = String(form.get("confirmLabel") ?? "").trim();
 
     const control = getControlDb();
-    const target = listUsers(control).find((u) => u.id === userId);
-    if (!target) return fail(400, { actionError: "That user no longer exists." });
+    const target = listUsers(control).find((user) => user.id === userId);
+    if (!target) return fail(400, { actionError: "That user no longer exists.", userId });
 
     const expected = confirmationFor(target.display_label, target.id);
     if (typed !== expected) {
@@ -1281,9 +1610,9 @@ export const actions: Actions = {
       resetUserData(control, getConfig().dataDir, target.id);
     } catch (err) {
       // Never throw from an action: a 500 renders +error.svelte and the operator loses
-      // the screen along with any sense of what happened.
+      // the screen along with any account of what happened.
       return fail(400, {
-        actionError: err instanceof Error ? err.message : "The reset failed.",
+        actionError: err instanceof Error ? err.message : "The reset did not finish.",
         userId,
       });
     }
@@ -1293,30 +1622,80 @@ export const actions: Actions = {
 };
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [ ] **Step 8: Run the route test to verify it passes**
 
 Run: `npx vitest run tests/server/admin-route.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Build the page**
+- [ ] **Step 9: Build the page**
 
-Create `src/routes/admin/+page.svelte`. Runes mode — `$props`, `$state`, `$derived`; no
-`export let`. A **card list, not a table**: a stats table cannot survive 360 px without
-horizontal overflow, which UI-DECISIONS §12 forbids and the e2e suite asserts against.
+Create `src/routes/admin/+page.svelte`. Runes mode throughout — `$props`, `$state`,
+`$derived`. No `export let`, no `createEventDispatcher`; there is not one of either
+anywhere in `src/`.
+
+**The card, at 360 px.** Four tiers of emphasis, dimmest last, so the eye lands on who
+and how they are doing before it reaches identifiers:
+
+```
+┌──────────────────────────────────────┐
+│ alice.smith                          │  --text, 1.05rem, 600
+│ Last trained 3 days ago              │  --text, 0.95rem   ← the answer
+│                                      │
+│ 2 plans · 18 of 21 finished · 486 sets│ --muted, 0.875rem, tabular
+│ Joined 2026-03-12 · 4.2 MB           │  --dim, 0.8125rem
+│ a1b2c3d4-…-9f0e  (full, wrapped)     │  --dim, 0.8125rem
+│                                      │
+│ [ Reset data… ]                      │  neutral outline
+└──────────────────────────────────────┘
+```
+
+The OIDC subject is rendered **in full and allowed to wrap** (`overflow-wrap: anywhere`),
+never truncated and never in a monospace face — UI-DECISIONS §10 sets one family for the
+whole app and no monospace anywhere. Truncating would hide exactly the string the operator
+needs in order to match this row against Authentik's user list, which is the only reason
+it is on screen.
+
+**The reset, expanded.** The trigger is neutral; red appears only on the final confirm
+button, at the moment the action is actually armed:
+
+```
+┌──────────────────────────────────────┐
+│ ⚠ This permanently erases every plan, │
+│   workout and log for alice.smith.    │
+│   They keep their account and can     │
+│   start again from an empty GAIN.     │
+│                                       │
+│ Type alice.smith to confirm           │
+│ [___________________________]         │
+│                                       │
+│ [ Reset alice.smith's data ] [Cancel] │   ← red, disabled until matched
+└──────────────────────────────────────┘
+```
+
+Typing the name is the real safety device; the colour is a signal, not the guard. That is
+also what keeps the control usable for an operator who cannot distinguish red from
+neutral.
 
 ```svelte
 <script lang="ts">
   import { enhance } from "$app/forms";
+  import IconTriangleAlert from "~icons/lucide/triangle-alert";
   import type { ActionData, PageData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
-  /** Which card has its confirmation field open. One at a time, by construction. */
+  /** Which card has its confirmation open. One at a time, by construction. */
   let openFor = $state<string | null>(null);
   let typed = $state("");
 
-  function confirmationFor(label: string | null, id: string): string {
-    return label ?? id.slice(-6);
+  function open(userId: string): void {
+    openFor = userId;
+    typed = "";
+  }
+
+  function close(): void {
+    openFor = null;
+    typed = "";
   }
 
   function formatBytes(bytes: number): string {
@@ -1331,73 +1710,93 @@ horizontal overflow, which UI-DECISIONS §12 forbids and the e2e suite asserts a
     return `${value.toFixed(value < 10 ? 1 : 0)} ${units[unit]}`;
   }
 
-  function formatDate(iso: string | null): string {
-    return iso ? iso.slice(0, 10) : "never";
+  /** ISO everywhere the app shows an absolute date (`history/+page.svelte`). */
+  function isoDate(iso: string): string {
+    return iso.slice(0, 10);
   }
 </script>
 
-<svelte:head><title>Admin — GAIN</title></svelte:head>
+<svelte:head><title>Users — GAIN</title></svelte:head>
 
 <h1>Users</h1>
 <p class="lede">
-  Counts only. Plans, exercises and logs stay private to the user who wrote them.
+  Counts only. Plans, workouts and notes stay private to the person who wrote them.
 </p>
 
 {#if form?.resetLabel}
-  <p class="notice" role="status">Reset {form.resetLabel} to a clean slate.</p>
+  <p class="done" role="status">Reset {form.resetLabel}'s data.</p>
+{/if}
+
+{#if data.users.length === 0}
+  <p class="empty">No one has signed in yet. Users appear here after their first sign-in.</p>
 {/if}
 
 <ul class="users">
   {#each data.users as user (user.userId)}
-    {@const confirmation = confirmationFor(user.displayLabel, user.userId)}
     <li class="card">
-      <h2>{user.displayLabel ?? "(no label yet)"}</h2>
-      <p class="sub">{user.oidcSub}</p>
+      <h2>{user.displayLabel ?? "No name yet"}</h2>
+      <p class="status">{user.status}</p>
 
-      <dl class="stats">
-        <div><dt>Last login</dt><dd>{formatDate(user.lastLoginAt)}</dd></div>
-        <div><dt>Last workout</dt><dd>{formatDate(user.lastWorkoutAt)}</dd></div>
-        <div><dt>Plans</dt><dd>{user.plans} ({user.planVersions} versions)</dd></div>
-        <div><dt>Workouts</dt><dd>{user.workoutsFinished} / {user.workoutsStarted}</dd></div>
-        <div><dt>Sets</dt><dd>{user.setLogs}</dd></div>
-        <div><dt>On disk</dt><dd>{formatBytes(user.diskBytes)}</dd></div>
-      </dl>
+      <p class="counts tabular">
+        {user.plans}
+        {user.plans === 1 ? "plan" : "plans"} ·
+        {user.workoutsFinished} of {user.workoutsStarted} finished ·
+        {user.setLogs}
+        {user.setLogs === 1 ? "set" : "sets"}
+      </p>
+      <p class="meta tabular">
+        Joined {isoDate(user.createdAt)} · last seen {isoDate(user.lastLoginAt)} ·
+        {formatBytes(user.diskBytes)}
+      </p>
+      <p class="meta identity">{user.oidcSub}</p>
 
       {#if openFor === user.userId}
         <form
           method="POST"
           action="?/reset"
+          class="danger-panel"
           use:enhance={() => {
             return async ({ update }) => {
               await update();
-              openFor = null;
-              typed = "";
+              close();
             };
           }}
         >
           <input type="hidden" name="userId" value={user.userId} />
-          <label for="confirm-{user.userId}">
-            This erases every plan, workout and log. Type <strong>{confirmation}</strong> to
-            confirm.
-          </label>
+
+          <p class="warning" id="warn-{user.userId}">
+            <IconTriangleAlert aria-hidden="true" />
+            <span>
+              This permanently erases every plan, workout and log for
+              <strong>{user.confirmation}</strong>. They keep their account and can start
+              again from an empty GAIN.
+            </span>
+          </p>
+
+          <label for="confirm-{user.userId}">Type {user.confirmation} to confirm</label>
           <input
             id="confirm-{user.userId}"
             name="confirmLabel"
             bind:value={typed}
+            aria-describedby="warn-{user.userId}"
             autocomplete="off"
+            autocapitalize="none"
+            spellcheck="false"
           />
+
           {#if form?.actionError && form?.userId === user.userId}
             <p class="action-error" role="alert">{form.actionError}</p>
           {/if}
+
           <div class="row">
-            <button class="danger" type="submit" disabled={typed !== confirmation}>
-              Reset this user's data
+            <button class="danger" type="submit" disabled={typed !== user.confirmation}>
+              Reset {user.confirmation}'s data
             </button>
-            <button type="button" onclick={() => ((openFor = null), (typed = ""))}>Cancel</button>
+            <button class="quiet" type="button" onclick={close}>Cancel</button>
           </div>
         </form>
       {:else}
-        <button class="danger-outline" type="button" onclick={() => (openFor = user.userId)}>
+        <button class="trigger" type="button" onclick={() => open(user.userId)}>
           Reset data…
         </button>
       {/if}
@@ -1406,51 +1805,81 @@ horizontal overflow, which UI-DECISIONS §12 forbids and the e2e suite asserts a
 </ul>
 ```
 
-Styles: follow `src/app.css`'s existing tokens. The destructive control is the one place
-red is permitted — use `var(--red)` for the confirmed button's background and the outline
-button's border. Everything else stays neutral. The card grid must use
-`grid-template-columns: repeat(auto-fit, minmax(0, 1fr))` with `minmax(0, …)`, not
-`minmax(<size>, …)` — a floor that cannot shrink is exactly the phase-4 overflow bug.
+**Styles.** Use the existing tokens only — no new colours beyond a soft red wash, which
+the palette lacks an equivalent of (`--accent-soft` and `--amber-soft` exist, `--red-soft`
+does not). Define it locally in this component rather than adding a global token for one
+screen:
 
-- [ ] **Step 6: Link it from the header**
+- `.users` — `list-style: none; padding: 0;` and
+  `grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr))` with `gap: 1rem`.
+  The `min(100%, 22rem)` floor is the load-bearing part: a bare `minmax(22rem, 1fr)`
+  cannot shrink below 22 rem and overflows at 360 px, which is exactly the phase-4 grid
+  bug UI-DECISIONS §12 exists to catch.
+- `.card` — `background: var(--surface); border: 1px solid var(--line-soft); border-radius: var(--r-md); padding: 1.25rem;`
+  matching `src/routes/+page.svelte`'s card.
+- `.status` — `var(--text)`, `0.95rem`, `margin: 0.15rem 0 0.75rem`. The one line that
+  is not muted below the name.
+- `.counts` — `var(--muted)`, `0.875rem`. `.meta` — `var(--dim)`, `0.8125rem`,
+  `margin: 0.15rem 0 0`.
+- `.identity` — `overflow-wrap: anywhere;`. No `font-family` override.
+- `.trigger` — transparent background, `1px solid var(--line)`, `border-radius: var(--r-sm)`,
+  `color: var(--muted)`, full-width at narrow widths, `margin-top: 1rem`.
+- `.danger-panel` — `margin-top: 1rem; padding: 1rem; border-radius: var(--r-sm);`
+  `border: 1px solid var(--red); background: color-mix(in srgb, var(--red) 10%, transparent);`
+- `.warning` — `display: flex; gap: 0.5rem; align-items: start;` with the icon inheriting
+  its colour from the text (do **not** set width/height on the `<svg>`; `app.css` sizes
+  every icon at 1.15em already).
+- `.danger` — `background: var(--red); color: #fff; border: 0; border-radius: var(--r-sm);`
+  and `&:disabled { opacity: 0.5; cursor: not-allowed; }`.
+- `.action-error` — `color: var(--text)`, not `var(--red)`: inside a red-bordered panel a
+  red error is unreadable, and the phase-4 rule that an error must be legible next to the
+  control that failed still applies.
+- `.row` — `display: flex; gap: 0.5rem; flex-wrap: wrap;` so the two buttons stack rather
+  than overflow at 360 px.
+- Respect `@media (prefers-reduced-motion: reduce)` if you add any transition at all; the
+  panel appearing needs none.
 
-In `src/routes/+layout.server.ts`, add `isAdmin: locals.user?.isAdmin ?? false` to the
-returned `user` object. In `src/routes/+layout.svelte`, inside `.top-right` before the
-sign-out form:
+- [ ] **Step 10: Link it from the header**
+
+In `src/routes/+layout.svelte`, inside `.top-right`, before the sign-out form:
 
 ```svelte
       {#if data.user?.isAdmin}
-        <a class="linklike" href="/admin">Admin</a>
+        <a class="linklike" href="/admin">Users</a>
       {/if}
 ```
 
-- [ ] **Step 7: Record the UI-DECISIONS exception**
+"Users", not "Admin" — the link says what is behind it, and it matches the page's own `h1`.
+An action keeps the same name through the whole flow.
 
-In `docs/UI-DECISIONS.md` §5, after the existing celebration-confetti exception, add a
-second one. Match the file's prose voice — it argues a case, it is not a bullet list:
+- [ ] **Step 11: Record the UI-DECISIONS exception**
+
+In `docs/UI-DECISIONS.md` §5, after the existing celebration-confetti exception. Match the
+file's prose voice — it argues a case, it is not a bullet list. `docs/` is
+prettier-ignored, so do not run prettier over it.
 
 ```markdown
 **A second narrow exception, settled 2026-08-17:** the reset control on `/admin` is red.
 The triad above belongs to the plan's pain-response framework, and it earns its
 exclusivity on the surfaces where a user reads their own body signals — the session
-runner, progress, the export. `/admin` carries no plan and no symptom data at all, so
-there is no scale for red to compete with there, and red is the conventional and correct
-signal for an irreversible destructive action. The exception is that control and its
-confirmed state, on that route. It does not extend to errors on the admin screen, and it
-does not licence a red destructive style anywhere that renders plan or symptom data.
+runner, progress, the export. `/admin` renders no plan and no symptom data at all, so
+there is no scale for red to compete with there, and red is the conventional signal for an
+irreversible destructive action. The exception covers that button and the panel it sits
+in, on that route, and nothing else: not the error message inside that panel, which stays
+`var(--text)` because red-on-red is unreadable, and not destructive styling anywhere that
+renders plan or symptom data. Note also what is *not* coloured — the per-user activity
+line reads "Last trained 6 weeks ago" rather than showing an amber dot, because a sentence
+needs no legend and the triad could not have been borrowed for it anyway.
 ```
 
-- [ ] **Step 8: Verify and commit**
+- [ ] **Step 12: Verify and commit**
 
-Run: `npx prettier --write src/routes/admin/ src/routes/+layout.svelte src/routes/+layout.server.ts tests/server/admin-route.test.ts && npm run verify`
-
-Note `docs/` is prettier-ignored — do not pass `docs/UI-DECISIONS.md` to prettier.
+Run: `npx prettier --write src/lib/admin src/routes/admin src/routes/+layout.svelte tests/admin tests/server/admin-route.test.ts && npm run verify`
 
 ```bash
-git add src/routes/admin tests/server/admin-route.test.ts src/routes/+layout.svelte src/routes/+layout.server.ts docs/UI-DECISIONS.md
+git add src/lib/admin src/routes/admin tests/admin tests/server/admin-route.test.ts src/routes/+layout.svelte docs/UI-DECISIONS.md
 git commit -m "feat(admin): add the operator screen and its per-user reset"
 ```
-
 ---
 
 ### Task 7: Sync generation — reject ops from before a reset
@@ -1564,8 +1993,23 @@ Expected: PASS.
 
 - [ ] **Step 6: Publish the generation to the client**
 
-In `src/routes/+layout.server.ts`, add `dataGeneration: getDataGeneration(getControlDb(), locals.user.id)`
-to the returned user object (0 when there is no user).
+`src/routes/+layout.server.ts` is three lines and returns `user: locals.user` wholesale.
+Add the generation as a **sibling field**, not a property of `user` — `locals.user` is
+built in `hooks.server.ts` and typed in `app.d.ts`, and widening it there would put a
+`control.db` read into the hot path of every request including the ones that never sync:
+
+```ts
+export const load: LayoutServerLoad = ({ locals }) => ({
+  user: locals.user,
+  appVersion: getConfig().appVersion,
+  // The generation the client's outbox must match to be accepted (spec §7). 0 for an
+  // anonymous request, which is also the default a batch with no generation parses to.
+  dataGeneration: locals.user ? getDataGeneration(getControlDb(), locals.user.id) : 0,
+});
+```
+
+Import `getControlDb` from `$lib/server/app-state` and `getDataGeneration` from
+`$lib/server/control-db`.
 
 - [ ] **Step 7: Add `clearAll` to the outbox and honour the 409**
 
@@ -1645,36 +2089,121 @@ git commit -m "feat(sync): reject queued ops from before a data reset"
 
 **Interfaces:**
 - Consumes: `OutboxStore.clearQuarantined` (Task 7).
-- Produces: `discardQuarantined(): Promise<void>` exported from `client.svelte.ts`.
+- Produces: `discardQuarantined(): Promise<void>` exported from `client.svelte.ts`, and
+  `memoryOutbox(): OutboxStore` from `tests/sync/memory-outbox.ts`.
 
 **Why this is here.** It fixes a gap that predates the admin work: quarantined ops are held
 forever and nothing in the UI can clear them, so the banner sticks permanently whether a
 reset caused it or a removed exercise slug did. Task 7 touches this exact code.
 
+**Read this before writing the test.** `tests/sync/queue.test.ts` has **no in-memory
+store** — it only exercises the pure `planBatch` and `applyAck` functions, and Vitest runs
+with `environment: "node"` (see `vitest.config.ts`), so there is no IndexedDB and no
+`fake-indexeddb` dependency. `src/lib/sync/idb.ts` therefore has no unit coverage today,
+and this task must not pretend otherwise. Split the difference honestly:
+
+- **The interface contract** gets a real in-memory `OutboxStore` written for it, which is
+  useful beyond this task and is what the test below drives.
+- **The real `idb.ts` implementation** is proven in Task 9's e2e, which runs a browser and
+  the actual object store. Do not claim unit coverage of `idb.ts`.
+
 - [ ] **Step 1: Write the failing test**
 
-In `tests/sync/queue.test.ts`, against the in-memory store the file already uses:
+Create `tests/sync/memory-outbox.ts` — a complete `OutboxStore` over a `Map`, implementing
+every method of the interface, including the two Task 7 added:
 
 ```ts
-it("discards quarantined records and keeps pending ones", async () => {
-  await outbox.append(pendingOp);
-  await outbox.append(badOp);
-  await outbox.quarantine([{ id: badOp.id, error: "unknown exercise" }]);
+import type { OutboxRecord, OutboxStore } from "../../src/lib/sync/queue";
+import type { SyncOp } from "../../src/lib/sync/ops";
 
-  await outbox.clearQuarantined();
+/**
+ * An `OutboxStore` over a Map, for testing the queue's contract without a browser.
+ * `src/lib/sync/idb.ts` is the real implementation and is covered by the e2e suite —
+ * this proves the interface's semantics, not IndexedDB's.
+ */
+export function memoryOutbox(): OutboxStore {
+  const records = new Map<string, OutboxRecord>();
 
-  expect(await outbox.counts()).toEqual({ pending: 1, quarantined: 0 });
+  return {
+    async append(op: SyncOp) {
+      records.set(op.id, { op, state: "pending" });
+    },
+    async pending() {
+      return [...records.values()].filter((r) => r.state === "pending").map((r) => r.op);
+    },
+    async ack(ids) {
+      for (const id of ids) records.delete(id);
+    },
+    async quarantine(entries) {
+      for (const { id, error } of entries) {
+        const record = records.get(id);
+        if (record) records.set(id, { ...record, state: "quarantined", error });
+      }
+    },
+    async forWorkout(workoutClientId) {
+      return [...records.values()].filter(
+        (r) => (r.op as { workoutClientId?: string }).workoutClientId === workoutClientId,
+      );
+    },
+    async counts() {
+      const all = [...records.values()];
+      return {
+        pending: all.filter((r) => r.state === "pending").length,
+        quarantined: all.filter((r) => r.state === "quarantined").length,
+      };
+    },
+    async clearAll() {
+      records.clear();
+    },
+    async clearQuarantined() {
+      for (const [id, record] of records) {
+        if (record.state === "quarantined") records.delete(id);
+      }
+    },
+  };
+}
+```
+
+Then in `tests/sync/queue.test.ts`:
+
+```ts
+describe("the outbox contract", () => {
+  it("discards quarantined records and keeps pending ones", async () => {
+    const outbox = memoryOutbox();
+    await outbox.append(setOp("01"));
+    await outbox.append(setOp("02"));
+    await outbox.quarantine([{ id: "02", error: "unknown exercise `ghost`" }]);
+
+    await outbox.clearQuarantined();
+
+    expect(await outbox.counts()).toEqual({ pending: 1, quarantined: 0 });
+  });
+
+  it("clearAll drops pending and quarantined alike", async () => {
+    const outbox = memoryOutbox();
+    await outbox.append(setOp("01"));
+    await outbox.append(setOp("02"));
+    await outbox.quarantine([{ id: "02", error: "unknown exercise `ghost`" }]);
+
+    await outbox.clearAll();
+
+    expect(await outbox.counts()).toEqual({ pending: 0, quarantined: 0 });
+  });
 });
 ```
+
+`setOp(id)` is already defined at the top of that file — reuse it.
 
 - [ ] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run tests/sync/queue.test.ts`
-Expected: FAIL — `clearQuarantined` is not on the test double.
+Expected: FAIL — `clearQuarantined` and `clearAll` are not on `OutboxStore`, so
+`memoryOutbox` does not typecheck against it. (If Task 7 is already committed they are on
+the interface, and the failure is instead that `memory-outbox.ts` does not exist.)
 
 - [ ] **Step 3: Implement**
 
-Add `clearQuarantined` to the in-memory test store, then in `client.svelte.ts`:
+In `client.svelte.ts`:
 
 ```ts
 /**
@@ -1705,14 +2234,15 @@ In `src/routes/+layout.svelte`, beside the rendered `bannerText`, when
         </button>
 ```
 
-Not red — §5's exception is scoped to `/admin` alone.
+Not red — §5's exception is scoped to the `/admin` reset alone. The banner already sits in
+neutral chrome on every screen in the app, several of which render plan and symptom data.
 
 - [ ] **Step 6: Verify and commit**
 
-Run: `npx prettier --write src/lib/sync/client.svelte.ts src/routes/+layout.svelte tests/sync/queue.test.ts && npm run verify`
+Run: `npx prettier --write src/lib/sync/client.svelte.ts src/routes/+layout.svelte tests/sync && npm run verify`
 
 ```bash
-git add src/lib/sync/client.svelte.ts src/routes/+layout.svelte tests/sync/queue.test.ts
+git add src/lib/sync/client.svelte.ts src/routes/+layout.svelte tests/sync
 git commit -m "feat(sync): let the user discard ops that can never sync"
 ```
 
@@ -1721,92 +2251,181 @@ git commit -m "feat(sync): let the user discard ops that can never sync"
 ### Task 9: End-to-end walkthrough
 
 **Files:**
-- Create: `e2e/admin-walkthrough.spec.ts`
+- Modify: `e2e/env.ts`
+- Modify: `e2e/global-setup.ts`
 - Modify: `playwright.config.ts`
+- Create: `e2e/admin-walkthrough.spec.ts`
 
 **Interfaces:**
-- Consumes: everything above.
-- Produces: the durable proof this phase shipped.
+- Consumes: everything above, and the exact copy strings from Task 6.
+- Produces: `E2E_ADMIN_USER` and `adminSubjectFor(projectName)` in `e2e/env.ts`; the
+  durable proof this phase shipped.
 
-- [ ] **Step 1: Grant dev admin in the Playwright server env**
+**How this harness actually works** — do not invent helpers, all of this exists:
 
-In `playwright.config.ts`'s `webServer.env`, add `GAIN_DEV_ADMIN: "admin-e2e"`. Because
-Task 1 made this a *name*, only the bypass user called `admin-e2e` becomes an operator —
-every existing spec's user stays non-admin, so no existing spec changes behaviour. Confirm
-that by running the full suite in step 4, not by assuming it.
+- Bypass users are named, and a spec asks for its own by setting the
+  `x-gain-e2e-user` request header **before its first navigation**
+  (`src/hooks.server.ts`). `page.setExtraHTTPHeaders({ "x-gain-e2e-user": name })`.
+- Per-project users are minted by a function like `homeDevUserFor(projectName)` in
+  `e2e/env.ts` and seeded in `e2e/global-setup.ts`. `test.use()` cannot vary by project,
+  which is why the header is set inside the test body from `testInfo.project.name`.
+- Plans are seeded by `seedFixturePlan(dataDir, devUser)` at global setup, not inside a
+  spec.
+- The overflow assertion is `assertNoHorizontalOverflow(page)` from `e2e/helpers.ts` —
+  **not** `expectNoHorizontalOverflow`.
 
-- [ ] **Step 2: Write the spec**
+- [ ] **Step 1: Add the two user names**
 
-Create `e2e/admin-walkthrough.spec.ts`. Reuse `e2e/helpers.ts` for gestures and
-`e2e/seed.ts` for getting a plan in; drive the two users through the `x-gain-e2e-user`
-header exactly as `e2e/home-walkthrough.spec.ts` does per viewport.
+In `e2e/env.ts`, beside `homeDevUserFor`:
 
 ```ts
-import { test, expect } from "@playwright/test";
-import { asUser, seedPlan, expectNoHorizontalOverflow } from "./helpers";
+/**
+ * The one operator account. `GAIN_DEV_ADMIN` is a single environment variable read once
+ * at boot, so unlike the subject below this cannot vary per project — which is fine,
+ * because the admin spec asserts only on its own subject's card, never on the list as a
+ * whole.
+ */
+export const E2E_ADMIN_USER = "e2e-admin";
 
-test("an operator sees counts, resets one user, and leaves the other alone", async ({
-  browser,
+/**
+ * The account the admin spec resets, one per viewport project. The reset is destructive
+ * and `fullyParallel: true` runs this file concurrently across all three projects, so a
+ * shared subject would have its data wiped out from under a sibling run mid-assertion —
+ * the same hazard `homeDevUserFor` exists for, with a sharper edge.
+ */
+export function adminSubjectFor(projectName: string): string {
+  return `e2e-admin-subject-${projectName}`;
+}
+```
+
+- [ ] **Step 2: Seed them**
+
+In `e2e/global-setup.ts`, after the existing `homeDevUserFor` loop:
+
+```ts
+  // The operator, and one disposable account per project for it to reset.
+  seedFixturePlan(E2E_DATA_DIR, E2E_ADMIN_USER);
+  for (const project of E2E_VIEWPORT_PROJECTS) {
+    seedFixturePlan(E2E_DATA_DIR, adminSubjectFor(project));
+  }
+```
+
+Add `E2E_ADMIN_USER` and `adminSubjectFor` to the import from `./env`.
+
+- [ ] **Step 3: Grant dev admin in both servers**
+
+In `playwright.config.ts`, add `GAIN_DEV_ADMIN: E2E_ADMIN_USER` to the `env` of **both**
+`webServer` entries, and import `E2E_ADMIN_USER` from `./e2e/env`. The built server runs
+no admin spec today, but keeping the two environments identical except where they must
+differ is what stops the next person debugging a phantom difference between them.
+
+Because Task 1 made `GAIN_DEV_ADMIN` a *name* rather than a flag, every existing spec's
+user stays a non-admin and no existing spec changes behaviour. Confirm that in step 6
+rather than assuming it.
+
+- [ ] **Step 4: Write the spec**
+
+Create `e2e/admin-walkthrough.spec.ts`.
+
+The assertions deliberately key on the **status line**, not the counts row. It is the
+string that proves `statsForUsers` actually read that user's database and
+`describeActivity` interpreted it — the phase-7 lesson is that asserting on a component's
+shell can pass vacuously while the data path behind it never fired. "Plan imported, not
+trained yet" before and "No plan yet" after is a claim only a real read-then-wipe can
+satisfy.
+
+```ts
+/**
+ * The operator screen's "done when" (docs/superpowers/specs/2026-08-17-admin-section-design.md):
+ * an operator sees every registered user with counts, resets one, and no user's training
+ * content is on the screen at any point.
+ *
+ * One admin account shared across projects, one disposable subject per project — see
+ * `adminSubjectFor`. `GAIN_DEV_ADMIN` (playwright.config.ts) is what makes the first of
+ * those an operator; every other spec's bypass user stays a normal user.
+ */
+
+import { expect, test } from "@playwright/test";
+import { E2E_ADMIN_USER, E2E_PLAN_SLUG, adminSubjectFor, homeDevUserFor } from "./env";
+import { assertNoHorizontalOverflow } from "./helpers";
+
+test("an operator sees counts, resets one user, and never sees plan content", async ({
+  page,
 }, testInfo) => {
-  // Per-viewport user names, so the four projects never share state (see dd543bc).
-  const suffix = testInfo.project.name;
-  const subject = `subject-${suffix}`;
+  const subject = adminSubjectFor(testInfo.project.name);
+  await page.setExtraHTTPHeaders({ "x-gain-e2e-user": E2E_ADMIN_USER });
 
-  const subjectPage = await asUser(browser, subject);
-  await seedPlan(subjectPage);
-  await subjectPage.close();
+  await page.goto("/admin");
 
-  const adminPage = await asUser(browser, "admin-e2e");
-  await adminPage.goto("/admin");
-
-  const card = adminPage.locator(".card", { hasText: subject });
+  const card = page.locator("li.card", { hasText: subject });
   await expect(card).toBeVisible();
-  await expect(card.getByText("1 (1 versions)")).toBeVisible();
-  await expectNoHorizontalOverflow(adminPage);
 
-  // The plan's name never reaches the operator.
-  await expect(adminPage.getByText("Home training")).toHaveCount(0);
+  // The seeded subject has a plan and has never trained. This string can only be right
+  // if the cross-user read actually happened.
+  await expect(card.locator(".status")).toHaveText("Plan imported, not trained yet");
 
-  await card.getByRole("button", { name: /Reset data/ }).click();
-  const confirm = card.getByRole("button", { name: /Reset this user's data/ });
+  // Counts only: nothing naming the plan reaches the operator.
+  await expect(page.getByText(E2E_PLAN_SLUG)).toHaveCount(0);
+
+  await card.getByRole("button", { name: "Reset data…" }).click();
+
+  const confirm = card.getByRole("button", { name: `Reset ${subject}'s data` });
   await expect(confirm).toBeDisabled();
 
-  await card.getByLabel(/Type/).fill(subject);
+  // The widest state the card ever reaches — input plus two buttons — in both themes.
+  await assertNoHorizontalOverflow(page);
+  await page.emulateMedia({ colorScheme: "light" });
+  await assertNoHorizontalOverflow(page);
+  await page.emulateMedia({ colorScheme: "dark" });
+
+  await card.getByLabel(`Type ${subject} to confirm`).fill(subject);
   await expect(confirm).toBeEnabled();
   await confirm.click();
 
-  await expect(adminPage.getByRole("status")).toContainText(subject);
-  await expect(adminPage.locator(".card", { hasText: subject }).getByText("0 (0 versions)")).toBeVisible();
+  // Scoped to the page body: the sync banner in the root layout is also a live region,
+  // so a bare getByRole("status") can match two nodes.
+  await expect(page.locator("p.done")).toHaveText(`Reset ${subject}'s data.`);
+
+  // The account survives the reset; only its data is gone.
+  const after = page.locator("li.card", { hasText: subject });
+  await expect(after).toBeVisible();
+  await expect(after.locator(".status")).toHaveText("No plan yet");
 });
 
-test("a non-admin gets a 404", async ({ browser }, testInfo) => {
-  const page = await asUser(browser, `plain-${testInfo.project.name}`);
+test("the operator screen is invisible to everyone else", async ({ page }, testInfo) => {
+  await page.setExtraHTTPHeaders({ "x-gain-e2e-user": homeDevUserFor(testInfo.project.name) });
+
   const response = await page.goto("/admin");
+
+  // 404, not 403: a 403 would confirm both that the route exists and that this instance
+  // has an operator configured.
   expect(response?.status()).toBe(404);
 });
 ```
 
-If `asUser`, `seedPlan` or `expectNoHorizontalOverflow` are named differently in
-`e2e/helpers.ts`, use the real names — read that file first rather than adding duplicates.
+If `p.done` or `li.card` do not match what Task 6 actually built, fix the **selector**
+here to match the component — do not loosen the assertion to make it pass.
 
-- [ ] **Step 3: Run the new spec at one viewport**
+- [ ] **Step 5: Run the new spec at one viewport**
 
 Run: `npx playwright test --project=iphone e2e/admin-walkthrough.spec.ts`
-Expected: PASS. Needs `npx playwright install chromium` once first.
+Expected: PASS. Needs `npx playwright install chromium` once first (~150 MB).
 
-- [ ] **Step 4: Run the whole suite**
+- [ ] **Step 6: Run the whole suite**
 
 Run: `npm run test:e2e`
-Expected: PASS, including every pre-existing spec. If `GAIN_DEV_ADMIN` disturbed one, fix
-the config rather than the spec.
+Expected: PASS, including every pre-existing spec. This is the step that proves
+`GAIN_DEV_ADMIN` disturbed nothing — if a spec fails, fix the configuration, not the spec.
 
-- [ ] **Step 5: Commit**
+Note this runs the `offline` project too, which does a full production build, so it is
+noticeably slower than the other three combined.
+
+- [ ] **Step 7: Commit**
 
 ```bash
-git add e2e/admin-walkthrough.spec.ts playwright.config.ts
+git add e2e/admin-walkthrough.spec.ts e2e/env.ts e2e/global-setup.ts playwright.config.ts
 git commit -m "test(e2e): walk the operator screen and a reset end to end"
 ```
-
 ---
 
 ### Task 10: Documentation and status
@@ -1887,20 +2506,48 @@ git commit -m "docs(admin): record the operator role and close the phase"
 
 **Spec coverage:** §2 decision 1 → Task 1; decision 2 → Tasks 2, 3; decision 3 → Task 5;
 decision 4 (no self-service) → out of scope, `resetUserData` takes only a `userId` so a
-later account screen calls it unchanged; decision 5 → Task 7; decision 6 → Task 6 step 7.
+later account screen calls it unchanged; decision 5 → Task 7; decision 6 → Task 6 step 11.
 §3 → Tasks 1, 3. §4 → Task 2. §5 → Task 4. §6 → Task 5. §7 → Tasks 7, 8. §8 → Task 6.
 §9 → tests inside Tasks 1–8 plus Task 9. §10 → Task 10. §11 out of scope, unbuilt.
 
-**Two spec refinements made here, both improvements:**
+**Three spec refinements made here, all improvements:**
 
 1. `GAIN_DEV_ADMIN` names a bypass user instead of being a boolean. The spec's §9 flagged
    "makes every bypass user an admin" as a wrinkle to resolve; making it a name resolves it
-   rather than working around it.
+   rather than working around it, because `hooks.server.ts` already routes per-spec bypass
+   users through the `x-gain-e2e-user` header.
 2. §5's `readonly` open gets an explicit fallback, and the module comment states plainly
-   that the guarantee lives in the query surface rather than the connection flag.
+   that the guarantee lives in the count-only query surface rather than the connection
+   flag.
+3. §8's card gains an interpretive status line (`src/lib/admin/user-status.ts`), pure and
+   clock-injected. The spec described a stats card; the operator's actual question is
+   whether a person is alive on the platform, and a row of counts makes them do that
+   arithmetic themselves. It also gives Task 9 an assertion that cannot pass vacuously.
 
-**Type consistency:** `statsForUsers(dataDir, users)` is used with that signature in Tasks
-5 and 6. `resetUserData(control, dataDir, userId)` likewise. `confirmationFor` is defined
-in `+page.server.ts` and duplicated in the component deliberately — the component cannot
-import from a `+page.server.ts` module, and both are exercised by Task 6's tests and Task
-9's spec.
+**Verified against the codebase, not assumed.** Every signature, helper and path in this
+plan was checked against the files it names. Corrections that came out of that pass, listed
+so a reader who half-remembers an earlier draft does not "fix" them back:
+
+| Assumption | Reality |
+|---|---|
+| `importPlan` in `db/import.ts`, takes `{ sourceMd, now }` | `db/import-plan.ts`, takes `{ parsed, now }` — parse first with `parsePlanDocument` |
+| `auth.test.ts` has `setupSession` / `deps({ refreshGroups })` | It has `seedSession`, `deps({ token, userinfo, … })`, `check`, `idToken`, `json`; group answers are built as real signed ID tokens |
+| `e2e/helpers.ts` exports `expectNoHorizontalOverflow`, `asUser`, `seedPlan` | Only `assertNoHorizontalOverflow` exists; users come from the `x-gain-e2e-user` header, plans from `seedFixturePlan` at global setup |
+| `tests/sync/queue.test.ts` has an in-memory store | It tests pure functions only; Vitest runs `environment: "node"` with no IndexedDB, so Task 8 adds `tests/sync/memory-outbox.ts` and defers real `idb.ts` proof to e2e |
+| `+layout.server.ts` needs `isAdmin` added | It returns `user: locals.user` wholesale, so `isAdmin` flows for free; only `dataGeneration` needs adding, as a sibling field |
+| The OIDC subject renders in monospace | UI-DECISIONS §10: one family, no monospace anywhere. It renders in the body face at `--dim`, wrapped, never truncated |
+| `minmax(0, 1fr)` for the card grid | `minmax(min(100%, 22rem), 1fr)` — the version that both shrinks below 360 px and still forms columns on a tablet |
+| `tests/server/*` import via `$lib` | That directory imports by relative path (`../../src/lib/…`) |
+
+**Type consistency:** `statsForUsers(dataDir, users)` and `resetUserData(control, dataDir, userId)`
+are used with those signatures everywhere they appear. `describeActivity` and
+`confirmationFor` are defined once in `src/lib/admin/user-status.ts` and imported by
+`+page.server.ts`; the component receives `status` and `confirmation` as resolved strings
+on `data.users`, so nothing is duplicated between server and client and the status line
+cannot disagree between SSR and hydration.
+
+**Known coverage gap, stated rather than papered over:** `src/lib/sync/idb.ts` has no unit
+test before or after this plan, because the suite has no DOM environment. Task 8 covers the
+`OutboxStore` contract with an in-memory implementation and Task 9 exercises the real
+IndexedDB path in a browser. Adding `fake-indexeddb` would close it properly and is out of
+scope here.
