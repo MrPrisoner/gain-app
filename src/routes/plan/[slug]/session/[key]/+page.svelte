@@ -199,7 +199,11 @@
   // expanding one must not affect the other. Always the *prescribed* slug, never a
   // substitute's — the key identifies the slot in the session, not the movement
   // currently filling it.
-  let openSlug = $state<string | undefined>(trackedExerciseKeys(data.session)[0]);
+  // One-shot capture at mount, the same pattern this file already applies to
+  // `storageKey` above: `data.session` is fixed for the life of this route (a session
+  // change is a navigation, which remounts the component), so this only seeds the
+  // initially-expanded exercise, not a value that should track `data` afterwards.
+  let openSlug = $state<string | undefined>(untrack(() => trackedExerciseKeys(data.session)[0]));
 
   // Logged sets this workout, keyed by `setLogKey`, holding what was actually submitted
   // (never the pre-fill it started from — the ledger reads from this). Keys are the

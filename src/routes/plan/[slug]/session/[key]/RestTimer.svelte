@@ -8,7 +8,7 @@
 </script>
 
 <script lang="ts">
-  import { onDestroy } from "svelte";
+  import { onDestroy, untrack } from "svelte";
   import { trapFocus } from "$lib/actions/focus-trap";
   import {
     extendRest,
@@ -31,7 +31,16 @@
     onSkip: () => void;
   } = $props();
 
-  let timerState = $state<RestTimerState>(startRestTimer(spec, Date.now()));
+  // One-shot capture at mount, the same pattern the home screen documents with
+  // `untrack()` (`src/routes/+page.svelte`): the parent mounts a fresh `RestTimer` for
+  // every rest period (`{#if activeRest}`), so `spec` never changes under a live
+  // instance — reading it reactively here would only add a dependency nothing needs.
+  let timerState = $state<RestTimerState>(
+    startRestTimer(
+      untrack(() => spec),
+      Date.now(),
+    ),
+  );
   let nowMs = $state(Date.now());
 
   const interval = setInterval(() => (nowMs = Date.now()), 250);

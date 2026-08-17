@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { trapFocus } from "$lib/actions/focus-trap";
   import { slugifyActivityKind } from "$lib/home/activity-kinds";
   import { occurredAtMsFor, type ActivityWhen } from "$lib/home/activity-when";
@@ -26,7 +27,11 @@
     onLogged: (kind: string) => void;
   } = $props();
 
-  let kindInput = $state(initialKind ?? "");
+  // One-shot capture at mount, the same pattern the home screen documents with
+  // `untrack()` (`src/routes/+page.svelte`): the parent mounts a fresh `ActivitySheet`
+  // per open, so `initialKind` never changes under a live instance — reading it
+  // reactively here would only add a dependency nothing needs.
+  let kindInput = $state(untrack(() => initialKind ?? ""));
   let when = $state<ActivityWhen>("now");
   let durationMin = $state("");
   let intensity = $state("");
@@ -72,13 +77,22 @@
   }
 </script>
 
-<div class="sheet-backdrop" onclick={onClose} role="presentation">
+<!-- Close only on a click that lands on the backdrop itself, not one that bubbles up from
+     inside the sheet — checking `target === currentTarget` means the sheet needs no click
+     handler of its own, so its `role="dialog"` element carries no interactive behaviour
+     that would need a `tabindex` to be reachable. -->
+<div
+  class="sheet-backdrop"
+  role="presentation"
+  onclick={(e) => {
+    if (e.target === e.currentTarget) onClose();
+  }}
+>
   <div
     class="sheet"
     role="dialog"
     aria-modal="true"
     aria-labelledby="activity-heading"
-    onclick={(e) => e.stopPropagation()}
     use:trapFocus={{ onEscape: onClose }}
   >
     <h3 id="activity-heading" tabindex="-1" data-trap-focus-heading>Log activity</h3>

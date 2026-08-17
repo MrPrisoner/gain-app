@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import type { DeviationKind } from "$lib/logs/types";
   import { trapFocus } from "$lib/actions/focus-trap";
   import { newOpId } from "$lib/sync/ops";
@@ -57,7 +58,11 @@
 
   let kind = $state<"skip" | "substitute" | "add_set" | "drop_set" | "stop_red_flag">("skip");
   let reasonCode = $state<string>("pain");
-  let substituteSlug = $state<string | undefined>(substitutes[0]);
+  // One-shot capture at mount, the same pattern the home screen documents with
+  // `untrack()` (`src/routes/+page.svelte`): the parent mounts a fresh `DeviationSheet`
+  // per exercise slot, so `substitutes` never changes under a live instance — this only
+  // seeds the default radio choice, not a value that should track the prop afterwards.
+  let substituteSlug = $state<string | undefined>(untrack(() => substitutes[0]));
   let note = $state("");
   let submitting = $state(false);
 
@@ -94,7 +99,17 @@
   }
 </script>
 
-<div class="sheet-backdrop" onclick={onClose} role="presentation">
+<!-- Close only on a click that lands on the backdrop itself, not one that bubbles up from
+     inside the sheet — checking `target === currentTarget` means the sheet needs no click
+     handler of its own, so its `role="dialog"` element carries no interactive behaviour
+     that would need a `tabindex` to be reachable. -->
+<div
+  class="sheet-backdrop"
+  role="presentation"
+  onclick={(e) => {
+    if (e.target === e.currentTarget) onClose();
+  }}
+>
   <!-- UI-DECISIONS §8: `role="dialog"`/`aria-modal="true"` plus
        `aria-labelledby` announce this as a real modal, and `use:trapFocus` (see
        `$lib/actions/focus-trap`) moves focus to the heading below on open, cycles Tab
@@ -105,7 +120,6 @@
     role="dialog"
     aria-modal="true"
     aria-labelledby="deviation-heading"
-    onclick={(e) => e.stopPropagation()}
     use:trapFocus={{ onEscape: onClose }}
   >
     <h3 id="deviation-heading" tabindex="-1" data-trap-focus-heading>Change this set</h3>
