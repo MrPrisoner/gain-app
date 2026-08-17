@@ -20,15 +20,6 @@ Then clear it up behind you:
 
 ## Items
 
-### Phase 7b polish — parked by the final whole-branch review
-
-The final review of the phase 7b branch (progress, history, charts) found these real but
-non-blocking rough edges. None touch the `(session_key, exercise_slug)`/`(scope, key)`
-keying invariants — those were checked specifically and hold.
-
-- **`tests/summary.test.ts` has a test named "shows a readiness verdict for a ranged
-  prescription" whose body asserts the opposite** — a dash, for a _scalar_ prescription.
-  The comment inside explains the real intent; the name doesn't match it.
 ### The Home page's ambiguous "Home Training Plan" heading is failing three more e2e specs
 
 `90c81d0` ("merge Home page cards") made the plan name render twice on Home for a single

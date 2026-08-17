@@ -217,7 +217,7 @@ describe("buildProgressSummary", () => {
     expect(rows[1]).toContain("Session D");
   });
 
-  it("shows a readiness verdict for a ranged prescription", () => {
+  it("shows a dash rather than a readiness verdict for a scalar prescription", () => {
     const summary = buildProgressSummary(contract, logs, "full history", NOW);
     const row = summary.split("\n").find((l) => l.startsWith("| Goblet squat"));
     // The fixture's own contract here prescribes a scalar `reps: 10` (see the file-level
