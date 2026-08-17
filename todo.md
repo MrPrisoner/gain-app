@@ -20,24 +20,6 @@ Then clear it up behind you:
 
 ## Items
 
-### `check:chars` only scans tracked files
-
-`npm run check:chars` (and the `gain/no-control-characters` ESLint rule) exist because a
-literal control character makes git treat a file as binary — no diff, nothing to review,
-exactly what happened to `src/lib/export/bundle.ts` once already (CLAUDE.md). But
-`check:chars` runs `git ls-files -z ... | xargs -0 grep -laP ...`, which only sees files git
-already knows about. A brand-new untracked file with a literal control character in it
-passes clean, and only starts being checked once `git add` has already staged it — so the
-one moment the check exists to catch, a fresh file with the problem already in it, is
-exactly the moment it's blind. Caught by hand while writing
-`docs/superpowers/plans/2026-08-13-fixture-rebuild.md`: `grep` went silent on the file, the
-tell from CLAUDE.md, and `check:chars` said nothing until the file was staged.
-
-Fix is presumably swapping `git ls-files` for something that includes untracked-but-not-
-ignored files (`git ls-files --others --exclude-standard` alongside the tracked list, or
-just dropping the git-awareness and globbing the working tree directly, excluding
-`node_modules` and the like by hand).
-
 ### Admin section
 
 Admin page with basic functionality:
