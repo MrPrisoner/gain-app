@@ -76,7 +76,7 @@ keying invariants — those were checked specifically and hold.
   that it reflects real data. This is the same trap `c4a0f4c` already fixed once for this
   same spec's duration-chart test; these two weren't caught by that pass.
 - **`tests/summary.test.ts` has a test named "shows a readiness verdict for a ranged
-  prescription" whose body asserts the opposite** — a dash, for a *scalar* prescription.
+  prescription" whose body asserts the opposite** — a dash, for a _scalar_ prescription.
   The comment inside explains the real intent; the name doesn't match it.
 - **`assertNoHorizontalOverflow` never runs on the History or Progress-exercises LIST
   screens**, only on their detail pages — both e2e specs navigate straight through the list
