@@ -4,9 +4,11 @@
  * shape offline sync (phase 6) will replay, so this layer already behaves as a replay
  * target: writing the same client_id twice is a no-op that returns the original row.
  *
- * `logMetric` carries one extra rule on top of that — a metric answer is a correction of
- * the previous answer to the same question, not a second observation, so it upserts on
- * the metric's own identity as well. See its comment.
+ * `logMetric` and `logSet` carry one extra rule on top of that — a metric answer or a
+ * set reopened from the runner's ledger is a correction of the previous write to the
+ * same question or slot, not a second observation, so both upsert on their own identity
+ * as well (guarded so a redelivered older correction can't revert a newer one). See
+ * their comments.
  */
 
 import type { Difficulty, DeviationKind } from "../logs/types";
@@ -110,6 +112,30 @@ export function finishWorkout(userDb: UserDb, input: FinishWorkoutInput): void {
 export function logSet(userDb: UserDb, input: LogSetInput): { id: string } {
   const existing = selectByClientId(userDb, "set_log", input.clientId);
   if (existing) return { id: existing };
+
+  // A resubmission of an already-logged slot is a correction, not a second set (the
+  // runner's ledger lets a logged row be reopened and re-submitted) — same upsert-on-
+  // reference-plus-ULID-order shape as `logMetric`'s correction handling, see its
+  // comment for the reasoning both share.
+  const prior = selectSetByReference(userDb, input);
+  if (prior) {
+    if (input.clientId < prior.clientId) return { id: prior.id };
+
+    userDb.db
+      .prepare(
+        `UPDATE set_log SET reps = ?, weight_kg = ?, duration_s = ?, difficulty = ?, client_id = ?
+           WHERE id = ?`,
+      )
+      .run(
+        input.reps ?? null,
+        input.weightKg ?? null,
+        input.durationS ?? null,
+        input.difficulty ?? null,
+        input.clientId,
+        prior.id,
+      );
+    return { id: prior.id };
+  }
 
   const id = newId();
   userDb.db
@@ -276,6 +302,22 @@ function selectMetricByReference(
             )
             .get(input.workoutId, input.metricKey)
   ) as { id: string; clientId: string } | undefined;
+  return row;
+}
+
+/** `side` is nullable, so the lookup uses `IS` rather than `=` — `NULL = NULL` is not
+ * true in SQL, and an unpaired exercise's sets all carry a NULL side. */
+function selectSetByReference(
+  userDb: UserDb,
+  input: LogSetInput,
+): { id: string; clientId: string } | undefined {
+  const row = userDb.db
+    .prepare(
+      `SELECT id, client_id AS clientId FROM set_log
+         WHERE workout_id = ? AND exercise_def_id = ? AND set_no = ? AND side IS ?`,
+    )
+    .get(input.workoutId, input.exerciseDefId, input.setNo, input.side ?? null) as
+    { id: string; clientId: string } | undefined;
   return row;
 }
 

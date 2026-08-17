@@ -116,6 +116,129 @@ describe("workout write layer", () => {
     expect(count.n).toBe(1);
   });
 
+  it("corrects a logged set in place rather than logging a second row", () => {
+    const workout = startWorkout(userDb, {
+      planVersionId,
+      sessionKey: "A",
+      clientId: "wk-client-set-correction",
+      now: NOW,
+    });
+    const exerciseDefId = getExerciseDefIdBySlug(userDb, planId, "goblet-squat");
+    if (!exerciseDefId) throw new Error("expected goblet-squat in the catalogue");
+
+    const mistap = logSet(userDb, {
+      workoutId: workout.id,
+      exerciseDefId,
+      setNo: 1,
+      reps: 8,
+      weightKg: 10,
+      difficulty: "hard",
+      clientId: "set-correction-01-mistap",
+    });
+    const corrected = logSet(userDb, {
+      workoutId: workout.id,
+      exerciseDefId,
+      setNo: 1,
+      reps: 10,
+      weightKg: 12,
+      difficulty: "medium",
+      clientId: "set-correction-02-fixed",
+    });
+    expect(corrected.id, "the correction must land on the same row").toBe(mistap.id);
+
+    // Retry safety still holds on top of that: the same tap arriving twice is a no-op.
+    const replay = logSet(userDb, {
+      workoutId: workout.id,
+      exerciseDefId,
+      setNo: 1,
+      reps: 10,
+      weightKg: 12,
+      difficulty: "medium",
+      clientId: "set-correction-02-fixed",
+    });
+    expect(replay.id).toBe(corrected.id);
+
+    const rows = userDb.db
+      .prepare(
+        "SELECT reps, weight_kg, difficulty, client_id FROM set_log WHERE workout_id = ? AND set_no = 1",
+      )
+      .all(workout.id) as {
+      reps: number;
+      weight_kg: number;
+      difficulty: string;
+      client_id: string;
+    }[];
+    expect(rows).toEqual([
+      { reps: 10, weight_kg: 12, difficulty: "medium", client_id: "set-correction-02-fixed" },
+    ]);
+
+    // A different set number is a different slot, so it gets its own row rather than
+    // overwriting the one above.
+    logSet(userDb, {
+      workoutId: workout.id,
+      exerciseDefId,
+      setNo: 2,
+      reps: 9,
+      weightKg: 12,
+      difficulty: "medium",
+      clientId: "set-correction-other-slot",
+    });
+    const count = userDb.db
+      .prepare("SELECT COUNT(*) AS n FROM set_log WHERE workout_id = ?")
+      .get(workout.id) as { n: number };
+    expect(count.n).toBe(2);
+  });
+
+  it("does not let a redelivered older set correction revert a newer one", () => {
+    const workout = startWorkout(userDb, {
+      planVersionId,
+      sessionKey: "A",
+      clientId: "wk-client-set-reorder",
+      now: NOW,
+    });
+    const exerciseDefId = getExerciseDefIdBySlug(userDb, planId, "goblet-squat");
+    if (!exerciseDefId) throw new Error("expected goblet-squat in the catalogue");
+
+    // ULIDs are chronological, so "05" is older than "09".
+    logSet(userDb, {
+      workoutId: workout.id,
+      exerciseDefId,
+      setNo: 1,
+      reps: 8,
+      difficulty: "hard",
+      clientId: "05",
+    });
+    logSet(userDb, {
+      workoutId: workout.id,
+      exerciseDefId,
+      setNo: 1,
+      reps: 10,
+      difficulty: "medium",
+      clientId: "09",
+    });
+
+    // "05" redelivered — the row's client_id is now "09", so the client_id lookup misses
+    // and this falls through to the by-reference upsert. It must not win.
+    const replayed = logSet(userDb, {
+      workoutId: workout.id,
+      exerciseDefId,
+      setNo: 1,
+      reps: 8,
+      difficulty: "hard",
+      clientId: "05",
+    });
+
+    const row = userDb.db
+      .prepare("SELECT reps, client_id FROM set_log WHERE workout_id = ? AND set_no = 1")
+      .get(workout.id) as { reps: number; client_id: string };
+    expect(row).toEqual({ reps: 10, client_id: "09" });
+
+    const idRow = userDb.db
+      .prepare("SELECT id FROM set_log WHERE workout_id = ? AND set_no = 1")
+      .get(workout.id) as { id: string };
+    expect(replayed.id).toBe(idRow.id);
+  });
+
   it("logs a per-side set with the side recorded", () => {
     const workout = startWorkout(userDb, {
       planVersionId,

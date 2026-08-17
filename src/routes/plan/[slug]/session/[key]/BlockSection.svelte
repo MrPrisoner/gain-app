@@ -6,6 +6,7 @@
     type LoggedSet,
     type ResolvedBlock,
     type ResolvedExercise,
+    type SetSlot,
   } from "$lib/session/session-view";
   import { blockIsComplete, type SessionLedger } from "$lib/session/ledger";
   import IconCheck from "~icons/lucide/check";
@@ -35,6 +36,7 @@
     applySubstitute,
     onError,
     onStartNextRound,
+    onEditSlot,
   }: {
     block: ResolvedBlock;
     ledger: SessionLedger;
@@ -53,6 +55,7 @@
     ) => void;
     onError: (message: string | undefined) => void;
     onStartNextRound: (block: ResolvedBlock) => void;
+    onEditSlot: (slot: SetSlot) => void;
   } = $props();
 
   const completed = $derived(ledger.completedRounds.get(block.key) ?? 0);
@@ -140,6 +143,7 @@
           {onOpen}
           {applySubstitute}
           {onError}
+          {onEditSlot}
         />
       {/each}
     </ul>

@@ -18,6 +18,9 @@
   import type { LoggedSet, ResolvedExercise, SetSlot } from "$lib/session/session-view";
   import { newOpId } from "$lib/sync/ops";
   import { logWrite } from "$lib/sync/client.svelte";
+  import IconRepeat from "~icons/lucide/repeat";
+  import IconDumbbell from "~icons/lucide/dumbbell";
+  import IconTimer from "~icons/lucide/timer";
 
   let {
     planSlug,
@@ -30,6 +33,7 @@
     onLogged,
     onError,
     onDeviate,
+    onCancel,
     height = $bindable(0),
   }: {
     planSlug: string;
@@ -48,6 +52,11 @@
     /** The page's single error surface. */
     onError: (message: string | undefined) => void;
     onDeviate: () => void;
+    /** Present only when the strip is re-showing an already-logged slot for correction
+     * (a tap on a logged ledger row) rather than the next unlogged one — swaps "Change"
+     * for a "Cancel" that backs out without writing anything, and hides the last-time
+     * line, which names history irrelevant to a value already on screen. */
+    onCancel?: () => void;
     /** Measured, so the ledger can reserve exactly this much scroll padding. */
     height?: number;
   } = $props();
@@ -176,13 +185,19 @@
       <span class="strip-exercise">{exercise.name}</span>
       <span class="strip-set tabular">{context}</span>
     </span>
-    <!-- UI-DECISIONS §7: deviating must never be slower than lying, so skip/swap/add
-         live one tap away here, not at the bottom of the exercise body. -->
-    <button type="button" class="strip-change" onclick={onDeviate}>Change</button>
+    {#if onCancel}
+      <button type="button" class="strip-change" onclick={onCancel}>Cancel</button>
+    {:else}
+      <!-- UI-DECISIONS §7: deviating must never be slower than lying, so skip/swap/add
+           live one tap away here, not at the bottom of the exercise body. -->
+      <button type="button" class="strip-change" onclick={onDeviate}>Change</button>
+    {/if}
   </div>
 
   {#if slot}
-    <p class="strip-last">{lastPerformance}</p>
+    {#if !onCancel}
+      <p class="strip-last">{lastPerformance}</p>
+    {/if}
 
     <div class="log-fields">
       <div class="dials" class:dials--single={!showLoadDial}>
@@ -204,7 +219,7 @@
                 oninput={(event) => setField("durationS", event.currentTarget.value)}
                 onkeydown={onDialKeydown}
               />
-              <span class="dial-u">sec</span>
+              <span class="dial-u"><IconTimer /> sec</span>
             </span>
             <button
               type="button"
@@ -231,7 +246,7 @@
                 oninput={(event) => setField("reps", event.currentTarget.value)}
                 onkeydown={onDialKeydown}
               />
-              <span class="dial-u">reps</span>
+              <span class="dial-u"><IconRepeat /> reps</span>
             </span>
             <button
               type="button"
@@ -259,7 +274,7 @@
                   oninput={(event) => setField("weightKg", event.currentTarget.value)}
                   onkeydown={onDialKeydown}
                 />
-                <span class="dial-u">kg total</span>
+                <span class="dial-u"><IconDumbbell /> kg total</span>
               </span>
               <button
                 type="button"
@@ -402,7 +417,11 @@
     padding: 0;
   }
   .dial-u {
-    font-size: 0.7rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.8rem;
+    font-weight: 600;
     color: var(--dim);
     line-height: 1;
     text-align: center;

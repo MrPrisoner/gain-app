@@ -11,12 +11,14 @@
     type LoggedSet,
     type ResolvedBlock,
     type ResolvedExercise,
+    type SetSlot,
   } from "$lib/session/session-view";
   import { performed, slotsFor, type SessionLedger } from "$lib/session/ledger";
   import { newOpId } from "$lib/sync/ops";
   import { logWrite } from "$lib/sync/client.svelte";
   import IconCheck from "~icons/lucide/check";
   import IconMinus from "~icons/lucide/minus";
+  import IconPencil from "~icons/lucide/pencil";
 
   /**
    * One exercise row of the runner (UI-DECISIONS §1): collapsed to name, target and
@@ -45,6 +47,7 @@
     onOpen,
     applySubstitute,
     onError,
+    onEditSlot,
   }: {
     block: ResolvedBlock;
     prescribed: ResolvedExercise;
@@ -62,6 +65,9 @@
       substituteSlug: string,
     ) => void;
     onError: (message: string | undefined) => void;
+    /** Reopens an already-logged slot in the pinned strip for correction (a tap on its
+     * ledger row) rather than logging the next one. */
+    onEditSlot: (slot: SetSlot) => void;
   } = $props();
 
   let swapping = $state(false);
@@ -203,23 +209,40 @@
           {#each slots as slot (slot.key)}
             {@const logged = ledger.loggedSets.get(slot.key)}
             <li class="ledger-row" class:logged={!!logged} class:next={slot.key === nextSlot?.key}>
-              <span class="led-set tabular">{formatSlotLabel(block, slot)}</span>
-              <span class="led-target tabular">{formatRepsOrDurationOrDash(exercise)}</span>
               {#if logged}
-                <span class="led-actual tabular">{formatLoggedSet(logged)}</span>
-                {#if logged.difficulty}
-                  {@const filled =
-                    logged.difficulty === "easy" ? 1 : logged.difficulty === "medium" ? 2 : 3}
-                  <!-- `role="img"` for the same reason as `.rounds-indicator` in
-                       BlockSection: without it the generic role drops the label and the
-                       three segments read as nothing at all. -->
-                  <span class="led-effort" role="img" aria-label="Felt {logged.difficulty}">
-                    {#each [1, 2, 3] as seg (seg)}
-                      <i class:on={seg <= filled}></i>
-                    {/each}
-                  </span>
-                {/if}
+                <!-- Tapping a logged row reopens it in the pinned strip, pre-filled with
+                     what was actually logged, for a mis-tapped reps/weight/difficulty to
+                     be corrected (todo.md's "no way to undo") — a plain button rather
+                     than a link, since it changes what the strip below shows rather than
+                     navigating anywhere. -->
+                <button
+                  type="button"
+                  class="ledger-edit"
+                  onclick={() => onEditSlot(slot)}
+                  aria-label="Edit set {formatSlotLabel(block, slot)}, logged {formatLoggedSet(
+                    logged,
+                  )}"
+                >
+                  <span class="led-set tabular">{formatSlotLabel(block, slot)}</span>
+                  <span class="led-target tabular">{formatRepsOrDurationOrDash(exercise)}</span>
+                  <span class="led-actual tabular">{formatLoggedSet(logged)}</span>
+                  {#if logged.difficulty}
+                    {@const filled =
+                      logged.difficulty === "easy" ? 1 : logged.difficulty === "medium" ? 2 : 3}
+                    <!-- `role="img"` for the same reason as `.rounds-indicator` in
+                         BlockSection: without it the generic role drops the label and the
+                         three segments read as nothing at all. -->
+                    <span class="led-effort" role="img" aria-label="Felt {logged.difficulty}">
+                      {#each [1, 2, 3] as seg (seg)}
+                        <i class:on={seg <= filled}></i>
+                      {/each}
+                    </span>
+                  {/if}
+                  <IconPencil class="led-edit-icon" aria-hidden="true" />
+                </button>
               {:else}
+                <span class="led-set tabular">{formatSlotLabel(block, slot)}</span>
+                <span class="led-target tabular">{formatRepsOrDurationOrDash(exercise)}</span>
                 <span class="led-actual led-pending"
                   >{slot.key === nextSlot?.key ? "Up next" : "Not logged yet"}</span
                 >
@@ -362,6 +385,28 @@
   }
   .ledger-row:last-child {
     border-bottom: none;
+  }
+  /* A logged row's content sits inside a button rather than the `<li>` directly, so it
+     can be tapped to reopen for correction — reset to look identical to the plain rows
+     beside it, just with the pencil hint at the end. */
+  .ledger-edit {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem;
+    border: none;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    padding: 0;
+    min-height: 2.75rem;
+  }
+  .ledger-edit :global(.led-edit-icon) {
+    flex: none;
+    align-self: center;
+    color: var(--dim);
   }
   .led-set {
     flex: none;

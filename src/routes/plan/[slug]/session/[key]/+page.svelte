@@ -301,6 +301,7 @@
    * finished strip rather than the list snapping somewhere arbitrary. */
   function advance(): void {
     advanceAfterRest = false;
+    editingSlot = undefined;
     const next = nextExerciseKey(data.session, doneExercises, openSlug);
     if (next) openSlug = next;
   }
@@ -310,7 +311,27 @@
    * row they just deliberately tapped. */
   function openExercise(key: string): void {
     advanceAfterRest = false;
+    editingSlot = undefined;
     openSlug = key;
+  }
+
+  /** The slot the strip is re-showing for correction (a tap on an already-logged ledger
+   * row), or `undefined` for the normal "log the next slot" view. Ledger rows only
+   * render for the currently open exercise, so this is always consistent with `openSlug`
+   * — cleared alongside it in `openExercise`/`advance` rather than tracked separately. */
+  let editingSlot = $state<SetSlot | undefined>(undefined);
+
+  function onEditSlot(slot: SetSlot): void {
+    editingSlot = slot;
+  }
+
+  /** A correction to a slot already logged this session (todo.md: no way to undo a
+   * mis-tapped reps/weight/difficulty) — updates the ledger's display value and exits
+   * edit mode, but triggers none of `onSetLogged`'s rest-timer/auto-advance side
+   * effects, since nothing about the session's progress actually changed. */
+  function onSetCorrected(slot: SetSlot, logged: LoggedSet): void {
+    loggedSets.set(slot.key, logged);
+    editingSlot = undefined;
   }
 
   function onSetLogged(slot: SetSlot, logged: LoggedSet): void {
@@ -549,6 +570,7 @@
         {applySubstitute}
         onError={setError}
         onStartNextRound={startNextRound}
+        {onEditSlot}
       />
     {/each}
 
@@ -561,28 +583,41 @@
 
 {#if workoutClientId && !showPreSession && openContext}
   {@const ctx = openContext}
-  {@const slot = ctx.next}
-  {@const fill = prefillFor(
-    ledger,
-    data.prefillByExercise,
-    ctx.block.key,
-    ctx.prescribed.slug,
-    ctx.exercise.slug,
-    ctx.exercise.perSide,
-    slot,
-  )}
+  {@const edit = editingSlot}
+  {@const slot = edit ?? ctx.next}
+  {@const editedLogged = edit ? loggedSets.get(edit.key) : undefined}
+  {@const fill = edit
+    ? {
+        reps: editedLogged?.reps,
+        weightKg: editedLogged?.weightKg,
+        durationS: editedLogged?.durationS,
+      }
+    : prefillFor(
+        ledger,
+        data.prefillByExercise,
+        ctx.block.key,
+        ctx.prescribed.slug,
+        ctx.exercise.slug,
+        ctx.exercise.perSide,
+        slot,
+      )}
   <LogStrip
     bind:height={stripHeight}
     planSlug={data.planSlug}
     {workoutClientId}
     exercise={ctx.exercise}
     {slot}
-    context={slot ? formatSlotContext(ctx.block, slot, ctx.shownSets) : "All sets logged"}
+    context={!slot
+      ? "All sets logged"
+      : edit
+        ? `Editing ${formatSlotContext(ctx.block, slot, ctx.shownSets)}`
+        : formatSlotContext(ctx.block, slot, ctx.shownSets)}
     lastPerformance={formatLastPerformance(fill, ctx.exercise.type)}
     prefill={fill}
-    onLogged={onSetLogged}
+    onLogged={edit ? onSetCorrected : onSetLogged}
     onError={setError}
     onDeviate={() => (deviationFor = { blockKey: ctx.block.key, slug: ctx.prescribed.slug })}
+    onCancel={edit ? () => (editingSlot = undefined) : undefined}
   />
 {/if}
 

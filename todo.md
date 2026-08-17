@@ -20,11 +20,6 @@ Then clear it up behind you:
 
 ## Items
 
-### Session runner tweaks
-
-- The UI for adjusting a set's reps and weight is not very intuitive - I sometimes these up and adjust the wrong field. Let's add icons (for example, mdi-sync for reps and mdi-weight-kilogram - these are just ideas, align to the app's current UI design).
-- Because of the above, it became apparent that users have no way to undo to change a logged set/exercise. If I adjusted the reps or weight incorrectly, or selected the wrong difficulty level, there is no recourse to change it.
-
 ### e2e `offline-session.spec.ts` fails — stale selector, unrelated to phase 7b
 
 `npx playwright test --project=offline e2e/offline-session.spec.ts` fails at line 47:
@@ -75,10 +70,6 @@ keying invariants — those were checked specifically and hold.
 - **`assertNoHorizontalOverflow` never runs on the History or Progress-exercises LIST
   screens**, only on their detail pages — both e2e specs navigate straight through the list
   to a detail page before checking.
-
-### Ability to update a log
-
-Currently, once a user has logged an exercise, there is no way to change that log. A user might make a mistake and would want to change what they logged. For example, forgetting to change the number of reps.
 
 ### `check:chars` only scans tracked files
 
