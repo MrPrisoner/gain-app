@@ -4,6 +4,7 @@
   import { resolve } from "$app/paths";
   import { page } from "$app/state";
   import Sparkline from "$lib/components/Sparkline.svelte";
+  import BackLink from "$lib/components/BackLink.svelte";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -37,6 +38,8 @@
   formatPointLabel={(p, i, all) => (i === all.length - 1 ? String(p.y) : undefined)}
   formatReadout={(p) => `${p.y} on ${new Date(p.x).toISOString().slice(0, 10)}`}
 />
+
+<BackLink href={`/plan/${data.planSlug}/progress/metrics`} label="Back to metrics" />
 
 <style>
   .window-picker {

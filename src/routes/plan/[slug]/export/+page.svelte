@@ -2,6 +2,7 @@
   import { untrack } from "svelte";
   import { enhance } from "$app/forms";
   import { copyText, downloadText } from "$lib/copy";
+  import BackLink from "$lib/components/BackLink.svelte";
   import IconCheck from "~icons/lucide/check";
   import IconCopy from "~icons/lucide/copy";
   import IconDownload from "~icons/lucide/download";
@@ -112,7 +113,7 @@
   </section>
 {/if}
 
-<p class="back"><a href="/">Back to your plans</a></p>
+<BackLink href="/" label="Back to your plans" />
 
 <style>
   .card {
@@ -234,10 +235,5 @@
     background: var(--raised);
     border: 1px solid var(--line);
     color: var(--text);
-  }
-
-  .back {
-    margin: 1.25rem 0 0;
-    font-size: 0.9rem;
   }
 </style>

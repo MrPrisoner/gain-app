@@ -5,6 +5,7 @@
   import { page } from "$app/state";
   import Sparkline from "$lib/components/Sparkline.svelte";
   import BarChart from "$lib/components/BarChart.svelte";
+  import BackLink from "$lib/components/BackLink.svelte";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -97,6 +98,8 @@
     />
   </section>
 {/each}
+
+<BackLink href={`/plan/${data.planSlug}/progress/exercises`} label="Back to exercises" />
 
 <style>
   .muted {

@@ -26,10 +26,6 @@ The final review of the phase 7b branch (progress, history, charts) found these 
 non-blocking rough edges. None touch the `(session_key, exercise_slug)`/`(scope, key)`
 keying invariants — those were checked specifically and hold.
 
-- **None of the seven new Progress/History screens has a back link**, while the sibling
-  Export route does (`src/routes/plan/[slug]/export/+page.svelte`, "Back to your plans").
-  Progress → exercises → detail is three levels deep on a phone with only the wordmark and
-  the browser button to get out.
 - **The per-exercise detail page's first chart never labels its most current point when
   plotting effort** (bodyweight movements — `topSetChartPoints`'s "effort" branch sets
   `label: undefined`). The plan's own constraint was "every chart directly labels its most

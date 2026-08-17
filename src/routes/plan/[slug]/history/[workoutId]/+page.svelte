@@ -1,5 +1,6 @@
 <!-- src/routes/plan/[slug]/history/[workoutId]/+page.svelte -->
 <script lang="ts">
+  import BackLink from "$lib/components/BackLink.svelte";
   import type { PageData } from "./$types";
   let { data }: { data: PageData } = $props();
 </script>
@@ -54,6 +55,8 @@
     {/each}
   </ul>
 {/if}
+
+<BackLink href={`/plan/${data.planSlug}/history`} label="Back to history" />
 
 <style>
   .muted {

@@ -2,6 +2,7 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
+  import BackLink from "$lib/components/BackLink.svelte";
   import type { PageData } from "./$types";
   let { data }: { data: PageData } = $props();
 </script>
@@ -46,6 +47,8 @@
     >
   {/if}
 </div>
+
+<BackLink href="/" label="Back to your plans" />
 
 <style>
   .muted {

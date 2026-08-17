@@ -3,6 +3,7 @@
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import Sparkline from "$lib/components/Sparkline.svelte";
+  import BackLink from "$lib/components/BackLink.svelte";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -55,6 +56,8 @@
   <a href={`/plan/${data.planSlug}/progress/exercises`}>Per-exercise progress</a>
   <a href={`/plan/${data.planSlug}/progress/metrics`}>Metric trends</a>
 </nav>
+
+<BackLink href="/" label="Back to your plans" />
 
 <style>
   .window-picker {
