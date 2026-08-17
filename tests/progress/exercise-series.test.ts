@@ -171,6 +171,46 @@ describe("topSetChartPoints", () => {
     });
   });
 
+  it("skips a workout with no load rather than plotting it as 0 kg, for a movement logged both loaded and bodyweight", () => {
+    const mixed: Logs = {
+      ...EMPTY_LOGS,
+      workouts: [
+        { id: "w1", session_key: "A", started_at: "2026-08-01T07:00:00Z", status: "completed" },
+        { id: "w2", session_key: "A", started_at: "2026-08-08T07:00:00Z", status: "completed" },
+        { id: "w3", session_key: "A", started_at: "2026-08-15T07:00:00Z", status: "completed" },
+      ],
+      set_logs: [
+        {
+          id: "s1",
+          workout_id: "w1",
+          exercise_slug: "goblet-squat",
+          set_no: 1,
+          weight_kg: 6,
+          reps: 8,
+        },
+        // A bodyweight-only session for the same movement — no weight_kg logged at all.
+        { id: "s2", workout_id: "w2", exercise_slug: "goblet-squat", set_no: 1, reps: 10 },
+        {
+          id: "s3",
+          workout_id: "w3",
+          exercise_slug: "goblet-squat",
+          set_no: 1,
+          weight_kg: 8,
+          reps: 6,
+        },
+      ],
+    };
+    const series = buildExerciseSeries(mixed, "A", "goblet-squat");
+    expect(topSetChartPoints(series, undefined, "reps")).toEqual({
+      plots: "load",
+      unit: "kg",
+      points: [
+        { startedAt: "2026-08-01T07:00:00Z", value: 6, label: "8" },
+        { startedAt: "2026-08-15T07:00:00Z", value: 8, label: "6" },
+      ],
+    });
+  });
+
   it("plots seconds for a timed bodyweight movement", () => {
     const timed: Logs = {
       ...EMPTY_LOGS,

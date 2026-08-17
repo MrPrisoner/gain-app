@@ -177,14 +177,20 @@ export function topSetChartPoints(
     return {
       plots: "load",
       unit: "kg",
-      points: tops.map((p) => {
-        const effort = type === "time" ? p.durationS : p.reps;
-        return {
-          startedAt: p.startedAt,
-          value: p.weightKg ?? 0,
-          label: effort === undefined ? undefined : String(effort),
-        };
-      }),
+      // A workout logged with no weight at all — the same movement done bodyweight one
+      // session within an otherwise-loaded series — has nothing to plot on the load axis.
+      // Defaulting it to 0 kg drew a false spike to zero and rescaled the whole chart
+      // around it, so it's dropped instead rather than misrepresented.
+      points: tops
+        .filter((p) => p.weightKg !== undefined)
+        .map((p) => {
+          const effort = type === "time" ? p.durationS : p.reps;
+          return {
+            startedAt: p.startedAt,
+            value: p.weightKg!,
+            label: effort === undefined ? undefined : String(effort),
+          };
+        }),
     };
   }
 
