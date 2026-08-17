@@ -67,7 +67,7 @@
     <h3>{chart.effortHeading}</h3>
     <Sparkline
       points={chart.loadReps}
-      ariaLabel={`${chart.effortHeading} trend chart`}
+      ariaLabel={`${chart.side ? `${chart.side === "left" ? "Left" : "Right"} ` : ""}${chart.effortHeading} trend chart`}
       formatPointLabel={(p) => p.label}
       formatReadout={(p) =>
         `${p.y} ${chart.effortUnit} on ${new Date(p.x).toISOString().slice(0, 10)}${
@@ -79,7 +79,9 @@
       <h3>Volume</h3>
       <BarChart
         data={chart.volume}
-        ariaLabel="volume bar chart"
+        ariaLabel={chart.side
+          ? `${chart.side === "left" ? "Left" : "Right"} volume bar chart`
+          : "volume bar chart"}
         formatReadout={(d, i) => `${d.value.toFixed(1)} kg on ${chart.volumeDates?.[i]}`}
       />
     {/if}
@@ -87,7 +89,9 @@
     <h3>Difficulty</h3>
     <BarChart
       data={difficultyBars(chart.difficulty)}
-      ariaLabel="difficulty bar chart"
+      ariaLabel={chart.side
+        ? `${chart.side === "left" ? "Left" : "Right"} difficulty bar chart`
+        : "difficulty bar chart"}
       formatReadout={(d) => `${d.label}: ${d.value}`}
       barFill={difficultyFill}
     />

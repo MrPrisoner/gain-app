@@ -67,3 +67,35 @@ test("the progress hub shows a session card with a duration chart", async ({ pag
 
   await assertNoHorizontalOverflow(page);
 });
+
+test("the metric trends list and detail chart the session-scope symptoms metric", async ({
+  page,
+}) => {
+  // The fixture declares `symptoms_during` at both set and session scope — the one
+  // pairing the `(scope, key)` invariant exists to protect. The wrap-up sheet only ever
+  // asks the session-scope one (`prompt_when: end`), so answering it here is the
+  // cheapest way to get a chartable value onto these two never-before-visited routes.
+  await logGobletSquat(page, "A", 1);
+  await page.getByRole("button", { name: "End session" }).click();
+  await page
+    .getByRole("group", { name: "Hip / lower-back symptoms during this session" })
+    .getByRole("button", { name: "4", exact: true })
+    .click();
+  await finishSession(page);
+
+  await page.goto(`/plan/${E2E_PLAN_SLUG}/progress/metrics`);
+  const row = page
+    .getByRole("listitem")
+    .filter({ hasText: "Hip / lower-back symptoms during this session" });
+  await expect(row).toHaveCount(1);
+
+  await row.getByRole("link").click();
+  await expect(
+    page.getByRole("heading", { name: "Hip / lower-back symptoms during this session" }),
+  ).toBeVisible();
+  await expect(
+    page.locator('svg[aria-label="Hip / lower-back symptoms during this session trend chart"]'),
+  ).toBeVisible();
+
+  await assertNoHorizontalOverflow(page);
+});

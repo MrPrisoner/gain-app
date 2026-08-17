@@ -54,6 +54,16 @@ export const load: PageServerLoad = ({ params, locals }) => {
     rendered: renderExerciseSets(sets),
   }));
 
+  // Metric labels, keyed on `(scope, key)` per the invariant: a plan may legally
+  // declare the same key at two scopes (the fixture's `symptoms_during`, at both set
+  // and session scope), so the bare key is never a safe lookup on its own.
+  const metricLabels = new Map<string, string>();
+  for (const scope of ["set", "exercise", "session"] as const) {
+    for (const def of contract?.metrics?.[scope] ?? []) {
+      metricLabels.set(`${scope}:${def.key}`, def.label);
+    }
+  }
+
   const setLogById = new Map(logs.set_logs.map((s) => [s.id, s]));
   const metrics = logs.metric_values
     .filter((v) =>
@@ -62,8 +72,15 @@ export const load: PageServerLoad = ({ params, locals }) => {
         : v.ref.workout_id === workout.id,
     )
     .map((v) => ({
+      id: v.id,
       scope: v.ref.scope,
       key: v.key,
+      label: metricLabels.get(`${v.ref.scope}:${v.key}`) ?? v.key,
+      exerciseSlug: v.ref.scope === "exercise" ? v.ref.exercise_slug : undefined,
+      exerciseName:
+        v.ref.scope === "exercise"
+          ? (exerciseNames.get(v.ref.exercise_slug) ?? deriveExerciseName(v.ref.exercise_slug))
+          : undefined,
       value: v.value_num !== undefined ? String(v.value_num) : (v.value_text ?? "–"),
     }));
 

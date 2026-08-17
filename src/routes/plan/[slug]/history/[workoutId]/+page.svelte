@@ -33,8 +33,11 @@
 {#if data.metrics.length > 0}
   <h2>Metrics</h2>
   <ul class="metric-list">
-    {#each data.metrics as metric (metric.scope + ":" + metric.key)}
-      <li>{metric.key} ({metric.scope}): {metric.value}</li>
+    {#each data.metrics as metric (metric.id)}
+      <li>
+        {metric.label} ({metric.scope}{metric.exerciseName ? `, ${metric.exerciseName}` : ""}):
+        {metric.value}
+      </li>
     {/each}
   </ul>
 {/if}
