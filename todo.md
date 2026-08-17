@@ -20,12 +20,6 @@ Then clear it up behind you:
 
 ## Items
 
-### Home page UI tweaks
-
-- Too many sections - combine `override` into `next-session`. Also consider combining "Import a plan" section into `plan-admin`
-- `next-session` - the suggested next session name text is way bigger than the plan name. I would do this: plan name should be the main heading, with "Last session" below it, then next suggested session, then the start button, then "Choose a different session".
-- Export provides both copy and download options. Import should provide paste and import. Current import only has paste, no import.
-
 ### Session runner tweaks
 
 - The UI for adjusting a set's reps and weight is not very intuitive - I sometimes these up and adjust the wrong field. Let's add icons (for example, mdi-sync for reps and mdi-weight-kilogram - these are just ideas, align to the app's current UI design).

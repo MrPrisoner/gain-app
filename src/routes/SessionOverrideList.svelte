@@ -7,7 +7,9 @@
    * collapsed behind one toggle, each further expandable to the block detail the plan
    * overview used to show above the fold. `scheduling.rules`/`drop_order` render
    * verbatim underneath as the plan's own words, never automated (design spec §2,
-   * decision 7).
+   * decision 7). Nested inside `NextSessionCard`'s `.next-session` card (todo.md, "Home
+   * page UI tweaks") rather than a card of its own, so it renders no background or
+   * border of its own — only a divider to separate it from the start button above.
    */
   let {
     planSlug,
@@ -37,7 +39,7 @@
   }
 </script>
 
-<section class="card override">
+<div class="override">
   <button
     type="button"
     class="secondary list-toggle"
@@ -98,15 +100,13 @@
       </ul>
     {/if}
   {/if}
-</section>
+</div>
 
 <style>
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--line-soft);
-    border-radius: var(--r-md);
-    padding: 1.25rem;
-    margin-top: 1.25rem;
+  .override {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--line-soft);
   }
   .list-toggle {
     width: 100%;

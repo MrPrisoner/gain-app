@@ -4,7 +4,7 @@
   import { copyText, downloadText } from "$lib/copy";
   import { precacheSessions } from "$lib/sync/precache";
   import NextSessionCard from "./NextSessionCard.svelte";
-  import SessionOverrideList from "./SessionOverrideList.svelte";
+  import ImportPlanForm from "./ImportPlanForm.svelte";
   import ActivityStrip from "./ActivityStrip.svelte";
   import NextMorningPrompt from "./NextMorningPrompt.svelte";
   import { dueNextMorningPrompts } from "$lib/home/next-morning";
@@ -214,19 +214,7 @@
     <p class="muted">
       The whole document — prose and contract block. GAIN checks it before writing anything.
     </p>
-    <form method="POST" action="?/import" use:enhance>
-      <textarea
-        class="doc"
-        name="source_md"
-        rows="10"
-        placeholder="Paste the plan document here…"
-        bind:value={pasted}></textarea>
-      <div class="actions">
-        <button type="submit" class="primary" disabled={!pasted.trim()}>
-          <IconCheck />Check the plan
-        </button>
-      </div>
-    </form>
+    <ImportPlanForm bind:pasted />
   </section>
 {:else}
   {#each dueNextMorning as candidate (candidate.workoutClientId)}
@@ -246,19 +234,14 @@
       suggestedKey={plan.suggestion.suggestedKey}
       lastSession={plan.suggestion.lastSession}
       sessions={plan.sessions}
+      schedulingRules={plan.schedulingRules}
+      dropOrder={plan.dropOrder}
     />
   {/each}
 
   <ActivityStrip kinds={data.activityKinds} />
 
   {#each data.plans as plan (plan.slug)}
-    <SessionOverrideList
-      planSlug={plan.slug}
-      suggestedKey={plan.suggestion.suggestedKey}
-      sessions={plan.sessions}
-      schedulingRules={plan.schedulingRules}
-      dropOrder={plan.dropOrder}
-    />
     <section class="card plan-admin">
       <h2>{plan.name}</h2>
       <p class="muted">
@@ -277,29 +260,36 @@
           <IconHistory />History
         </a>
       </nav>
+
+      {#if data.plans.length === 1}
+        <!--
+          A single plan is the common case, and the only one where "which plan is this
+          import for" has an unambiguous answer — a second plan (a different slug) has
+          nowhere obvious to land, so the form only folds in here when there is exactly
+          one plan-admin card to fold it into (todo.md, "Home page UI tweaks").
+        -->
+        <div class="import-inline">
+          <h3>Import a revised plan</h3>
+          <p class="muted">
+            Paste a new version of this plan, or a different plan entirely. GAIN checks it and shows
+            what would change before writing anything.
+          </p>
+          <ImportPlanForm bind:pasted />
+        </div>
+      {/if}
     </section>
   {/each}
 
-  <section class="card">
-    <h2>Import a plan</h2>
-    <p class="muted">
-      Paste a new plan or a revised version. GAIN checks it and shows what would change before
-      writing anything.
-    </p>
-    <form method="POST" action="?/import" use:enhance>
-      <textarea
-        class="doc"
-        name="source_md"
-        rows="10"
-        placeholder="Paste the plan document here…"
-        bind:value={pasted}></textarea>
-      <div class="actions">
-        <button type="submit" class="primary" disabled={!pasted.trim()}>
-          <IconCheck />Check the plan
-        </button>
-      </div>
-    </form>
-  </section>
+  {#if data.plans.length > 1}
+    <section class="card">
+      <h2>Import a plan</h2>
+      <p class="muted">
+        Paste a new plan or a revised version. GAIN checks it and shows what would change before
+        writing anything.
+      </p>
+      <ImportPlanForm bind:pasted />
+    </section>
+  {/if}
 {/if}
 
 {#if form?.importFailure}
@@ -484,6 +474,17 @@
     background: var(--raised);
     border: 1px solid var(--line);
     color: var(--text);
+  }
+
+  .import-inline {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--line-soft);
+  }
+
+  .import-inline h3 {
+    margin: 0 0 0.35rem;
+    font-size: 0.95rem;
   }
 
   .plan-links {

@@ -50,7 +50,7 @@ test("home suggests the next session, logs an activity, and asks the next-mornin
   await page.reload();
 
   // --- Suggested next session: A was just done, B is next in [A, B, C, D]. ---
-  await expect(page.locator(".next-session .key")).toHaveText("B");
+  await expect(page.locator(".next-session .suggested-key")).toHaveText("B");
 
   // --- Next-morning prompt: due, answerable once, then gone for good. ---
   await expect(page.locator(".next-morning")).toBeVisible();
