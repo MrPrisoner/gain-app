@@ -19,6 +19,57 @@ them reconnecting.
 
 **Spec:** [`docs/superpowers/specs/2026-08-17-admin-section-design.md`](../specs/2026-08-17-admin-section-design.md)
 
+## Resuming this plan
+
+This is built to run across several sessions. Everything a fresh session needs is here.
+
+**Branch:** `feat/admin-section`, in the main checkout. **Do not use a git worktree** —
+CLAUDE.md forbids it in this repo, because a session's history lives with the workspace
+that was open when it ran, and moving the work into a worktree drops the session out of
+the VS Code extension's history tab. That is precisely the failure mode a multi-session
+build cannot afford.
+
+**Opening message for a new session:**
+
+> Continue `docs/superpowers/plans/2026-08-17-admin-section.md` on branch
+> `feat/admin-section`. Use `superpowers:executing-plans`. Start at the first unticked
+> task.
+
+`superpowers:executing-plans` is the right sub-skill here, not
+`superpowers:subagent-driven-development` — the latter is for running tasks inside one
+session. Use it within a session if you like; the session-level frame is still the former.
+
+**Tick the boxes, and commit the ticks.** The `- [ ]` checkboxes are the cursor: they are
+the only thing that tells a fresh session where the work stopped. Every task's `git add`
+line already includes this plan file for that reason — do not drop it when copying the
+command.
+
+**Never stop mid-task.** Each task ends with `npm run verify` and a commit, so every task
+boundary is a known-good tree. Several tasks are *not* safe to stop inside: Task 2 adds a
+required `isAdmin` to `createSession` and leaves two call sites broken until its step 6,
+and Tasks 3, 6 and 7 have the same shape. If context runs short partway through a task,
+either finish it or `git checkout .` and redo it fresh — a half-applied task costs the
+next session more than a repeated one.
+
+**Suggested batches**, each one coherent idea, all boundaries safe. Collapse them if a
+session goes quickly:
+
+| Session | Tasks | |
+|---|---|---|
+| 1 | 1–3 | Config and the auth spine. All server, no UI decisions. |
+| 2 | 4–5 | The data layer: the count-only reader, then the destroyer. |
+| 3 | 6 | The screen, alone — much the largest task, and the only one with design latitude. |
+| 4 | 7–8 | Sync. Task 7 adds the interface methods Task 8 consumes; splitting them leaves a dangling API. |
+| 5 | 9–10 | e2e, then docs. Needs `npx playwright install chromium` once (~150 MB), and the full run is slow because the `offline` project does a production build. |
+
+**Do not re-derive settled facts.** The Global Constraints below and the corrections table
+in the Self-Review at the end are load-bearing for a multi-session build: the table records
+signatures and helper names that were verified against the codebase and that a plausible
+recollection gets wrong. If something in this plan contradicts your memory of how this
+repo works, read the file it names before changing the plan.
+
+---
+
 ## Global Constraints
 
 - **The operator sees counts, never content.** No function reachable from `/admin` may
@@ -214,7 +265,7 @@ Run: `npx prettier --write src/lib/server/config.ts tests/server/config.test.ts 
 Expected: all green.
 
 ```bash
-git add src/lib/server/config.ts tests/server/config.test.ts .env.example compose.yaml
+git add src/lib/server/config.ts tests/server/config.test.ts .env.example compose.yaml docs/superpowers/plans/2026-08-17-admin-section.md
 git commit -m "feat(admin): add OIDC_ADMIN_GROUP and the dev admin switch"
 ```
 
@@ -442,7 +493,7 @@ here, in this commit, or the suite does not compile:
 Run: `npx prettier --write src/lib/server/control-db.ts tests/server/control-db.test.ts && npm run verify`
 
 ```bash
-git add src/lib/server/control-db.ts tests/server/control-db.test.ts tests/server/auth.test.ts
+git add src/lib/server/control-db.ts tests/server/control-db.test.ts tests/server/auth.test.ts docs/superpowers/plans/2026-08-17-admin-section.md
 git commit -m "feat(db): add the admin, display-label and generation columns to control.db"
 ```
 
@@ -671,7 +722,7 @@ and the OIDC branch's assignment gains `isAdmin: check.isAdmin`.
 Run: `npx prettier --write src/lib/server/auth.ts src/lib/server/oidc.ts src/routes/auth/callback/+server.ts src/hooks.server.ts src/app.d.ts && npm run verify`
 
 ```bash
-git add src/lib/server/auth.ts src/lib/server/oidc.ts src/routes/auth/callback/+server.ts src/hooks.server.ts src/app.d.ts tests/server/auth.test.ts
+git add src/lib/server/auth.ts src/lib/server/oidc.ts src/routes/auth/callback/+server.ts src/hooks.server.ts src/app.d.ts tests/server/auth.test.ts docs/superpowers/plans/2026-08-17-admin-section.md
 git commit -m "feat(auth): derive operator status from the OIDC groups on every refresh"
 ```
 
@@ -976,7 +1027,7 @@ rather than deleting the test.
 Run: `npx prettier --write src/lib/server/admin-stats.ts tests/server/admin-stats.test.ts && npm run verify`
 
 ```bash
-git add src/lib/server/admin-stats.ts tests/server/admin-stats.test.ts
+git add src/lib/server/admin-stats.ts tests/server/admin-stats.test.ts docs/superpowers/plans/2026-08-17-admin-section.md
 git commit -m "feat(admin): add the count-only per-user stats reader"
 ```
 
@@ -1257,7 +1308,7 @@ Expected: PASS.
 Run: `npx prettier --write src/lib/server/admin-reset.ts src/lib/server/app-state.ts tests/server/admin-reset.test.ts && npm run verify`
 
 ```bash
-git add src/lib/server/admin-reset.ts src/lib/server/app-state.ts tests/server/admin-reset.test.ts
+git add src/lib/server/admin-reset.ts src/lib/server/app-state.ts tests/server/admin-reset.test.ts docs/superpowers/plans/2026-08-17-admin-section.md
 git commit -m "feat(admin): add the ordered per-user data reset"
 ```
 
@@ -1877,7 +1928,7 @@ needs no legend and the triad could not have been borrowed for it anyway.
 Run: `npx prettier --write src/lib/admin src/routes/admin src/routes/+layout.svelte tests/admin tests/server/admin-route.test.ts && npm run verify`
 
 ```bash
-git add src/lib/admin src/routes/admin tests/admin tests/server/admin-route.test.ts src/routes/+layout.svelte docs/UI-DECISIONS.md
+git add src/lib/admin src/routes/admin tests/admin tests/server/admin-route.test.ts src/routes/+layout.svelte docs/UI-DECISIONS.md docs/superpowers/plans/2026-08-17-admin-section.md
 git commit -m "feat(admin): add the operator screen and its per-user reset"
 ```
 ---
@@ -2074,7 +2125,7 @@ In `src/routes/+layout.svelte`'s `bannerText`, before the `switch`:
 Run: `npx prettier --write src/lib/sync/ src/routes/api/sync/+server.ts src/routes/+layout.server.ts src/routes/+layout.svelte tests/sync/ops.test.ts tests/server/sync-route.test.ts && npm run verify`
 
 ```bash
-git add src/lib/sync src/routes/api/sync/+server.ts src/routes/+layout.server.ts src/routes/+layout.svelte tests/sync/ops.test.ts tests/server/sync-route.test.ts
+git add src/lib/sync src/routes/api/sync/+server.ts src/routes/+layout.server.ts src/routes/+layout.svelte tests/sync/ops.test.ts tests/server/sync-route.test.ts docs/superpowers/plans/2026-08-17-admin-section.md
 git commit -m "feat(sync): reject queued ops from before a data reset"
 ```
 
@@ -2242,7 +2293,7 @@ neutral chrome on every screen in the app, several of which render plan and symp
 Run: `npx prettier --write src/lib/sync/client.svelte.ts src/routes/+layout.svelte tests/sync && npm run verify`
 
 ```bash
-git add src/lib/sync/client.svelte.ts src/routes/+layout.svelte tests/sync
+git add src/lib/sync/client.svelte.ts src/routes/+layout.svelte tests/sync docs/superpowers/plans/2026-08-17-admin-section.md
 git commit -m "feat(sync): let the user discard ops that can never sync"
 ```
 
@@ -2423,7 +2474,7 @@ noticeably slower than the other three combined.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add e2e/admin-walkthrough.spec.ts e2e/env.ts e2e/global-setup.ts playwright.config.ts
+git add e2e/admin-walkthrough.spec.ts e2e/env.ts e2e/global-setup.ts playwright.config.ts docs/superpowers/plans/2026-08-17-admin-section.md
 git commit -m "test(e2e): walk the operator screen and a reset end to end"
 ```
 ---
