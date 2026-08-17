@@ -31,48 +31,26 @@ Then clear it up behind you:
 - The UI for adjusting a set's reps and weight is not very intuitive - I sometimes these up and adjust the wrong field. Let's add icons (for example, mdi-sync for reps and mdi-weight-kilogram - these are just ideas, align to the app's current UI design).
 - Because of the above, it became apparent that users have no way to undo to change a logged set/exercise. If I adjusted the reps or weight incorrectly, or selected the wrong difficulty level, there is no recourse to change it.
 
-### Resuming phase 7b across sessions
+### e2e `offline-session.spec.ts` fails — stale selector, unrelated to phase 7b
 
-Phase 7b (progress, charts & history) is being implemented across multiple separate
-sessions rather than one sitting. The plan is
-[`docs/superpowers/plans/2026-08-16-phase-7b-progress.md`](docs/superpowers/plans/2026-08-16-phase-7b-progress.md)
-(spec: [`docs/superpowers/specs/2026-08-16-phase-7b-progress-design.md`](docs/superpowers/specs/2026-08-16-phase-7b-progress-design.md)),
-split into seven parts, each ending in a "**Part N done when:**" line — a real stopping
-point where `npm run typecheck`/`npm run check` (and, from Part 2 on, `npm test`) are
-clean and nothing is left half-wired.
+`npx playwright test --project=offline e2e/offline-session.spec.ts` fails at line 47:
+`.session-toggle` (filtered to the session name) is expected visible but isn't found.
 
-| Part | Tasks | Delivers                                                   |
-| ---- | ----- | ---------------------------------------------------------- |
-| 1    | 1–5   | the pure `src/lib/progress/` modules, no UI                |
-| 2    | 6–7   | `summary.ts` refactored onto them, `src/lib/db/history.ts` |
-| 3    | 8–10  | the two chart components and the progress hub              |
-| 4    | 11–12 | the per-exercise list and detail                           |
-| 5    | 13–14 | the metric-trend list and detail                           |
-| 6    | 15–16 | the History list and detail                                |
-| 7    | 17–20 | Home links, both e2e specs, the documentation close-out    |
+Root cause: `.session-toggle` only renders inside `SessionOverrideList.svelte`'s
+`{#if listOpen}` block, and `listOpen` defaults to `false` — the collapsed "Choose a
+different session" accordion. `939db73` ("feat(home): add SessionOverrideList",
+2026-08-15) introduced that collapsed-by-default accordion after this spec's last edit
+(`b4625c4`) and never updated the spec to open it first, so the spec has been asserting
+against markup that no longer exists unconditionally.
 
-**To pick up a fresh session:**
+Surfaced while working the phase 7b plan (Task 19, `e2e/history-walkthrough.spec.ts`) —
+confirmed unrelated to that work: reproduces identically in isolation, and neither
+`e2e/helpers.ts` nor any phase-7b spec touches `SessionOverrideList.svelte` or this spec.
 
-1. Run `git log --oneline -20` and check which tasks' commits already exist (each task's
-   commit message names the task, e.g. "feat(progress): add buildExerciseSeries") to find
-   the next unchecked task. Cross-reference against the plan's own `- [ ]`/`- [x]` boxes —
-   the plan file is the source of truth for what's done, not memory of a previous session.
-2. Read the spec's relevant section before touching the next part's tasks if it's been a
-   while — the plan argues from the spec and doesn't repeat its reasoning.
-3. Resume with `superpowers:subagent-driven-development` on the next unstarted part
-   (parts are independent enough to run as their own subagent-driven pass — Part 1 has no
-   UI, Parts 3–6 share no code with each other beyond Parts 1–2's foundation, per the
-   plan's own File Structure section).
-4. Before dispatching a part's first task, re-read the real signatures the part's code
-   blocks lean on. The plan quotes whole files, written against the tree as it stood on
-   2026-08-16; anything landed since then (or by an earlier part of this same plan) is
-   not reflected in them. Phase 7a's plan carried a written-out "pre-flight note" that
-   caught two real defects before any code — this plan has none, so the scan is the
-   agent's own job rather than something to look for in the file.
-
-**Delete this item once phase 7 is fully closed** (Task 20 of the plan — ROADMAP ticked,
-README/CLAUDE.md/ARCHITECTURE §12 all updated) rather than leaving it to rot as a stale
-pointer to a finished plan.
+Fix is presumably one line: click `.list-toggle` to open the accordion before asserting
+`.session-toggle` is visible, matching whatever the session-runner specs already do to
+reach the same control (check `e2e/session-runner-walkthrough-a.spec.ts` or `-d.spec.ts`
+first — this may already be a solved problem there).
 
 ### Ability to update a log
 
