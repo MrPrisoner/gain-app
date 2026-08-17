@@ -143,6 +143,7 @@ describe("workout write layer", () => {
       weightKg: 12,
       difficulty: "medium",
       clientId: "set-correction-02-fixed",
+      isCorrection: true,
     });
     expect(corrected.id, "the correction must land on the same row").toBe(mistap.id);
 
@@ -155,6 +156,7 @@ describe("workout write layer", () => {
       weightKg: 12,
       difficulty: "medium",
       clientId: "set-correction-02-fixed",
+      isCorrection: true,
     });
     expect(replay.id).toBe(corrected.id);
 
@@ -189,6 +191,50 @@ describe("workout write layer", () => {
     expect(count.n).toBe(2);
   });
 
+  it("logs a second row rather than merging it into an unrelated slot's, when two fresh sets share a reference", () => {
+    // `set_log` has no `block_key` column, so `(workout_id, exercise_def_id, set_no,
+    // side)` cannot tell apart two distinct sets that happen to share it — exactly what a
+    // block prescribing an exercise directly *and* offering it as another exercise's
+    // substitute produces, once the substitute is swapped in
+    // (`e2e/session-runner-walkthrough-d.spec.ts`'s dead-bug/reverse-crunch case). Neither
+    // write here is a correction — both are the first, fresh log of their own slot — so
+    // neither carries `isCorrection`.
+    const workout = startWorkout(userDb, {
+      planVersionId,
+      sessionKey: "A",
+      clientId: "wk-client-set-collision",
+      now: NOW,
+    });
+    const exerciseDefId = getExerciseDefIdBySlug(userDb, planId, "goblet-squat");
+    if (!exerciseDefId) throw new Error("expected goblet-squat in the catalogue");
+
+    const direct = logSet(userDb, {
+      workoutId: workout.id,
+      exerciseDefId,
+      setNo: 1,
+      reps: 12,
+      difficulty: "medium",
+      clientId: "set-collision-01-direct",
+    });
+    const substitute = logSet(userDb, {
+      workoutId: workout.id,
+      exerciseDefId,
+      setNo: 1,
+      reps: 14,
+      difficulty: "medium",
+      clientId: "set-collision-02-substitute",
+    });
+    expect(substitute.id, "a fresh log must never land on another slot's row").not.toBe(direct.id);
+
+    const rows = userDb.db
+      .prepare("SELECT reps, client_id FROM set_log WHERE workout_id = ? ORDER BY client_id")
+      .all(workout.id) as { reps: number; client_id: string }[];
+    expect(rows).toEqual([
+      { reps: 12, client_id: "set-collision-01-direct" },
+      { reps: 14, client_id: "set-collision-02-substitute" },
+    ]);
+  });
+
   it("does not let a redelivered older set correction revert a newer one", () => {
     const workout = startWorkout(userDb, {
       planVersionId,
@@ -215,10 +261,13 @@ describe("workout write layer", () => {
       reps: 10,
       difficulty: "medium",
       clientId: "09",
+      isCorrection: true,
     });
 
     // "05" redelivered — the row's client_id is now "09", so the client_id lookup misses
-    // and this falls through to the by-reference upsert. It must not win.
+    // and this falls through to the by-reference upsert. It must not win, regardless of
+    // isCorrection: the ULID-ordering guard turns it away before that flag is even
+    // consulted (logSet's own comment).
     const replayed = logSet(userDb, {
       workoutId: workout.id,
       exerciseDefId,

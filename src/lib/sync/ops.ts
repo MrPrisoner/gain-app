@@ -60,6 +60,13 @@ const setOpSchema = z.strictObject({
   weightKg: z.number().nonnegative().optional(),
   durationS: z.number().int().nonnegative().optional(),
   difficulty: z.enum(["easy", "medium", "hard"]).optional(),
+  /** Set when the runner is re-showing an already-logged ledger row for correction
+   * rather than logging the next slot — see `logSet`'s comment (`$lib/db/workout.ts`)
+   * for why the server must not infer this from a reference match on its own. Optional
+   * so an op already queued in a client's offline outbox from before this field existed
+   * replays as "not a correction" — the strictly safer default, since that's exactly the
+   * write-once behaviour this field's absence used to mean. */
+  isCorrection: z.boolean().optional(),
 });
 
 const metricOpSchema = z.strictObject({

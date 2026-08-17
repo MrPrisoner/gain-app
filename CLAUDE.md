@@ -435,6 +435,21 @@ protect:
   identically in every variety of English, unlike `programme`/`program` — but a revising
   AI will still reach for `program`, `routine` or `workout`. The parser must reject those
   loudly rather than coercing them, and nothing may reintroduce them as aliases.
+- **A `set_log` reference match may never overwrite a row on its own — only an explicit
+  `isCorrection` from the caller may.** `(workout_id, exercise_def_id, set_no, side)` is
+  not a unique slot identity, because `set_log` has no `block_key` column (deliberately —
+  see `$lib/session/resume.ts`'s module comment): a block that prescribes an exercise
+  directly and also offers it as another exercise's substitute produces two genuinely
+  distinct sets sharing that exact reference the moment the substitute is swapped in.
+  `logSet` (`$lib/db/workout.ts`) upserts by that reference to let a mis-tapped set be
+  corrected in place, but trusting a reference match alone — regardless of intent — silently
+  merged the second slot's first log into the first slot's row, dropping a set rather than
+  logging one (`e2e/session-runner-walkthrough-d.spec.ts`'s dead-bug/reverse-crunch
+  regression, 2026-08-17). The runner sets `isCorrection` only when re-showing an
+  already-logged row (`editingSlot`); a fresh log of a new slot never does, no matter what
+  it collides with. The ULID-ordering "an older write must never win" guard still runs
+  unconditionally, since it only ever returns an existing row without writing — it is the
+  _overwrite_ that needs the caller's explicit say-so, not the lookup itself.
 
 ## The fixture
 

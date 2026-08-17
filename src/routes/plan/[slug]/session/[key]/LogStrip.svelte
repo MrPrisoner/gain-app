@@ -162,6 +162,10 @@
         weightKg: submitted.weightKg,
         durationS: submitted.durationS,
         difficulty: submitted.difficulty,
+        // `onCancel` is only ever supplied when the strip is re-showing an already-logged
+        // row for correction (see the prop's own doc comment) — the server must not infer
+        // this from a reference match on its own (`$lib/db/workout.ts`'s `logSet`).
+        isCorrection: !!onCancel,
       });
       onLogged(loggedSlot, submitted);
       onError(undefined);

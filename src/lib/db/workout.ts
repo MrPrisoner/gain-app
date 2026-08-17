@@ -41,6 +41,10 @@ export type LogSetInput = {
   durationS?: number;
   difficulty?: Difficulty;
   clientId: string;
+  /** Set only when the runner is re-showing an already-logged ledger row for correction
+   * (`editingSlot` in the session route) — see `logSet`'s own comment for why this must
+   * come from the caller rather than be inferred from a reference match. */
+  isCorrection?: boolean;
 };
 
 export type LogMetricInput = {
@@ -117,24 +121,48 @@ export function logSet(userDb: UserDb, input: LogSetInput): { id: string } {
   // runner's ledger lets a logged row be reopened and re-submitted) — same upsert-on-
   // reference-plus-ULID-order shape as `logMetric`'s correction handling, see its
   // comment for the reasoning both share.
+  //
+  // Unlike a metric's reference, `(workout_id, exercise_def_id, set_no, side)` is not a
+  // unique slot identity: `set_log` has no `block_key` column (deliberately — see
+  // `$lib/session/resume.ts`'s module comment), so the same exercise prescribed directly
+  // in a block *and* offered as another exercise's substitute in that same block produces
+  // two genuinely distinct sets that share this exact reference the moment the substitute
+  // is swapped in. Trusting a reference match alone treated the second slot's first log
+  // as a correction of the first slot's row, silently merging two sets into one
+  // (`e2e/session-runner-walkthrough-d.spec.ts`'s dead-bug/reverse-crunch case).
   const prior = selectSetByReference(userDb, input);
   if (prior) {
+    // A strictly older write must never win — whether it's a genuinely redelivered
+    // original op whose `client_id` a later correction has since overwritten on the row
+    // (the row's `client_id` doubles as its replay identity, same as `logMetric`), or, in
+    // principle, an out-of-order correction. Either way the existing row already holds
+    // the newer data, so returning it without writing is always the safe answer — this
+    // check runs regardless of `isCorrection` because a stale redelivery of the
+    // *original* (non-correction) op must still lose to a correction that landed after
+    // it, and it never risks the collision above since it writes nothing.
     if (input.clientId < prior.clientId) return { id: prior.id };
 
-    userDb.db
-      .prepare(
-        `UPDATE set_log SET reps = ?, weight_kg = ?, duration_s = ?, difficulty = ?, client_id = ?
-           WHERE id = ?`,
-      )
-      .run(
-        input.reps ?? null,
-        input.weightKg ?? null,
-        input.durationS ?? null,
-        input.difficulty ?? null,
-        input.clientId,
-        prior.id,
-      );
-    return { id: prior.id };
+    // A strictly newer write only overwrites the found row when the caller says this
+    // really is re-showing an already-logged row for correction (`isCorrection`, set by
+    // the runner's `editingSlot`). Otherwise it falls through to the insert below,
+    // exactly the fix the collision above needs: a fresh log is never merged into an
+    // unrelated slot's row just because they happen to share a reference.
+    if (input.isCorrection) {
+      userDb.db
+        .prepare(
+          `UPDATE set_log SET reps = ?, weight_kg = ?, duration_s = ?, difficulty = ?, client_id = ?
+             WHERE id = ?`,
+        )
+        .run(
+          input.reps ?? null,
+          input.weightKg ?? null,
+          input.durationS ?? null,
+          input.difficulty ?? null,
+          input.clientId,
+          prior.id,
+        );
+      return { id: prior.id };
+    }
   }
 
   const id = newId();

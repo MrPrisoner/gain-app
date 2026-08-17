@@ -111,6 +111,7 @@ function applyOp(userDb: UserDb, op: SyncOp): void {
         durationS: op.durationS,
         difficulty: op.difficulty,
         clientId: op.id,
+        isCorrection: op.isCorrection,
       });
       return;
     }

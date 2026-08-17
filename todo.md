@@ -20,17 +20,6 @@ Then clear it up behind you:
 
 ## Items
 
-### `e2e/session-runner-walkthrough-d.spec.ts` logs only 2 `dead-bug` rows, not 4
-
-Surfaced running the same full-suite pass above, independent of the heading bug — this
-failure is at line 196, before the file's own instance of the heading query at line 235,
-and `setLogsOf` filters by this test's own `workoutClientId`, so it isn't shared-database
-cross-talk from another parallel test. `deadBugRows` (2 rounds of the block's own
-directly-prescribed `dead-bug`, plus 2 rounds of the swapped-in substitute) came back with
-only `set_no` 1 and 2 — one round's worth, not two. Not yet root-caused: needs its own
-investigation before a fix, ideally reproduced in isolation (single worker, one viewport
-project) to rule out a parallel-run interaction the comment above didn't quite prove absent.
-
 ### `check:chars` only scans tracked files
 
 `npm run check:chars` (and the `gain/no-control-characters` ESLint rule) exist because a
