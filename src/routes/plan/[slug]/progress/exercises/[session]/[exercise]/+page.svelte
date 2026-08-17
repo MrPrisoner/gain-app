@@ -69,7 +69,8 @@
     <Sparkline
       points={chart.loadReps}
       ariaLabel={`${chart.side ? `${chart.side === "left" ? "Left" : "Right"} ` : ""}${chart.effortHeading} trend chart`}
-      formatPointLabel={(p) => p.label}
+      formatPointLabel={(p, i, all) =>
+        chart.plots === "load" ? p.label : i === all.length - 1 ? String(p.y) : undefined}
       formatReadout={(p) =>
         `${p.y} ${chart.effortUnit} on ${new Date(p.x).toISOString().slice(0, 10)}${
           p.label ? ` × ${p.label} ${chart.effortLabelUnit}` : ""

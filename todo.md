@@ -26,11 +26,6 @@ The final review of the phase 7b branch (progress, history, charts) found these 
 non-blocking rough edges. None touch the `(session_key, exercise_slug)`/`(scope, key)`
 keying invariants — those were checked specifically and hold.
 
-- **The per-exercise detail page's first chart never labels its most current point when
-  plotting effort** (bodyweight movements — `topSetChartPoints`'s "effort" branch sets
-  `label: undefined`). The plan's own constraint was "every chart directly labels its most
-  current point"; the hub's duration chart and the metric-detail chart both do this
-  correctly, only this one doesn't, on precisely the movements that are most of the fixture.
 - **Two chart assertions in `e2e/progress-walkthrough.spec.ts` are still shell-only** — the
   difficulty-bar-chart and duration-chart checks assert the chart's `<svg>` is visible, not
   that it reflects real data. This is the same trap `c4a0f4c` already fixed once for this

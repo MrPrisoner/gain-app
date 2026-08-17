@@ -106,6 +106,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
             : "Reps",
       effortUnit: effort.unit,
       effortLabelUnit: resolved.type === "time" ? "s" : "reps",
+      plots: effort.plots,
       loadReps: effort.points.map((p) => ({
         x: new Date(p.startedAt).getTime(),
         y: p.value,
