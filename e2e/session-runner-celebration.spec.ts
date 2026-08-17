@@ -53,7 +53,10 @@ test("the workout is already complete before the celebration is dismissed", asyn
 
   await card.getByRole("button", { name: "Back to home" }).click();
   await page.waitForURL(/\/$/);
-  await expect(page.getByRole("heading", { name: "Home Training Plan" })).toBeVisible();
+  // The plan name now renders twice on Home (`NextSessionCard`'s featured card and the
+  // `.plan-admin` section below it, since `90c81d0` merged the two Home cards), so a
+  // plain role query is ambiguous — `.plan-name` is unique to the featured card.
+  await expect(page.locator(".plan-name", { hasText: "Home Training Plan" })).toBeVisible();
 });
 
 test("a red-flag stop goes straight home without celebrating", async ({ page }) => {

@@ -232,5 +232,8 @@ test("Session D end-to-end: a ranged set surviving a substitute, the two-round a
   await expect(symptoms.locator(".scale-cell.selected")).toHaveText("3");
 
   await finishSession(page);
-  await expect(page.getByRole("heading", { name: "Home Training Plan" })).toBeVisible();
+  // The plan name now renders twice on Home (`NextSessionCard`'s featured card and the
+  // `.plan-admin` section below it, since `90c81d0` merged the two Home cards), so a
+  // plain role query is ambiguous — `.plan-name` is unique to the featured card.
+  await expect(page.locator(".plan-name", { hasText: "Home Training Plan" })).toBeVisible();
 });

@@ -20,24 +20,6 @@ Then clear it up behind you:
 
 ## Items
 
-### The Home page's ambiguous "Home Training Plan" heading is failing three more e2e specs
-
-`90c81d0` ("merge Home page cards") made the plan name render twice on Home for a single
-plan — `NextSessionCard`'s featured card (`<h2 class="plan-name">`) and the `.plan-admin`
-section below it (`<h2>{plan.name}</h2>`) both say "Home Training Plan". A plain
-`getByRole("heading", { name: "Home Training Plan" })` query is a strict-mode violation
-now. `9c83b87` fixed this for `e2e/offline-session.spec.ts` by scoping to `.plan-name`, but
-running the full three-viewport suite (not part of `npm run verify`, so this doesn't fail
-CI) turns up the same query, unfixed, in three more specs — all currently failing on all
-three viewport projects:
-
-- `e2e/session-runner-celebration.spec.ts:31`
-- `e2e/session-runner-walkthrough-a.spec.ts` (the `getByRole` call itself, not shown at the
-  line the failure reports)
-- `e2e/session-runner-walkthrough-d.spec.ts:235`
-
-Same fix as `9c83b87`: scope to `.plan-name` instead of a bare role query.
-
 ### `e2e/session-runner-walkthrough-d.spec.ts` logs only 2 `dead-bug` rows, not 4
 
 Surfaced running the same full-suite pass above, independent of the heading bug — this

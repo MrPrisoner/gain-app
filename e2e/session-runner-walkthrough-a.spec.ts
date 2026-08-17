@@ -153,7 +153,10 @@ test("Session A end-to-end: warm-up, four working exercises, rest, a deviation, 
   await expect(symptoms.locator(".scale-cell.selected")).toHaveText("4");
 
   await finishSession(page);
-  await expect(page.getByRole("heading", { name: "Home Training Plan" })).toBeVisible();
+  // The plan name now renders twice on Home (`NextSessionCard`'s featured card and the
+  // `.plan-admin` section below it, since `90c81d0` merged the two Home cards), so a
+  // plain role query is ambiguous — `.plan-name` is unique to the featured card.
+  await expect(page.locator(".plan-name", { hasText: "Home Training Plan" })).toBeVisible();
 
   // The finished workout: the full 18 working sets, never duplicated by the reload above.
   expect(setLogsOf(clientId)).toHaveLength(
