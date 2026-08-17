@@ -47,9 +47,21 @@ test("goblet squat, prescribed in two sessions, tracks as two separate progress 
   await expect(page.getByRole("heading", { name: "Goblet squat" })).toBeVisible();
   // Goblet squat carries a load, so the first chart plots it; a bodyweight movement
   // would plot reps instead and be headed differently (topSetChartPoints, Task 1).
-  await expect(page.locator('svg[aria-label="Load × reps trend chart"]')).toBeVisible();
-  await expect(page.locator('svg[aria-label="volume bar chart"]')).toBeVisible();
-  await expect(page.locator('svg[aria-label="difficulty bar chart"]')).toBeVisible();
+  // Counts stay "at least one" rather than exact: this suite shares one seeded database
+  // across three parallel viewport projects (history-walkthrough.spec.ts), so how many
+  // times session A has been logged by the time this assertion runs isn't deterministic.
+  await expect(
+    page.locator('svg[aria-label="Load × reps trend chart"] .dot').first(),
+  ).toBeVisible();
+  await expect(page.locator('svg[aria-label="volume bar chart"] rect').first()).toBeVisible();
+  // difficultyBars always renders three bars (easy/medium/hard), even at zero-zero-zero
+  // (unlike Sparkline's empty state, BarChart's `<svg aria-label>` alone proves nothing
+  // about whether any set was actually logged) — so proving the chart is populated means
+  // reading a specific bar's readout, not just the svg's presence. Every set above was
+  // logged through `logSetThroughRest`'s default Medium tap, so Easy and Hard stay at 0.
+  await expect(page.getByRole("button", { name: /^Medium: [1-9]\d*$/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Easy: 0" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Hard: 0" })).toBeVisible();
 
   await assertNoHorizontalOverflow(page);
 });
@@ -61,8 +73,11 @@ test("the progress hub shows a session card with a duration chart", async ({ pag
 
   await page.goto(`/plan/${E2E_PLAN_SLUG}/progress`);
   await expect(page.getByRole("heading", { name: "Squat, Press & Row" })).toBeVisible();
+  // The svg wrapper renders in both the populated and empty-data states (Sparkline.svelte),
+  // so proving the duration series actually got a point means asserting on `.dot`, not the
+  // svg's mere presence.
   await expect(
-    page.locator('svg[aria-label="Squat, Press & Row duration trend chart"]'),
+    page.locator('svg[aria-label="Squat, Press & Row duration trend chart"] .dot').first(),
   ).toBeVisible();
 
   await assertNoHorizontalOverflow(page);

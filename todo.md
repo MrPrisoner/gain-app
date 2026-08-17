@@ -26,16 +26,41 @@ The final review of the phase 7b branch (progress, history, charts) found these 
 non-blocking rough edges. None touch the `(session_key, exercise_slug)`/`(scope, key)`
 keying invariants — those were checked specifically and hold.
 
-- **Two chart assertions in `e2e/progress-walkthrough.spec.ts` are still shell-only** — the
-  difficulty-bar-chart and duration-chart checks assert the chart's `<svg>` is visible, not
-  that it reflects real data. This is the same trap `c4a0f4c` already fixed once for this
-  same spec's duration-chart test; these two weren't caught by that pass.
 - **`tests/summary.test.ts` has a test named "shows a readiness verdict for a ranged
   prescription" whose body asserts the opposite** — a dash, for a _scalar_ prescription.
   The comment inside explains the real intent; the name doesn't match it.
 - **`assertNoHorizontalOverflow` never runs on the History or Progress-exercises LIST
   screens**, only on their detail pages — both e2e specs navigate straight through the list
   to a detail page before checking.
+
+### The Home page's ambiguous "Home Training Plan" heading is failing three more e2e specs
+
+`90c81d0` ("merge Home page cards") made the plan name render twice on Home for a single
+plan — `NextSessionCard`'s featured card (`<h2 class="plan-name">`) and the `.plan-admin`
+section below it (`<h2>{plan.name}</h2>`) both say "Home Training Plan". A plain
+`getByRole("heading", { name: "Home Training Plan" })` query is a strict-mode violation
+now. `9c83b87` fixed this for `e2e/offline-session.spec.ts` by scoping to `.plan-name`, but
+running the full three-viewport suite (not part of `npm run verify`, so this doesn't fail
+CI) turns up the same query, unfixed, in three more specs — all currently failing on all
+three viewport projects:
+
+- `e2e/session-runner-celebration.spec.ts:31`
+- `e2e/session-runner-walkthrough-a.spec.ts` (the `getByRole` call itself, not shown at the
+  line the failure reports)
+- `e2e/session-runner-walkthrough-d.spec.ts:235`
+
+Same fix as `9c83b87`: scope to `.plan-name` instead of a bare role query.
+
+### `e2e/session-runner-walkthrough-d.spec.ts` logs only 2 `dead-bug` rows, not 4
+
+Surfaced running the same full-suite pass above, independent of the heading bug — this
+failure is at line 196, before the file's own instance of the heading query at line 235,
+and `setLogsOf` filters by this test's own `workoutClientId`, so it isn't shared-database
+cross-talk from another parallel test. `deadBugRows` (2 rounds of the block's own
+directly-prescribed `dead-bug`, plus 2 rounds of the swapped-in substitute) came back with
+only `set_no` 1 and 2 — one round's worth, not two. Not yet root-caused: needs its own
+investigation before a fix, ideally reproduced in isolation (single worker, one viewport
+project) to rule out a parallel-run interaction the comment above didn't quite prove absent.
 
 ### `check:chars` only scans tracked files
 
