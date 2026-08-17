@@ -52,6 +52,36 @@ Fix is presumably one line: click `.list-toggle` to open the accordion before as
 reach the same control (check `e2e/session-runner-walkthrough-a.spec.ts` or `-d.spec.ts`
 first — this may already be a solved problem there).
 
+### Phase 7b polish — parked by the final whole-branch review
+
+The final review of the phase 7b branch (progress, history, charts) found these real but
+non-blocking rough edges. None touch the `(session_key, exercise_slug)`/`(scope, key)`
+keying invariants — those were checked specifically and hold.
+
+- **None of the seven new Progress/History screens has a back link**, while the sibling
+  Export route does (`src/routes/plan/[slug]/export/+page.svelte`, "Back to your plans").
+  Progress → exercises → detail is three levels deep on a phone with only the wordmark and
+  the browser button to get out.
+- **The per-exercise detail page's first chart never labels its most current point when
+  plotting effort** (bodyweight movements — `topSetChartPoints`'s "effort" branch sets
+  `label: undefined`). The plan's own constraint was "every chart directly labels its most
+  current point"; the hub's duration chart and the metric-detail chart both do this
+  correctly, only this one doesn't, on precisely the movements that are most of the fixture.
+- **`topSetChartPoints` plots `weightKg ?? 0` for a movement with MIXED loaded and
+  bodyweight history in the same series** (`src/lib/progress/exercise-series.ts`), drawing
+  a spike to zero and rescaling the y-axis around it. The all-bodyweight case is already
+  handled correctly; only a series that's sometimes loaded and sometimes not isn't.
+- **Two chart assertions in `e2e/progress-walkthrough.spec.ts` are still shell-only** — the
+  difficulty-bar-chart and duration-chart checks assert the chart's `<svg>` is visible, not
+  that it reflects real data. This is the same trap `c4a0f4c` already fixed once for this
+  same spec's duration-chart test; these two weren't caught by that pass.
+- **`tests/summary.test.ts` has a test named "shows a readiness verdict for a ranged
+  prescription" whose body asserts the opposite** — a dash, for a *scalar* prescription.
+  The comment inside explains the real intent; the name doesn't match it.
+- **`assertNoHorizontalOverflow` never runs on the History or Progress-exercises LIST
+  screens**, only on their detail pages — both e2e specs navigate straight through the list
+  to a detail page before checking.
+
 ### Ability to update a log
 
 Currently, once a user has logged an exercise, there is no way to change that log. A user might make a mistake and would want to change what they logged. For example, forgetting to change the number of reps.
