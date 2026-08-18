@@ -2325,7 +2325,7 @@ git commit -m "feat(sync): let the user discard ops that can never sync"
 - The overflow assertion is `assertNoHorizontalOverflow(page)` from `e2e/helpers.ts` —
   **not** `expectNoHorizontalOverflow`.
 
-- [ ] **Step 1: Add the two user names**
+- [x] **Step 1: Add the two user names**
 
 In `e2e/env.ts`, beside `homeDevUserFor`:
 
@@ -2349,7 +2349,7 @@ export function adminSubjectFor(projectName: string): string {
 }
 ```
 
-- [ ] **Step 2: Seed them**
+- [x] **Step 2: Seed them**
 
 In `e2e/global-setup.ts`, after the existing `homeDevUserFor` loop:
 
@@ -2363,7 +2363,7 @@ In `e2e/global-setup.ts`, after the existing `homeDevUserFor` loop:
 
 Add `E2E_ADMIN_USER` and `adminSubjectFor` to the import from `./env`.
 
-- [ ] **Step 3: Grant dev admin in both servers**
+- [x] **Step 3: Grant dev admin in both servers**
 
 In `playwright.config.ts`, add `GAIN_DEV_ADMIN: E2E_ADMIN_USER` to the `env` of **both**
 `webServer` entries, and import `E2E_ADMIN_USER` from `./e2e/env`. The built server runs
@@ -2374,7 +2374,7 @@ Because Task 1 made `GAIN_DEV_ADMIN` a *name* rather than a flag, every existing
 user stays a non-admin and no existing spec changes behaviour. Confirm that in step 6
 rather than assuming it.
 
-- [ ] **Step 4: Write the spec**
+- [x] **Step 4: Write the spec**
 
 Create `e2e/admin-walkthrough.spec.ts`.
 
@@ -2457,12 +2457,12 @@ test("the operator screen is invisible to everyone else", async ({ page }, testI
 If `p.done` or `li.card` do not match what Task 6 actually built, fix the **selector**
 here to match the component — do not loosen the assertion to make it pass.
 
-- [ ] **Step 5: Run the new spec at one viewport**
+- [x] **Step 5: Run the new spec at one viewport**
 
 Run: `npx playwright test --project=iphone e2e/admin-walkthrough.spec.ts`
 Expected: PASS. Needs `npx playwright install chromium` once first (~150 MB).
 
-- [ ] **Step 6: Run the whole suite**
+- [x] **Step 6: Run the whole suite**
 
 Run: `npm run test:e2e`
 Expected: PASS, including every pre-existing spec. This is the step that proves
@@ -2471,7 +2471,7 @@ Expected: PASS, including every pre-existing spec. This is the step that proves
 Note this runs the `offline` project too, which does a full production build, so it is
 noticeably slower than the other three combined.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add e2e/admin-walkthrough.spec.ts e2e/env.ts e2e/global-setup.ts playwright.config.ts docs/superpowers/plans/2026-08-17-admin-section.md

@@ -21,6 +21,7 @@
 
 import { defineConfig } from "@playwright/test";
 import {
+  E2E_ADMIN_USER,
   E2E_BASE_URL,
   E2E_BUILT_BASE_URL,
   E2E_BUILT_PORT,
@@ -74,6 +75,7 @@ export default defineConfig({
       env: {
         DATA_DIR: E2E_DATA_DIR,
         GAIN_DEV_USER: E2E_DEV_USER,
+        GAIN_DEV_ADMIN: E2E_ADMIN_USER,
       },
     },
     {
@@ -87,6 +89,7 @@ export default defineConfig({
       env: {
         DATA_DIR: E2E_DATA_DIR,
         GAIN_DEV_USER: E2E_DEV_USER,
+        GAIN_DEV_ADMIN: E2E_ADMIN_USER,
         PORT: String(E2E_BUILT_PORT),
         // adapter-node requires ORIGIN outside dev, and a wrong one is the #1 cause of
         // login loops behind a proxy (svelte.config.js).

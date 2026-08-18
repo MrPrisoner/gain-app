@@ -7,13 +7,16 @@
  */
 
 import {
+  E2E_ADMIN_USER,
   E2E_DATA_DIR,
   E2E_DATA_DIR_VAR,
   E2E_DEV_USER,
   E2E_VIEWPORT_PROJECTS,
+  adminSubjectFor,
   homeDevUserFor,
 } from "./env";
 import { seedFixturePlan } from "./seed";
+import { openControlDb, setDisplayLabel } from "../src/lib/server/control-db";
 
 export default function globalSetup(): void {
   seedFixturePlan(E2E_DATA_DIR, E2E_DEV_USER);
@@ -22,6 +25,24 @@ export default function globalSetup(): void {
   // spec's workouts, or another project's concurrent run of this same spec.
   for (const project of E2E_VIEWPORT_PROJECTS) {
     seedFixturePlan(E2E_DATA_DIR, homeDevUserFor(project));
+  }
+  // The operator, and one disposable account per project for it to reset.
+  seedFixturePlan(E2E_DATA_DIR, E2E_ADMIN_USER);
+  for (const project of E2E_VIEWPORT_PROJECTS) {
+    const subject = adminSubjectFor(project);
+    const seeded = seedFixturePlan(E2E_DATA_DIR, subject);
+    // A real login sets `display_label` from the IdP's claims
+    // (`src/routes/auth/callback/+server.ts`); the dev-bypass path never does, so a
+    // bypass-seeded user's confirmation string (`confirmationFor`) would otherwise fall
+    // back to the ULID tail rather than the readable name the admin spec asserts on.
+    // Setting it here mirrors what a real operator would see for an account that has
+    // actually logged in.
+    const control = openControlDb(E2E_DATA_DIR, new Date());
+    try {
+      setDisplayLabel(control, seeded.userId, subject);
+    } finally {
+      control.close();
+    }
   }
   // Published for the worker processes, which are forked after this runs and would
   // otherwise re-import `env.ts` and mint an empty temp directory of their own.

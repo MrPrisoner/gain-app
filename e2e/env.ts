@@ -66,6 +66,24 @@ export function homeDevUserFor(projectName: string): string {
   return `e2e-home-${projectName}`;
 }
 
+/**
+ * The one operator account. `GAIN_DEV_ADMIN` is a single environment variable read once
+ * at boot, so unlike the subject below this cannot vary per project — which is fine,
+ * because the admin spec asserts only on its own subject's card, never on the list as a
+ * whole.
+ */
+export const E2E_ADMIN_USER = "e2e-admin";
+
+/**
+ * The account the admin spec resets, one per viewport project. The reset is destructive
+ * and `fullyParallel: true` runs this file concurrently across all three projects, so a
+ * shared subject would have its data wiped out from under a sibling run mid-assertion —
+ * the same hazard `homeDevUserFor` exists for, with a sharper edge.
+ */
+export function adminSubjectFor(projectName: string): string {
+  return `e2e-admin-subject-${projectName}`;
+}
+
 /** Off the beaten path, so a developer's own `npm run dev` on 5173 is untouched. */
 export const E2E_PORT = 4319;
 export const E2E_BASE_URL = `http://127.0.0.1:${E2E_PORT}`;
