@@ -440,9 +440,13 @@ protect:
   ways makes the user learn two vocabularies for one idea. Settled 2026-08-15; the
   reasoning, including why the pills do not reserve space and why a rounds block asks its
   round counter rather than its exercises, is in UI-DECISIONS §1. Do not add a green
-  success state here: §5's symptom triad is the only place green, amber and red mean
-  anything, and a list that traffic-lights progress competes with the one scale that has
-  to stay readable.
+  success state here: inside the session runner, green, amber and red are reserved for
+  §5's symptom triad and mean nothing else, and a list that traffic-lights progress
+  competes with the one scale that has to stay readable. That reservation is scoped to
+  the runner, not the app — `--red`/`--amber` already carry their ordinary meanings
+  outside it (a blocking error, a warning) in the admin screen, the export screen, the
+  sync banner and the import review, and using them there is correct, not an exception
+  to guard against.
 - **The post-session celebration is a moment, never a step, and carries no colour §5
   otherwise reserves.** It renders after the finish op is already written and the
   workout's local key already cleared, so dismissing it — or never dismissing it — cannot
