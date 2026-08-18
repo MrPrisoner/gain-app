@@ -20,13 +20,4 @@ Then clear it up behind you:
 
 ## Items
 
-### Admin section
-
-Admin page with basic functionality:
-
-- See a list of users registered with stats per user (last active, plan count, session count, etc.), no plan or exercise details.
-- Ability to delete all data for a specific user. Would be especially useful during alpha testing so that users can start fresh if they want to.
-- Might even be worth it to give users a way to wipe their own data, should they want to.
-- Should only be available to an admin user, which can be specified using env var. The env var value is a unique identifier of the user, provided by oidc, such as email address.
-
-Previous recorded decisions stated that users' data should be isolated. This still stands for normal users. The admin user is typically the owner of the self-hosted app, and needs a way to manage the data they host. Admin user should still not see sensitive information such as full plan details or detailed session logs. So, for all intents and purposes, a user's data is still only seen by that user; the admin user can see basic stats as mentioned in above list, and can delete data.
+None right now.

@@ -39,6 +39,12 @@ Double-progression state, per-exercise and per-session-type charts, metric trend
 reverse-chronological History all render from real logged sets, and
 `e2e/progress-walkthrough.spec.ts` and `e2e/history-walkthrough.spec.ts` walk both end to end.
 
+Phase 9 is also done, built out of order ahead of phase 8: an operator gated on
+`OIDC_ADMIN_GROUP` sees every registered user with per-user counts and can reset one to a
+clean slate, with no code path in the app able to read another user's training content.
+`e2e/admin-walkthrough.spec.ts` proves the cross-user read and the reset both actually
+happen, not just that the screen renders.
+
 **Phase 8 is next.**
 
 | Phase | Deliverable | State |
@@ -51,6 +57,7 @@ reverse-chronological History all render from real logged sets, and
 | 6 | Offline PWA: IndexedDB, sync queue, idempotency | Done |
 | 7 | Progress, history & the Home screen | Done |
 | 8 | Revision diff review, template editor | Not started |
+| 9 | Operations — operator view, per-user reset | Done |
 
 ---
 
@@ -206,6 +213,53 @@ commits as-is. The engine is done; this is the UI on top of it.
       and the loss is unrecoverable.
 - [ ] **The template editor** for export Section 0. `ai_template` exists and is seeded at
       provisioning; no UI reaches it. Multiple named templates, per §11.
+
+---
+
+## Phase 9 — Operations
+
+Built out of order, ahead of phase 8: the self-hosting operator needed a way to see who
+was actually using the alpha and to wipe a test account, and neither depends on the diff
+review work above. Phase 8 keeps its place as next.
+
+**Design:** [`docs/superpowers/specs/2026-08-17-admin-section-design.md`](superpowers/specs/2026-08-17-admin-section-design.md).
+
+**Done when:** an operator signed in as a member of `OIDC_ADMIN_GROUP` can see every
+registered user with a human-readable label and per-user counts, reset any one of them to
+a clean slate, and that reset survives the wiped user reconnecting with a full offline
+outbox — while no code path in the app can read another user's training content.
+
+- [x] **`OIDC_ADMIN_GROUP` and the dev admin switch.** A name, not a flag —
+      `GAIN_DEV_ADMIN` names which `GAIN_DEV_USER` value is the operator, so one dev server
+      can drive both an admin and a non-admin through `x-gain-e2e-user`.
+      `src/lib/server/config.ts` (`1fb417e`).
+- [x] **`control.db` migration 002**: `display_label` and `data_generation` on
+      `control_user`, `is_admin` on `session`. `src/lib/server/control-db.ts` (`8b0a495`).
+- [x] **Admin-ness through the session lifecycle.** Re-derived from the OIDC groups at
+      login and on every refresh, never a stored user attribute; an unevaluable group check
+      leaves `is_admin` unchanged rather than clearing it. `src/lib/server/auth.ts`
+      (`dd7968c`).
+- [x] **`src/lib/server/admin-stats.ts`** — the one module allowed to open another user's
+      `gain.db`, returning only `COUNT(*)`, `MAX(...)` and byte totals (`dd41f3b`).
+- [x] **`src/lib/server/admin-reset.ts`** — the ordered per-user reset: sessions first,
+      then the generation bump, then the cached handle closed and evicted *before* the
+      unlink, then re-provisioning (`66bf5c6`).
+- [x] **The `/admin` screen**: a card list (never a table — UI-DECISIONS §12's 360 px
+      rule), each card reading its user's activity back as one sentence rather than a grid
+      of counts, with a reset that expands in place to a type-to-confirm panel. A non-admin
+      gets 404, not 403. `src/lib/admin/user-status.ts`, `src/routes/admin/`, the
+      `/admin` link in `src/routes/+layout.svelte` (`5b842cd`).
+- [x] **Sync generation.** `syncBatchSchema` carries the generation the outbox was filled
+      under; `POST /api/sync` rejects a whole batch on mismatch rather than partially
+      applying it, and the client clears its outbox and adopts the server's generation on a
+      409 (`0d684d5`).
+- [x] **Discarding quarantined ops** — a pre-existing gap the reset work touched anyway: a
+      stuck "entries could not sync" banner had no way to clear, whether a reset caused it
+      or a removed exercise slug did. `discardQuarantined()`, the Discard control in
+      `src/routes/+layout.svelte` (`66771f6`).
+- [x] **`e2e/admin-walkthrough.spec.ts`** — an operator resets a disposable per-project
+      account and the status line proves the cross-user read and the wipe both actually
+      happened, not just that the card's shell rendered (`5ac81fd`).
 
 ---
 

@@ -2487,7 +2487,7 @@ git commit -m "test(e2e): walk the operator screen and a reset end to end"
 **Interfaces:** none. This is the "keep the status current" step CLAUDE.md requires in the
 same commit that closes the work.
 
-- [ ] **Step 1: ARCHITECTURE**
+- [x] **Step 1: ARCHITECTURE**
 
 - §2, decision 4 → `Gated on an Authentik group, auto-provision on first login, optional operator role on a second group`.
 - §3's data-directory listing: annotate `control.db` as `users, oidc subject → user id, sessions, display label, no training data`.
@@ -2506,17 +2506,17 @@ dates and byte totals. Access itself is still administered entirely in Authentik
 
 - §12's build-order table: a phase 9 row, "Done when" matching ROADMAP.
 
-- [ ] **Step 2: README**
+- [x] **Step 2: README**
 
 Line 84's isolation claim becomes: no admin role that can read anyone's training *content*
 — the operator sees per-user counts and can reset a user's data, nothing more.
 
-- [ ] **Step 3: ROADMAP**
+- [x] **Step 3: ROADMAP**
 
 Add phase 9, "Operations", with the acceptance criteria from the spec's "Done when", and
 tick its items with their commit SHAs. Phase 8 keeps its place as next.
 
-- [ ] **Step 4: CLAUDE.md**
+- [x] **Step 4: CLAUDE.md**
 
 Add to Invariants:
 
@@ -2537,12 +2537,12 @@ Add to Invariants:
 
 Update the "Current state" paragraph to say phase 9 shipped.
 
-- [ ] **Step 5: `todo.md`**
+- [x] **Step 5: `todo.md`**
 
 Delete the entire "Admin section" item. Per that file's own rules the work moved to the
 roadmap; the commit history is the record.
 
-- [ ] **Step 6: Verify and commit**
+- [x] **Step 6: Verify and commit**
 
 Run: `npm run verify` (docs are prettier-ignored, but `check:chars` still covers them).
 

@@ -80,8 +80,9 @@ between you and your training data.
 
 Self-hosted as a single container behind your own reverse proxy. Authentication via
 Authentik (OIDC), with access gated on a group. Each user gets their own SQLite database
-and their own directory — isolation is physical, not a `WHERE` clause, and there is no
-admin role that can read anyone's training data.
+and their own directory — isolation is physical, not a `WHERE` clause. An optional
+operator role sees per-user counts and can reset a user's data, but no admin role can
+read anyone's training _content_.
 
 TypeScript, SvelteKit, SQLite. One image, one port, one volume.
 

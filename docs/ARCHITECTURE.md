@@ -86,7 +86,7 @@ the context — anything it cannot parse, it preserves.
 | 1 | Plan structuring | Contract block (fenced YAML) emitted by the AI + review/diff editor before commit |
 | 2 | AI integration | None in-app. Export/import only |
 | 3 | Authentication | OIDC client against Authentik |
-| 4 | Access control | Gated on an Authentik group, auto-provision on first login, no admin role |
+| 4 | Access control | Gated on an Authentik group, auto-provision on first login, optional operator role on a second group |
 | 5 | Storage | One SQLite DB **per user**, plus a per-user file directory. DB is source of truth |
 | 6 | Client | Installable PWA, offline-capable sessions with sync |
 | 7 | Log schema | Fixed core (reps/weight/duration/difficulty) + plan-declared custom metrics |
@@ -117,6 +117,7 @@ services:
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID}
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET}
       OIDC_REQUIRED_GROUP: gain-users
+      OIDC_ADMIN_GROUP: gain-admins
       SESSION_SECRET: ${SESSION_SECRET}
       DATA_DIR: /data
       TZ: Africa/Johannesburg
@@ -140,7 +141,7 @@ Notes:
 
 ```
 /data/
-  control.db                     # users, oidc subject → user id, sessions, nothing personal
+  control.db                     # users, oidc subject → user id, sessions, display label, no training data
   users/
     <user_id>/
       gain.db                    # ALL of this user's training data
@@ -176,8 +177,13 @@ provider.
   do not destroy queued local data — the sync queue holds, and the UI shows a
   "reconnect to sync" state. Losing a workout to a token expiry is unacceptable.
 
-There is no admin role and no user-management UI. Access is administered entirely in
-Authentik. No user can read another user's data through any code path.
+There is one optional operator role, gated on a second Authentik group
+(`OIDC_ADMIN_GROUP`); leave it unset and the instance has no admin at all. The operator
+sees that a user exists, when they were last active, and how much they have logged, and
+can reset any user's data to a clean slate. They cannot read any of it. No plan, exercise,
+set, metric or note is reachable from `/admin` through any code path — every cross-user
+read in the app lives in `src/lib/server/admin-stats.ts` and returns nothing but counts,
+dates and byte totals. Access itself is still administered entirely in Authentik.
 
 ---
 
@@ -786,6 +792,7 @@ actually be built. It belongs to phase 3, when a shell exists to put it in.
 | 6 | Offline PWA: IndexedDB, sync queue, idempotency | Airplane-mode session syncs cleanly on reconnect; property tests pass; a workout survives a full browser kill |
 | 7 | Progress, history, charts, **and the Home screen** — suggested next session, activity logging, the next-morning prompt | Double-progression state matches hand-calculated expectations; Home suggests the right next session; per-exercise, per-session-type and metric-trend charts render from real logs; History drills into full set detail |
 | 8 | Revision diff review, template editor | A logged block exports, comes back revised, and the diff is reviewed and committed — the loop closes |
+| 9 | Operations — operator view, per-user reset | An operator signed in as a member of `OIDC_ADMIN_GROUP` sees every registered user with a human-readable label and per-user counts, resets any one of them to a clean slate, and that reset survives the wiped user reconnecting with a full offline outbox — while no code path in the app can read another user's training content |
 
 The item-by-item decomposition of phases 5–8, with acceptance criteria, is
 [`docs/ROADMAP.md`](./ROADMAP.md). This table is the map; that file is the itinerary.

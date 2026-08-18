@@ -6,7 +6,7 @@ now only supports Claude Code, so the indirection was dropped.
 
 ## Current state
 
-**Phases 1–7 are done.** Phase 1 is the pure round-trip core: contract schema
+**Phases 1–7 and 9 are done.** Phase 1 is the pure round-trip core: contract schema
 (`src/lib/contract/`), parser (`src/lib/parse/`), diff engine (`src/lib/diff/`), export
 generator (`src/lib/export/`) and both prompt templates (`src/lib/templates/`) — pure
 functions over plain data, no I/O. Phase 2 is the storage layer (`src/lib/db/`): the
@@ -48,7 +48,16 @@ metric-trend charts under `src/routes/plan/[slug]/progress/`; and
 `src/lib/db/history.ts` backs the reverse-chronological workout list and detail
 drill-down under `src/routes/plan/[slug]/history/`, both reachable from the Home plan
 card. `e2e/progress-walkthrough.spec.ts` and `e2e/history-walkthrough.spec.ts` walk both
-end to end as the durable proof. Phase 8 has not started. **Phase 8 (revision diff review,
+end to end as the durable proof. Phase 9, Operations, was built out of order ahead of
+phase 8: `OIDC_ADMIN_GROUP` gates an optional operator role, re-derived from the OIDC
+groups on every session refresh rather than stored on the user
+(`src/lib/server/auth.ts`); `src/lib/server/admin-stats.ts` is the one module allowed to
+open another user's `gain.db`, returning only counts, dates and byte totals; the `/admin`
+screen (`src/routes/admin/`) reads each user's aggregates back as one interpretive
+sentence rather than a grid, and its per-user reset (`src/lib/server/admin-reset.ts`)
+bumps `control_user.data_generation` so the wiped user's offline outbox is rejected
+wholesale on reconnect rather than quarantining piecemeal. `e2e/admin-walkthrough.spec.ts`
+is the durable proof. Phase 8 has not started. **Phase 8 (revision diff review,
 template editor) is next.**
 
 Two files hold the plan: the build-order table in ARCHITECTURE §12 is the map, and
@@ -450,6 +459,18 @@ protect:
   it collides with. The ULID-ordering "an older write must never win" guard still runs
   unconditionally, since it only ever returns an existing row without writing — it is the
   _overwrite_ that needs the caller's explicit say-so, not the lookup itself.
+- **The operator sees counts, never content — and the reset's order is load-bearing.**
+  `OIDC_ADMIN_GROUP` grants a `/admin` screen (ARCHITECTURE §4) whose every cross-user
+  read goes through `src/lib/server/admin-stats.ts`, which returns only `COUNT(*)`,
+  `MAX(...)` and byte totals. Nothing else in the app may open another user's `gain.db`;
+  putting a second such reader anywhere else dissolves the guarantee, because it is the
+  single module boundary — not a rule — that keeps it true. The reset in
+  `src/lib/server/admin-reset.ts` closes and evicts the cached handle **before** the
+  unlink: `better-sqlite3` holds the file open, so unlinking first leaves the process
+  writing to a deleted inode and the reset silently does nothing. It also bumps
+  `control_user.data_generation`, which is what stops the wiped user's offline outbox
+  flushing back in and quarantining forever — the one place GAIN deliberately discards
+  local data, and narrow by construction: only on the server's explicit 409.
 
 ## The fixture
 
