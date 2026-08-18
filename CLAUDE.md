@@ -6,7 +6,7 @@ now only supports Claude Code, so the indirection was dropped.
 
 ## Current state
 
-**Phases 1–7 and 9 are done.** Phase 1 is the pure round-trip core: contract schema
+**All nine phases are done.** Phase 1 is the pure round-trip core: contract schema
 (`src/lib/contract/`), parser (`src/lib/parse/`), diff engine (`src/lib/diff/`), export
 generator (`src/lib/export/`) and both prompt templates (`src/lib/templates/`) — pure
 functions over plain data, no I/O. Phase 2 is the storage layer (`src/lib/db/`): the
@@ -57,8 +57,22 @@ screen (`src/routes/admin/`) reads each user's aggregates back as one interpreti
 sentence rather than a grid, and its per-user reset (`src/lib/server/admin-reset.ts`)
 bumps `control_user.data_generation` so the wiped user's offline outbox is rejected
 wholesale on reconnect rather than quarantining piecemeal. `e2e/admin-walkthrough.spec.ts`
-is the durable proof. Phase 8 has not started. **Phase 8 (revision diff review) is
-next.**
+is the durable proof. Phase 8, revision diff review, shipped last and closes the loop:
+`src/lib/diff/present.ts`'s `presentDiff` turns the phase-1 `diffContracts` output into
+groups a phone screen can read, rebuilding its warning list from the diff's own
+structured fields — `exercises.unreferenced`, `metrics.removed`, a recomputed
+`based_on_version` check — rather than filtering `diff.warnings` by string prefix; the
+import flow moved to its own route (`src/routes/import/`) so the paste box, parse-error
+report and review all live in one place; and the review screen
+(`src/routes/import/+page.svelte`, `DiffGroups.svelte`, `DispositionList.svelte`)
+requires an explicit disposition — map onto a survivor, or confirm removed — for every
+departed slug before the commit button unlocks, so a revision can never silently split an
+exercise's history. `importPlan` (`src/lib/db/import-plan.ts`) gained a `renames` input
+whose `applyRenames` repoints `exercise_def.slug` and the loose-text
+`deviation.substitute_exercise_slug`. `e2e/revision-walkthrough.spec.ts` is the durable
+proof: it logs a set, revises the plan with a rename, reviews the diff, commits, and
+confirms the set survived under the new slug. **All nine phases are done; what remains
+is the Loose Ends in `docs/ROADMAP.md`, not a numbered phase.**
 
 Two files hold the plan: the build-order table in ARCHITECTURE §12 is the map, and
 [`docs/ROADMAP.md`](docs/ROADMAP.md) is the itinerary — the remaining work item by item,
@@ -700,6 +714,44 @@ design decision (what resolved prescription or range does a substitute-only occu
 carry? nothing today specifies one) and its own tests; anyone extending per-exercise
 progress or summary views on `exerciseOccurrences` should know the gap exists before
 building on it.
+
+### What the phase-8 review changed
+
+**A rename must be applied before the upsert it precedes, never after.**
+`importPlan`'s transaction runs `applyRenames` immediately before `upsertExerciseDefs`,
+and that ordering is load-bearing rather than incidental: `upsertExerciseDefs` inserts a
+fresh `exercise_def` row for every slug the new contract declares, including the
+renamed-to slug, so running it first would mint that row before `applyRenames` had a
+matching old row left to repoint — the rename would find nothing to update, and the
+history would split exactly the way the whole feature exists to prevent. Any future
+write path that both mutates `exercise_def` identity and inserts new rows for the same
+contract needs to reason about this ordering explicitly rather than assuming "runs in
+the same transaction" is sufficient; atomicity guarantees the two happen together, not
+that either order is safe.
+
+**A presented diff should be rebuilt from the engine's structured fields, not filtered
+from its warning strings.** `presentDiff` (`src/lib/diff/present.ts`) derives the review
+screen's warnings from `diff.exercises.unreferenced`, `diff.metrics.removed` and a
+recomputed `based_on_version` check, and deliberately does not pass `diff.warnings`
+through and strip the ones the dispositions already cover by matching a prefix.
+`diff.warnings` is prose meant for a changelog, not a stable API — a future reword of one
+message would silently break a prefix filter with no type error and no failing test
+until a warning either duplicated a disposition or vanished from the screen. Keying
+presentation logic on the same typed fields the diff engine already exposes for this
+purpose keeps a wording change in `diff.ts` from being able to break the UI at all.
+
+**A `$state` initializer at the page level runs once, ever — a component-level one reruns
+every time the component remounts.** `+page.svelte` never remounts across a same-route
+`use:enhance` response; SvelteKit's `applyAction` only updates its `form` prop
+(`$set({form: null})` then `$set({form: result.data})`), so a page-level
+`$state(seedFromForm(form))` initializer only ever sees the `form` that was live on first
+render and silently ignores every response after that. The review screen's
+disposition-seeding logic moved from `+page.svelte` into `DispositionList.svelte`'s own
+initializer instead, because a component that lives inside an `{#if}` (or any block that
+tears down and rebuilds) genuinely does remount and its `$state` initializer genuinely
+does rerun. The rule going forward: derive per-response UI state inside the component
+that owns the conditional rendering, never at the page level, whenever an action's result
+needs to seed local `$state` rather than just being read reactively.
 
 ## Non-goals
 

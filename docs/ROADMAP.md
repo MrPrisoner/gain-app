@@ -29,23 +29,36 @@ line, the README status banner, and CLAUDE.md's "Current state" paragraph.
 
 ## Status
 
-Phases 1–7 are done: the pure round-trip core, the per-user storage layer, the web app with
-OIDC and first run, the session runner, the export UI, the offline PWA, and progress, history
-& the Home screen. A full session of the fixture plan can be started, logged and finished with
-no connection at all — including across a full browser kill, not just a reload — and syncs
+**Phases 1–9 are all done. The loop closes:** an AI writes a plan, GAIN imports and logs it,
+exports a bundle, and a revision pasted back in is reviewed and committed with a renamed
+slug mapped onto its history rather than silently splitting it.
+
+Phases 1–7: the pure round-trip core, the per-user storage layer, the web app with OIDC and
+first run, the session runner, the export UI, the offline PWA, and progress, history & the
+Home screen. A full session of the fixture plan can be started, logged and finished with no
+connection at all — including across a full browser kill, not just a reload — and syncs
 cleanly once reconnected, and `e2e/session-runner-walkthrough-a.spec.ts`, `-d.spec.ts`,
 `e2e/export-walkthrough.spec.ts` and `e2e/offline-*.spec.ts` prove it.
 Double-progression state, per-exercise and per-session-type charts, metric trends and the
 reverse-chronological History all render from real logged sets, and
 `e2e/progress-walkthrough.spec.ts` and `e2e/history-walkthrough.spec.ts` walk both end to end.
 
-Phase 9 is also done, built out of order ahead of phase 8: an operator gated on
-`OIDC_ADMIN_GROUP` sees every registered user with per-user counts and can reset one to a
-clean slate, with no code path in the app able to read another user's training content.
-`e2e/admin-walkthrough.spec.ts` proves the cross-user read and the reset both actually
-happen, not just that the screen renders.
+Phase 9, built out of order ahead of phase 8: an operator gated on `OIDC_ADMIN_GROUP` sees
+every registered user with per-user counts and can reset one to a clean slate, with no code
+path in the app able to read another user's training content. `e2e/admin-walkthrough.spec.ts`
+proves the cross-user read and the reset both actually happen, not just that the screen
+renders.
 
-**Phase 8 is next.**
+Phase 8, the diff review screen and rename mapping: a revised plan is diffed against the
+version it is imported over, presented in plain language rather than field paths, and every
+departed slug needs an explicit disposition — mapped onto a survivor or confirmed removed —
+before the commit button unlocks. `e2e/revision-walkthrough.spec.ts` logs a set, revises the
+plan with a rename, reviews the diff and commits, then confirms the set survived under the
+new slug.
+
+**Nothing left is phase-numbered.** What remains is the [Loose ends](#loose-ends) below —
+old plan versions staying browsable, plan archiving, and whatever else the checklist there
+still lists.
 
 | Phase | Deliverable | State |
 |---|---|---|
@@ -56,7 +69,7 @@ happen, not just that the screen renders.
 | 5 | Export UI — the loop's return crossing | Done |
 | 6 | Offline PWA: IndexedDB, sync queue, idempotency | Done |
 | 7 | Progress, history & the Home screen | Done |
-| 8 | Revision diff review | Not started |
+| 8 | Revision diff review | Done |
 | 9 | Operations — operator view, per-user reset | Done |
 
 ---
@@ -209,21 +222,39 @@ Already in place: the phase-1 diff engine (`src/lib/diff/diff.ts`), and
 screen renders a placeholder saying the detailed review "arrives in a later phase" and
 commits as-is. The engine is done; this is the UI on top of it.
 
-- [ ] **The diff review screen**: changed targets, added and removed exercises, added and
+- [x] **The diff review screen**: changed targets, added and removed exercises, added and
       removed metric definitions, in plain language rather than field paths.
-- [ ] **Rename mapping.** The hard part, and the one that protects history. An unmatched slug
+      `src/lib/diff/present.ts`'s `presentDiff` turns `diffContracts`' output into groups a
+      phone screen can render, rebuilding the warning list from the diff's own structured
+      fields rather than filtering its strings (`7c3364b`). The import flow moved to its own
+      route, `src/routes/import/`, so the paste box, parse-error report and review all live in
+      one place instead of three (`5f70a59`). The review screen itself — blocking problems
+      first, a required disposition per departed slug, the AI's changelog, then collapsed
+      change groups, commit disabled until every disposition is answered — is `e4febdc`.
+- [x] **Rename mapping.** The hard part, and the one that protects history. An unmatched slug
       is flagged as a possible rename with an offer to map it onto an existing exercise; a
       slug is never silently minted for a name that closely resembles an existing one. If
       `goblet-squat` returns as `goblet_squat`, every chart splits in two, nothing errors,
-      and the loss is unrecoverable.
+      and the loss is unrecoverable. `importPlan` gains a `renames` input; `applyRenames`
+      (`src/lib/db/import-plan.ts`) runs inside the existing transaction, immediately before
+      `upsertExerciseDefs`, because after that upsert a fresh `exercise_def` row already
+      exists for the new slug and the history is already split. It also rewrites
+      `deviation.substitute_exercise_slug`, the one slug stored as loose text, scoped through
+      `plan_version` so a rename in one plan cannot touch an identically-named slug in
+      another (`4d8280e`). `fixtures/plans/home-training-v2.md` and a diff test prove renamed,
+      added and removed exercises are all detected and offered correctly (`e6dc0b8`); the
+      golden test proves the second import's write path — the one that can move history,
+      unlike the first — is lossless (`07d24ee`); and `e2e/revision-walkthrough.spec.ts` walks
+      the whole loop from a logged set through a pasted revision to a committed rename, then
+      confirms the set survived under the new slug (`5daa81b`).
 
 ---
 
 ## Phase 9 — Operations
 
 Built out of order, ahead of phase 8: the self-hosting operator needed a way to see who
-was actually using the alpha and to wipe a test account, and neither depends on the diff
-review work above. Phase 8 keeps its place as next.
+was actually using the alpha and to wipe a test account, and neither depended on the diff
+review work below, which shipped after it.
 
 **Design:** [`docs/superpowers/specs/2026-08-17-admin-section-design.md`](superpowers/specs/2026-08-17-admin-section-design.md).
 

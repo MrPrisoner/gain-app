@@ -793,7 +793,7 @@ actually be built. It belongs to phase 3, when a shell exists to put it in.
 | 5 | **Export UI** — route, window picker, copy with download fallback | A logged block leaves GAIN as one pasteable document, in one tap |
 | 6 | Offline PWA: IndexedDB, sync queue, idempotency | Airplane-mode session syncs cleanly on reconnect; property tests pass; a workout survives a full browser kill |
 | 7 | Progress, history, charts, **and the Home screen** — suggested next session, activity logging, the next-morning prompt | Double-progression state matches hand-calculated expectations; Home suggests the right next session; per-exercise, per-session-type and metric-trend charts render from real logs; History drills into full set detail |
-| 8 | Revision diff review | A logged block exports, comes back revised, and the diff is reviewed and committed — the loop closes |
+| 8 | Revision diff review | A logged block exports, comes back revised, and the diff is reviewed and committed, with a renamed slug mapped onto its history rather than silently split; `e2e/revision-walkthrough.spec.ts` is the durable proof — the loop closes |
 | 9 | Operations — operator view, per-user reset | An operator signed in as a member of `OIDC_ADMIN_GROUP` sees every registered user with a human-readable label and per-user counts, resets any one of them to a clean slate, and that reset survives the wiped user reconnecting with a full offline outbox — while no code path in the app can read another user's training content |
 
 The item-by-item decomposition of phases 5–8, with acceptance criteria, is
