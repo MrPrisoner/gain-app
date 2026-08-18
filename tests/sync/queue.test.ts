@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { applyAck, planBatch } from "../../src/lib/sync/queue";
 import type { SyncOp } from "../../src/lib/sync/ops";
+import { memoryOutbox } from "./memory-outbox";
 
 function setOp(id: string): SyncOp {
   return {
@@ -54,5 +55,29 @@ describe("applyAck", () => {
     });
     expect(result.ackIds).toEqual(["01"]);
     expect(result.quarantine).toEqual([]);
+  });
+});
+
+describe("the outbox contract", () => {
+  it("discards quarantined records and keeps pending ones", async () => {
+    const outbox = memoryOutbox();
+    await outbox.append(setOp("01"));
+    await outbox.append(setOp("02"));
+    await outbox.quarantine([{ id: "02", error: "unknown exercise `ghost`" }]);
+
+    await outbox.clearQuarantined();
+
+    expect(await outbox.counts()).toEqual({ pending: 1, quarantined: 0 });
+  });
+
+  it("clearAll drops pending and quarantined alike", async () => {
+    const outbox = memoryOutbox();
+    await outbox.append(setOp("01"));
+    await outbox.append(setOp("02"));
+    await outbox.quarantine([{ id: "02", error: "unknown exercise `ghost`" }]);
+
+    await outbox.clearAll();
+
+    expect(await outbox.counts()).toEqual({ pending: 0, quarantined: 0 });
   });
 });

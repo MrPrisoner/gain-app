@@ -66,6 +66,17 @@ export async function opsForWorkout(workoutClientId: string): Promise<SyncOp[]> 
   return records.map((record) => record.op);
 }
 
+/**
+ * Drop the quarantined ops at the user's explicit request. Nothing else may call this —
+ * "held, never dropped" (ARCHITECTURE §4) means held until the person whose data it is
+ * decides otherwise, not held forever with no way out.
+ */
+export async function discardQuarantined(): Promise<void> {
+  const outbox = await store();
+  await outbox.clearQuarantined();
+  await refreshCounts();
+}
+
 export async function flushNow(planSlug: string): Promise<void> {
   // `retryTimer` set means a retry is already pending — including a `needs-auth` retry.
   // A 401 must not be a dead end: nothing else in this module ever transitions a

@@ -1,7 +1,7 @@
 <script lang="ts">
   import "../app.css";
   import { REPO_URL } from "$lib/repo";
-  import { setGeneration, syncStatus } from "$lib/sync/client.svelte";
+  import { discardQuarantined, setGeneration, syncStatus } from "$lib/sync/client.svelte";
   import type { LayoutData } from "./$types";
 
   let { data, children }: { data: LayoutData; children: import("svelte").Snippet } = $props();
@@ -74,6 +74,11 @@
       {bannerText}
       {#if syncStatus.state === "needs-auth"}
         <a href="/login">Sign in</a>
+      {/if}
+      {#if syncStatus.quarantined > 0}
+        <button class="linklike" type="button" onclick={() => discardQuarantined()}>
+          Discard
+        </button>
       {/if}
     </p>
   {/if}

@@ -2158,7 +2158,7 @@ and this task must not pretend otherwise. Split the difference honestly:
 - **The real `idb.ts` implementation** is proven in Task 9's e2e, which runs a browser and
   the actual object store. Do not claim unit coverage of `idb.ts`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/sync/memory-outbox.ts` — a complete `OutboxStore` over a `Map`, implementing
 every method of the interface, including the two Task 7 added:
@@ -2245,14 +2245,14 @@ describe("the outbox contract", () => {
 
 `setOp(id)` is already defined at the top of that file — reuse it.
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run tests/sync/queue.test.ts`
 Expected: FAIL — `clearQuarantined` and `clearAll` are not on `OutboxStore`, so
 `memoryOutbox` does not typecheck against it. (If Task 7 is already committed they are on
 the interface, and the failure is instead that `memory-outbox.ts` does not exist.)
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `client.svelte.ts`:
 
@@ -2269,12 +2269,12 @@ export async function discardQuarantined(): Promise<void> {
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `npx vitest run tests/sync/queue.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Add the control to the banner**
+- [x] **Step 5: Add the control to the banner**
 
 In `src/routes/+layout.svelte`, beside the rendered `bannerText`, when
 `syncStatus.quarantined > 0`:
@@ -2288,7 +2288,7 @@ In `src/routes/+layout.svelte`, beside the rendered `bannerText`, when
 Not red — §5's exception is scoped to the `/admin` reset alone. The banner already sits in
 neutral chrome on every screen in the app, several of which render plan and symptom data.
 
-- [ ] **Step 6: Verify and commit**
+- [x] **Step 6: Verify and commit**
 
 Run: `npx prettier --write src/lib/sync/client.svelte.ts src/routes/+layout.svelte tests/sync && npm run verify`
 
