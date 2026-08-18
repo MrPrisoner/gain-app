@@ -67,6 +67,16 @@ export function homeDevUserFor(projectName: string): string {
 }
 
 /**
+ * A per-project dev user for the revision walkthrough. Importing a revision changes
+ * the account's current plan version, so this spec cannot share a seeded account with
+ * anything else — see `homeDevUserFor` for the same reasoning and the header that
+ * makes it work.
+ */
+export function revisionDevUserFor(projectName: string): string {
+  return `e2e-revision-${projectName}`;
+}
+
+/**
  * The one operator account. `GAIN_DEV_ADMIN` is a single environment variable read once
  * at boot, so unlike the subject below this cannot vary per project — which is fine,
  * because the admin spec asserts only on its own subject's card, never on the list as a
