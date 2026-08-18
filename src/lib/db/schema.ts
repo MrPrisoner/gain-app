@@ -73,7 +73,7 @@ CREATE TABLE plan_version (
 CREATE TABLE exercise_def (
   id                  TEXT PRIMARY KEY,
   plan_id             TEXT NOT NULL REFERENCES plan(id),
-  slug                TEXT NOT NULL,       -- STABLE ACROSS VERSIONS
+  slug                TEXT NOT NULL,       -- stable across versions, except by a reviewed rename
   name                TEXT NOT NULL,       -- latest known display name
   first_seen_version  INTEGER NOT NULL,
   last_seen_version   INTEGER NOT NULL,

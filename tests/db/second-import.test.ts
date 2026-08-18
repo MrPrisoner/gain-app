@@ -210,10 +210,11 @@ describe("second import of a revised plan", () => {
     // v1 again: 1 ≤ 2.
     const replayV1 = importPlan(userDb, { parsed: parsedV1, now: NOW });
     expect(replayV1.ok).toBe(false);
-    if (!replayV1.ok) {
-      expect(replayV1.kind).toBe("version_not_newer");
+    if (!replayV1.ok && replayV1.kind === "version_not_newer") {
       expect(replayV1.current_version).toBe(2);
       expect(replayV1.incoming_version).toBe(1);
+    } else {
+      throw new Error("expected version_not_newer");
     }
 
     // v2 again: 2 ≤ 2.

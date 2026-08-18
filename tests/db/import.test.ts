@@ -250,7 +250,7 @@ describe("first import of the reference plan", () => {
     const second = importPlan(userDb, { parsed, now: NOW });
     expect(second.ok).toBe(false);
     if (second.ok) return;
-    expect(second.kind).toBe("version_not_newer");
+    if (second.kind !== "version_not_newer") throw new Error(`unexpected kind: ${second.kind}`);
     expect(second.current_version).toBe(1);
     expect(second.incoming_version).toBe(1);
 

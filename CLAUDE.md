@@ -328,6 +328,14 @@ Three defences, all of which must survive refactors: ID-preservation rules resta
 every export, rename detection in the import diff, and never silently minting a slug that
 closely resembles an existing one.
 
+The one sanctioned way a slug changes is an accepted rename at the import review:
+`importPlan`'s `renames` input (`src/lib/db/import-plan.ts`) updates the matching
+`exercise_def` row in place — same id, new slug — so its history carries forward instead
+of a second def being minted. `deviation.substitute_exercise_slug` is the one
+denormalised copy of a slug in the schema, stored as loose text rather than reached
+through `exercise_def_id`, so it is rewritten alongside the def in the same transaction
+or it would go stale on its own.
+
 Metric keys are the exception to "unique identifier": they are unique **within a scope**,
 not across scopes, so a plan may legally declare `rpe` at both set and session scope.
 Anything that indexes metric values — summaries, charts, CSV columns — must key on

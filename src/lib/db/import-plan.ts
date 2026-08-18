@@ -51,26 +51,125 @@ export type ImportPlanSuccess = {
   counts: ImportCounts;
 };
 
-export type ImportPlanFailure = {
-  ok: false;
-  kind: "version_not_newer";
-  message: string;
-  current_version: number;
-  incoming_version: number;
-};
+export type ImportPlanFailure =
+  | {
+      ok: false;
+      kind: "version_not_newer";
+      message: string;
+      current_version: number;
+      incoming_version: number;
+    }
+  | {
+      ok: false;
+      kind: "invalid_rename";
+      message: string;
+      from: string;
+      to: string;
+    };
 
 export type ImportPlanResult = ImportPlanSuccess | ImportPlanFailure;
+
+/** One accepted rename from the import review: the stored slug, and what it becomes. */
+export type ExerciseRename = { from: string; to: string };
 
 export type ImportPlanInput = {
   /** A successfully parsed plan document (`parsePlanDocument` returned ok). */
   parsed: ParsedPlan;
   /** Injected clock — the deterministic-core rule. */
   now: Date;
+  /**
+   * Renames accepted at the import review. Each maps a slug that exists in this
+   * database onto a slug the incoming document declares, so the existing
+   * exercise_def carries its history forward instead of a second one being minted.
+   */
+  renames?: readonly ExerciseRename[];
 };
 
 /** Relative to the user directory; matches the §3 layout. */
 export function sourceRelPath(planSlug: string, versionNo: number): string {
   return path.join("plans", planSlug, `v${versionNo}.md`);
+}
+
+/**
+ * Validate the accepted renames against both sides before anything is written.
+ *
+ * Returns the failure to report, or `undefined` when every mapping is coherent.
+ * Every check is a way for the review's choices to have gone stale between the
+ * review and the commit — the document is re-parsed in between, so a mapping can
+ * legitimately no longer make sense by the time it arrives here.
+ */
+function validateRenames(
+  db: UserDb["db"],
+  planId: string,
+  contract: GainContract,
+  renames: readonly ExerciseRename[],
+): ImportPlanFailure | undefined {
+  const incoming = new Set(contract.exercises.map((e) => e.id));
+  const seenFrom = new Set<string>();
+  const seenTo = new Set<string>();
+  const exists = db.prepare("SELECT 1 FROM exercise_def WHERE plan_id = ? AND slug = ?");
+
+  for (const { from, to } of renames) {
+    const bad = (message: string): ImportPlanFailure => ({
+      ok: false,
+      kind: "invalid_rename",
+      message,
+      from,
+      to,
+    });
+
+    if (from === to) return bad(`rename \`${from}\` to \`${to}\` maps a slug onto itself`);
+    if (seenFrom.has(from)) return bad(`\`${from}\` is mapped more than once`);
+    if (seenTo.has(to)) return bad(`two exercises are both mapped onto \`${to}\``);
+    seenFrom.add(from);
+    seenTo.add(to);
+
+    if (!exists.get(planId, from)) {
+      return bad(`\`${from}\` is not an exercise in this plan, so there is no history to carry`);
+    }
+    if (incoming.has(from)) {
+      return bad(
+        `\`${from}\` is still declared in the incoming plan, so it was not renamed — remove the mapping or ask the AI to drop the slug`,
+      );
+    }
+    if (!incoming.has(to)) {
+      return bad(
+        `the incoming plan does not declare \`${to}\`, so there is nothing to rename onto`,
+      );
+    }
+    if (exists.get(planId, to)) {
+      return bad(
+        `\`${to}\` already has its own history in this plan and cannot absorb another movement's`,
+      );
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Rewrite one exercise_def's slug, and the one denormalised copy of it.
+ *
+ * `deviation.substitute_exercise_slug` is the only slug in the schema stored as
+ * loose text rather than reached through `exercise_def_id`, so it is the only
+ * column that goes stale on its own. The join through `plan_version` is not
+ * decoration: `workout` keys on `plan_version_id`, and without it a rename in one
+ * plan would rewrite an identically-named slug's deviations in another.
+ */
+function applyRenames(db: UserDb["db"], planId: string, renames: readonly ExerciseRename[]): void {
+  const renameDef = db.prepare("UPDATE exercise_def SET slug = ? WHERE plan_id = ? AND slug = ?");
+  const renameSubstitute = db.prepare(
+    `UPDATE deviation SET substitute_exercise_slug = ?
+      WHERE substitute_exercise_slug = ?
+        AND workout_id IN (SELECT w.id FROM workout w
+                             JOIN plan_version pv ON pv.id = w.plan_version_id
+                            WHERE pv.plan_id = ?)`,
+  );
+
+  for (const { from, to } of renames) {
+    renameDef.run(to, planId, from);
+    renameSubstitute.run(to, from, planId);
+  }
 }
 
 /**
@@ -114,6 +213,12 @@ export function importPlan(userDb: UserDb, input: ImportPlanInput): ImportPlanRe
         incoming_version: plan.version,
       };
     }
+  }
+
+  const renames = input.renames ?? [];
+  if (existingPlan && renames.length > 0) {
+    const invalid = validateRenames(db, planId, contract, renames);
+    if (invalid) return invalid;
   }
 
   const planVersionId = newId();
@@ -165,6 +270,11 @@ export function importPlan(userDb: UserDb, input: ImportPlanInput): ImportPlanRe
         contract.safety ? JSON.stringify(contract.safety) : null,
         nowIso,
       );
+
+      // Renames run before the upsert. After it, a fresh exercise_def has already
+      // been minted for the new slug and the history is already split, so a rename
+      // applied afterwards would only be repairing damage this transaction caused.
+      if (renames.length > 0) applyRenames(db, planId, renames);
 
       // -- Catalogue identity: stable exercise_defs, then per-version properties.
       const defIdBySlug = upsertExerciseDefs(db, planId, plan.version, contract.exercises);
