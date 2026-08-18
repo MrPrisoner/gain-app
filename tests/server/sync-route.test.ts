@@ -18,7 +18,8 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { POST } from "../../src/routes/api/sync/+server";
 import { importPlan } from "../../src/lib/db/import-plan";
-import { getUserDbFor, resetAppStateForTests } from "../../src/lib/server/app-state";
+import { getControlDb, getUserDbFor, resetAppStateForTests } from "../../src/lib/server/app-state";
+import { bumpDataGeneration } from "../../src/lib/server/control-db";
 import { resetConfigForTests } from "../../src/lib/server/config";
 import { parsePlanDocument } from "../../src/lib/parse/parser";
 
@@ -47,6 +48,14 @@ beforeEach(() => {
   const result = importPlan(userDb, { parsed, now: NOW });
   if (!result.ok) throw new Error(result.message);
   planVersionId = result.plan_version_id;
+
+  // A real `control_user` row for USER_ID, so `getDataGeneration`/`bumpDataGeneration`
+  // have something to read and write — this suite otherwise never touches control.db.
+  getControlDb()
+    .db.prepare(
+      "INSERT INTO control_user (id, oidc_sub, created_at, last_login_at) VALUES (?, ?, ?, ?)",
+    )
+    .run(USER_ID, "sub-sync-route-test", NOW.toISOString(), NOW.toISOString());
 });
 
 afterEach(() => {
@@ -157,6 +166,21 @@ describe("POST /api/sync", () => {
       pending: string[];
     };
     expect(data).toEqual({ applied: ["01", "02"], failed: [], pending: [] });
+    expect(counts()).toEqual({ workouts: 1, sets: 1 });
+  });
+
+  it("rejects a whole batch from a stale generation and writes nothing", async () => {
+    bumpDataGeneration(getControlDb(), USER_ID); // now generation 1
+
+    const res = await POST(event({ body: { generation: 0, ...validBatch() } }));
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ dataGeneration: 1 });
+    expect(counts()).toEqual({ workouts: 0, sets: 0 });
+  });
+
+  it("applies a batch whose generation matches", async () => {
+    const res = await POST(event({ body: { generation: 0, ...validBatch() } }));
+    expect(res.status).toBe(200);
     expect(counts()).toEqual({ workouts: 1, sets: 1 });
   });
 });

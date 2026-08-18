@@ -12,7 +12,8 @@
 
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
-import { getUserDbFor } from "$lib/server/app-state";
+import { getControlDb, getUserDbFor } from "$lib/server/app-state";
+import { getDataGeneration } from "$lib/server/control-db";
 import { syncBatchSchema } from "$lib/sync/ops";
 import { replayOps } from "$lib/sync/replay";
 
@@ -29,6 +30,20 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   const parsed = syncBatchSchema.safeParse(body);
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid batch." }, { status: 400 });
+  }
+
+  // A reset bumps the generation, so anything queued before it belongs to data that no
+  // longer exists. Reject the batch whole — a partial application would write orphan
+  // rows into the fresh database (spec §7).
+  const generation = getDataGeneration(getControlDb(), locals.user.id);
+  if (parsed.data.generation !== generation) {
+    return json(
+      {
+        error: "Your data was reset. Queued entries from before the reset cannot be applied.",
+        dataGeneration: generation,
+      },
+      { status: 409 },
+    );
   }
 
   const userDb = getUserDbFor(locals.user.id);

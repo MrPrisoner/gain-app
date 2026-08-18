@@ -1956,7 +1956,7 @@ git commit -m "feat(admin): add the operator screen and its per-user reset"
 rejected for every user who has been. Without the default, rolling this out would 400
 every stale client.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 In `tests/sync/ops.test.ts`:
 
@@ -1997,12 +1997,12 @@ it("applies a batch whose generation matches", async () => {
 });
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `npx vitest run tests/sync/ops.test.ts tests/server/sync-route.test.ts`
 Expected: FAIL — `generation` is not on the schema; the route returns 200 for both.
 
-- [ ] **Step 3: Add the field to the schema**
+- [x] **Step 3: Add the field to the schema**
 
 In `src/lib/sync/ops.ts`, on `syncBatchSchema`:
 
@@ -2017,7 +2017,7 @@ In `src/lib/sync/ops.ts`, on `syncBatchSchema`:
 
 Keep it `z.strictObject` — this repo is Zod 4 throughout.
 
-- [ ] **Step 4: Enforce it in the endpoint**
+- [x] **Step 4: Enforce it in the endpoint**
 
 In `src/routes/api/sync/+server.ts`, after the schema parse and before `getUserDbFor`:
 
@@ -2037,12 +2037,12 @@ In `src/routes/api/sync/+server.ts`, after the schema parse and before `getUserD
   }
 ```
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `npx vitest run tests/sync/ops.test.ts tests/server/sync-route.test.ts`
 Expected: PASS.
 
-- [ ] **Step 6: Publish the generation to the client**
+- [x] **Step 6: Publish the generation to the client**
 
 `src/routes/+layout.server.ts` is three lines and returns `user: locals.user` wholesale.
 Add the generation as a **sibling field**, not a property of `user` — `locals.user` is
@@ -2062,7 +2062,7 @@ export const load: LayoutServerLoad = ({ locals }) => ({
 Import `getControlDb` from `$lib/server/app-state` and `getDataGeneration` from
 `$lib/server/control-db`.
 
-- [ ] **Step 7: Add `clearAll` to the outbox and honour the 409**
+- [x] **Step 7: Add `clearAll` to the outbox and honour the 409**
 
 `src/lib/sync/idb.ts`'s module comment currently reads **"There is no `clear()`, and there
 never will be."** That commitment has to be rewritten, not quietly contradicted. Replace
@@ -2110,7 +2110,7 @@ In `client.svelte.ts`'s flush, before the `!response.ok` branch:
     }
 ```
 
-- [ ] **Step 8: Surface the notice**
+- [x] **Step 8: Surface the notice**
 
 In `src/routes/+layout.svelte`'s `bannerText`, before the `switch`:
 
@@ -2120,7 +2120,7 @@ In `src/routes/+layout.svelte`'s `bannerText`, before the `switch`:
     }
 ```
 
-- [ ] **Step 9: Verify and commit**
+- [x] **Step 9: Verify and commit**
 
 Run: `npx prettier --write src/lib/sync/ src/routes/api/sync/+server.ts src/routes/+layout.server.ts src/routes/+layout.svelte tests/sync/ops.test.ts tests/server/sync-route.test.ts && npm run verify`
 

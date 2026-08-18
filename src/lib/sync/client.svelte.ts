@@ -15,12 +15,33 @@ import { applyAck, planBatch, type AckResponse, type OutboxStore, type SyncStatu
 import type { SyncOp } from "./ops";
 import { openOutbox } from "./idb";
 
-export const syncStatus: SyncStatus = $state({ pending: 0, quarantined: 0, state: "idle" });
+export const syncStatus: SyncStatus = $state({
+  pending: 0,
+  quarantined: 0,
+  state: "idle",
+  resetNotice: false,
+});
 
 let storePromise: Promise<OutboxStore> | undefined;
 let flushing = false;
 let backoffMs = 1_000;
 let retryTimer: ReturnType<typeof setTimeout> | undefined;
+
+/**
+ * The generation this browser tab believes its outbox was filled under (spec §7).
+ * Seeded from `+layout.server.ts`'s `dataGeneration` on every load via `setGeneration` —
+ * a page reload resets this module, so without seeding, the first flush after a reload
+ * would default to 0 and either wrongly 409 a legitimate queue (this account was reset
+ * long ago and has synced fine since) or wrongly let a genuinely stale queue through (this
+ * tab has been open since before a reset). Seeding from the server's authoritative value
+ * is the correct default either way; the 409 branch below is what corrects it when a
+ * reset happens while this tab is already open.
+ */
+let currentGeneration = 0;
+
+export function setGeneration(generation: number): void {
+  currentGeneration = generation;
+}
 
 function store(): Promise<OutboxStore> {
   storePromise ??= openOutbox();
@@ -75,8 +96,25 @@ export async function flushNow(planSlug: string): Promise<void> {
     const response = await fetch("/api/sync", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ ops: batch }),
+      body: JSON.stringify({ ops: batch, generation: currentGeneration }),
     });
+
+    if (response.status === 409) {
+      // The account was reset. These ops describe data that no longer exists, so there
+      // is nothing to reconcile — clear them and say so. This is the one place GAIN
+      // discards local data, and it is narrow by construction: only the server, only on
+      // an explicit generation mismatch (spec §7).
+      const body = (await response.json().catch(() => null)) as {
+        dataGeneration?: number;
+      } | null;
+      if (typeof body?.dataGeneration === "number") currentGeneration = body.dataGeneration;
+      await outbox.clearAll();
+      syncStatus.resetNotice = true;
+      backoffMs = 1_000;
+      await refreshCounts();
+      syncStatus.state = "idle";
+      return;
+    }
 
     /**
      * The gate answers a fetch with 401 rather than a 303 precisely so this branch can

@@ -28,6 +28,13 @@ export interface OutboxStore {
   quarantine(entries: readonly { id: string; error: string }[]): Promise<void>;
   forWorkout(workoutClientId: string): Promise<OutboxRecord[]>;
   counts(): Promise<{ pending: number; quarantined: number }>;
+  /**
+   * Drop every record, pending and quarantined. Called only on a generation mismatch —
+   * the server has said this outbox describes data that no longer exists (spec §7).
+   */
+  clearAll(): Promise<void>;
+  /** Drop only the quarantined records, at the user's explicit request. */
+  clearQuarantined(): Promise<void>;
 }
 
 /** What the server says came of a batch. */
@@ -46,6 +53,9 @@ export type SyncStatus = {
   pending: number;
   quarantined: number;
   state: "idle" | "syncing" | "offline" | "needs-auth" | "error";
+  /** Set once, on a generation mismatch (spec §7). The outbox has already been cleared
+   * by the time this is true; it exists purely so the banner can say why. */
+  resetNotice: boolean;
 };
 
 /** The default batch size. Large enough that a whole session leaves in one request. */

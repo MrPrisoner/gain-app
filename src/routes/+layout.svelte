@@ -1,10 +1,15 @@
 <script lang="ts">
   import "../app.css";
   import { REPO_URL } from "$lib/repo";
-  import { syncStatus } from "$lib/sync/client.svelte";
+  import { setGeneration, syncStatus } from "$lib/sync/client.svelte";
   import type { LayoutData } from "./$types";
 
   let { data, children }: { data: LayoutData; children: import("svelte").Snippet } = $props();
+
+  // Seeds the client's belief about its own generation from the server's authoritative
+  // value on every load (spec §7) — see `client.svelte.ts`'s comment on why this can't
+  // just default to 0 and wait for a 409 to correct it.
+  $effect(() => setGeneration(data.dataGeneration));
 
   /**
    * The one sync banner for the whole app (design spec §3, §8) — a queue can be pending
@@ -13,6 +18,10 @@
    * and no quarantined ops.
    */
   const bannerText = $derived.by(() => {
+    if (syncStatus.resetNotice) {
+      return "Your data was reset by the administrator.";
+    }
+
     const { state, pending, quarantined } = syncStatus;
     const parts: string[] = [];
 

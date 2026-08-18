@@ -52,6 +52,15 @@ describe("sync op schema", () => {
     expect(() => syncBatchSchema.parse({ ops: [] })).toThrow();
   });
 
+  it("defaults a batch with no generation to 0", () => {
+    const parsed = syncBatchSchema.parse({ ops: [START] });
+    expect(parsed.generation).toBe(0);
+  });
+
+  it("carries an explicit generation", () => {
+    expect(syncBatchSchema.parse({ ops: [START], generation: 3 }).generation).toBe(3);
+  });
+
   it("mints sortable ids", () => {
     const ids = Array.from({ length: 50 }, () => newOpId());
     expect([...ids].sort()).toEqual(ids);

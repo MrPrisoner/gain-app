@@ -5,10 +5,11 @@
  * This is the store that makes a browser kill survivable — `sessionStorage`, which phase
  * 4 used to hold the workout's client id, dies with the tab.
  *
- * **There is no `clear()`, and there never will be.** Ops leave this store exactly one
- * way: the server acknowledged them. A quarantined op is updated in place and kept, so
- * the user can be told about it (ARCHITECTURE §4 — a 401 must not cost queued data, and
- * neither must anything else).
+ * **Ops leave this store two ways, and only two.** The server acknowledged them, or the
+ * server declared the generation they belong to void — a reset wiped the account, and
+ * the data they describe no longer exists to be reconciled against (spec §7). A
+ * quarantined op is neither: it is updated in place and kept, so the user can be told
+ * about it, and it leaves only when the user discards it themselves.
  */
 
 import type { OutboxRecord, OutboxStore } from "./queue";
@@ -103,6 +104,29 @@ export async function openOutbox(): Promise<OutboxStore> {
         pending: all.filter((record) => record.state === "pending").length,
         quarantined: all.filter((record) => record.state === "quarantined").length,
       };
+    },
+
+    async clearAll(): Promise<void> {
+      const store = tx(db, "readwrite");
+      await run(store.clear());
+    },
+
+    async clearQuarantined(): Promise<void> {
+      const store = tx(db, "readwrite");
+      const index = store.index("state");
+      await new Promise<void>((resolve, reject) => {
+        const request = index.openCursor(IDBKeyRange.only("quarantined"));
+        request.onsuccess = () => {
+          const cursor = request.result;
+          if (!cursor) {
+            resolve();
+            return;
+          }
+          cursor.delete();
+          cursor.continue();
+        };
+        request.onerror = () => reject(request.error ?? new Error("IndexedDB cursor failed"));
+      });
     },
   };
 }

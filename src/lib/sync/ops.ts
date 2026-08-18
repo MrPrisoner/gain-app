@@ -122,6 +122,12 @@ export const syncOpSchema = z.discriminatedUnion("kind", [
 
 export const syncBatchSchema = z.strictObject({
   ops: z.array(syncOpSchema).min(1).max(500),
+  /**
+   * The `control_user.data_generation` this outbox was filled under. Defaulted so a
+   * client cached from before this field existed reads as 0 — correct for anyone never
+   * reset, and correctly rejected for anyone who has been (spec §7).
+   */
+  generation: z.number().int().nonnegative().default(0),
 });
 
 export type StartOp = z.infer<typeof startOpSchema>;
