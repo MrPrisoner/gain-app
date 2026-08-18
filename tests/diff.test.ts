@@ -5,10 +5,13 @@
  * `goblet_squat` must be flagged, because the failure mode is silent.
  */
 
+import fs from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import { contractSchema, type GainContract } from "../src/lib/contract/schema";
 import { countChangedTargets, diffContracts } from "../src/lib/diff/diff";
+import { parsePlanDocument } from "../src/lib/parse/parser";
 
 function makeContract(mutate?: (c: any) => void): GainContract {
   const base: any = {
@@ -315,4 +318,62 @@ describe("diffContracts", () => {
     const diff = diffContracts(before, after);
     expect(diff.prescriptions.filter((p) => p.id === "goblet-squat")).toHaveLength(1);
   });
+});
+
+describe("the real v1 to v2 fixture pair", () => {
+  const ROOT = new URL("../", import.meta.url);
+  const read = (p: string) => fs.readFileSync(new URL(p, ROOT), "utf8");
+
+  function contractOf(p: string): GainContract {
+    const parsed = parsePlanDocument(read(p));
+    if (!parsed.ok) throw new Error(`${p} failed to parse:\n${parsed.report}`);
+    return parsed.contract;
+  }
+
+  const before = contractOf("fixtures/plans/home-training-v1.md");
+  const after = contractOf("fixtures/plans/home-training-v2.md");
+  const diff = diffContracts(before, after);
+
+  it("is a clean revision with nothing blocking", () => {
+    expect(diff.blocking).toEqual([]);
+    expect(diff.plan.version_incremented).toBe(true);
+    expect(diff.plan.changelog.length).toBeGreaterThan(0);
+  });
+
+  it("reports all three departed slugs", () => {
+    expect(diff.exercises.removed.map((e) => e.id).sort()).toEqual([
+      "goblet-squat",
+      "hammer-curl",
+      "rear-delt-reverse-fly",
+    ]);
+  });
+
+  it("catches the punctuation rename and misses the reworded one", () => {
+    const pairs = diff.exercises.possible_renames.map((r) => `${r.from}->${r.to}`);
+    expect(pairs).toContain("goblet-squat->gobletsquat");
+    expect(pairs.some((p) => p.startsWith("rear-delt-reverse-fly->"))).toBe(false);
+  });
+
+  it("reports the added exercise", () => {
+    expect(diff.exercises.added.map((e) => e.id)).toContain("single-leg-glute-bridge");
+  });
+
+  it("reports the metric added and the metric removed", () => {
+    expect(diff.metrics.added.map((m) => m.def.key)).toContain("sleep_quality");
+    expect(diff.metrics.removed.map((m) => m.def.key)).toContain("technique");
+  });
+
+  it("reports the changed targets", () => {
+    const changed = diff.prescriptions.filter((p) => p.status === "changed");
+    const fields = changed.flatMap((p) => p.changes.map((c) => `${p.session}:${p.id}:${c.field}`));
+    expect(fields).toContain("A:db-floor-press:sets");
+    expect(fields).toContain("C:split-squat:load");
+    expect(fields).toContain("D:prone-row:rest_sec");
+  });
+
+  // No assertion on A:gobletsquat:reps: prescriptions are matched by exercise id, so
+  // an unmapped rename makes the old prescription "removed" and the new one "added"
+  // rather than "changed" — change 7's reps edit rides along inside that added/removed
+  // pair and is never reported as a field change. That is correct engine behaviour,
+  // not a gap in this fixture — do not "fix" it by adding a rename mapping here.
 });
