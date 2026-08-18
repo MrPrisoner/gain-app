@@ -602,11 +602,11 @@ The contract requires a whole document, not a patch, so v2 is v1 plus edits — 
 |---|---|---|---|
 | 1 | `version: 1` to `version: 2`; `based_on_version: null` to `based_on_version: 1` | `plan` | Otherwise the diff is blocking |
 | 2 | Replace `changelog` with 3–4 entries describing changes 3–12 in the AI's voice | `plan` | The review screen renders it unfolded |
-| 3 | `goblet-squat` to `goblet_squat` everywhere in the block | catalogue, A/main, D/main | Heuristic-**caught** rename (identical after normalisation) |
+| 3 | `goblet-squat` to `gobletsquat` everywhere in the block | catalogue, A/main, D/main | Heuristic-**caught** rename (identical after normalisation) |
 | 4 | `rear-delt-reverse-fly` to `prone-reverse-fly`, and its `name:` from `Rear-delt reverse fly (prone)` to `Prone reverse fly` | catalogue, C/main | Heuristic-**missed** rename — edit distance far over 2 and a different display name, so `findRenameCandidates` produces nothing and only any-to-any mapping can express it |
 | 5 | Delete `hammer-curl` from the catalogue and from D/main | catalogue, D/main | A genuine removal, so *Removed on purpose* is exercised |
 | 6 | Add `single-leg-glute-bridge` to the catalogue (`per_side: true`, `load: bodyweight`, `rest_sec: [45, 60]`, a `note`) and prescribe it in C/main as `{id: single-leg-glute-bridge, sets: 2, reps: [8, 10]}` | catalogue, C/main | An added exercise |
-| 7 | A/main `goblet_squat`: `reps: [8, 12]` to `reps: [10, 14]` | A/main | A changed reps range |
+| 7 | A/main `gobletsquat`: `reps: [8, 12]` to `reps: [10, 14]` | A/main | A changed reps range |
 | 8 | A/main `db-floor-press`: `sets: 3` to `sets: [3, 4]` | A/main | A changed sets target, scalar to range |
 | 9 | C/main `split-squat`: `load: light-pair` to `load: goblet` | C/main | A changed load |
 | 10 | D/main `prone-row`: `rest_sec: 60` to `rest_sec: [60, 75]` | D/main | A changed rest, scalar to range |
@@ -661,7 +661,7 @@ describe("the real v1 to v2 fixture pair", () => {
 
   it("catches the punctuation rename and misses the reworded one", () => {
     const pairs = diff.exercises.possible_renames.map((r) => `${r.from}->${r.to}`);
-    expect(pairs).toContain("goblet-squat->goblet_squat");
+    expect(pairs).toContain("goblet-squat->gobletsquat");
     expect(pairs.some((p) => p.startsWith("rear-delt-reverse-fly->"))).toBe(false);
   });
 
@@ -686,7 +686,7 @@ describe("the real v1 to v2 fixture pair", () => {
 
 Add `import fs from "node:fs";`, `import { parsePlanDocument } from "../src/lib/parse/parser";` and `import type { GainContract } from "../src/lib/contract/schema";` to the top of the file if they are not already there.
 
-Note the deliberate absence of an assertion on `A:goblet_squat:reps`. Prescriptions are matched by exercise id, so an unmapped rename makes the old prescription `removed` and the new one `added` rather than `changed` — change 7's reps edit rides along inside that pair and is not reported as a field change. That is correct engine behaviour, and it is worth a comment in the test so the next reader does not "fix" it.
+Note the deliberate absence of an assertion on `A:gobletsquat:reps`. Prescriptions are matched by exercise id, so an unmapped rename makes the old prescription `removed` and the new one `added` rather than `changed` — change 7's reps edit rides along inside that pair and is not reported as a field change. That is correct engine behaviour, and it is worth a comment in the test so the next reader does not "fix" it.
 
 - [ ] **Step 5: Run it**
 
@@ -750,7 +750,7 @@ describe("a revision round-trips as faithfully as a first import", () => {
       parsed: v2,
       now: NOW,
       renames: [
-        { from: "goblet-squat", to: "goblet_squat" },
+        { from: "goblet-squat", to: "gobletsquat" },
         { from: "rear-delt-reverse-fly", to: "prone-reverse-fly" },
       ],
     });
@@ -904,7 +904,7 @@ describe("presentDiff", () => {
 
   it("pre-selects the heuristic match and leaves the others unsuggested", () => {
     const goblet = view.dispositions.find((d) => d.slug === "goblet-squat");
-    expect(goblet?.suggested).toBe("goblet_squat");
+    expect(goblet?.suggested).toBe("gobletsquat");
     expect(goblet?.reason).toBeTruthy();
 
     const reworded = view.dispositions.find((d) => d.slug === "rear-delt-reverse-fly");
@@ -1485,7 +1485,7 @@ Seven cases, each calling the real action:
 | Revision review | import v1, then `?/check` with v2 | result has `revision`, and `revision.dispositions` has length 3 |
 | Undispositioned commit | import v1, then `?/commit` with v2 and **no** `disposition:` fields | `fail(400)`, and `plan_version` still has exactly one row |
 | Clean commit | import v1, then `?/commit` with v2 and all three dispositions | throws `redirect` to `/`, and `plan_version` has two rows |
-| Rename applied | as above, with `disposition:goblet-squat` = `rename:goblet_squat` | `SELECT slug FROM exercise_def WHERE slug = 'goblet_squat'` returns a row and `'goblet-squat'` returns none |
+| Rename applied | as above, with `disposition:goblet-squat` = `rename:gobletsquat` | `SELECT slug FROM exercise_def WHERE slug = 'gobletsquat'` returns a row and `'goblet-squat'` returns none |
 
 The last two matter most: one proves the happy path, the other proves the disposition actually reached `importPlan` rather than being parsed and dropped. Assert on `exercise_def` directly, the way `tests/db/rename.test.ts` does — a green action result proves nothing about what was written.
 
@@ -1710,9 +1710,9 @@ The walkthrough, in order:
 4. Go to `/import`, paste the contents of `fixtures/plans/home-training-v2.md`, submit.
 5. Assert the review renders: the changelog, a *Targets changed* group with a count, and three disposition rows.
 6. Assert the commit button is disabled before any disposition is chosen. (`goblet-squat` arrives pre-selected, so clear it first, or assert on one of the two that arrive empty.)
-7. Choose *Renamed to Goblet squat* (value `rename:goblet_squat`) for `goblet-squat`, *Renamed to Prone reverse fly* for `rear-delt-reverse-fly`, and *Removed on purpose* for `hammer-curl`.
+7. Choose *Renamed to Gobletsquat* (value `rename:gobletsquat`) for `goblet-squat`, *Renamed to Prone reverse fly* for `rear-delt-reverse-fly`, and *Removed on purpose* for `hammer-curl`.
 8. Commit, and wait for the redirect to `/`.
-9. **The assertion the whole phase exists for:** navigate to `/plan/home-training/progress/exercises/A/goblet_squat` and assert the set logged in step 2 — under the *old* slug — is visible there, by its value.
+9. **The assertion the whole phase exists for:** navigate to `/plan/home-training/progress/exercises/A/gobletsquat` and assert the set logged in step 2 — under the *old* slug — is visible there, by its value.
 10. Assert `/plan/home-training/progress/exercises/A/goblet-squat` no longer shows a second, separate series.
 
 Step 9 is the phase-7 lesson applied: prove the data path fired, not that a chart's shell rendered. Every chart component in this app renders its container unconditionally, so asserting on the container proves nothing. Assert on a value from the logged set.
