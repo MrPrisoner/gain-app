@@ -411,5 +411,4 @@ larger than that. Sweaty hands, a phone on the floor, arm's length.
 ## What this does not decide
 
 Still open: the Today/home screen with suggested-next-session, the history and progress
-screens, the diff-review layout itself, the AI-template editor, and the offline sync-state
-indicator.
+screens, the diff-review layout itself, and the offline sync-state indicator.

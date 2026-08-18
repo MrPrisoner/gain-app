@@ -168,7 +168,7 @@ provider.
   human explanation. Re-checked on every token refresh, not just first login.
 - **Identity key:** the `sub` claim, never email. Emails change; `sub` doesn't.
 - **Provisioning:** first successful login creates the user row, the DB file and the
-  directory, then seeds the default AI-instruction template.
+  directory.
 - **Session:** an httpOnly, `Secure`, `SameSite=Lax` cookie holding an opaque session
   ID; server-side session records live in `control.db`. No JWT in the cookie.
 - **Logout:** clear the local session, then redirect to Authentik's end-session
@@ -460,7 +460,7 @@ catalogue carries its weight: the same movement is prescribed on average 2.1 tim
 A new user has no plan, so nothing to export, so nothing to give an AI. **The loop cannot
 start itself**, and closing that gap is what first run is for.
 
-GAIN therefore ships **two** outbound templates, both user-editable, both carrying
+GAIN therefore ships **two** outbound templates, neither user-editable, both carrying
 `docs/CONTRACT.md` verbatim because no AI knows the `gain-plan` format otherwise:
 
 | Template | Direction | Purpose |
