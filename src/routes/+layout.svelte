@@ -49,6 +49,9 @@
       {#if data.user?.bypass}
         <span class="badge" title="GAIN_DEV_USER is active — development only">dev bypass</span>
       {/if}
+      {#if data.user?.isAdmin}
+        <a class="linklike" href="/admin">Users</a>
+      {/if}
       {#if data.user && !data.user.bypass}
         <form method="POST" action="/logout">
           <button class="linklike" type="submit">Sign out</button>

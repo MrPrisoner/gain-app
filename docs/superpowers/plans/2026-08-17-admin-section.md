@@ -1359,7 +1359,7 @@ Two consequences worth stating, because both are easy to "fix" back into blandne
   weeks ago" answers the question at a glance; `2026-07-06` does not. Both are present,
   each doing one job.
 
-- [ ] **Step 1: Write the failing test for the status line**
+- [x] **Step 1: Write the failing test for the status line**
 
 Create `tests/admin/user-status.test.ts`. The clock is injected — this is a pure module
 and the repo's determinism rule applies to it.
@@ -1441,12 +1441,12 @@ describe("confirmationFor", () => {
 });
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 Run: `npx vitest run tests/admin/user-status.test.ts`
 Expected: FAIL — cannot resolve `../../src/lib/admin/user-status`.
 
-- [ ] **Step 3: Implement the status line**
+- [x] **Step 3: Implement the status line**
 
 Create `src/lib/admin/user-status.ts`:
 
@@ -1512,12 +1512,12 @@ export function confirmationFor(displayLabel: string | null, userId: string): st
 }
 ```
 
-- [ ] **Step 4: Run it to verify it passes**
+- [x] **Step 4: Run it to verify it passes**
 
 Run: `npx vitest run tests/admin/user-status.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Write the failing route test**
+- [x] **Step 5: Write the failing route test**
 
 Create `tests/server/admin-route.test.ts`. Model the request stand-ins on
 `tests/server/first-run.test.ts`, which drives `+page.server.ts` directly with a minimal
@@ -1590,12 +1590,12 @@ Seed `admin` and `subject` as `control_user` rows with `setDisplayLabel(…, "su
 `beforeEach`, and give `subject` a provisioned `gain.db` with the fixture plan — reuse
 Task 5's `seedPlan` helper by copying it, since `tests/helpers/` holds no equivalent.
 
-- [ ] **Step 6: Run it to verify it fails**
+- [x] **Step 6: Run it to verify it fails**
 
 Run: `npx vitest run tests/server/admin-route.test.ts`
 Expected: FAIL — the route module does not exist.
 
-- [ ] **Step 7: Implement the server route**
+- [x] **Step 7: Implement the server route**
 
 Create `src/routes/admin/+page.server.ts`:
 
@@ -1673,12 +1673,12 @@ export const actions: Actions = {
 };
 ```
 
-- [ ] **Step 8: Run the route test to verify it passes**
+- [x] **Step 8: Run the route test to verify it passes**
 
 Run: `npx vitest run tests/server/admin-route.test.ts`
 Expected: PASS.
 
-- [ ] **Step 9: Build the page**
+- [x] **Step 9: Build the page**
 
 Create `src/routes/admin/+page.svelte`. Runes mode throughout — `$props`, `$state`,
 `$derived`. No `export let`, no `createEventDispatcher`; there is not one of either
@@ -1890,7 +1890,7 @@ screen:
 - Respect `@media (prefers-reduced-motion: reduce)` if you add any transition at all; the
   panel appearing needs none.
 
-- [ ] **Step 10: Link it from the header**
+- [x] **Step 10: Link it from the header**
 
 In `src/routes/+layout.svelte`, inside `.top-right`, before the sign-out form:
 
@@ -1903,7 +1903,7 @@ In `src/routes/+layout.svelte`, inside `.top-right`, before the sign-out form:
 "Users", not "Admin" — the link says what is behind it, and it matches the page's own `h1`.
 An action keeps the same name through the whole flow.
 
-- [ ] **Step 11: Record the UI-DECISIONS exception**
+- [x] **Step 11: Record the UI-DECISIONS exception**
 
 In `docs/UI-DECISIONS.md` §5, after the existing celebration-confetti exception. Match the
 file's prose voice — it argues a case, it is not a bullet list. `docs/` is
@@ -1923,7 +1923,7 @@ line reads "Last trained 6 weeks ago" rather than showing an amber dot, because 
 needs no legend and the triad could not have been borrowed for it anyway.
 ```
 
-- [ ] **Step 12: Verify and commit**
+- [x] **Step 12: Verify and commit**
 
 Run: `npx prettier --write src/lib/admin src/routes/admin src/routes/+layout.svelte tests/admin tests/server/admin-route.test.ts && npm run verify`
 

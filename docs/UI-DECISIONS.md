@@ -217,6 +217,18 @@ of the green/amber/red triad rather than added to it. It is confined to a single
 full-screen moment that carries no plan or symptom data; nothing else in the app gets this
 exception.
 
+**A second narrow exception, settled 2026-08-17:** the reset control on `/admin` is red.
+The triad above belongs to the plan's pain-response framework, and it earns its
+exclusivity on the surfaces where a user reads their own body signals — the session
+runner, progress, the export. `/admin` renders no plan and no symptom data at all, so
+there is no scale for red to compete with there, and red is the conventional signal for an
+irreversible destructive action. The exception covers that button and the panel it sits
+in, on that route, and nothing else: not the error message inside that panel, which stays
+`var(--text)` because red-on-red is unreadable, and not destructive styling anywhere that
+renders plan or symptom data. Note also what is *not* coloured — the per-user activity
+line reads "Last trained 6 weeks ago" rather than showing an amber dot, because a sentence
+needs no legend and the triad could not have been borrowed for it anyway.
+
 ## 6. The awkward primitives, and how each renders
 
 The fixture exists to exercise these. A design that only handles `3 × 10 @ 20 kg` is not
