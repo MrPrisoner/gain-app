@@ -15,6 +15,7 @@ import {
   findUserBySub,
   createUser,
   getSession,
+  setSessionAdmin,
   storeRefreshedTokens,
 } from "./control-db";
 import { getControlDb, getJwksFor, getOidcEndpoints, getUserDbFor } from "./app-state";
@@ -96,6 +97,8 @@ export type SessionCheck =
       /** Set when the sliding expiry was extended. */ setCookie: string | null;
       /** For the greeting and the bootstrap prompt — display only, see `displayNameFromIdToken`. */
       displayName: string | null;
+      /** Operator, as of the last group evaluation. See `refreshIfDue`. */
+      isAdmin: boolean;
     }
   | { status: "anonymous" }
   | { status: "forbidden"; message: string };
@@ -133,9 +136,9 @@ export async function checkSession(
   const session = sessionId ? getSession(control, sessionId, now) : undefined;
   if (!session) return { status: "anonymous" };
 
-  const refresh = await refreshIfDue(session, oidc, now, deps);
-  if (refresh === "failed") return { status: "anonymous" };
-  if (refresh === "forbidden") {
+  const refresh = await refreshIfDue(session, oidc, config.adminGroup, now, deps);
+  if (refresh.outcome === "failed") return { status: "anonymous" };
+  if (refresh.outcome === "forbidden") {
     return { status: "forbidden", message: forbiddenMessage(oidc.requiredGroup) };
   }
 
@@ -153,10 +156,12 @@ export async function checkSession(
     userId: session.user_id,
     setCookie,
     displayName: displayNameFromIdToken(session.id_token),
+    isAdmin: refresh.isAdmin,
   };
 }
 
-type RefreshOutcome = "ok" | "failed" | "forbidden";
+type RefreshOutcome =
+  { outcome: "ok"; isAdmin: boolean } | { outcome: "failed" } | { outcome: "forbidden" };
 
 /**
  * Group membership as of the refresh, or `null` when GAIN could not establish
@@ -179,16 +184,19 @@ type GroupsOrUnknown = string[] | null;
 async function refreshIfDue(
   session: SessionRow,
   oidc: OidcConfig,
+  adminGroup: string | null,
   now: Date,
   deps: AuthDeps,
 ): Promise<RefreshOutcome> {
   const control = deps.control;
+  // Every path that does not re-read the groups reports the stored flag unchanged.
+  const stored = { outcome: "ok", isAdmin: session.is_admin === 1 } as const;
   const accessExpiry = session.access_expires_at ? Date.parse(session.access_expires_at) : null;
-  if (accessExpiry === null || now.getTime() < accessExpiry - REFRESH_MARGIN_MS) return "ok";
+  if (accessExpiry === null || now.getTime() < accessExpiry - REFRESH_MARGIN_MS) return stored;
   if (!session.refresh_token) {
     // Nothing to refresh with; the gate was checked at login. Let the session
     // run down its sliding window.
-    return "ok";
+    return stored;
   }
 
   let endpoints: OidcEndpoints;
@@ -197,7 +205,7 @@ async function refreshIfDue(
   } catch {
     // The IdP is unreachable. That is an outage, not a revocation — the
     // session stays valid and the refresh is retried on the next request.
-    return "ok";
+    return stored;
   }
 
   let tokens: TokenResponse;
@@ -215,15 +223,28 @@ async function refreshIfDue(
     // Same distinction as the gate itself: a token endpoint that could not be
     // reached says nothing about this user, but one that answered "no" has
     // revoked the grant and the session goes with it.
-    if (err instanceof OidcError && err.cause_ === "token_unreachable") return "ok";
+    if (err instanceof OidcError && err.cause_ === "token_unreachable") return stored;
     deleteSession(control, session.id);
-    return "failed";
+    return { outcome: "failed" };
   }
 
   const groups = await resolveGroups(tokens, endpoints, oidc, now, deps);
   if (groups !== null && !hasRequiredGroup(groups, oidc.requiredGroup)) {
     deleteSession(control, session.id);
-    return "forbidden";
+    return { outcome: "forbidden" };
+  }
+
+  // Admin-ness is re-derived from the same answer that just re-checked the access
+  // gate. `groups === null` means GAIN could not establish membership at all, and the
+  // same rule applies as to the gate itself: an unevaluable check is not a failed
+  // check, so the flag is left exactly as it was (spec §3).
+  let isAdmin = session.is_admin === 1;
+  if (groups !== null) {
+    const nowAdmin = adminGroup !== null && hasRequiredGroup(groups, adminGroup);
+    if (nowAdmin !== isAdmin) {
+      setSessionAdmin(control, session.id, nowAdmin);
+      isAdmin = nowAdmin;
+    }
   }
 
   storeRefreshedTokens(control, session.id, {
@@ -235,7 +256,7 @@ async function refreshIfDue(
     refresh_token: tokens.refresh_token ?? session.refresh_token,
     id_token: tokens.id_token ?? session.id_token,
   });
-  return "ok";
+  return { outcome: "ok", isAdmin };
 }
 
 /**

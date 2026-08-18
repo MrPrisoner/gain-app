@@ -514,7 +514,7 @@ git commit -m "feat(db): add the admin, display-label and generation columns to 
 - Produces: `SessionCheck` with `status: "ok"` gains `isAdmin: boolean`;
   `App.Locals.user` gains `isAdmin: boolean`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `tests/server/auth.test.ts` already has everything these need — do not add new harness.
 The helpers, with their real signatures:
@@ -596,12 +596,12 @@ describe("the admin flag", () => {
 
 `getSession` must be added to this file's imports from `../../src/lib/server/control-db`.
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `npx vitest run tests/server/auth.test.ts`
 Expected: FAIL — `isAdmin` is not on `SessionCheck`.
 
-- [ ] **Step 3: Thread the flag through `checkSession`**
+- [x] **Step 3: Thread the flag through `checkSession`**
 
 In `src/lib/server/auth.ts`, add to the `"ok"` variant of `SessionCheck`:
 
@@ -649,12 +649,12 @@ In `checkSession`, pass `config.adminGroup` into `refreshIfDue`, branch on
 
 Import `setSessionAdmin` from `./control-db`.
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `npx vitest run tests/server/auth.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Set the flag and the label at login**
+- [x] **Step 5: Set the flag and the label at login**
 
 In `src/routes/auth/callback/+server.ts`, after the `touchUserLogin(control, user.id, now)`
 line:
@@ -689,7 +689,7 @@ Then pass the flag into `createSession`:
     isAdmin: config.adminGroup !== null && hasRequiredGroup(groups, config.adminGroup),
 ```
 
-- [ ] **Step 6: Expose it on `locals`**
+- [x] **Step 6: Expose it on `locals`**
 
 In `src/app.d.ts`, add to the `user` object:
 
@@ -717,7 +717,7 @@ In `src/hooks.server.ts`, the bypass branch becomes:
 
 and the OIDC branch's assignment gains `isAdmin: check.isAdmin`.
 
-- [ ] **Step 7: Verify and commit**
+- [x] **Step 7: Verify and commit**
 
 Run: `npx prettier --write src/lib/server/auth.ts src/lib/server/oidc.ts src/routes/auth/callback/+server.ts src/hooks.server.ts src/app.d.ts && npm run verify`
 

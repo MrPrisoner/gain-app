@@ -15,12 +15,14 @@ import {
   createSession,
   createUser,
   findUserBySub,
+  setDisplayLabel,
   takeOidcState,
   touchUserLogin,
 } from "$lib/server/control-db";
 import { safeReturnTo } from "$lib/server/gate";
 import {
   exchangeCode,
+  extractDisplayLabel,
   extractGroups,
   fetchUserinfoGroups,
   hasRequiredGroup,
@@ -101,6 +103,10 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
     user = createUser(control, claims.sub, now);
   }
   touchUserLogin(control, user.id, now);
+  // The label the operator identifies this user by (spec §1). `preferred_username`
+  // leads because it is what Authentik's own user list shows, so an operator matching
+  // a name across the two screens sees the same string.
+  setDisplayLabel(control, user.id, extractDisplayLabel(claims));
   getUserDbFor(user.id);
 
   const session = createSession(control, {
@@ -116,8 +122,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
       refresh_token: tokens.refresh_token ?? null,
       id_token: tokens.id_token ?? null,
     },
-    // Task 3 replaces this with the real group check; nothing reads the flag yet.
-    isAdmin: false,
+    isAdmin: config.adminGroup !== null && hasRequiredGroup(groups, config.adminGroup),
   });
 
   setSessionCookie(cookies, config, session.id);

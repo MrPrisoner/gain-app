@@ -67,6 +67,9 @@ export const handle: Handle = async ({ event, resolve }) => {
       // No real OIDC identity in bypass mode; the env var (or the e2e override above)
       // stands in so the greeting can still be exercised without a live IdP.
       displayName: devUser,
+      // A name, not a flag: an e2e run drives an admin and a non-admin through
+      // `x-gain-e2e-user` against one server process.
+      isAdmin: config.devAdmin !== null && config.devAdmin === devUser,
     };
     return resolve(event);
   }
@@ -88,6 +91,11 @@ export const handle: Handle = async ({ event, resolve }) => {
     setSessionCookie(event.cookies, config, check.setCookie);
   }
 
-  event.locals.user = { id: check.userId, bypass: false, displayName: check.displayName };
+  event.locals.user = {
+    id: check.userId,
+    bypass: false,
+    displayName: check.displayName,
+    isAdmin: check.isAdmin,
+  };
   return resolve(event);
 };

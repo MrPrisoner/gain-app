@@ -81,7 +81,7 @@ const config: GainConfig = {
   sessionSecret: SECRET,
   sessionIdleMs: IDLE_MS,
   auth: { mode: "oidc", oidc: oidcConfig() },
-  adminGroup: null,
+  adminGroup: "gain-admins",
   devAdmin: null,
   appVersion: "dev",
 };
@@ -224,6 +224,7 @@ describe("resolving a session", () => {
       userId,
       setCookie: null,
       displayName: null,
+      isAdmin: false,
     });
   });
 });
@@ -234,7 +235,13 @@ describe("the sliding expiry", () => {
     const before = getSession(control, sessionId, NOW)?.expires_at;
     const result = await check(sessionId, at(IDLE_MS / 4), deps(control));
 
-    expect(result).toEqual({ status: "ok", userId, setCookie: null, displayName: null });
+    expect(result).toEqual({
+      status: "ok",
+      userId,
+      setCookie: null,
+      displayName: null,
+      isAdmin: false,
+    });
     expect(getSession(control, sessionId, NOW)?.expires_at).toBe(before);
   });
 
@@ -244,7 +251,13 @@ describe("the sliding expiry", () => {
     const now = at(IDLE_MS * 0.75);
     const result = await check(sessionId, now, deps(control));
 
-    expect(result).toEqual({ status: "ok", userId, setCookie: sessionId, displayName: null });
+    expect(result).toEqual({
+      status: "ok",
+      userId,
+      setCookie: sessionId,
+      displayName: null,
+      isAdmin: false,
+    });
     const after = getSession(control, sessionId, now)?.expires_at;
     expect(after).not.toBe(before);
     expect(after).toBe(new Date(now.getTime() + IDLE_MS).toISOString());
@@ -275,7 +288,13 @@ describe("the group gate on refresh", () => {
       }),
     );
 
-    expect(result).toEqual({ status: "ok", userId, setCookie: null, displayName: null });
+    expect(result).toEqual({
+      status: "ok",
+      userId,
+      setCookie: null,
+      displayName: null,
+      isAdmin: false,
+    });
     expect(grant).toBe("refresh_token");
 
     // The rotated tokens are persisted, so the next request does not refresh again.
@@ -331,7 +350,13 @@ describe("the group gate on refresh", () => {
       }),
     );
 
-    expect(result).toEqual({ status: "ok", userId, setCookie: null, displayName: null });
+    expect(result).toEqual({
+      status: "ok",
+      userId,
+      setCookie: null,
+      displayName: null,
+      isAdmin: false,
+    });
   });
 
   it("revokes when userinfo answers that membership is gone", async () => {
@@ -367,7 +392,13 @@ describe("an unevaluable gate does not evict the user", () => {
       }),
     );
 
-    expect(result).toEqual({ status: "ok", userId, setCookie: null, displayName: null });
+    expect(result).toEqual({
+      status: "ok",
+      userId,
+      setCookie: null,
+      displayName: null,
+      isAdmin: false,
+    });
     expect(getSession(control, sessionId, NOW)?.access_token).toBe("access-2");
   });
 
@@ -442,7 +473,13 @@ describe("when the refresh itself fails", () => {
       deps(control, { getEndpoints: () => Promise.reject(new Error("unreachable")) }),
     );
 
-    expect(result).toEqual({ status: "ok", userId, setCookie: null, displayName: null });
+    expect(result).toEqual({
+      status: "ok",
+      userId,
+      setCookie: null,
+      displayName: null,
+      isAdmin: false,
+    });
     expect(getSession(control, sessionId, NOW)).toBeDefined();
   });
 
@@ -471,6 +508,7 @@ describe("when the refresh itself fails", () => {
       userId,
       setCookie: null,
       displayName: null,
+      isAdmin: false,
     });
   });
 });
@@ -517,5 +555,66 @@ describe("the forbidden message", () => {
     const message = forbiddenMessage(REQUIRED_GROUP);
     expect(message).toContain(REQUIRED_GROUP);
     expect(message).toContain("Authentik");
+  });
+});
+
+describe("the admin flag", () => {
+  it("reports the flag stored on the session", async () => {
+    const sessionId = seedSession({ accessTtlMs: 60 * 60_000, isAdmin: true });
+    expect(await check(sessionId, NOW, deps(control))).toMatchObject({
+      status: "ok",
+      isAdmin: true,
+    });
+  });
+
+  it("drops the flag when a refresh shows the admin group is gone", async () => {
+    const sessionId = seedSession({ accessTtlMs: -1, isAdmin: true });
+    const result = await check(
+      sessionId,
+      NOW,
+      deps(control, {
+        token: async () =>
+          json({
+            access_token: "access-2",
+            expires_in: 3600,
+            id_token: await idToken({ groups: ["gain-users"] }),
+          }),
+      }),
+    );
+    expect(result).toMatchObject({ status: "ok", isAdmin: false });
+    expect(getSession(control, sessionId, NOW)?.is_admin).toBe(0);
+  });
+
+  it("grants the flag when a refresh shows the group was added", async () => {
+    const sessionId = seedSession({ accessTtlMs: -1, isAdmin: false });
+    const result = await check(
+      sessionId,
+      NOW,
+      deps(control, {
+        token: async () =>
+          json({
+            access_token: "access-2",
+            expires_in: 3600,
+            id_token: await idToken({ groups: ["gain-users", "gain-admins"] }),
+          }),
+      }),
+    );
+    expect(result).toMatchObject({ status: "ok", isAdmin: true });
+    expect(getSession(control, sessionId, NOW)?.is_admin).toBe(1);
+  });
+
+  it("leaves the flag untouched when membership cannot be established", async () => {
+    // No `id_token` in the refresh response, and `deps` throws for an un-overridden
+    // userinfo endpoint — which `fetchUserinfoGroups` turns into `null`, not `[]`.
+    // This is the phase-3 rule the whole design leans on; if it regresses, an IdP blip
+    // silently demotes the operator.
+    const sessionId = seedSession({ accessTtlMs: -1, isAdmin: true });
+    const result = await check(
+      sessionId,
+      NOW,
+      deps(control, { token: () => json({ access_token: "access-2", expires_in: 3600 }) }),
+    );
+    expect(result).toMatchObject({ status: "ok", isAdmin: true });
+    expect(getSession(control, sessionId, NOW)?.is_admin).toBe(1);
   });
 });

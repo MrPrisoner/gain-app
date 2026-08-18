@@ -328,6 +328,19 @@ export function extractDisplayName(claims: Record<string, unknown>): string | nu
 }
 
 /**
+ * The operator-facing label for a user, distinct from `extractDisplayName`'s greeting:
+ * this one prefers `preferred_username` because that is the string Authentik's admin UI
+ * shows, so the two lists can be matched by eye. Display only, never an identity.
+ */
+export function extractDisplayLabel(claims: Record<string, unknown>): string | null {
+  for (const key of ["preferred_username", "email", "name"] as const) {
+    const value = claims[key];
+    if (typeof value === "string" && value.trim() !== "") return value.trim();
+  }
+  return null;
+}
+
+/**
  * Fallback for IdPs that do not put `groups` in the ID token: ask the userinfo
  * endpoint with the access token.
  *
