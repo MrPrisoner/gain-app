@@ -765,7 +765,7 @@ for a user provisioned but never written to. The fallback is a normal open. **Th
 guarantee is the module's query surface** — only `COUNT(*)` and `MAX(...)`, no exported
 function that can return a content row — and that is what the test asserts.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/server/admin-stats.test.ts`:
 
@@ -872,12 +872,12 @@ describe("statsForUsers", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run tests/server/admin-stats.test.ts`
 Expected: FAIL — cannot resolve `$lib/server/admin-stats`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Create `src/lib/server/admin-stats.ts`:
 
@@ -1016,13 +1016,13 @@ function directorySize(dir: string): number {
 }
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `npx vitest run tests/server/admin-stats.test.ts`
 Expected: PASS. If the cold-WAL case still throws, the fallback branch is wrong — fix it
 rather than deleting the test.
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 Run: `npx prettier --write src/lib/server/admin-stats.ts tests/server/admin-stats.test.ts && npm run verify`
 
