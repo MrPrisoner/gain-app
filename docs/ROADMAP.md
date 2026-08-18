@@ -196,6 +196,11 @@ screen suggests the right next session for the fixture plan's `scheduling.sequen
 
 ## Phase 8 — Revision diff review & templates
 
+**Design:** [`docs/superpowers/specs/2026-08-18-phase-8-revision-diff-review-design.md`](superpowers/specs/2026-08-18-phase-8-revision-diff-review-design.md).
+**Plan:** [`docs/superpowers/plans/2026-08-18-phase-8-revision-diff-review.md`](superpowers/plans/2026-08-18-phase-8-revision-diff-review.md)
+— nine tasks in six independently-committable batches. Read the spec first, then start at
+the first unticked checkbox in the plan.
+
 **Done when:** a logged block exports, comes back revised from an AI, and the diff is
 reviewed and committed. That is the loop closing, and it is the last thing the build owes.
 

@@ -91,22 +91,18 @@ Expected: hits in `schema.ts`, `user-db.ts`, `read.ts`, `app-state.ts`, `bundle-
 
 - [ ] **Step 2: Write the failing test**
 
-Add to `tests/db/provision.test.ts`:
+Add to the `describe("openUserDb", ...)` block in `tests/db/provision.test.ts`. That block already has a `beforeEach` creating `dataDir` and an `afterEach` closing the outer `userDb` and removing the directory — assign to that outer `userDb` rather than making your own, or the `afterEach` will not clean up after you:
 
 ```ts
 it("no longer provisions an ai_template table", () => {
-  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "gain-provision-test-"));
-  const userDb = openUserDb(dataDir, "user-1", { now: NOW });
+  userDb = openUserDb(dataDir, "user-1", { now: NOW });
+
   const row = userDb.db
     .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'ai_template'")
     .get();
   expect(row).toBeUndefined();
-  userDb.close();
-  fs.rmSync(dataDir, { recursive: true, force: true });
 });
 ```
-
-Match the file's existing imports and `NOW` constant; if it defines its own temp-dir helper, use that instead of inlining `mkdtempSync`.
 
 - [ ] **Step 3: Run it and watch it fail**
 
@@ -166,12 +162,25 @@ and remove `getDefaultTemplate` from the import list.
 
 Its doc comment enumerates the tables it must never read. Remove `ai_template` from that list — a table that does not exist cannot be in it, and a stale list makes the next reader doubt the rest.
 
-- [ ] **Step 8: Run the tests**
+- [ ] **Step 8: Fix the four assertions that pinned the schema at version 1**
+
+Adding a second migration breaks four existing assertions in `tests/db/provision.test.ts`. They are correct assertions that have simply gone stale — update them, do not weaken them, and above all do not conclude the migration was a mistake:
+
+| Line | Currently | Becomes |
+|---|---|---|
+| 41 | `expect(appliedSchemaVersion(userDb.db)).toBe(1)` | `.toBe(2)` |
+| 46 | `expect(rows).toEqual([{ version: 1, name: "domain-model-v1", applied_at: NOW.toISOString() }])` | the same array plus `{ version: 2, name: "drop-ai-template", applied_at: NOW.toISOString() }` |
+| 54 | `expect(appliedSchemaVersion(userDb.db)).toBe(1)` | `.toBe(2)` |
+| 58 | `expect(count.n).toBe(1)` | `.toBe(2)` |
+
+The test at line 54 reopens the database with a *different* `now`, which is the point of that test — but both migrations already ran on the first open, so the row count is what changes there, not the timestamps.
+
+- [ ] **Step 9: Run the tests**
 
 Run: `npx vitest run tests/db/ tests/export.test.ts tests/golden.test.ts`
 Expected: PASS. If an export test asserted on a seeded template body, it should still pass — the asset is the same text that used to be seeded.
 
-- [ ] **Step 9: Update the documentation**
+- [ ] **Step 10: Update the documentation**
 
 `docs/ARCHITECTURE.md` §11 — replace the "Section 0 is the user-editable template" bullet. It argues a case, so write prose, not a list. It must say: Section 0 is shipped app code, seeded from `templates/default-ai-instructions.md`; it is deliberately plan-agnostic; it is not per-user and not editable in the app, because it is coupled to the export's structure, the `weight_kg` rule and the parser's error behaviour, and a pinned copy would misinstruct the AI after any change to those; anything user- or plan-specific belongs in the plan document, which Section 0 already defers to. Keep the existing sentence listing the six substitutions — they are unchanged.
 
@@ -181,7 +190,7 @@ Expected: PASS. If an export test asserted on a seeded template body, it should 
 
 `CLAUDE.md` — widen the shipped-output invariant. It currently reads that `docs/CONTRACT.md` is shipped output reproduced in both outbound templates. Add that `templates/bootstrap-prompt.md` and `templates/default-ai-instructions.md` are shipped output on the same terms: editing either changes the instructions every AI receives, they are versioned with the app rather than per user, and nothing may reintroduce a per-user copy.
 
-- [ ] **Step 10: Verify and commit**
+- [ ] **Step 11: Verify and commit**
 
 Run: `npm run verify`
 Expected: PASS.
