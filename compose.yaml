@@ -20,6 +20,7 @@ services:
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID}
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET}
       OIDC_REQUIRED_GROUP: ${OIDC_REQUIRED_GROUP:-gain-users}
+      OIDC_ADMIN_GROUP: ${OIDC_ADMIN_GROUP:-} # optional — members get /admin (counts + reset)
       SESSION_SECRET: ${SESSION_SECRET}
       DATA_DIR: /data
       TZ: ${TZ:-Africa/Johannesburg}

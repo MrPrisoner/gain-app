@@ -124,7 +124,7 @@ isolation. `hooks.server.ts` already supports per-spec bypass users via the
 `x-gain-e2e-user` header, so `GAIN_DEV_ADMIN=<username>` grants admin to exactly that one
 bypass user and lets an e2e spec drive an admin and a non-admin in the same run.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Add to `tests/server/config.test.ts`. The file already defines a `FULL_OIDC` constant and
 imports `loadConfig` by relative path (`../../src/lib/server/config`) — reuse both rather
@@ -175,12 +175,12 @@ describe("admin configuration", () => {
 });
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `npx vitest run tests/server/config.test.ts`
 Expected: FAIL — `config.adminGroup` is `undefined`, and neither error is thrown.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `src/lib/server/config.ts`, add to the `GainConfig` type after `auth`:
 
@@ -232,12 +232,12 @@ Add both to the returned object:
     devAdmin: auth.mode === "bypass" ? devAdmin : null,
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `npx vitest run tests/server/config.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Document the variables**
+- [x] **Step 5: Document the variables**
 
 In `.env.example`, in the OIDC section:
 
@@ -259,7 +259,7 @@ GAIN_DEV_ADMIN=
 In `compose.yaml`, add `OIDC_ADMIN_GROUP: ${OIDC_ADMIN_GROUP:-}` beside
 `OIDC_REQUIRED_GROUP`.
 
-- [ ] **Step 6: Verify and commit**
+- [x] **Step 6: Verify and commit**
 
 Run: `npx prettier --write src/lib/server/config.ts tests/server/config.test.ts && npm run verify`
 Expected: all green.

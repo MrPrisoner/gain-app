@@ -81,6 +81,8 @@ const config: GainConfig = {
   sessionSecret: SECRET,
   sessionIdleMs: IDLE_MS,
   auth: { mode: "oidc", oidc: oidcConfig() },
+  adminGroup: null,
+  devAdmin: null,
   appVersion: "dev",
 };
 

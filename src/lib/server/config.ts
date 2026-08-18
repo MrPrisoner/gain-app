@@ -37,6 +37,19 @@ export type GainConfig = {
   /** Sliding session idle timeout. */
   sessionIdleMs: number;
   auth: AuthConfig;
+  /**
+   * The Authentik group whose members are operators (spec §3). `null` means this
+   * instance has no admin at all and `/admin` 404s for everyone — an operator who has
+   * not opted in has no admin surface.
+   */
+  adminGroup: string | null;
+  /**
+   * Dev-only: the single `GAIN_DEV_USER`-style name that is treated as an operator.
+   * A name rather than a flag, so an e2e run can drive an admin and a non-admin at
+   * once through the `x-gain-e2e-user` header. Refused in production, like the bypass
+   * itself.
+   */
+  devAdmin: string | null;
   /** Release tag baked into the image at build time (`APP_VERSION`); `"dev"` outside CI. */
   appVersion: string;
 };
@@ -55,6 +68,14 @@ export function loadConfig(
     throw new Error(
       "GAIN_DEV_USER is set but NODE_ENV=production — the auth bypass is a development tool " +
         "and cannot be enabled in a production build. Unset GAIN_DEV_USER.",
+    );
+  }
+
+  const devAdmin = env.GAIN_DEV_ADMIN?.trim() || null;
+  if (devAdmin && isProduction) {
+    throw new Error(
+      "GAIN_DEV_ADMIN is set but NODE_ENV=production — it is a development tool and " +
+        "cannot be enabled in a production build. Use OIDC_ADMIN_GROUP instead.",
     );
   }
 
@@ -103,6 +124,15 @@ export function loadConfig(
     );
   }
 
+  const adminGroup = env.OIDC_ADMIN_GROUP?.trim() || null;
+  if (adminGroup && auth.mode !== "oidc") {
+    throw new Error(
+      "OIDC_ADMIN_GROUP is set but OIDC is not configured. A variable that looks like " +
+        "it grants access and silently does nothing is worse than a startup error. " +
+        "For local development, set GAIN_DEV_ADMIN to a GAIN_DEV_USER name instead.",
+    );
+  }
+
   const origin = env.ORIGIN?.trim() || (isProduction ? null : "http://localhost:5173");
   if (!origin) {
     throw new Error(
@@ -124,6 +154,8 @@ export function loadConfig(
     sessionSecret,
     sessionIdleMs: SEVEN_DAYS_MS,
     auth,
+    adminGroup,
+    devAdmin: auth.mode === "bypass" ? devAdmin : null,
     appVersion: env.APP_VERSION?.trim() || "dev",
   };
 }

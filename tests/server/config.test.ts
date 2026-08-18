@@ -142,4 +142,47 @@ describe("loadConfig", () => {
       expect(config.appVersion).toBe("v0.3.0");
     });
   });
+
+  describe("admin configuration", () => {
+    const prodEnv = {
+      ...FULL_OIDC,
+      ORIGIN: "https://gain.example.com",
+      SESSION_SECRET: "abc123",
+    };
+
+    it("carries the admin group when OIDC is complete", () => {
+      const config = loadConfig({ ...prodEnv, OIDC_ADMIN_GROUP: "gain-admins" }, "production");
+      expect(config.adminGroup).toBe("gain-admins");
+      expect(config.devAdmin).toBeNull();
+    });
+
+    it("defaults to no admin at all", () => {
+      const config = loadConfig(prodEnv, "production");
+      expect(config.adminGroup).toBeNull();
+    });
+
+    it("refuses an admin group without a complete OIDC configuration", () => {
+      expect(() =>
+        loadConfig(
+          { GAIN_DEV_USER: "dev", OIDC_ADMIN_GROUP: "gain-admins", SESSION_SECRET: "s" },
+          "development",
+        ),
+      ).toThrow(/OIDC_ADMIN_GROUP/);
+    });
+
+    it("grants dev admin to the named bypass user only", () => {
+      const config = loadConfig(
+        { GAIN_DEV_USER: "dev", GAIN_DEV_ADMIN: "dev", SESSION_SECRET: "s" },
+        "development",
+      );
+      expect(config.devAdmin).toBe("dev");
+      expect(config.adminGroup).toBeNull();
+    });
+
+    it("refuses GAIN_DEV_ADMIN in production", () => {
+      expect(() => loadConfig({ ...prodEnv, GAIN_DEV_ADMIN: "dev" }, "production")).toThrow(
+        /GAIN_DEV_ADMIN/,
+      );
+    });
+  });
 });
