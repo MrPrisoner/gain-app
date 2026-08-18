@@ -4,7 +4,7 @@
   import IconUpload from "~icons/lucide/upload";
 
   /**
-   * The paste-or-upload half of every `?/import` submission (todo.md, "Home page UI
+   * The paste-or-upload half of every `?/check` submission (todo.md, "Home page UI
    * tweaks" — Export offers copy and download, so Import offers paste and upload). A
    * chosen file only fills the same textarea a paste would: both paths go through the
    * identical "Check the plan" review step (UI-DECISIONS §11) rather than one bypassing
@@ -23,7 +23,7 @@
   }
 </script>
 
-<form method="POST" action="?/import" use:enhance>
+<form method="POST" action="?/check" use:enhance>
   <textarea
     class="doc"
     name="source_md"

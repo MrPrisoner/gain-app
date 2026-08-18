@@ -1,22 +1,19 @@
 /**
  * The front door (ARCHITECTURE §7): first run for an empty account, plan
- * overview once one is imported, and the paste box both share.
+ * overview once one is imported, and a link into the import flow both share.
  *
- * The three actions are deliberately stateless. The first-run answers are
- * never stored — they fill a template and are discarded (§7). The import
- * flow re-parses the pasted document at each step rather than holding it
- * server-side between requests.
+ * The bootstrap-prompt action is deliberately stateless — the first-run
+ * answers are never stored, they fill a template and are discarded (§7). The
+ * import flow itself lives at `/import` (`src/routes/import/+page.server.ts`).
  */
 
-import { fail, redirect } from "@sveltejs/kit";
+import { redirect } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
 import { getUserDbFor } from "$lib/server/app-state";
 import { bootstrapPromptTemplate, contractMd } from "$lib/server/assets";
-import { countPrescriptions, parsePlanDocument } from "$lib/parse/parser";
+import { countPrescriptions } from "$lib/parse/parser";
 import { contractOfVersion, getCurrentVersion, listPlans } from "$lib/db/read";
 import { deriveExerciseName, type GainContract } from "$lib/contract/schema";
-import { prepareImportReview } from "$lib/db/review";
-import { importPlan } from "$lib/db/import-plan";
 import { renderBootstrapPrompt, type BootstrapAnswers } from "$lib/templates/render";
 import { recentActivities, recentWorkoutsForPlan, nextMorningCandidates } from "$lib/db/home";
 import { suggestActivityKinds } from "$lib/home/activity-kinds";
@@ -105,53 +102,6 @@ export const actions: Actions = {
       display_name: locals.user?.displayName ?? undefined,
     };
     return { prompt: renderBootstrapPrompt(bootstrapPromptTemplate, answers, contractMd) };
-  },
-
-  /**
-   * Parse the pasted document and show what an import would write. Nothing
-   * is written here — every failure returns the copy-pasteable report for
-   * the AI, with the pasted text kept in place (UI-DECISIONS §11).
-   */
-  import: async ({ request, locals }) => {
-    if (!locals.user) throw redirect(303, "/login");
-    const source = formText(await request.formData(), "source_md");
-
-    if (!source.trim()) {
-      return fail(400, { importError: "Paste a plan document first.", source });
-    }
-
-    const parsed = parsePlanDocument(source);
-    if (!parsed.ok) {
-      return fail(400, {
-        importFailure: { kind: parsed.kind, report: parsed.report },
-        source,
-      });
-    }
-
-    const userDb = getUserDbFor(locals.user.id);
-    return { review: prepareImportReview(userDb, parsed), source };
-  },
-
-  /** Re-parse and commit. All-or-nothing, exactly as reviewed. */
-  confirmImport: async ({ request, locals }) => {
-    if (!locals.user) throw redirect(303, "/login");
-    const source = formText(await request.formData(), "source_md");
-
-    const parsed = parsePlanDocument(source);
-    if (!parsed.ok) {
-      return fail(400, {
-        importFailure: { kind: parsed.kind, report: parsed.report },
-        source,
-      });
-    }
-
-    const userDb = getUserDbFor(locals.user.id);
-    const result = importPlan(userDb, { parsed, now: new Date() });
-    if (!result.ok) {
-      return fail(409, { importError: result.message, source });
-    }
-
-    throw redirect(303, "/");
   },
 };
 

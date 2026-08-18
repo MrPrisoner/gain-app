@@ -1,23 +1,29 @@
 /**
- * First run, end to end through the page actions (ARCHITECTURE §7): empty
- * state → bootstrap prompt out → paste a plan back → summary → commit.
+ * First run, through the page's own actions and load (ARCHITECTURE §7): empty
+ * state → bootstrap prompt out → the Home overview once a plan exists.
  *
- * These drive `src/routes/+page.server.ts` directly. That is the level worth
- * testing: it is where "the answers are never stored", "nothing is written on
- * a failed parse" and "the error is addressed to the AI" actually hold or fail.
+ * These drive `src/routes/+page.server.ts` directly. The import flow itself
+ * — paste, parse-error report, review, commit — moved to its own route in
+ * phase 8 and is covered by `tests/server/import-route.test.ts`; what is left
+ * here is Home's own behaviour: "the answers are never stored" for the
+ * bootstrap prompt, and what `load` shows once a plan has been imported
+ * (seeded directly through `importPlan`, the way the db-level tests do,
+ * rather than through a page action Home no longer has).
  */
 
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { isRedirect } from "@sveltejs/kit";
 import { actions, load } from "../../src/routes/+page.server";
-import { resetAppStateForTests } from "../../src/lib/server/app-state";
+import { getUserDbFor, resetAppStateForTests } from "../../src/lib/server/app-state";
 import { resetConfigForTests } from "../../src/lib/server/config";
+import { importPlan } from "../../src/lib/db/import-plan";
+import { parsePlanDocument } from "../../src/lib/parse/parser";
 
 const FIXTURE = fs.readFileSync("fixtures/plans/home-training-v1.md", "utf8");
 const USER_ID = "01KZKQ4GB22EEQBF20YDKD1BYE";
+const NOW = new Date("2026-09-08T08:00:00Z");
 
 let tmpDir: string;
 
@@ -60,24 +66,22 @@ function event(fields: Record<string, string>) {
 const loadEvent = () => ({ locals }) as never;
 
 /** `Actions` is an index signature, so each handler needs unwrapping once. */
-function action(name: "generatePrompt" | "import" | "confirmImport") {
+function action(name: "generatePrompt") {
   const handler = actions[name];
   if (!handler) throw new Error(`the page defines no '${name}' action`);
   return handler;
 }
 
-/** Actions signal a redirect by throwing; unwrap it rather than let it escape. */
-async function runExpectingRedirect(run: () => unknown): Promise<{ location: string }> {
-  try {
-    await run();
-  } catch (err) {
-    if (isRedirect(err)) return { location: err.location };
-    throw err;
-  }
-  throw new Error("expected a redirect, but the action returned normally");
-}
-
 const userDir = () => path.join(tmpDir, "users", USER_ID);
+
+/** Seed a committed plan directly through the writer, the way the db-level tests do —
+ * Home's `load` no longer has a page action of its own that can commit one. */
+function seedFixturePlan(): void {
+  const parsed = parsePlanDocument(FIXTURE);
+  if (!parsed.ok) throw new Error(`fixture failed to parse: ${parsed.kind}`);
+  const result = importPlan(getUserDbFor(USER_ID), { parsed, now: NOW });
+  if (!result.ok) throw new Error(result.message);
+}
 
 // ---------------------------------------------------------------------------
 
@@ -129,93 +133,9 @@ describe("the bootstrap prompt", () => {
   });
 });
 
-describe("a plan that does not parse", () => {
-  it("writes nothing, and hands back a report addressed to the AI", async () => {
-    const result = (await action("import")(
-      event({ source_md: "# A plan\n\nProse, but no contract block." }),
-    )) as {
-      status: number;
-      data: { importFailure: { kind: string; report: string }; source: string };
-    };
-
-    expect(result.status).toBe(400);
-    expect(result.data.importFailure.kind).toBe("missing_block");
-    expect(result.data.importFailure.report).toContain("gain-plan");
-    expect(fs.existsSync(path.join(userDir(), "plans"))).toBe(false);
-  });
-
-  it("echoes the pasted document back so the box can be refilled (UI-DECISIONS §11)", async () => {
-    const source = "# A plan\n\nProse, but no contract block.";
-    const result = (await action("import")(event({ source_md: source }))) as {
-      data: { source: string };
-    };
-    expect(result.data.source).toBe(source);
-  });
-
-  it("names a pasted export bundle as the wrong document, not a parse failure", async () => {
-    const bundle = [
-      "# GAIN Export — Home Training — block 1",
-      "",
-      "## 1. The current plan",
-      "",
-      "## 2. Progress summary",
-    ].join("\n");
-
-    const result = (await action("import")(event({ source_md: bundle }))) as {
-      data: { importFailure: { kind: string; report: string } };
-    };
-
-    expect(result.data.importFailure.kind).toBe("export_bundle");
-    expect(result.data.importFailure.report).toContain("not a plan");
-  });
-
-  it("asks for a document rather than reporting a parse error on an empty box", async () => {
-    const result = (await action("import")(event({ source_md: "   " }))) as {
-      status: number;
-      data: { importError: string };
-    };
-    expect(result.status).toBe(400);
-    expect(result.data.importError).toBe("Paste a plan document first.");
-  });
-});
-
-describe("importing the reference plan", () => {
-  it("summarises what would be written, without writing it", async () => {
-    const result = (await action("import")(event({ source_md: FIXTURE }))) as {
-      review: {
-        kind: string;
-        plan_name: string;
-        version_no: number;
-        counts: { sessions: number; exercises: number; prescriptions: number };
-      };
-    };
-
-    expect(result.review.kind).toBe("first_import");
-    expect(result.review.version_no).toBe(1);
-    // The numbers ARCHITECTURE §6 states for this fixture. The review reports
-    // more than the overview does (blocks, loads, metrics), hence the subset.
-    expect(result.review.counts).toMatchObject({
-      sessions: 4,
-      exercises: 26,
-      prescriptions: 49,
-    });
-
-    // A review is a review: no version row yet.
-    expect(await load(loadEvent())).toEqual({ view: "first_run" });
-  });
-
-  it("commits, and keeps source_md byte-for-byte on disk (§5, §11)", async () => {
-    const redirect = await runExpectingRedirect(() =>
-      action("confirmImport")(event({ source_md: FIXTURE })),
-    );
-    expect(redirect.location).toBe("/");
-
-    const onDisk = fs.readFileSync(path.join(userDir(), "plans", "home-training", "v1.md"), "utf8");
-    expect(onDisk).toBe(FIXTURE);
-  });
-
-  it("shows the plan once committed, so the loop has visibly started", async () => {
-    await runExpectingRedirect(() => action("confirmImport")(event({ source_md: FIXTURE })));
+describe("the plan overview, once a plan exists", () => {
+  it("shows the plan, so the loop has visibly started", async () => {
+    seedFixturePlan();
 
     const data = (await load(loadEvent())) as {
       view: string;
@@ -230,7 +150,7 @@ describe("importing the reference plan", () => {
   });
 
   it("suggests the sequence's first session, and lists rest among the activity kinds", async () => {
-    await runExpectingRedirect(() => action("confirmImport")(event({ source_md: FIXTURE })));
+    seedFixturePlan();
 
     const data = (await load(loadEvent())) as {
       plans: { suggestion: { suggestedKey: string; lastSession: unknown } }[];
@@ -244,17 +164,5 @@ describe("importing the reference plan", () => {
     expect(data.plans[0]?.suggestion.lastSession).toBeUndefined();
     expect(data.activityKinds).toContain("rest");
     expect(data.nextMorningCandidates).toEqual([]);
-  });
-
-  it("refuses a re-import of the same version, and says why in the plan's terms", async () => {
-    await runExpectingRedirect(() => action("confirmImport")(event({ source_md: FIXTURE })));
-
-    const result = (await action("confirmImport")(event({ source_md: FIXTURE }))) as {
-      status: number;
-      data: { importError: string };
-    };
-
-    expect(result.status).toBe(409);
-    expect(result.data.importError).toContain("must increment");
   });
 });

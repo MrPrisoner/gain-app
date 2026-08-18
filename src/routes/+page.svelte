@@ -4,19 +4,18 @@
   import { copyText, downloadText } from "$lib/copy";
   import { precacheSessions } from "$lib/sync/precache";
   import NextSessionCard from "./NextSessionCard.svelte";
-  import ImportPlanForm from "./ImportPlanForm.svelte";
   import ActivityStrip from "./ActivityStrip.svelte";
   import NextMorningPrompt from "./NextMorningPrompt.svelte";
   import { dueNextMorningPrompts } from "$lib/home/next-morning";
   import { startSyncLoop } from "$lib/sync/client.svelte";
   import IconCheck from "~icons/lucide/check";
-  import IconCircleCheck from "~icons/lucide/circle-check";
   import IconCopy from "~icons/lucide/copy";
   import IconDownload from "~icons/lucide/download";
   import IconExternalLink from "~icons/lucide/external-link";
   import IconHistory from "~icons/lucide/history";
   import IconSparkles from "~icons/lucide/sparkles";
   import IconTrendingUp from "~icons/lucide/trending-up";
+  import IconUpload from "~icons/lucide/upload";
   import type { ActionData, PageData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -38,19 +37,10 @@
     }
   });
 
-  // Every form here is enhanced, which is what makes the local state work: the
-  // component instance survives the action, so `bind:value` keeps the pasted
-  // text in place across a failed import (UI-DECISIONS §11). Without
-  // `use:enhance` the POST is a full navigation, the component remounts, and
-  // the user is staring at an empty box holding the error for a document they
-  // now have to paste again.
-  //
-  // The seed is the no-JS path, and is read once on purpose: there, the action
-  // does re-render the page, and the server's echo of `source` is what puts
-  // the document back in the box. Once mounted, `pasted` is the live value and
-  // must never be clobbered by a later `form` update.
-  let pasted = $state(untrack(() => form?.source ?? ""));
-  let copied = $state<"prompt" | "report" | null>(null);
+  // The bootstrap-prompt form is enhanced so the generated prompt renders without a full
+  // navigation. The import flow itself — paste box, parse-error report, review — lives at
+  // `/import` (src/routes/import/+page.svelte) and is out of scope here.
+  let copied = $state(false);
   let copyTimer: ReturnType<typeof setTimeout> | undefined = $state(undefined);
 
   // The next-morning prompt's dismissal is local and permanent for that workout (design
@@ -107,16 +97,16 @@
   // anything.
   $effect(() => startSyncLoop("home"));
 
-  function flashCopied(which: "prompt" | "report") {
-    copied = which;
+  function flashCopied() {
+    copied = true;
     clearTimeout(copyTimer);
-    copyTimer = setTimeout(() => (copied = null), 2000);
+    copyTimer = setTimeout(() => (copied = false), 2000);
   }
 
   async function copyPrompt() {
     if (!form?.prompt) return;
     if (await copyText(form.prompt)) {
-      flashCopied("prompt");
+      flashCopied();
     } else {
       downloadText("gain-bootstrap-prompt.md", form.prompt);
     }
@@ -124,15 +114,6 @@
 
   function downloadPrompt() {
     if (form?.prompt) downloadText("gain-bootstrap-prompt.md", form.prompt);
-  }
-
-  async function copyReport() {
-    if (!form?.importFailure) return;
-    if (await copyText(form.importFailure.report)) {
-      flashCopied("report");
-    } else {
-      downloadText("gain-import-report.md", form.importFailure.report);
-    }
   }
 </script>
 
@@ -197,8 +178,8 @@
       <textarea class="doc" readonly rows="14" value={form.prompt}></textarea>
       <div class="actions">
         <button type="button" class="primary" onclick={copyPrompt}>
-          {#if copied === "prompt"}<IconCheck />{:else}<IconCopy />{/if}
-          {copied === "prompt" ? "Copied" : "Copy prompt"}
+          {#if copied}<IconCheck />{:else}<IconCopy />{/if}
+          {copied ? "Copied" : "Copy prompt"}
         </button>
         <button type="button" class="secondary" onclick={downloadPrompt}>
           <IconDownload />Download .md
@@ -214,7 +195,7 @@
     <p class="muted">
       The whole document — prose and contract block. GAIN checks it before writing anything.
     </p>
-    <ImportPlanForm bind:pasted />
+    <a class="primary-link" href="/import"><IconUpload />Paste the plan your AI gave you</a>
   </section>
 {:else}
   {#each dueNextMorning as candidate (candidate.workoutClientId)}
@@ -259,103 +240,12 @@
         <a class="export-link" href={`/plan/${plan.slug}/history`}>
           <IconHistory />History
         </a>
+        <a class="export-link" href="/import">
+          <IconUpload />Import a revised plan
+        </a>
       </nav>
-
-      {#if data.plans.length === 1}
-        <!--
-          A single plan is the common case, and the only one where "which plan is this
-          import for" has an unambiguous answer — a second plan (a different slug) has
-          nowhere obvious to land, so the form only folds in here when there is exactly
-          one plan-admin card to fold it into (todo.md, "Home page UI tweaks").
-        -->
-        <div class="import-inline">
-          <h3>Import a revised plan</h3>
-          <p class="muted">
-            Paste a new version of this plan, or a different plan entirely. GAIN checks it and shows
-            what would change before writing anything.
-          </p>
-          <ImportPlanForm bind:pasted />
-        </div>
-      {/if}
     </section>
   {/each}
-
-  {#if data.plans.length > 1}
-    <section class="card">
-      <h2>Import a plan</h2>
-      <p class="muted">
-        Paste a new plan or a revised version. GAIN checks it and shows what would change before
-        writing anything.
-      </p>
-      <ImportPlanForm bind:pasted />
-    </section>
-  {/if}
-{/if}
-
-{#if form?.importFailure}
-  {#if form.importFailure.kind === "export_bundle"}
-    <!--
-      A pasted bundle is a wrong-document error, not a parse failure
-      (UI-DECISIONS §11). The fix belongs to the user, not to the AI, so this
-      case gets no field paths and no copy-for-the-AI action — sending a
-      bundle back to the chat would only confuse it.
-    -->
-    <section class="card report-card">
-      <h2>That is a GAIN export, not a plan</h2>
-      <p>
-        Export bundles are what GAIN hands <em>to</em> an AI. Paste what your AI gave you back: the
-        prose plus one <code>gain-plan</code> block.
-      </p>
-    </section>
-  {:else}
-    <section class="card report-card">
-      <h2>Nothing was imported</h2>
-      <p class="muted">
-        This report is written for your AI, not for you — copy it back into the chat and the AI will
-        fix the plan and hand you a new document.
-      </p>
-      <pre class="report">{form.importFailure.report}</pre>
-      <div class="actions">
-        <button type="button" class="primary" onclick={copyReport}>
-          {#if copied === "report"}<IconCheck />{:else}<IconCopy />{/if}
-          {copied === "report" ? "Copied" : "Copy report for the AI"}
-        </button>
-      </div>
-    </section>
-  {/if}
-{/if}
-
-{#if form?.importError}
-  <section class="card report-card">
-    <h2>Nothing was imported</h2>
-    <p>{form.importError}</p>
-  </section>
-{/if}
-
-{#if form?.review}
-  <section class="card">
-    {#if form.review.kind === "first_import"}
-      <h2>Ready to import</h2>
-      <p>
-        <strong>{form.review.plan_name}</strong> — version {form.review.version_no}:
-        {form.review.counts.sessions} sessions, {form.review.counts.exercises} exercises,
-        {form.review.counts.prescriptions} prescriptions.
-      </p>
-    {:else}
-      <h2>Ready to import a revision</h2>
-      <p>
-        <strong>{form.review.plan_slug}</strong> — version {form.review.previous_version} →
-        {form.review.new_version}. The detailed diff review arrives in a later phase; committing
-        writes the new version and keeps the old one.
-      </p>
-    {/if}
-    <form method="POST" action="?/confirmImport" use:enhance>
-      <input type="hidden" name="source_md" value={form.source ?? ""} />
-      <div class="actions">
-        <button type="submit" class="primary"><IconCircleCheck />Commit import</button>
-      </div>
-    </form>
-  </section>
 {/if}
 
 <style>
@@ -476,15 +366,19 @@
     color: var(--text);
   }
 
-  .import-inline {
-    margin-top: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--line-soft);
+  .primary-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border-radius: var(--r-sm);
+    padding: 0.7rem 1.25rem;
+    font-weight: 700;
+    background: var(--accent);
+    color: var(--accent-in);
   }
 
-  .import-inline h3 {
-    margin: 0 0 0.35rem;
-    font-size: 0.95rem;
+  .primary-link:hover {
+    text-decoration: none;
   }
 
   .plan-links {
@@ -508,24 +402,5 @@
 
   .export-link:hover {
     text-decoration: none;
-  }
-
-  .report-card {
-    border-color: var(--amber);
-  }
-
-  .report {
-    font-family: inherit;
-    font-size: 0.85rem;
-    line-height: 1.45;
-    white-space: pre-wrap;
-    word-break: break-word;
-    background: var(--raised);
-    border: 1px solid var(--line);
-    border-radius: var(--r-xs);
-    padding: 0.75rem;
-    margin: 0;
-    max-height: 24rem;
-    overflow: auto;
   }
 </style>
