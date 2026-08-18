@@ -15,8 +15,13 @@
  * pure functions over plain data with an injected clock.
  */
 
-import { readFileSync } from "node:fs";
+import { readFileSync, mkdtempSync, rmSync } from "node:fs";
+import path from "node:path";
+import os from "node:os";
 import { describe, expect, it } from "vitest";
+
+import { openUserDb } from "../src/lib/db/user-db";
+import { importPlan } from "../src/lib/db/import-plan";
 
 import { deepEqual, diffContracts } from "../src/lib/diff/diff";
 import {
@@ -29,7 +34,9 @@ import { renderBootstrapPrompt } from "../src/lib/templates/render";
 import { buildSyntheticLogs } from "./helpers/synthetic-logs";
 
 const ROOT = new URL("..", import.meta.url);
-const read = (path: string): string => readFileSync(new URL(path, ROOT), "utf8");
+const read = (filePath: string): string => readFileSync(new URL(filePath, ROOT), "utf8");
+
+const NOW = new Date("2026-09-01T09:00:00Z");
 
 const fixtureMd = read("fixtures/plans/home-training-v1.md");
 const contractMd = read("docs/CONTRACT.md");
@@ -204,5 +211,34 @@ describe("golden round trip", () => {
     expect(sessionRow).toBe(
       "| session | `symptoms_during` | Hip / lower-back symptoms during this session | 12 | 0 | 0 | 0 | 0.17 | 2 |",
     );
+  });
+});
+
+describe("a revision round-trips as faithfully as a first import", () => {
+  it("replays v2's source_md byte-for-byte after importing it over v1", () => {
+    const dataDir = mkdtempSync(path.join(os.tmpdir(), "gain-golden-v2-"));
+    const userDb = openUserDb(dataDir, "user-1", { now: NOW });
+
+    const v1 = parsePlanDocument(read("fixtures/plans/home-training-v1.md"));
+    if (!v1.ok) throw new Error(v1.report);
+    expect(importPlan(userDb, { parsed: v1, now: NOW }).ok).toBe(true);
+
+    const v2Md = read("fixtures/plans/home-training-v2.md");
+    const v2 = parsePlanDocument(v2Md);
+    if (!v2.ok) throw new Error(v2.report);
+    const secondImport = importPlan(userDb, {
+      parsed: v2,
+      now: NOW,
+      renames: [
+        { from: "goblet-squat", to: "gobletsquat" },
+        { from: "rear-delt-reverse-fly", to: "prone-reverse-fly" },
+      ],
+    });
+    if (!secondImport.ok) throw new Error(secondImport.message);
+
+    expect(readFileSync(secondImport.source_path, "utf8")).toBe(v2Md);
+
+    userDb.close();
+    rmSync(dataDir, { recursive: true, force: true });
   });
 });
