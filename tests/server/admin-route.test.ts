@@ -66,7 +66,7 @@ beforeEach(() => {
   setDisplayLabel(control, subject.id, "subject");
   control.close();
 
-  const subjectDb = openUserDb(dataDir, subject.id, { now: NOW, seedTemplates: [] });
+  const subjectDb = openUserDb(dataDir, subject.id, { now: NOW });
   seedPlan(subjectDb);
   subjectDb.close();
 });

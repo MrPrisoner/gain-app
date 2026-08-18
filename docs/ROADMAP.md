@@ -56,7 +56,7 @@ happen, not just that the screen renders.
 | 5 | Export UI — the loop's return crossing | Done |
 | 6 | Offline PWA: IndexedDB, sync queue, idempotency | Done |
 | 7 | Progress, history & the Home screen | Done |
-| 8 | Revision diff review, template editor | Not started |
+| 8 | Revision diff review | Not started |
 | 9 | Operations — operator view, per-user reset | Done |
 
 ---
@@ -194,7 +194,7 @@ screen suggests the right next session for the fixture plan's `scheduling.sequen
 
 ---
 
-## Phase 8 — Revision diff review & templates
+## Phase 8 — Revision diff review
 
 **Design:** [`docs/superpowers/specs/2026-08-18-phase-8-revision-diff-review-design.md`](superpowers/specs/2026-08-18-phase-8-revision-diff-review-design.md).
 **Plan:** [`docs/superpowers/plans/2026-08-18-phase-8-revision-diff-review.md`](superpowers/plans/2026-08-18-phase-8-revision-diff-review.md)
@@ -216,8 +216,6 @@ commits as-is. The engine is done; this is the UI on top of it.
       slug is never silently minted for a name that closely resembles an existing one. If
       `goblet-squat` returns as `goblet_squat`, every chart splits in two, nothing errors,
       and the loss is unrecoverable.
-- [ ] **The template editor** for export Section 0. `ai_template` exists and is seeded at
-      provisioning; no UI reaches it. Multiple named templates, per §11.
 
 ---
 

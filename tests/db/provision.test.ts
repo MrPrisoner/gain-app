@@ -1,6 +1,5 @@
 /**
- * Per-user provisioning: the §3 directory layout, migrations, and template
- * seeding.
+ * Per-user provisioning: the §3 directory layout and migrations.
  */
 
 import fs from "node:fs";
@@ -38,12 +37,15 @@ describe("openUserDb", () => {
   it("applies migrations and records them", () => {
     userDb = openUserDb(dataDir, "user-1", { now: NOW });
 
-    expect(appliedSchemaVersion(userDb.db)).toBe(1);
+    expect(appliedSchemaVersion(userDb.db)).toBe(2);
 
     const rows = userDb.db
       .prepare("SELECT version, name, applied_at FROM _gain_migration")
       .all() as { version: number; name: string; applied_at: string }[];
-    expect(rows).toEqual([{ version: 1, name: "domain-model-v1", applied_at: NOW.toISOString() }]);
+    expect(rows).toEqual([
+      { version: 1, name: "domain-model-v1", applied_at: NOW.toISOString() },
+      { version: 2, name: "drop-ai-template", applied_at: NOW.toISOString() },
+    ]);
   });
 
   it("is idempotent — reopening migrates forward without duplicating", () => {
@@ -51,36 +53,21 @@ describe("openUserDb", () => {
     userDb.close();
 
     userDb = openUserDb(dataDir, "user-1", { now: new Date("2026-09-09T08:00:00Z") });
-    expect(appliedSchemaVersion(userDb.db)).toBe(1);
+    expect(appliedSchemaVersion(userDb.db)).toBe(2);
 
     const count = userDb.db.prepare("SELECT COUNT(*) AS n FROM _gain_migration").get() as {
       n: number;
     };
-    expect(count.n).toBe(1);
+    expect(count.n).toBe(2);
   });
 
-  it("seeds templates only when the user has none", () => {
-    userDb = openUserDb(dataDir, "user-1", {
-      now: NOW,
-      seedTemplates: [{ name: "default", body_md: "# Instructions", is_default: true }],
-    });
+  it("no longer provisions an ai_template table", () => {
+    userDb = openUserDb(dataDir, "user-1", { now: NOW });
 
-    const rows = userDb.db.prepare("SELECT name, body_md, is_default FROM ai_template").all() as {
-      name: string;
-      body_md: string;
-      is_default: number;
-    }[];
-    expect(rows).toEqual([{ name: "default", body_md: "# Instructions", is_default: 1 }]);
-
-    userDb.close();
-
-    // Reopening with a different seed must not reseed.
-    userDb = openUserDb(dataDir, "user-1", {
-      now: NOW,
-      seedTemplates: [{ name: "other", body_md: "nope", is_default: true }],
-    });
-    const after = userDb.db.prepare("SELECT name FROM ai_template").all() as { name: string }[];
-    expect(after).toEqual([{ name: "default" }]);
+    const row = userDb.db
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'ai_template'")
+      .get();
+    expect(row).toBeUndefined();
   });
 
   it("enables foreign keys", () => {

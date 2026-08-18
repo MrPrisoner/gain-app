@@ -268,7 +268,16 @@ CREATE INDEX idx_metric_value_set_log     ON metric_value(set_log_id);
 CREATE INDEX idx_deviation_workout        ON deviation(workout_id);
 `;
 
+const MIGRATION_002 = `
+-- The AI-instruction template is shipped app code, not per-user data: it is coupled to
+-- the export's section numbering, the weight_kg invariant and the parser's error
+-- behaviour, so a copy pinned at provisioning starts misinstructing the AI after any
+-- change to those. Anything user-specific belongs in the plan document instead.
+DROP TABLE IF EXISTS ai_template;
+`;
+
 /** Ordered list of migrations; applied once each, tracked in `_gain_migration`. */
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: "domain-model-v1", sql: MIGRATION_001 },
+  { version: 2, name: "drop-ai-template", sql: MIGRATION_002 },
 ];

@@ -11,7 +11,7 @@ import { stringify } from "yaml";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { importPlan } from "../../src/lib/db/import-plan";
 import { logsForPlan } from "../../src/lib/db/logs";
-import { getDefaultTemplate, getExerciseDefIdBySlug } from "../../src/lib/db/read";
+import { getExerciseDefIdBySlug } from "../../src/lib/db/read";
 import { openUserDb, type UserDb } from "../../src/lib/db/user-db";
 import { logDeviation, logMetric, logSet, startWorkout } from "../../src/lib/db/workout";
 import { parsePlanDocument } from "../../src/lib/parse/parser";
@@ -29,12 +29,7 @@ describe("logsForPlan", () => {
 
   beforeEach(() => {
     dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "gain-logs-test-"));
-    userDb = openUserDb(dataDir, "user-1", {
-      now: NOW,
-      seedTemplates: [
-        { name: "Default revision instructions", body_md: "TEMPLATE BODY", is_default: true },
-      ],
-    });
+    userDb = openUserDb(dataDir, "user-1", { now: NOW });
 
     const parsed = parsePlanDocument(fixtureMd);
     if (!parsed.ok) throw new Error(`fixture failed to parse: ${parsed.kind}`);
@@ -282,30 +277,5 @@ describe("logsForPlan", () => {
 
   it("returns nothing for an unknown plan id", () => {
     expect(logsForPlan(userDb, "not-a-plan").workouts).toEqual([]);
-  });
-});
-
-describe("getDefaultTemplate", () => {
-  let dataDir: string;
-  let userDb: UserDb;
-
-  afterEach(() => {
-    userDb.close();
-    fs.rmSync(dataDir, { recursive: true, force: true });
-  });
-
-  it("returns the seeded default template body", () => {
-    dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "gain-template-test-"));
-    userDb = openUserDb(dataDir, "user-1", {
-      now: NOW,
-      seedTemplates: [{ name: "Default revision instructions", body_md: "BODY", is_default: true }],
-    });
-    expect(getDefaultTemplate(userDb)).toBe("BODY");
-  });
-
-  it("returns undefined when nothing is marked default", () => {
-    dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "gain-template-test-"));
-    userDb = openUserDb(dataDir, "user-1", { now: NOW });
-    expect(getDefaultTemplate(userDb)).toBeUndefined();
   });
 });

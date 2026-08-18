@@ -227,7 +227,6 @@ deviation            id, workout_id, exercise_def_id, kind (skip|substitute|
                           substitute_exercise_slug, client_id
 activity             id, kind (free-form slug, user's own vocabulary),
                           occurred_at, duration_min, intensity, note, client_id
-ai_template          id, name, body_md, is_default, updated_at
 ```
 
 The model is split along the same line as the contract: **identity is plan-scoped,
@@ -679,7 +678,7 @@ One `.md` file, self-contained, ready to paste or upload into any chat.
 ```markdown
 # GAIN Export — <Plan> — <window>
 
-## 0. Your task                       ← user-editable template, verbatim
+## 0. Your task                       ← shipped app template, verbatim
 ## 1. The current plan                ← source_md of the current version, verbatim:
                                         the prose context AND the gain-plan block,
                                         exactly as the user pasted it in
@@ -711,12 +710,15 @@ One `.md` file, self-contained, ready to paste or upload into any chat.
   rules in imperative terms: preserve every `id`; bump `version`; set
   `based_on_version`; populate `changelog`; never reuse an id for a different movement;
   emit the whole plan, not a patch.
-- **Section 0 is the user-editable template** — per user, versioned. The seeded default
-  is [`templates/default-ai-instructions.md`](../templates/default-ai-instructions.md).
-  It is deliberately plan-agnostic: it tells the AI to read and honour the
-  principles in Section 1 rather than restating them, so it still works when the
-  plan is replaced. Multiple named templates are supported (e.g. "routine 4-week
-  review" vs "I'm injured, be cautious").
+- **Section 0 is shipped app code**, seeded from
+  [`templates/default-ai-instructions.md`](../templates/default-ai-instructions.md), and
+  deliberately plan-agnostic: it tells the AI to read and honour the principles in
+  Section 1 rather than restating them, so it still works when the plan is replaced. It is
+  not per-user and not editable in the app, because it is coupled to the export's
+  structure, the `weight_kg` rule and the parser's error behaviour — a copy pinned at
+  provisioning would misinstruct the AI the moment any of those changed underneath it.
+  Anything user- or plan-specific belongs in the plan document, which Section 0 already
+  defers to.
 
   Templates support a small fixed set of substitutions, left as literal text if unknown:
   `{{plan_name}}`, `{{plan_version}}`, `{{export_window}}`, `{{today}}`,
@@ -791,7 +793,7 @@ actually be built. It belongs to phase 3, when a shell exists to put it in.
 | 5 | **Export UI** — route, window picker, copy with download fallback | A logged block leaves GAIN as one pasteable document, in one tap |
 | 6 | Offline PWA: IndexedDB, sync queue, idempotency | Airplane-mode session syncs cleanly on reconnect; property tests pass; a workout survives a full browser kill |
 | 7 | Progress, history, charts, **and the Home screen** — suggested next session, activity logging, the next-morning prompt | Double-progression state matches hand-calculated expectations; Home suggests the right next session; per-exercise, per-session-type and metric-trend charts render from real logs; History drills into full set detail |
-| 8 | Revision diff review, template editor | A logged block exports, comes back revised, and the diff is reviewed and committed — the loop closes |
+| 8 | Revision diff review | A logged block exports, comes back revised, and the diff is reviewed and committed — the loop closes |
 | 9 | Operations — operator view, per-user reset | An operator signed in as a member of `OIDC_ADMIN_GROUP` sees every registered user with a human-readable label and per-user counts, resets any one of them to a clean slate, and that reset survives the wiped user reconnecting with a full offline outbox — while no code path in the app can read another user's training content |
 
 The item-by-item decomposition of phases 5–8, with acceptance criteria, is

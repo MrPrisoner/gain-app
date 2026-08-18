@@ -8,7 +8,6 @@
  */
 
 import { openUserDb, type UserDb } from "../db/user-db";
-import { defaultInstructionsTemplate } from "./assets";
 import { getConfig } from "./config";
 import { openControlDb, type ControlDb } from "./control-db";
 import { createJwks, discoverEndpoints, type JwksResolver, type OidcEndpoints } from "./oidc";
@@ -27,8 +26,7 @@ const userDbs = new Map<string, UserDb>();
 
 /**
  * This user's `gain.db`, provisioning it on first touch (ARCHITECTURE §4):
- * the directory tree, the migrations, and the default AI-instruction template
- * seeded from `templates/default-ai-instructions.md`.
+ * the directory tree and the migrations.
  */
 export function getUserDbFor(userId: string): UserDb {
   if (resetting.has(userId)) {
@@ -38,16 +36,7 @@ export function getUserDbFor(userId: string): UserDb {
   const cached = userDbs.get(userId);
   if (cached) return cached;
 
-  const userDb = openUserDb(getConfig().dataDir, userId, {
-    now: new Date(),
-    seedTemplates: [
-      {
-        name: "Default revision instructions",
-        body_md: defaultInstructionsTemplate,
-        is_default: true,
-      },
-    ],
-  });
+  const userDb = openUserDb(getConfig().dataDir, userId, { now: new Date() });
   userDbs.set(userId, userDb);
   return userDb;
 }

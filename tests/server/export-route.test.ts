@@ -27,16 +27,7 @@ describe("buildExportBundle", () => {
 
   beforeEach(() => {
     dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "gain-export-route-test-"));
-    userDb = openUserDb(dataDir, "user-1", {
-      now: NOW,
-      seedTemplates: [
-        {
-          name: "Default revision instructions",
-          body_md: "Review {{plan_name}}.",
-          is_default: true,
-        },
-      ],
-    });
+    userDb = openUserDb(dataDir, "user-1", { now: NOW });
 
     const parsed = parsePlanDocument(fixtureMd);
     if (!parsed.ok) throw new Error(`fixture failed to parse: ${parsed.kind}`);
@@ -81,7 +72,7 @@ describe("buildExportBundle", () => {
     if (!plan) throw new Error("plan missing");
     const result = buildExportBundle(userDb, plan, "full", NOW);
     if (!result.ok) throw new Error(result.message);
-    expect(result.bundle).toContain("Review Home Training Plan.");
+    expect(result.bundle).toContain("weeks of Home Training Plan v1");
     expect(result.bundle).not.toContain("{{plan_name}}");
   });
 

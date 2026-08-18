@@ -20,7 +20,6 @@ import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
 import { migrate } from "./migrate";
-import { newId } from "./ulid";
 
 /**
  * User IDs come from the OIDC `sub` claim (phase 3). Allow the conservative
@@ -40,27 +39,16 @@ export type UserDb = {
   close(): void;
 };
 
-export type SeedTemplate = {
-  name: string;
-  body_md: string;
-  is_default?: boolean;
-};
-
 export type ProvisionOptions = {
   /** Injected clock — the deterministic-core rule applies to provisioning too. */
   now: Date;
-  /**
-   * AI instruction templates to seed when the user has none. Phase 3 passes the
-   * bundled `templates/default-ai-instructions.md` here (ARCHITECTURE §4).
-   */
-  seedTemplates?: readonly SeedTemplate[];
 };
 
 /**
  * Open (and if necessary create) a user's database and directory tree.
  *
  * Idempotent: opening an existing user runs migrations forward and returns the
- * same handle. Seeding only happens when `ai_template` is empty.
+ * same handle.
  */
 export function openUserDb(dataDir: string, userId: string, options: ProvisionOptions): UserDb {
   if (!USER_ID_REGEX.test(userId)) {
@@ -81,39 +69,10 @@ export function openUserDb(dataDir: string, userId: string, options: ProvisionOp
 
   migrate(db, options.now);
 
-  if (options.seedTemplates && options.seedTemplates.length > 0) {
-    seedTemplatesIfEmpty(db, options.seedTemplates, options.now);
-  }
-
   return {
     db,
     userDir,
     dbPath,
     close: () => db.close(),
   };
-}
-
-function seedTemplatesIfEmpty(
-  db: Database.Database,
-  templates: readonly SeedTemplate[],
-  now: Date,
-): void {
-  const count = db.prepare("SELECT COUNT(*) AS n FROM ai_template").get() as { n: number };
-  if (count.n > 0) return;
-
-  const insert = db.prepare(
-    "INSERT INTO ai_template (id, name, body_md, is_default, updated_at) VALUES (?, ?, ?, ?, ?)",
-  );
-
-  db.transaction(() => {
-    for (const template of templates) {
-      insert.run(
-        newId(),
-        template.name,
-        template.body_md,
-        template.is_default ? 1 : 0,
-        now.toISOString(),
-      );
-    }
-  })();
 }

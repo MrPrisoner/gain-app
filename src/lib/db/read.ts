@@ -66,20 +66,6 @@ export function readSourceMd(userDb: UserDb, version: PlanVersionRow): string {
   return fs.readFileSync(path.join(userDb.userDir, version.source_path), "utf8");
 }
 
-/**
- * The body of the user's default AI-instruction template — Section 0 of an export
- * (ARCHITECTURE §11). Seeded from `templates/default-ai-instructions.md` at provisioning
- * and user-editable from phase 8; undefined when nothing is marked default, which the
- * caller resolves by falling back to the bundled asset rather than exporting a bundle
- * with no task in it.
- */
-export function getDefaultTemplate(userDb: UserDb): string | undefined {
-  const row = userDb.db
-    .prepare("SELECT body_md FROM ai_template WHERE is_default = 1 ORDER BY updated_at LIMIT 1")
-    .get() as { body_md: string } | undefined;
-  return row?.body_md;
-}
-
 /** Resolve a plan version's owning plan id — for the offline sync replay path, where a
  * `start` op names its plan version directly rather than a plan slug. */
 export function getPlanIdForVersion(userDb: UserDb, planVersionId: string): string | undefined {

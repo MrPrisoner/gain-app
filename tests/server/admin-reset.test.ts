@@ -73,7 +73,7 @@ describe("resetUserData", () => {
   it("wipes the directory, bumps the generation, and re-provisions", () => {
     const control = openControlDb(dataDir, NOW);
     const user = createUser(control, "sub-a", NOW);
-    const db = openUserDb(dataDir, user.id, { now: NOW, seedTemplates: [] });
+    const db = openUserDb(dataDir, user.id, { now: NOW });
     seedPlan(db);
     db.close();
 
@@ -92,7 +92,7 @@ describe("resetUserData", () => {
   it("signs the user out everywhere", () => {
     const control = openControlDb(dataDir, NOW);
     const user = createUser(control, "sub-a", NOW);
-    openUserDb(dataDir, user.id, { now: NOW, seedTemplates: [] }).close();
+    openUserDb(dataDir, user.id, { now: NOW }).close();
     const session = createSession(control, {
       userId: user.id,
       now: NOW,
@@ -126,7 +126,7 @@ describe("resetUserData", () => {
     const a = createUser(control, "sub-a", NOW);
     const b = createUser(control, "sub-b", NOW);
     for (const id of [a.id, b.id]) {
-      const db = openUserDb(dataDir, id, { now: NOW, seedTemplates: [] });
+      const db = openUserDb(dataDir, id, { now: NOW });
       seedPlan(db);
       db.close();
     }

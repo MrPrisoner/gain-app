@@ -60,7 +60,7 @@ describe("statsForUsers", () => {
   });
 
   it("counts a provisioned user's plans without reading their content", () => {
-    const db = openUserDb(dataDir, "alice", { now: NOW, seedTemplates: [] });
+    const db = openUserDb(dataDir, "alice", { now: NOW });
     seedPlan(db);
     db.close();
 
@@ -80,7 +80,7 @@ describe("statsForUsers", () => {
   it("opens a cold WAL database that has never been written to", () => {
     // Provision and close immediately: no -shm exists on disk. A readonly open of a
     // WAL database can fail here with SQLITE_CANTOPEN, so the module must fall back.
-    openUserDb(dataDir, "cold", { now: NOW, seedTemplates: [] }).close();
+    openUserDb(dataDir, "cold", { now: NOW }).close();
     fs.rmSync(path.join(dataDir, "users", "cold", "gain.db-shm"), { force: true });
     fs.rmSync(path.join(dataDir, "users", "cold", "gain.db-wal"), { force: true });
 
@@ -89,10 +89,10 @@ describe("statsForUsers", () => {
   });
 
   it("keeps one user's counts out of another's", () => {
-    const db = openUserDb(dataDir, "alice", { now: NOW, seedTemplates: [] });
+    const db = openUserDb(dataDir, "alice", { now: NOW });
     seedPlan(db);
     db.close();
-    openUserDb(dataDir, "bob", { now: NOW, seedTemplates: [] }).close();
+    openUserDb(dataDir, "bob", { now: NOW }).close();
 
     const stats = statsForUsers(dataDir, [user("alice"), user("bob")]);
     expect(stats.find((s) => s.userId === "alice")?.plans).toBe(1);

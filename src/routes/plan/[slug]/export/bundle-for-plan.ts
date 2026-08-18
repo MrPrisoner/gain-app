@@ -12,13 +12,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { contractMd, defaultInstructionsTemplate } from "$lib/server/assets";
 import { logsForPlan } from "$lib/db/logs";
-import {
-  contractOfVersion,
-  getCurrentVersion,
-  getDefaultTemplate,
-  readSourceMd,
-  type PlanRow,
-} from "$lib/db/read";
+import { contractOfVersion, getCurrentVersion, readSourceMd, type PlanRow } from "$lib/db/read";
 import type { UserDb } from "$lib/db/user-db";
 import { generateExport } from "$lib/export/bundle";
 import { resolveExportWindow, type ExportWindowContext } from "$lib/export/windows";
@@ -67,7 +61,7 @@ export function buildExportBundle(
       // Section 1 is the document on disk, byte-for-byte — never reassembled from
       // context_md plus a block (ARCHITECTURE §11).
       source_md: readSourceMd(userDb, version),
-      instructions_template: getDefaultTemplate(userDb) ?? defaultInstructionsTemplate,
+      instructions_template: defaultInstructionsTemplate,
       contract_md: contractMd,
       // Unwindowed on purpose: generateExport filters internally, and weeksElapsed
       // reads the full set for {{weeks_elapsed}}.

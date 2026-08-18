@@ -57,8 +57,8 @@ screen (`src/routes/admin/`) reads each user's aggregates back as one interpreti
 sentence rather than a grid, and its per-user reset (`src/lib/server/admin-reset.ts`)
 bumps `control_user.data_generation` so the wiped user's offline outbox is rejected
 wholesale on reconnect rather than quarantining piecemeal. `e2e/admin-walkthrough.spec.ts`
-is the durable proof. Phase 8 has not started. **Phase 8 (revision diff review,
-template editor) is next.**
+is the durable proof. Phase 8 has not started. **Phase 8 (revision diff review) is
+next.**
 
 Two files hold the plan: the build-order table in ARCHITECTURE §12 is the map, and
 [`docs/ROADMAP.md`](docs/ROADMAP.md) is the itinerary — the remaining work item by item,
@@ -385,7 +385,10 @@ protect:
 - **`docs/CONTRACT.md` is shipped output, not internal documentation.** It is reproduced
   verbatim in **both** outbound templates — Section 4 of every export and Section 2 of the
   bootstrap prompt — so editing it changes the instructions every AI receives, whether it
-  is authoring a first plan or revising one.
+  is authoring a first plan or revising one. `templates/bootstrap-prompt.md` and
+  `templates/default-ai-instructions.md` are shipped output on the same terms: editing
+  either changes the instructions every AI receives, they are versioned with the app
+  rather than per user, and nothing may reintroduce a per-user copy of either.
 - **Every failed import produces a pasteable report — not just contract violations.**
   Field path, expected, found, written for an AI to read. The user's recovery from a bad
   import is pasting the error back into their chat, never hand-editing YAML, so a failure

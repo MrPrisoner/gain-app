@@ -32,7 +32,6 @@ import { openUserDb } from "../src/lib/db/user-db";
 import { openControlDb, findUserBySub, createUser } from "../src/lib/server/control-db";
 
 const FIXTURE_PATH = path.join(process.cwd(), "fixtures/plans/home-training-v1.md");
-const AI_INSTRUCTIONS_PATH = path.join(process.cwd(), "templates/default-ai-instructions.md");
 
 export type SeededFixture = {
   userId: string;
@@ -50,16 +49,7 @@ export function seedFixturePlan(dataDir: string, devUser: string, now = new Date
     const sub = `dev-bypass:${devUser}`;
     const user = findUserBySub(control, sub) ?? createUser(control, sub, now);
 
-    const userDb = openUserDb(dataDir, user.id, {
-      now,
-      seedTemplates: [
-        {
-          name: "Default revision instructions",
-          body_md: fs.readFileSync(AI_INSTRUCTIONS_PATH, "utf8"),
-          is_default: true,
-        },
-      ],
-    });
+    const userDb = openUserDb(dataDir, user.id, { now });
     try {
       const source = fs.readFileSync(FIXTURE_PATH, "utf8");
       const parsed = parsePlanDocument(source);
