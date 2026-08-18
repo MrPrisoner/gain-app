@@ -1050,7 +1050,7 @@ git commit -m "feat(admin): add the count-only per-user stats reader"
   - `resetUserData(control: ControlDb, dataDir: string, userId: string): { generation: number }`
     from `admin-reset.ts`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/server/admin-reset.test.ts`:
 
@@ -1189,12 +1189,12 @@ describe("resetUserData", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npx vitest run tests/server/admin-reset.test.ts`
 Expected: FAIL — cannot resolve `$lib/server/admin-reset`.
 
-- [ ] **Step 3: Add the eviction and reset guard to `app-state.ts`**
+- [x] **Step 3: Add the eviction and reset guard to `app-state.ts`**
 
 ```ts
 /**
@@ -1236,7 +1236,7 @@ At the top of `getUserDbFor`, before the cache read:
 
 Add `resetting.clear();` to `resetAppStateForTests`.
 
-- [ ] **Step 4: Implement the reset**
+- [x] **Step 4: Implement the reset**
 
 Create `src/lib/server/admin-reset.ts`:
 
@@ -1298,12 +1298,12 @@ export function resetUserData(
 }
 ```
 
-- [ ] **Step 5: Run the test to verify it passes**
+- [x] **Step 5: Run the test to verify it passes**
 
 Run: `npx vitest run tests/server/admin-reset.test.ts`
 Expected: PASS.
 
-- [ ] **Step 6: Verify and commit**
+- [x] **Step 6: Verify and commit**
 
 Run: `npx prettier --write src/lib/server/admin-reset.ts src/lib/server/app-state.ts tests/server/admin-reset.test.ts && npm run verify`
 

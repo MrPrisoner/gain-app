@@ -31,6 +31,10 @@ const userDbs = new Map<string, UserDb>();
  * seeded from `templates/default-ai-instructions.md`.
  */
 export function getUserDbFor(userId: string): UserDb {
+  if (resetting.has(userId)) {
+    throw new Error(`User ${userId} is being reset; their database is unavailable.`);
+  }
+
   const cached = userDbs.get(userId);
   if (cached) return cached;
 
@@ -46,6 +50,34 @@ export function getUserDbFor(userId: string): UserDb {
   });
   userDbs.set(userId, userDb);
   return userDb;
+}
+
+/**
+ * Close this user's `gain.db` and forget it. Called before a reset unlinks the file:
+ * `better-sqlite3` holds it open, and on Linux the unlink then leaves this process
+ * writing to a deleted inode — the reset appears to work and silently does not.
+ */
+export function evictUserDb(userId: string): void {
+  const db = userDbs.get(userId);
+  if (db) {
+    db.close();
+    userDbs.delete(userId);
+  }
+}
+
+/**
+ * Users currently mid-reset. Their sessions are already gone by the time the directory
+ * is unlinked, so no *authenticated* request can arrive — but one already in flight can,
+ * and would re-open the handle between the eviction and the re-provision.
+ */
+const resetting = new Set<string>();
+
+export function beginReset(userId: string): void {
+  resetting.add(userId);
+}
+
+export function endReset(userId: string): void {
+  resetting.delete(userId);
 }
 
 let endpointsCache: OidcEndpoints | null = null;
@@ -98,6 +130,7 @@ export function getJwksFor(jwksUri: string): JwksResolver {
 export function resetAppStateForTests(): void {
   for (const userDb of userDbs.values()) userDb.close();
   userDbs.clear();
+  resetting.clear();
   controlDb?.close();
   controlDb = null;
   endpointsCache = null;
