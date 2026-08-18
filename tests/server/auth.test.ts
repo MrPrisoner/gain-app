@@ -162,6 +162,7 @@ function seedSession(options: {
   refreshToken?: string | null;
   createdAt?: Date;
   idToken?: string | null;
+  isAdmin?: boolean;
 }): string {
   const createdAt = options.createdAt ?? NOW;
   const session = createSession(control, {
@@ -177,6 +178,7 @@ function seedSession(options: {
       refresh_token: options.refreshToken === undefined ? "refresh-1" : options.refreshToken,
       id_token: options.idToken ?? null,
     },
+    isAdmin: options.isAdmin ?? false,
   });
   return session.id;
 }

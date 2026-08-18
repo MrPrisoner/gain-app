@@ -116,6 +116,8 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
       refresh_token: tokens.refresh_token ?? null,
       id_token: tokens.id_token ?? null,
     },
+    // Task 3 replaces this with the real group check; nothing reads the flag yet.
+    isAdmin: false,
   });
 
   setSessionCookie(cookies, config, session.id);

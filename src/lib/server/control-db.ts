@@ -54,6 +54,27 @@ const MIGRATIONS: ControlMigration[] = [
       );
     `,
   },
+  {
+    version: 2,
+    name: "admin-and-generation",
+    sql: `
+      -- The operator needs a human-readable label to aim a reset at; a list of
+      -- ULIDs forces the identification step out into Authentik, unchecked
+      -- (spec §1). This narrows "nothing personal in control.db" to "no training
+      -- data in control.db" — see ARCHITECTURE §4.
+      ALTER TABLE control_user ADD COLUMN display_label TEXT;
+
+      -- Bumped by a reset. The offline outbox carries the generation it was
+      -- filled under, so ops from before a wipe are rejected wholesale rather
+      -- than flushing back in and quarantining forever (spec §7).
+      ALTER TABLE control_user ADD COLUMN data_generation INTEGER NOT NULL DEFAULT 0;
+
+      -- Admin-ness is a property of the session, not the user: it is recomputed
+      -- from the IdP's groups at login and on every token refresh, so there is no
+      -- stored privilege that can disagree with Authentik (spec §3).
+      ALTER TABLE session ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0;
+    `,
+  },
 ];
 
 const TRACKING_TABLE = `
@@ -72,6 +93,10 @@ export type ControlUser = {
   oidc_sub: string;
   created_at: string;
   last_login_at: string;
+  /** Operator-facing label only (§4) — never an identity key. */
+  display_label: string | null;
+  /** Bumped by an admin reset; the offline outbox is stamped with it. */
+  data_generation: number;
 };
 
 export type SessionRow = {
@@ -84,6 +109,8 @@ export type SessionRow = {
   access_expires_at: string | null;
   refresh_token: string | null;
   id_token: string | null;
+  /** SQLite has no boolean: 0 or 1. Re-derived from the IdP's groups, never stored on the user. */
+  is_admin: number;
 };
 
 export type OidcStateRow = {
@@ -158,6 +185,8 @@ export function createUser(control: ControlDb, oidcSub: string, now: Date): Cont
     oidc_sub: oidcSub,
     created_at: now.toISOString(),
     last_login_at: now.toISOString(),
+    display_label: null,
+    data_generation: 0,
   };
   control.db
     .prepare(
@@ -165,6 +194,40 @@ export function createUser(control: ControlDb, oidcSub: string, now: Date): Cont
     )
     .run(user.id, user.oidc_sub, user.created_at, user.last_login_at);
   return user;
+}
+
+/** Every registered user, most recently active first — the admin list's source. */
+export function listUsers(control: ControlDb): ControlUser[] {
+  return control.db
+    .prepare("SELECT * FROM control_user ORDER BY last_login_at DESC")
+    .all() as ControlUser[];
+}
+
+/**
+ * The label the operator identifies this user by, rewritten on every login from
+ * `preferred_username ?? email ?? name`. Display only — never an identity key (§4).
+ */
+export function setDisplayLabel(control: ControlDb, userId: string, label: string | null): void {
+  control.db.prepare("UPDATE control_user SET display_label = ? WHERE id = ?").run(label, userId);
+}
+
+/** Invalidate everything the client queued under the old generation. Returns the new one. */
+export function bumpDataGeneration(control: ControlDb, userId: string): number {
+  const row = control.db
+    .prepare(
+      "UPDATE control_user SET data_generation = data_generation + 1 WHERE id = ? " +
+        "RETURNING data_generation",
+    )
+    .get(userId) as { data_generation: number } | undefined;
+  if (!row) throw new Error(`No such user: ${userId}`);
+  return row.data_generation;
+}
+
+export function getDataGeneration(control: ControlDb, userId: string): number {
+  const row = control.db
+    .prepare("SELECT data_generation FROM control_user WHERE id = ?")
+    .get(userId) as { data_generation: number } | undefined;
+  return row?.data_generation ?? 0;
 }
 
 export function touchUserLogin(control: ControlDb, userId: string, now: Date): void {
@@ -191,7 +254,13 @@ export type NewSessionTokens = {
 
 export function createSession(
   control: ControlDb,
-  input: { userId: string; now: Date; idleMs: number; tokens: NewSessionTokens },
+  input: {
+    userId: string;
+    now: Date;
+    idleMs: number;
+    tokens: NewSessionTokens;
+    isAdmin: boolean;
+  },
 ): SessionRow {
   const session: SessionRow = {
     id: newSessionId(),
@@ -203,13 +272,14 @@ export function createSession(
     access_expires_at: input.tokens.access_expires_at,
     refresh_token: input.tokens.refresh_token,
     id_token: input.tokens.id_token,
+    is_admin: input.isAdmin ? 1 : 0,
   };
   control.db
     .prepare(
       `INSERT INTO session (
          id, user_id, created_at, last_seen_at, expires_at,
-         access_token, access_expires_at, refresh_token, id_token
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         access_token, access_expires_at, refresh_token, id_token, is_admin
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       session.id,
@@ -221,6 +291,7 @@ export function createSession(
       session.access_expires_at,
       session.refresh_token,
       session.id_token,
+      session.is_admin,
     );
   return session;
 }
@@ -273,8 +344,23 @@ export function storeRefreshedTokens(
     );
 }
 
+/** Re-stamp a live session's operator flag after a token refresh re-read the groups. */
+export function setSessionAdmin(control: ControlDb, sessionId: string, isAdmin: boolean): void {
+  control.db
+    .prepare("UPDATE session SET is_admin = ? WHERE id = ?")
+    .run(isAdmin ? 1 : 0, sessionId);
+}
+
 export function deleteSession(control: ControlDb, sessionId: string): void {
   control.db.prepare("DELETE FROM session WHERE id = ?").run(sessionId);
+}
+
+/**
+ * Sign this user out everywhere. The first step of a reset (spec §6): nothing
+ * authenticated can write once their sessions are gone.
+ */
+export function deleteSessionsForUser(control: ControlDb, userId: string): number {
+  return control.db.prepare("DELETE FROM session WHERE user_id = ?").run(userId).changes;
 }
 
 /** Housekeeping — drop sessions whose sliding window has fully elapsed. */

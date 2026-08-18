@@ -8,17 +8,23 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  bumpDataGeneration,
   createSession,
   createUser,
   deleteSession,
+  deleteSessionsForUser,
   extendSession,
   findUserBySub,
+  getDataGeneration,
   getSession,
   getUserById,
+  listUsers,
   openControlDb,
   purgeExpiredSessions,
   purgeOidcState,
   putOidcState,
+  setDisplayLabel,
+  setSessionAdmin,
   storeRefreshedTokens,
   takeOidcState,
   touchUserLogin,
@@ -50,14 +56,17 @@ describe("control.db", () => {
       version: number;
       name: string;
     }[];
-    expect(rows).toEqual([{ version: 1, name: "control-foundation" }]);
+    expect(rows).toEqual([
+      { version: 1, name: "control-foundation" },
+      { version: 2, name: "admin-and-generation" },
+    ]);
 
     control.close();
     control = openControlDb(dataDir, NOW);
     const again = control.db.prepare("SELECT COUNT(*) AS n FROM _control_migration").get() as {
       n: number;
     };
-    expect(again.n).toBe(1);
+    expect(again.n).toBe(2);
   });
 
   describe("users", () => {
@@ -104,6 +113,7 @@ describe("control.db", () => {
           refresh_token: "rt",
           id_token: "idt",
         },
+        isAdmin: false,
       });
 
       expect(session.id).toMatch(/^[0-9a-f]{64}$/);
@@ -127,6 +137,7 @@ describe("control.db", () => {
           refresh_token: null,
           id_token: null,
         },
+        isAdmin: false,
       });
 
       expect(getSession(control, session.id, new Date(NOW.getTime() + IDLE_MS))).toBeUndefined();
@@ -148,6 +159,7 @@ describe("control.db", () => {
           refresh_token: null,
           id_token: null,
         },
+        isAdmin: false,
       });
 
       const later = new Date(NOW.getTime() + 30_000);
@@ -171,6 +183,7 @@ describe("control.db", () => {
           refresh_token: "rt",
           id_token: null,
         },
+        isAdmin: false,
       });
 
       storeRefreshedTokens(control, session.id, {
@@ -200,6 +213,7 @@ describe("control.db", () => {
           refresh_token: null,
           id_token: null,
         },
+        isAdmin: false,
       });
       const stale = createSession(control, {
         userId: user.id,
@@ -211,6 +225,7 @@ describe("control.db", () => {
           refresh_token: null,
           id_token: null,
         },
+        isAdmin: false,
       });
 
       deleteSession(control, keep.id);
@@ -257,6 +272,83 @@ describe("control.db", () => {
       expect(purgeOidcState(control, NOW, 10 * 60_000)).toBe(1);
       expect(takeOidcState(control, "fresh")).toBeDefined();
       expect(takeOidcState(control, "old")).toBeUndefined();
+    });
+  });
+
+  describe("migration 002 — admin and generation columns", () => {
+    it("defaults a new user to no label and generation 0", () => {
+      control = openControlDb(dataDir, NOW);
+      const user = createUser(control, "sub-1", NOW);
+      expect(user.display_label).toBeNull();
+      expect(user.data_generation).toBe(0);
+    });
+
+    it("stores and overwrites a display label", () => {
+      control = openControlDb(dataDir, NOW);
+      const user = createUser(control, "sub-1", NOW);
+      setDisplayLabel(control, user.id, "alice");
+      expect(getUserById(control, user.id)?.display_label).toBe("alice");
+      setDisplayLabel(control, user.id, "alice.renamed");
+      expect(getUserById(control, user.id)?.display_label).toBe("alice.renamed");
+    });
+
+    it("bumps the generation monotonically and reads it back", () => {
+      control = openControlDb(dataDir, NOW);
+      const user = createUser(control, "sub-1", NOW);
+      expect(bumpDataGeneration(control, user.id)).toBe(1);
+      expect(bumpDataGeneration(control, user.id)).toBe(2);
+      expect(getDataGeneration(control, user.id)).toBe(2);
+    });
+
+    it("lists users most-recently-logged-in first", () => {
+      control = openControlDb(dataDir, NOW);
+      const older = createUser(control, "sub-old", new Date("2026-01-01T00:00:00Z"));
+      const newer = createUser(control, "sub-new", new Date("2026-08-01T00:00:00Z"));
+      expect(listUsers(control).map((u) => u.id)).toEqual([newer.id, older.id]);
+    });
+
+    it("records is_admin on the session and updates it in place", () => {
+      control = openControlDb(dataDir, NOW);
+      const user = createUser(control, "sub-1", NOW);
+      const session = createSession(control, {
+        userId: user.id,
+        now: NOW,
+        idleMs: IDLE_MS,
+        tokens: {
+          access_token: null,
+          access_expires_at: null,
+          refresh_token: null,
+          id_token: null,
+        },
+        isAdmin: true,
+      });
+      expect(session.is_admin).toBe(1);
+      setSessionAdmin(control, session.id, false);
+      expect(getSession(control, session.id, NOW)?.is_admin).toBe(0);
+    });
+
+    it("deletes every session belonging to one user and no others", () => {
+      control = openControlDb(dataDir, NOW);
+      const a = createUser(control, "sub-a", NOW);
+      const b = createUser(control, "sub-b", NOW);
+      const tokens = {
+        access_token: null,
+        access_expires_at: null,
+        refresh_token: null,
+        id_token: null,
+      };
+      createSession(control, { userId: a.id, now: NOW, idleMs: IDLE_MS, tokens, isAdmin: false });
+      createSession(control, { userId: a.id, now: NOW, idleMs: IDLE_MS, tokens, isAdmin: false });
+      const kept = createSession(control, {
+        userId: b.id,
+        now: NOW,
+        idleMs: IDLE_MS,
+        tokens,
+        isAdmin: false,
+      });
+
+      expect(deleteSessionsForUser(control, a.id)).toBe(2);
+      expect(getSession(control, kept.id, NOW)).toBeDefined();
     });
   });
 });

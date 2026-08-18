@@ -292,7 +292,7 @@ git commit -m "feat(admin): add OIDC_ADMIN_GROUP and the dev admin switch"
   - `getDataGeneration(control: ControlDb, userId: string): number`
   - `deleteSessionsForUser(control: ControlDb, userId: string): number` — rows deleted.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Add to `tests/server/control-db.test.ts`. Follow the existing file's setup for opening a
 temp-directory control db.
@@ -366,12 +366,12 @@ describe("migration 002 — admin and generation columns", () => {
 });
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `npx vitest run tests/server/control-db.test.ts`
 Expected: FAIL — the new functions are not exported.
 
-- [ ] **Step 3: Add migration 002**
+- [x] **Step 3: Add migration 002**
 
 Append to the `MIGRATIONS` array in `src/lib/server/control-db.ts`:
 
@@ -399,7 +399,7 @@ Append to the `MIGRATIONS` array in `src/lib/server/control-db.ts`:
   },
 ```
 
-- [ ] **Step 4: Update the row types and `createUser`/`createSession`**
+- [x] **Step 4: Update the row types and `createUser`/`createSession`**
 
 `ControlUser` gains:
 
@@ -418,7 +418,7 @@ In `createSession`, add `isAdmin: boolean` to the input type, set
 `is_admin: input.isAdmin ? 1 : 0` on the object, and add the column and its parameter to
 the INSERT.
 
-- [ ] **Step 5: Add the new accessors**
+- [x] **Step 5: Add the new accessors**
 
 ```ts
 /** Every registered user, most recently active first — the admin list's source. */
@@ -471,7 +471,7 @@ export function deleteSessionsForUser(control: ControlDb, userId: string): numbe
 }
 ```
 
-- [ ] **Step 6: Run the tests to verify they pass**
+- [x] **Step 6: Run the tests to verify they pass**
 
 Run: `npx vitest run tests/server/control-db.test.ts`
 Expected: PASS.
@@ -488,7 +488,7 @@ here, in this commit, or the suite does not compile:
   `config.adminGroup` consumer yet, and leaving the file uncompilable to "save" one line
   would break the task boundary.
 
-- [ ] **Step 7: Verify and commit**
+- [x] **Step 7: Verify and commit**
 
 Run: `npx prettier --write src/lib/server/control-db.ts tests/server/control-db.test.ts && npm run verify`
 
