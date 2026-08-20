@@ -488,6 +488,16 @@ protect:
   it collides with. The ULID-ordering "an older write must never win" guard still runs
   unconditionally, since it only ever returns an existing row without writing — it is the
   _overwrite_ that needs the caller's explicit say-so, not the lookup itself.
+- **The sync banner is gated on time, and nothing else may report sync state in flow.**
+  It renders above `<main>`, so mounting one reflows the page — and a healthy online write
+  goes idle → pending → syncing → idle in about a tenth of a second, which used to raise
+  and drop two banners under the user's thumb mid-set. `$lib/sync/banner-gate.ts` holds
+  the rule: say nothing until a message has held for 700ms, and once said leave it up for
+  1.5s. The consequence is deliberate — a healthy sync is now _silent_, because there is
+  nothing the user can do about it, and "Syncing…" only ever appears when syncing is
+  genuinely slow. A component that reads `syncStatus.state` directly to render its own
+  spinner or badge reintroduces the flicker one screen at a time; route sync feedback
+  through the banner, or through the gate.
 - **The operator sees counts, never content — and the reset's order is load-bearing.**
   `OIDC_ADMIN_GROUP` grants a `/admin` screen (ARCHITECTURE §4) whose every cross-user
   read goes through `src/lib/server/admin-stats.ts`, which returns only `COUNT(*)`,

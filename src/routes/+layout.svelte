@@ -2,6 +2,8 @@
   import "../app.css";
   import { REPO_URL } from "$lib/repo";
   import { discardQuarantined, setGeneration, syncStatus } from "$lib/sync/client.svelte";
+  import { bannerText } from "$lib/sync/banner";
+  import { createBannerGate } from "$lib/sync/banner-gate";
   import type { LayoutData } from "./$types";
 
   let { data, children }: { data: LayoutData; children: import("svelte").Snippet } = $props();
@@ -16,38 +18,29 @@
    * on any screen, and a sync state visible only where it was created is a sync state
    * nobody sees. Nothing renders when there is nothing to say: idle with an empty queue
    * and no quarantined ops.
+   *
+   * What it says lives in `$lib/sync/banner.ts` and when it may say it in
+   * `$lib/sync/banner-gate.ts`, both pure and both unit-tested. The gate is why a
+   * healthy write is now silent: the banner reflows the page, and a sync that starts and
+   * finishes inside 100ms was mounting and unmounting one under the user's thumb
+   * mid-session. See that module for the full reasoning.
    */
-  const bannerText = $derived.by(() => {
-    if (syncStatus.resetNotice) {
-      return "Your data was reset by the administrator.";
-    }
+  let banner = $state("");
 
-    const { state, pending, quarantined } = syncStatus;
-    const parts: string[] = [];
+  $effect(() => {
+    const gate = createBannerGate({
+      appearAfterMs: 700,
+      minVisibleMs: 1_500,
+      onChange: (text) => (banner = text),
+    });
 
-    switch (state) {
-      case "syncing":
-        parts.push(`Syncing ${pending} workout${pending === 1 ? "" : "s"}…`);
-        break;
-      case "offline":
-        parts.push(`Offline — ${pending} saved on this device`);
-        break;
-      case "needs-auth":
-        parts.push("Signed out — your workout is saved. Reconnect to sync");
-        break;
-      case "error":
-        parts.push(`Sync failed — ${pending} saved on this device. Retrying`);
-        break;
-      case "idle":
-        if (pending > 0) parts.push(`${pending} saved on this device`);
-        break;
-    }
+    // Nested `$effect` so the gate itself is created once per mount while this inner
+    // pass re-runs on every status change. Reading `syncStatus` here rather than in the
+    // outer effect is what keeps the gate — and with it the elapsed time a message has
+    // been up — from being torn down and rebuilt by the very changes it exists to damp.
+    $effect(() => gate.update(bannerText(syncStatus)));
 
-    if (quarantined > 0) {
-      parts.push(`${quarantined} ${quarantined === 1 ? "entry" : "entries"} could not sync`);
-    }
-
-    return parts.join(" — ");
+    return () => gate.dispose();
   });
 </script>
 
@@ -69,9 +62,9 @@
     </div>
   </header>
 
-  {#if bannerText}
+  {#if banner}
     <p class="sync-banner" role="status">
-      {bannerText}
+      {banner}
       {#if syncStatus.state === "needs-auth"}
         <a href="/login">Sign in</a>
       {/if}
