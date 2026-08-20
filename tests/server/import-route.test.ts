@@ -110,6 +110,17 @@ function exerciseSlugExists(slug: string): boolean {
 // ---------------------------------------------------------------------------
 
 describe("?/check", () => {
+  it("asks for a document rather than reporting a parse error on an empty box", async () => {
+    const result = (await action("check")(event({ source_md: "   " }))) as {
+      status: number;
+      data: { importError: string; source: string };
+    };
+
+    expect(result.status).toBe(400);
+    expect(result.data.importError).toMatch(/paste.*(document|plan)/i);
+    expect(result.data.source).toBe("   ");
+  });
+
   it("previews a first import, without writing anything", async () => {
     const result = (await action("check")(event({ source_md: FIXTURE_V1 }))) as {
       firstImport: { counts: { sessions: number } };

@@ -2,7 +2,7 @@
   import { untrack } from "svelte";
   import { enhance } from "$app/forms";
   import { copyText, downloadText } from "$lib/copy";
-  import { syncStatus } from "$lib/sync/client.svelte";
+  import { refreshCounts, syncStatus } from "$lib/sync/client.svelte";
   import IconCheck from "~icons/lucide/check";
   import IconCircleCheck from "~icons/lucide/circle-check";
   import IconCopy from "~icons/lucide/copy";
@@ -19,6 +19,15 @@
   // `pasted` is the live value (bound into ImportPlanForm) and must never be clobbered by
   // a later `form` update — that would blow away what the user just typed.
   let pasted = $state(untrack(() => form?.source ?? ""));
+
+  // `syncStatus.pending` is only kept current by `logWrite`, `discardQuarantined` and
+  // the flush loop — none of which this route ever calls, since there is no plan slug
+  // here to pass `startSyncLoop`. Without this, the outbox note below reads whatever
+  // the module's `$state` happened to hold (zero on a hard load; stale on an SPA
+  // navigation from Home) rather than the actual current count.
+  $effect(() => {
+    void refreshCounts();
+  });
 
   let copied = $state(false);
   let copyTimer: ReturnType<typeof setTimeout> | undefined = $state(undefined);

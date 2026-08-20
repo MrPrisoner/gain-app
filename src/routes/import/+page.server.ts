@@ -113,7 +113,11 @@ export const actions: Actions = {
 
     const result = importPlan(userDb, { parsed, now: new Date(), renames });
     if (!result.ok) {
-      return fail(409, { importError: result.message, source });
+      // `version_not_newer` is a genuine conflict; `invalid_rename` is a bad request —
+      // the client sent a mapping that no longer validates against the freshly
+      // re-parsed document. Collapsing both to 409 mislabels the second case.
+      const status = result.kind === "version_not_newer" ? 409 : 400;
+      return fail(status, { importError: result.message, source });
     }
 
     throw redirect(303, "/");

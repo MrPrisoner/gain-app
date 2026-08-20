@@ -31,14 +31,17 @@
   <div class="row">
     <p class="name">{d.name}</p>
     {#if d.reason}<p class="reason">{d.reason}</p>{/if}
-    <select bind:value={choices[d.slug]} aria-label={`What happened to ${d.name}?`}>
+    <select
+      name={`disposition:${d.slug}`}
+      bind:value={choices[d.slug]}
+      aria-label={`What happened to ${d.name}?`}
+    >
       <option value="">Choose…</option>
       <option value="removed">Removed on purpose</option>
       {#each d.options as option (option.slug)}
         <option value={`rename:${option.slug}`}>Renamed to {option.name}</option>
       {/each}
     </select>
-    <input type="hidden" name={`disposition:${d.slug}`} value={choices[d.slug] ?? ""} />
   </div>
 {/each}
 

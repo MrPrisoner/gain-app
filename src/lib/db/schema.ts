@@ -33,6 +33,13 @@ export type Migration = {
   sql: string;
 };
 
+// Migrations are append-only: once a migration has shipped it may have already run
+// against real data, so its SQL is never edited — a change goes in a new migration
+// appended to `MIGRATIONS` below. The one sanctioned exception is a comment-only edit
+// to a landed migration's DDL text (never the DDL itself), since a database already
+// migrated has that text baked into `sqlite_master` regardless of what the source now
+// says — `exercise_def.slug`'s column comment below picked up "except by a reviewed
+// rename" this way, cosmetic-only and behaviourally inert on already-migrated databases.
 const MIGRATION_001 = `
 -- ---------------------------------------------------------------------------
 -- Plan identity and versions

@@ -189,11 +189,11 @@
   {/if}
 
   <section class="card">
-    <h2>
-      {form?.prompt ? "3 · Paste the plan your AI gave you" : "Or paste a plan you already have"}
-    </h2>
+    <h2>{form?.prompt ? "3 · Bring back the plan" : "Already have a plan?"}</h2>
     <p class="muted">
-      The whole document — prose and contract block. GAIN checks it before writing anything.
+      {form?.prompt
+        ? "Once your AI hands you a document, bring it here."
+        : "Skip the interview and bring a plan document you already have."}
     </p>
     <a class="primary-link" href="/import"><IconUpload />Paste the plan your AI gave you</a>
   </section>

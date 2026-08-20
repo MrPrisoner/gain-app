@@ -10,7 +10,7 @@
  *    synthetic sub, so a browser signing in with the same `GAIN_DEV_USER`
  *    value lands on the same account this seeded;
  *  - the plan is committed through `parsePlanDocument` + `importPlan`, the
- *    same parse-then-write path the `confirmImport` action calls.
+ *    same parse-then-write path the import route's `commit` action calls.
  *
  * This module intentionally imports `src/lib/**` by relative path rather than
  * the `$lib` alias, and skips `src/routes/+page.server.ts` and

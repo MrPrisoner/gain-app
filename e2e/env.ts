@@ -9,7 +9,8 @@
  * the global setup script both import this module, so both processes agree
  * on the path without any file-based handshake. A fresh directory per run
  * also means a re-run never collides with a previous run's committed plan
- * version (`confirmImport` refuses a second import at the same version).
+ * version (the import route's `commit` action refuses a second import at the
+ * same version).
  */
 
 import fs from "node:fs";

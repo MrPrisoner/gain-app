@@ -10,6 +10,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { importPlan } from "../../src/lib/db/import-plan";
 import { openUserDb, type UserDb } from "../../src/lib/db/user-db";
+import { logDeviation, startWorkout } from "../../src/lib/db/workout";
 import { parsePlanDocument } from "../../src/lib/parse/parser";
 
 const ROOT = new URL("../../", import.meta.url);
@@ -50,6 +51,30 @@ describe("importPlan renames", () => {
     return userDb.db
       .prepare("SELECT id, slug, first_seen_version FROM exercise_def WHERE slug = ?")
       .get(slug) as { id: string; slug: string; first_seen_version: number } | undefined;
+  }
+
+  /** `exercise_def` is scoped by `plan_id`, so a second plan needs the slug scoped too. */
+  function defRowForPlan(planId: string, slug: string) {
+    return userDb.db
+      .prepare("SELECT id, slug FROM exercise_def WHERE plan_id = ? AND slug = ?")
+      .get(planId, slug) as { id: string; slug: string } | undefined;
+  }
+
+  function planVersionId(planSlug: string, versionNo: number): string {
+    const plan = userDb.db.prepare("SELECT id FROM plan WHERE slug = ?").get(planSlug) as {
+      id: string;
+    };
+    const version = userDb.db
+      .prepare("SELECT id FROM plan_version WHERE plan_id = ? AND version_no = ?")
+      .get(plan.id, versionNo) as { id: string };
+    return version.id;
+  }
+
+  function deviationSubstitute(clientId: string): string | null {
+    const row = userDb.db
+      .prepare("SELECT substitute_exercise_slug FROM deviation WHERE client_id = ?")
+      .get(clientId) as { substitute_exercise_slug: string | null };
+    return row.substitute_exercise_slug;
   }
 
   it("carries history onto the new slug instead of minting a second def", () => {
@@ -127,5 +152,69 @@ describe("importPlan renames", () => {
     importDoc(userDb, mangledV2(), [{ from: "never-existed", to: "db-goblet-squat" }]);
     const dir = path.join(dataDir, "users", "user-1", "plans", "home-training");
     expect(fs.readdirSync(dir).filter((f) => f.endsWith(".staged"))).toEqual([]);
+  });
+
+  it("rewrites deviation.substitute_exercise_slug alongside the exercise_def it names", () => {
+    const proneRow = defRow("prone-row");
+    expect(proneRow).toBeDefined();
+
+    const { id: workoutId } = startWorkout(userDb, {
+      planVersionId: planVersionId("home-training", 1),
+      sessionKey: "A",
+      clientId: "workout-rename-a",
+      now: NOW,
+    });
+    logDeviation(userDb, {
+      workoutId,
+      exerciseDefId: proneRow!.id,
+      kind: "substitute",
+      substituteExerciseSlug: "goblet-squat",
+      clientId: "deviation-rename-a",
+    });
+
+    const result = importDoc(userDb, mangledV2(), [
+      { from: "goblet-squat", to: "db-goblet-squat" },
+    ]);
+    expect(result.ok).toBe(true);
+
+    expect(deviationSubstitute("deviation-rename-a")).toBe("db-goblet-squat");
+  });
+
+  it("scopes the deviation rewrite to the renamed plan and leaves another plan's alone", () => {
+    // A second plan, same fixture content, different slug — its own fresh exercise_defs,
+    // including its own `goblet-squat`.
+    const secondMd = v1Md.replace("  slug: home-training", "  slug: home-training-two");
+    const parsedSecond = parsePlanDocument(secondMd);
+    if (!parsedSecond.ok) throw new Error(`fixture failed to parse: ${parsedSecond.kind}`);
+    const secondImport = importPlan(userDb, { parsed: parsedSecond, now: NOW, renames: [] });
+    if (!secondImport.ok) throw new Error(secondImport.message);
+
+    const secondProneRow = defRowForPlan(secondImport.plan_id, "prone-row");
+    expect(secondProneRow).toBeDefined();
+
+    const { id: secondWorkoutId } = startWorkout(userDb, {
+      planVersionId: planVersionId("home-training-two", 1),
+      sessionKey: "A",
+      clientId: "workout-rename-b",
+      now: NOW,
+    });
+    logDeviation(userDb, {
+      workoutId: secondWorkoutId,
+      exerciseDefId: secondProneRow!.id,
+      kind: "substitute",
+      substituteExerciseSlug: "goblet-squat",
+      clientId: "deviation-rename-b",
+    });
+
+    // The rename import targets the FIRST plan only.
+    const result = importDoc(userDb, mangledV2(), [
+      { from: "goblet-squat", to: "db-goblet-squat" },
+    ]);
+    expect(result.ok).toBe(true);
+
+    // The second plan's deviation, naming the same slug, must be untouched — proof that
+    // `applyRenames`'s join through `plan_version`/`workout` actually scopes by plan
+    // rather than rewriting every row that happens to match the slug as a string.
+    expect(deviationSubstitute("deviation-rename-b")).toBe("goblet-squat");
   });
 });

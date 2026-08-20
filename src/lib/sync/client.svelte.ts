@@ -48,7 +48,7 @@ function store(): Promise<OutboxStore> {
   return storePromise;
 }
 
-async function refreshCounts(): Promise<void> {
+export async function refreshCounts(): Promise<void> {
   const counts = await (await store()).counts();
   syncStatus.pending = counts.pending;
   syncStatus.quarantined = counts.quarantined;
