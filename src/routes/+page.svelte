@@ -215,6 +215,7 @@
       suggestedKey={plan.suggestion.suggestedKey}
       lastSession={plan.suggestion.lastSession}
       sessions={plan.sessions}
+      todayDate={data.todayDate}
       schedulingRules={plan.schedulingRules}
       dropOrder={plan.dropOrder}
     />

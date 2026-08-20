@@ -81,6 +81,12 @@ export const load: PageServerLoad = ({ locals }) => {
     displayName: user.displayName,
     activityKinds: suggestActivityKinds(recentActivities(userDb)),
     nextMorningCandidates: nextMorningCandidates(userDb, new Date()),
+    // The server's own date, handed down so `lastDoneLabel` can render "3 days ago"
+    // without a clock. A component reading `Date.now()` would compute one thing during
+    // SSR and another on hydration, and the fix for that mismatch is always to render
+    // nothing until mount — which is a second layout shift on the screen these labels
+    // exist to stop shifting.
+    todayDate: new Date().toISOString().slice(0, 10),
   };
 };
 

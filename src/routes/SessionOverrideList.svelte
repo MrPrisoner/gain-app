@@ -1,6 +1,8 @@
 <script lang="ts">
   import IconChevronDown from "~icons/lucide/chevron-down";
   import IconPlay from "~icons/lucide/play";
+  import SessionSummary from "./SessionSummary.svelte";
+  import { lastDoneLabel } from "$lib/home/last-done";
 
   /**
    * The Home screen's secondary picker (design spec §4): every declared session,
@@ -15,6 +17,7 @@
     planSlug,
     suggestedKey,
     sessions,
+    todayDate,
     schedulingRules,
     dropOrder,
   }: {
@@ -27,6 +30,7 @@
       lastDoneDate: string | undefined;
       blocks: readonly { key: string; name: string; exercises: readonly string[] }[];
     }[];
+    todayDate: string;
     schedulingRules: readonly string[] | undefined;
     dropOrder: readonly string[] | undefined;
   } = $props();
@@ -62,25 +66,21 @@
             aria-controls={`override-summary-${planSlug}-${session.key}`}
             onclick={() => toggleSession(session.key)}
           >
+            <span class="key">{session.key}</span>
             <span class="session-name">
-              <span class="key">{session.key}</span>
               {session.name}
               {#if session.key === suggestedKey}<span class="badge">suggested</span>{/if}
             </span>
-            {#if session.lastDoneDate}<span class="last">last {session.lastDoneDate}</span>{/if}
             <IconChevronDown class="chevron {isOpen ? 'open' : ''}" />
+            <span class="last">{lastDoneLabel(session.lastDoneDate, todayDate)}</span>
           </button>
           {#if isOpen}
-            <div class="session-summary" id={`override-summary-${planSlug}-${session.key}`}>
-              {#if session.note}
-                <p class="muted">{session.note}</p>
-              {/if}
-              {#each session.blocks as block (block.key)}
-                <div class="block-summary">
-                  <h3>{block.name}</h3>
-                  <p>{block.exercises.join(", ")}</p>
-                </div>
-              {/each}
+            <div class="session-detail">
+              <SessionSummary
+                id={`override-summary-${planSlug}-${session.key}`}
+                note={session.note}
+                blocks={session.blocks}
+              />
               <a class="session-link" href={`/plan/${planSlug}/session/${session.key}`}>
                 <IconPlay />Start session
               </a>
@@ -135,15 +135,24 @@
     gap: 0.35rem;
   }
   .sessions .key {
-    display: inline-block;
-    min-width: 1.6em;
     font-weight: 800;
+    line-height: 1.2;
   }
+  /**
+   * Two rows, not one. As a single flex row the name shared its line with the last-done
+   * text, which is `white-space: nowrap`, so at 320px the name lost the space it needed
+   * and wrapped underneath the key badge — the key on one line and "Squat, Press & Row"
+   * on the next. Giving the meta its own row hands the name the full width, which is
+   * what actually stops the wrap; shortening the date alone only moved the break.
+   */
   .session-toggle {
     width: 100%;
-    display: flex;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
     align-items: center;
-    gap: 0.5rem;
+    column-gap: 0.5rem;
+    row-gap: 0.15rem;
+    text-align: left;
     background: var(--raised);
     border: 1px solid var(--line);
     color: var(--text);
@@ -151,12 +160,11 @@
     padding: 0.7rem 1.25rem;
   }
   .session-name {
-    flex: 1;
-    text-align: left;
     display: flex;
     align-items: center;
     gap: 0.4rem;
     flex-wrap: wrap;
+    line-height: 1.2;
   }
   .badge {
     font-size: 0.7rem;
@@ -168,10 +176,11 @@
     border-radius: var(--r-xs);
     padding: 0.1rem 0.35rem;
   }
+  /* Row 2, under the name — column 2 so it lines up with it rather than with the key. */
   .last {
+    grid-column: 2;
     font-size: 0.8rem;
     color: var(--muted);
-    white-space: nowrap;
   }
   .session-toggle :global(.chevron) {
     flex-shrink: 0;
@@ -180,19 +189,10 @@
   .session-toggle :global(.chevron.open) {
     transform: rotate(180deg);
   }
-  .session-summary {
-    padding: 0.85rem 1rem 0.25rem;
+  .session-detail {
     display: grid;
     gap: 0.6rem;
-  }
-  .block-summary h3 {
-    margin: 0 0 0.15rem;
-    font-size: 0.85rem;
-    color: var(--muted);
-  }
-  .block-summary p {
-    margin: 0;
-    font-size: 0.9rem;
+    padding-bottom: 0.25rem;
   }
   .session-link {
     display: flex;

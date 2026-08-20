@@ -70,6 +70,30 @@ test("home suggests the next session, logs an activity, and asks the next-mornin
   // --- Suggested next session: A was just done, B is next in [A, B, C, D]. ---
   await expect(page.locator(".next-session .suggested-key")).toHaveText("B");
 
+  // What the session contains is readable from the card itself, without going through
+  // "choose a different session" to find the session the card is already suggesting.
+  // Collapsed to start with, so "Start B" stays above the fold on a small phone.
+  // Hydration must be settled before this click, for the same reason the activity-strip
+  // click below waits: the expander is client-side state, and the server-rendered HTML
+  // satisfies the `toHaveCount(0)` above on its own.
+  await page.waitForLoadState("networkidle");
+  const suggestedDetail = page.locator(".next-session > .session-summary");
+  await expect(suggestedDetail).toHaveCount(0);
+  await page.locator(".next-session button.suggested").click();
+  await expect(suggestedDetail).toBeVisible();
+  // The plan's own block names, not a count — this is the same content the picker's
+  // rows show, from the one shared `SessionSummary`.
+  await expect(suggestedDetail).toContainText("Warm-up");
+
+  // Recency, not a date: the row answers "how long since I trained this", and it is
+  // short enough to leave the session name a full line of its own at 320px.
+  await expect(page.locator(".next-session .last")).toContainText("yesterday");
+  await page.getByRole("button", { name: "Choose a different session" }).click();
+  const rowA = page.locator(".sessions li", { hasText: "Squat, Press & Row" });
+  await expect(rowA.locator(".last")).toHaveText("yesterday");
+  const rowD = page.locator(".sessions li", { hasText: "Full Body" });
+  await expect(rowD.locator(".last")).toHaveText("not done yet");
+
   // --- Next-morning prompt: due, answerable once, then gone for good. ---
   await expect(page.locator(".next-morning")).toBeVisible();
   await page.locator(".next-morning .scale-cell").first().click();
