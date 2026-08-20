@@ -18,7 +18,6 @@
   import { logWrite } from "$lib/sync/client.svelte";
   import IconCheck from "~icons/lucide/check";
   import IconMinus from "~icons/lucide/minus";
-  import IconPencil from "~icons/lucide/pencil";
 
   /**
    * One exercise row of the runner (UI-DECISIONS §1): collapsed to name, target and
@@ -214,7 +213,8 @@
                      what was actually logged, for a mis-tapped reps/weight/difficulty to
                      be corrected (todo.md's "no way to undo") — a plain button rather
                      than a link, since it changes what the strip below shows rather than
-                     navigating anywhere. -->
+                     navigating anywhere. No pencil hint: a captured set is the obvious
+                     thing to tap. -->
                 <button
                   type="button"
                   class="ledger-edit"
@@ -238,7 +238,6 @@
                       {/each}
                     </span>
                   {/if}
-                  <IconPencil class="led-edit-icon" aria-hidden="true" />
                 </button>
               {:else}
                 <span class="led-set tabular">{formatSlotLabel(block, slot)}</span>
@@ -377,7 +376,7 @@
   .ledger-row {
     display: flex;
     flex-wrap: wrap;
-    align-items: baseline;
+    align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 0;
     border-bottom: 1px solid var(--line-soft);
@@ -388,12 +387,14 @@
   }
   /* A logged row's content sits inside a button rather than the `<li>` directly, so it
      can be tapped to reopen for correction — reset to look identical to the plain rows
-     beside it, just with the pencil hint at the end. */
+     beside it. `align-items: center` rather than `baseline`: the effort bars have no
+     text baseline of their own, so baseline alignment left them hanging below the row's
+     text instead of level with it. */
   .ledger-edit {
     width: 100%;
     display: flex;
     flex-wrap: wrap;
-    align-items: baseline;
+    align-items: center;
     gap: 0.5rem;
     border: none;
     background: none;
@@ -402,11 +403,6 @@
     text-align: left;
     padding: 0;
     min-height: 2.75rem;
-  }
-  .ledger-edit :global(.led-edit-icon) {
-    flex: none;
-    align-self: center;
-    color: var(--dim);
   }
   .led-set {
     flex: none;
@@ -447,7 +443,6 @@
   .led-effort {
     flex: none;
     display: inline-flex;
-    align-self: center;
     gap: 3px;
   }
   .led-effort i {

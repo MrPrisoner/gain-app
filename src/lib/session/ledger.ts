@@ -259,21 +259,25 @@ export function resolveOpenContext(
 
 /** UI-DECISIONS §4's up-next card: a name and a pre-formatted target line, following
  * the same pattern as `LogStrip`'s `context`/`lastPerformance` props — `RestTimer`
- * itself does no formatting, only rendering. */
-export type UpNext = { label: string; target: string };
+ * itself does no formatting, only rendering. `isLast` tells `RestTimer` whether its
+ * dismiss button is starting something or just closing the overlay, so the button's own
+ * label can agree with "Nothing left" instead of offering to start a set that isn't
+ * coming. */
+export type UpNext = { label: string; target: string; isLast: boolean };
 
 /** Nothing else is scheduled — the rest overlay still needs an up-next card even when
  * this was the session's very last set or round. */
 export const UP_NEXT_FALLBACK: UpNext = {
   label: "Nothing left",
   target: "Finish up when you're ready",
+  isLast: true,
 };
 
 /** The up-next card for a resolved exercise, or the fallback when there isn't one —
  * shared by `upNextForSetLogged`'s finished-exercise branch and `startNextRound`. */
 export function upNextForExerciseAt(next: ExerciseAt | undefined): UpNext {
   return next
-    ? { label: next.exercise.name, target: formatTarget(next.exercise) }
+    ? { label: next.exercise.name, target: formatTarget(next.exercise), isLast: false }
     : UP_NEXT_FALLBACK;
 }
 
@@ -350,6 +354,7 @@ export function upNextForSetLogged(
         context.exercise,
         weight,
       ),
+      isLast: false,
     };
   }
   return upNextForExerciseAt(

@@ -20,4 +20,5 @@ Then clear it up behind you:
 
 ## Items
 
-None right now.
+- Some actions like selecting a symptom feedback (1-10) will cause a "Syncing workout" message to be displayed at the top, but only for a fraction of a second, then it goes away. This seems like weird UI jumping but is actually the message showing and hiding very quickly. What can we do about this so it does not feel like weird UI jumpiness? Is this message needed?
+- Finishing a session: celebration popup shows, click continue to home, land on home page. User is typically now done with the app, press Back button to quit, but this takes the user back to the celebration popup, which is wrong. Should not be able to navigate back into the completed session. What can we do?

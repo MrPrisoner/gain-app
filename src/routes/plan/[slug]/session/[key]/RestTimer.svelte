@@ -27,7 +27,7 @@
     /** What is coming next (UI-DECISIONS §4), pre-formatted by the caller the same way
      * `LogStrip`'s `context`/`lastPerformance` are — this component does no formatting
      * of its own, only rendering. */
-    upNext: { label: string; target: string };
+    upNext: { label: string; target: string; isLast: boolean };
     onSkip: () => void;
   } = $props();
 
@@ -104,9 +104,10 @@
      rest. Same treatment the wrap-up sheet and `DeviationSheet` got (UI-DECISIONS §8):
      `role="dialog"`/`aria-modal="true"`, `use:trapFocus` (see `$lib/actions/focus-trap`)
      to move focus in, cycle Tab within the overlay and restore focus on close, and Escape
-     wired to the same deliberate escape the primary button already offers — "start the
-     next set early" (`onSkip`). There is still no auto-dismiss (UI-DECISIONS §4): Escape
-     is a tap, not a timeout.
+     wired to the same deliberate escape the primary button already offers — dismiss rest
+     early (`onSkip`), worded as "start the next set" or "finish up" depending on whether
+     `upNext` says anything is actually coming. There is still no auto-dismiss
+     (UI-DECISIONS §4): Escape is a tap, not a timeout.
 
      `role="timer"` moves down onto the readout it actually describes. It cannot stay on
      this element — one element has one role, and `dialog` is the one that matters for
@@ -152,7 +153,9 @@
 
   <div class="rest-actions">
     <button type="button" class="secondary" onclick={addThirty}>+30s</button>
-    <button type="button" class="primary" onclick={onSkip}>Start next set</button>
+    <button type="button" class="primary" onclick={onSkip}
+      >{upNext.isLast ? "Finish up" : "Start next set"}</button
+    >
   </div>
 </div>
 
