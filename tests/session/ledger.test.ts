@@ -409,6 +409,7 @@ describe("prefillFor", () => {
 describe("upNextForExerciseAt", () => {
   it("falls back when nothing is scheduled", () => {
     expect(upNextForExerciseAt(undefined)).toEqual(UP_NEXT_FALLBACK);
+    expect(UP_NEXT_FALLBACK.isLast).toBe(true);
   });
 
   it("names the exercise and its target line", () => {
@@ -418,6 +419,7 @@ describe("upNextForExerciseAt", () => {
     const upNext = upNextForExerciseAt(at);
     expect(upNext.label).toBe(row.name);
     expect(upNext.target).toContain("×");
+    expect(upNext.isLast).toBe(false);
   });
 });
 
@@ -437,6 +439,7 @@ describe("upNextForSetLogged", () => {
     const upNext = upNextForSetLogged(d, emptyLedger(), new Set(), {}, context, nextSlot);
     expect(upNext.label).toBe(row.name);
     expect(upNext.target).toContain("Set 2 of 3");
+    expect(upNext.isLast).toBe(false);
   });
 
   it("names whatever auto-advance would open next once the exercise is finished", () => {
@@ -455,6 +458,7 @@ describe("upNextForSetLogged", () => {
     // very next tracked exercise in prescribed order.
     const upNext = upNextForSetLogged(d, emptyLedger(), new Set(), {}, context, undefined);
     expect(upNext.label).toBe(nextRow.name);
+    expect(upNext.isLast).toBe(false);
   });
 
   it("falls back once nothing at all is left", () => {
@@ -471,5 +475,6 @@ describe("upNextForSetLogged", () => {
     const done = new Set(trackedExerciseKeys(d)); // every tracked exercise already done
     const upNext = upNextForSetLogged(d, emptyLedger(), done, {}, context, undefined);
     expect(upNext).toEqual(UP_NEXT_FALLBACK);
+    expect(upNext.isLast).toBe(true);
   });
 });
