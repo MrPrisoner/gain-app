@@ -20,4 +20,3 @@ Then clear it up behind you:
 
 ## Items
 
-- Finishing a session: celebration popup shows, click continue to home, land on home page. User is typically now done with the app, press Back button to quit, but this takes the user back to the celebration popup, which is wrong. Should not be able to navigate back into the completed session. What can we do?

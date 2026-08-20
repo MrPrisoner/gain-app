@@ -466,8 +466,13 @@ protect:
   workout's local key already cleared, so dismissing it — or never dismissing it — cannot
   change what reaches the export; a red-flag stop skips it entirely. Its confetti is
   accent/gold/silver, a deliberate, narrow exception to §5's green/amber/red symptom
-  triad, confined to this one full-screen moment. Full reasoning in UI-DECISIONS §8,
-  "Settled 2026-08-15".
+  triad, confined to this one full-screen moment. Both endings leave through one
+  `goto(resolve("/", {}), { replaceState: true })`, never a location assignment:
+  replacing takes the finished session off the history stack, so Back cannot restore the
+  page from bfcache with the celebration still showing, and a client-side navigation
+  keeps `$lib/sync/client.svelte.ts`'s in-flight flush alive across the trip rather than
+  tearing it down at the one moment the queue is fullest. Full reasoning in
+  UI-DECISIONS §8, "Settled 2026-08-15".
 - **The contract key is `plan`, and synonyms are not accepted.** `plan.slug`,
   `plan_version`, `plan_id`. The word was chosen partly because it is spelled
   identically in every variety of English, unlike `programme`/`program` — but a revising

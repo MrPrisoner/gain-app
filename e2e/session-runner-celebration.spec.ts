@@ -14,6 +14,9 @@
  * 4. **No horizontal overflow at 360px** with it open — UI-DECISIONS §12 asks this of
  *    every screen, and a full-viewport element whose children are positioned by percentage
  *    is exactly the shape that gets it wrong.
+ * 5. **Neither ending leaves the session on the history stack.** The user is done with the
+ *    app when they reach home, and Back is how a phone is put down — it must not walk back
+ *    into a workout that is already finished.
  *
  * `GAIN_DEV_USER` bypass mode (see `session-runner.spec.ts`) means no auth setup here.
  */
@@ -72,6 +75,48 @@ test("a red-flag stop goes straight home without celebrating", async ({ page }) 
   await page.waitForURL(/\/$/);
   await expect(page.locator(".celebrate-card")).toHaveCount(0);
   expect(workoutStatusOf(clientId)).toBe("stopped");
+});
+
+/**
+ * Both endings used to assign the browser's location, which pushes a history entry: the
+ * finished session stayed on the stack, and Back restored it from bfcache with
+ * `celebrating` still true. The user tapped Back to quit and got the confetti again, over
+ * a workout they had finished minutes earlier.
+ *
+ * `page.goBack()` is asserted to land *anywhere but* the session rather than on a specific
+ * URL, because what the entry behind home is depends on how the spec got there — the
+ * guarantee is about what is no longer reachable, not about what replaced it.
+ */
+test("back from the celebration cannot re-enter the finished session", async ({ page }) => {
+  await page.goto(`/plan/${E2E_PLAN_SLUG}/session/A`);
+  await dismissPreSessionPrompt(page);
+
+  await page.getByRole("button", { name: "End session" }).click();
+  await page.getByRole("button", { name: "Finish session" }).click();
+  await page.locator(".celebrate-card").getByRole("button", { name: "Back to home" }).click();
+  await page.waitForURL(/\/$/);
+
+  await page.goBack();
+
+  expect(page.url()).not.toContain("/session/");
+  await expect(page.locator(".celebrate-card")).toHaveCount(0);
+  await expect(page.locator(".log-strip")).toHaveCount(0);
+});
+
+test("back from a red-flag stop cannot re-enter the stopped session", async ({ page }) => {
+  await page.goto(`/plan/${E2E_PLAN_SLUG}/session/A`);
+  await dismissPreSessionPrompt(page);
+
+  await page.locator(".log-strip .strip-change").click();
+  const sheet = page.getByRole("dialog");
+  await sheet.getByLabel("Stop (red flag)").check();
+  await sheet.getByRole("button", { name: "Save" }).click();
+  await page.waitForURL(/\/$/);
+
+  await page.goBack();
+
+  expect(page.url()).not.toContain("/session/");
+  await expect(page.locator(".log-strip")).toHaveCount(0);
 });
 
 test("reduced motion drops the confetti but keeps the message and the way out", async ({

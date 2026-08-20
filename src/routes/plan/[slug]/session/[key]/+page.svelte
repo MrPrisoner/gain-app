@@ -31,6 +31,8 @@
   import { hydrateSession, type SessionHydration } from "$lib/session/resume";
   import type { DeviationKind } from "$lib/logs/types";
   import { formatLastPerformance } from "$lib/session/prefill";
+  import { goto } from "$app/navigation";
+  import { resolve } from "$app/paths";
   import { newOpId } from "$lib/sync/ops";
   import { logWrite, opsForWorkout, startSyncLoop } from "$lib/sync/client.svelte";
   import { historyFromOps } from "$lib/sync/history";
@@ -170,6 +172,30 @@
     return startSyncLoop(data.planSlug);
   });
 
+  /**
+   * How a finished session leaves. Both endings — the celebration's "Back to home" and a
+   * red-flag stop — go through here, so they cannot drift apart about what they leave
+   * behind on the history stack.
+   *
+   * `replaceState` is the whole point. Both used to assign the browser's location
+   * directly, which *pushes* a history entry, so the session URL stayed on the stack and
+   * Back restored this page from bfcache with `celebrating` still true — the user tapped
+   * Back to quit the app and got the confetti again, over a workout they had already
+   * finished. Replacing takes the session off the stack entirely, so there is nothing
+   * left to go back into.
+   *
+   * A client-side `goto` rather than a document navigation also keeps the sync module
+   * alive across the trip. `$lib/sync/client.svelte.ts` holds its in-flight flush and
+   * backoff timer in module state, and a full reload tears that down at the one moment
+   * the queue is fullest — the end of a session. Home registers its own `startSyncLoop`,
+   * so the reconnect and visibility listeners survive the move too.
+   */
+  async function leaveForHome(): Promise<void> {
+    // `resolve("/", {})`: the root route id inherits every optional param in the tree,
+    // so its params argument is required even though it takes none of them.
+    await goto(resolve("/", {}), { replaceState: true });
+  }
+
   // A red-flag stop (DeviationSheet, `kind: stop_red_flag`) immediately finishes the
   // workout with `status=stopped` — the plan's own design says a red flag ends the
   // workout, it doesn't just log a deviation and leave `status='partial'` forever.
@@ -190,7 +216,7 @@
     });
 
     if (typeof localStorage !== "undefined") localStorage.removeItem(storageKey);
-    window.location.href = "/";
+    await leaveForHome();
   }
 
   // Which exercise is expanded — UI-DECISIONS §1: exactly one, the others collapse.
@@ -671,7 +697,7 @@
 {/if}
 
 {#if celebrating}
-  <CelebrationOverlay onDismiss={() => (window.location.href = "/")} />
+  <CelebrationOverlay onDismiss={() => void leaveForHome()} />
 {/if}
 
 <style>

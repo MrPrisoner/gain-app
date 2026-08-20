@@ -297,6 +297,15 @@ which is the opposite of what red means here. This is the one deliberately decor
 of colour in the whole app, scoped to a single full-screen, session-agnostic moment that
 carries no plan data; §5's rule against a green "success" state stands everywhere else.
 
+**Neither ending leaves the session on the history stack.** "Back to home" and a
+red-flag stop both replace the session's history entry rather than pushing home on top of
+it, so Back from the home screen cannot walk back into a workout that is already over.
+Both used to assign the browser's location directly, which pushes: the session URL stayed
+on the stack and Back restored the page from bfcache with the celebration still showing,
+so a user tapping Back to put the phone down got the confetti a second time over a
+workout they had finished minutes earlier. A phone's Back button is how an app is left,
+and the last screen of a session is exactly where it gets pressed.
+
 **`prefers-reduced-motion: reduce` removes the particle field, not the screen.** The
 message and the way home stay exactly as they are; only the falling motion goes. This is
 the first reduced-motion handling anywhere in the app, on the one screen most likely to
