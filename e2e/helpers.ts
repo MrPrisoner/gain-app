@@ -56,7 +56,12 @@ export async function logSetThroughRest(page: Page): Promise<void> {
   await logSet(page);
   const rest = page.locator(".rest-overlay");
   if (await rest.isVisible()) {
-    await rest.getByRole("button", { name: "Start next set" }).click();
+    // Two labels, one button: `RestTimer.svelte` says "Finish up" rather than "Start next
+    // set" when `upNext.isLast`. Matching only the latter made this helper hang for the
+    // full test timeout on the last set of a session — the overlay was visible, so the
+    // guard above let it through, and then the click waited on a button that was never
+    // going to render.
+    await rest.getByRole("button", { name: /Start next set|Finish up/ }).click();
     await expect(rest).toHaveCount(0);
   }
 }
