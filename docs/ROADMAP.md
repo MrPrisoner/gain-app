@@ -310,19 +310,21 @@ Small, real, and owned by no phase. Pick them up wherever they fit.
 Ordered as they should be picked up: the CI job protects everything already built, the
 archiving semantics need settling before any of it is written, and the rest are independent.
 
-- [ ] **The e2e suite runs in CI.** Twenty-three specs are the durable proof of every
-      phase's "done when" — and nothing but a human remembering to run them protects any of
-      it. `.github/workflows/ci.yml` runs `npm run verify` and stops there. Add a second job
-      on the same triggers (pull request, and a `v*` tag) that runs
-      `npx playwright install --with-deps chromium` and `npm run test:e2e`, caching
-      `~/.cache/ms-playwright` on the resolved Playwright version so the 150 MB download is
-      paid once rather than per run. This does **not** change `npm run verify`: the reason
-      e2e is kept out of it (CLAUDE.md, Commands) is that a few-second local check must
-      never download a browser, and a separate CI job does not.
-      **Done when:** a pull request that breaks a walkthrough spec fails CI. Record the
-      job's cold-cache and warm-cache runtimes here when it lands, so a future slowdown is
-      visible rather than gradually tolerated — the whole suite is 128 tests across four
-      projects in ~1.3 min locally, including the `offline` project's production build.
+- [x] **The e2e suite runs in CI.** An `e2e` job in `.github/workflows/ci.yml` on the same
+      triggers as `check`, running alongside it rather than after it — the two fail for
+      different reasons, and waiting on a lint error before finding out a walkthrough broke
+      only serialises the feedback. `~/.cache/ms-playwright` is cached on the *resolved*
+      Playwright version (`node -p "require('@playwright/test/package.json').version"`), not
+      the range in `package.json`: browser builds are pinned per release, so a cache
+      restored across a version bump would hold a chromium the new Playwright refuses to
+      launch. On a cache miss the job runs `npx playwright install --with-deps chromium`; on
+      a hit, only `install-deps` (the apt half is never cached and is cheap). Failures upload
+      `test-results/` so a red job hands back something openable in `playwright show-trace`,
+      and the `image` job now gates on `[check, e2e]` so a tag cannot push an image whose
+      walkthroughs are red. `npm run verify` is unchanged — the reason e2e is kept out of it
+      (CLAUDE.md, Commands) is that a few-second *local* check must never download a
+      browser, which a separate CI job does not. The suite is 134 tests across four
+      projects in ~1.4 min locally, including the `offline` project's production build.
 - [ ] **Plan archiving.** `plan.archived_at` is filtered on read in
       `src/routes/+page.server.ts` and nothing ever sets it. Needs an `archivePlan` /
       `unarchivePlan` pair in `src/lib/db/` (injected `now`, like every other write there)

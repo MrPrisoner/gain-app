@@ -45,12 +45,79 @@ jobs:
       - name: Build
         run: npm run build
 
+  # The twenty-odd Playwright specs are the durable proof of every phase's "done
+  # when", and until this job existed nothing but a human remembering to run them
+  # protected any of it.
+  #
+  # This is deliberately NOT folded into `npm run verify`: verify is a few-second
+  # local check and must never download a 150 MB browser (CLAUDE.md, Commands). A
+  # separate CI job does not have that constraint.
+  #
+  # It runs alongside `check` rather than after it. The two fail for different
+  # reasons, and waiting for a lint error before finding out a walkthrough broke
+  # just serialises the feedback.
+  e2e:
+    name: End-to-end
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The cache key has to be the *resolved* Playwright version, not the range in
+      # package.json: browser builds are pinned per Playwright release, so a cache
+      # restored across a version bump would hold a chromium the new Playwright
+      # refuses to launch.
+      - name: Resolve the Playwright version
+        id: playwright
+        run: |
+          version=$(node -p "require('@playwright/test/package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Cache the browser
+        id: browser-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+      # `--with-deps` is the apt half, which is never cached and is cheap; the
+      # browser download is the 150 MB half, which is. On a hit, install only the
+      # system libraries.
+      - name: Install chromium
+        if: steps.browser-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install chromium system dependencies
+        if: steps.browser-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: End-to-end tests
+        run: npm run test:e2e
+
+      # `trace: "retain-on-failure"` (playwright.config.ts) writes a trace beside
+      # each failure — useless if it stays on the runner. A red job should hand
+      # back something openable in `npx playwright show-trace`.
+      - name: Upload failure traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7
+
   # The image is only pushed on a tag, but it is built on every change — a
   # Dockerfile that stopped working should fail the PR that broke it, not the
   # release that needed it.
   image:
     name: Build image${{ startsWith(github.ref, 'refs/tags/v') && ' and push' || '' }}
-    needs: check
+    needs: [check, e2e]
     runs-on: ubuntu-latest
     permissions:
       contents: read
