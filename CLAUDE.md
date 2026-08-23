@@ -255,8 +255,9 @@ commit:
 A closing phase can also surface a survival or acceptance scenario the automated suite
 structurally cannot cover — phase 6's e2e harness can kill a browser but not the server
 process independently of the client, so a container-restart-while-queued check went into
-`todo.md` as a manual step with exact commands, rather than left implied by a ticked
-roadmap item. `todo.md` is otherwise the inbox for findings from manual testing, not a
+`docs/todo.md` as a manual step with exact commands, rather than left implied by a ticked
+roadmap item — carried there until it was performed by hand on 2026-08-23, then deleted
+and its result recorded against phase 6 in the roadmap. `docs/todo.md` is otherwise the inbox for findings from manual testing, not a
 plan. Anything in it bigger than a single commit gets moved into the roadmap under the
 phase it belongs to; anything smaller gets done and deleted rather than struck through. A
 design decision that falls out of a to-do item belongs in the Invariants section below —

@@ -2,6 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Status: shipped — this is an archived plan, kept for its reasoning.** Its
+> checkboxes were never ticked as the batches landed;
+> [`docs/ROADMAP.md`](../../ROADMAP.md) is the record of what shipped, with commit
+> SHAs. Do not restart it from its first unticked box.
+
 **Goal:** The Home screen (`/`) suggests the right next session from `scheduling.sequence`, a user can log an activity in one tap-then-confirm, and a plan declaring a `next_morning` metric collects it exactly once, the following morning.
 
 **Architecture:** Three new pure modules under `src/lib/home/` (suggestion, activity-kind bookkeeping, next-morning windowing) plus one read module (`src/lib/db/home.ts`) feed a reworked `+page.server.ts` load and four new components. Activity logging becomes the sync outbox's sixth op kind, reusing the exact idempotent-on-`client_id` write layer every other log table already has. Nothing about the existing session runner, sync transport, or export changes.

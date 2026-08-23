@@ -2,6 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Status: shipped — this is an archived plan, kept for its reasoning.** Its
+> checkboxes were never ticked as the batches landed;
+> [`docs/ROADMAP.md`](../../ROADMAP.md) is the record of what shipped, with commit
+> SHAs. Do not restart it from its first unticked box.
+
 **Goal:** A session can be chosen, started, run and completed with no connection, and syncs cleanly on reconnect without ever duplicating or losing a set.
 
 **Architecture:** The session runner currently has no client-side store — every write is a SvelteKit form action, so its local state *is* the server round trip. This phase introduces a client write layer (ops appended to an IndexedDB outbox, flushed as ordered batches to a new `POST /api/sync`) and makes the existing `src/lib/db/workout.ts` the replay target for it. Nothing about the reconstruction of runner state is rewritten: `hydrateSession` already rebuilds the ledger from slug-keyed, ULID-ordered rows, and the outbox is projected into exactly that shape.

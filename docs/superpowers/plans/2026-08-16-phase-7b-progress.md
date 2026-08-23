@@ -2,6 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Status: shipped — this is an archived plan, kept for its reasoning.** Its
+> checkboxes were never ticked as the batches landed;
+> [`docs/ROADMAP.md`](../../ROADMAP.md) is the record of what shipped, with commit
+> SHAs. Do not restart it from its first unticked box.
+
 **Goal:** Ship ROADMAP phase 7's five remaining items — double-progression state as one
 shared pure module, per-exercise progress, per-session-type stats, metric trends, and
 workout history — closing phase 7 entirely.

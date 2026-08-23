@@ -573,8 +573,8 @@ The screen you actually stare at, sweating, between sets. It gets the most desig
 Built in phase 4 at `src/routes/plan/[slug]/session/[key]/`, with the pure logic in
 `src/lib/session/` (resolution, pre-fill, rest timer, resume reconstruction). **How it
 behaves is settled in [`docs/UI-DECISIONS.md`](./UI-DECISIONS.md)**, not here; this
-section is the architectural half. The Home screen below is the one part still unbuilt —
-it belongs to phase 7, and sessions are reached from the plan overview meanwhile.
+section is the architectural half. The Home screen below shipped with phase 7, and is
+where a session is reached from.
 
 - **Home:** suggested next session per `scheduling.sequence` and rules, with any
   session selectable as an override. One-tap buttons to log activity that is not part of

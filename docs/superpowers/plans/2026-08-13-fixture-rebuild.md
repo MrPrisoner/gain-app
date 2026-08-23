@@ -2,6 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Status: shipped — this is an archived plan, kept for its reasoning.** Its
+> checkboxes were never ticked as the batches landed;
+> [`docs/ROADMAP.md`](../../ROADMAP.md) is the record of what shipped, with commit
+> SHAs. Do not restart it from its first unticked box.
+
 **Goal:** Replace `fixtures/plans/home-dumbbell-v1.md` with a fictionalised, current-generation plan that exercises every contract primitive, then migrate every referencing file and delete the old fixture.
 
 **Architecture:** Two small contract corrections land first, because the new fixture would fail both. Then the document itself, guarded by a new durable coverage test that asserts every primitive is present — that test is the reason this rebuild cannot silently lose coverage later. Then the migration, in dependency order: the synthetic-logs helper and the golden test together (golden is the test for the helper's output), then the unit tests, then e2e, then docs and deletion.

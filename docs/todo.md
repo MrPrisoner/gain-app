@@ -1,7 +1,7 @@
 # To-do
 
 Findings from manual testing — the inbox, not the plan. What is left to _build_ lives in
-[`docs/ROADMAP.md`](docs/ROADMAP.md); this file is for what turns up while using the app.
+[`docs/ROADMAP.md`](ROADMAP.md); this file is for what turns up while using the app.
 
 ## Instructions to AI agents (Claude, Cline)
 
@@ -19,4 +19,3 @@ Then clear it up behind you:
   The list is where it was noticed; the invariant is where it has to survive.
 
 ## Items
-

@@ -14,9 +14,9 @@ Three files, three jobs:
 |---|---|
 | `docs/ARCHITECTURE.md` §12 | The phase map. Why each phase exists and what proves it done |
 | `docs/ROADMAP.md` | This file. The remaining work, item by item, with acceptance criteria |
-| `todo.md` | Inbox for findings from manual testing. Triaged, not accumulated |
+| `docs/todo.md` | Inbox for findings from manual testing. Triaged, not accumulated |
 
-**The triage rule:** anything in `todo.md` bigger than a single commit moves here, into the
+**The triage rule:** anything in `docs/todo.md` bigger than a single commit moves here, into the
 phase it belongs to. Anything smaller gets done and deleted. A design decision that comes
 out of a to-do item belongs in `CLAUDE.md` under Invariants, not in either list — that is
 where the `weight_kg` ruling went, and it is why it survived.
@@ -56,9 +56,9 @@ before the commit button unlocks. `e2e/revision-walkthrough.spec.ts` logs a set,
 plan with a rename, reviews the diff and commits, then confirms the set survived under the
 new slug.
 
-**Nothing left is phase-numbered.** What remains is the [Loose ends](#loose-ends) below —
-old plan versions staying browsable, plan archiving, and whatever else the checklist there
-still lists.
+**Nothing left is phase-numbered.** What remains is the [Loose ends](#loose-ends) below:
+the e2e suite running in CI, plan archiving, old plan versions staying browsable, a
+self-service account reset, and a backup recipe an operator can follow.
 
 | Phase | Deliverable | State |
 |---|---|---|
@@ -155,8 +155,13 @@ server half of idempotency is largely done; this phase is the client.
 - [x] **The explicit survival test**: connection loss and a full browser kill — proving
       IndexedDB, not `sessionStorage`, is what survives — plus a `visibilitychange`-driven
       flush as the phone-lock proxy. `e2e/offline-*.spec.ts` (`144478a`). Container restart
-      is a documented manual check (`todo.md`) rather than an automated one — the harness
-      cannot kill the client and server processes independently of each other.
+      could not be automated — the harness cannot kill the client and server processes
+      independently of each other — so it was carried as a manual step with exact commands
+      and **performed by hand against a real container on 2026-08-23**: a restart
+      mid-session loses nothing already synced, and an op queued while offline still
+      flushes and lands once the container is back. That is the last of phase 6's
+      acceptance criteria, and the item is deleted from `docs/todo.md` rather than left
+      standing.
 
 ---
 
@@ -211,8 +216,9 @@ screen suggests the right next session for the fixture plan's `scheduling.sequen
 
 **Design:** [`docs/superpowers/specs/2026-08-18-phase-8-revision-diff-review-design.md`](superpowers/specs/2026-08-18-phase-8-revision-diff-review-design.md).
 **Plan:** [`docs/superpowers/plans/2026-08-18-phase-8-revision-diff-review.md`](superpowers/plans/2026-08-18-phase-8-revision-diff-review.md)
-— nine tasks in six independently-committable batches. Read the spec first, then start at
-the first unticked checkbox in the plan.
+— nine tasks in six independently-committable batches. **Both are archived records of
+work that shipped**, not live plans: their checkboxes were never ticked as the batches
+landed, so read them for the reasoning and take what shipped from the ticked items below.
 
 **Done when:** a logged block exports, comes back revised from an AI, and the diff is
 reviewed and committed. That is the loop closing, and it is the last thing the build owes.
@@ -301,11 +307,80 @@ outbox — while no code path in the app can read another user's training conten
 
 Small, real, and owned by no phase. Pick them up wherever they fit.
 
+Ordered as they should be picked up: the CI job protects everything already built, the
+archiving semantics need settling before any of it is written, and the rest are independent.
+
+- [ ] **The e2e suite runs in CI.** Twenty-three specs are the durable proof of every
+      phase's "done when" — and nothing but a human remembering to run them protects any of
+      it. `.github/workflows/ci.yml` runs `npm run verify` and stops there. Add a second job
+      on the same triggers (pull request, and a `v*` tag) that runs
+      `npx playwright install --with-deps chromium` and `npm run test:e2e`, caching
+      `~/.cache/ms-playwright` on the resolved Playwright version so the 150 MB download is
+      paid once rather than per run. This does **not** change `npm run verify`: the reason
+      e2e is kept out of it (CLAUDE.md, Commands) is that a few-second local check must
+      never download a browser, and a separate CI job does not.
+      **Done when:** a pull request that breaks a walkthrough spec fails CI. Record the
+      job's cold-cache and warm-cache runtimes here when it lands, so a future slowdown is
+      visible rather than gradually tolerated — the whole suite is 128 tests across four
+      projects in ~1.3 min locally, including the `offline` project's production build.
+- [ ] **Plan archiving.** `plan.archived_at` is filtered on read in
+      `src/routes/+page.server.ts` and nothing ever sets it. Needs an `archivePlan` /
+      `unarchivePlan` pair in `src/lib/db/` (injected `now`, like every other write there)
+      and a control on the Home plan card.
+
+      **The semantics are settled (2026-08-23): archiving is reversible and read-only, not
+      deletion.** An archived plan drops off the active Home list and refuses to start new
+      sessions; its history, progress, export and version browsing all stay open, marked
+      archived. That is the opposite of what the code does today — `export`, `history`,
+      `progress` and their children all `throw error(404)` on `archived_at` — so shipping a
+      button against the current guards would make archiving a silent, unrecoverable loss of
+      the user's own logged history, which is the exact failure class the slug rules exist to
+      prevent. The 404 stays on the session runner and on import; it comes off the read-only
+      routes.
+      **Done when:** a plan archives from its card, leaves the active list into a collapsed
+      "Archived" group, still opens its history and export, refuses a new session, and
+      unarchives back to exactly where it was. A unit test on the write path and an e2e that
+      archives, reads history, and unarchives.
 - [ ] **Old plan versions stay browsable** (§8). Workouts are already bound to the version
       they were logged under, so "what did the plan say in week 3" is answerable in the data
-      and unanswerable in the UI.
-- [ ] **Plan archiving.** `plan.archived_at` is filtered on read in `src/routes/+page.server.ts`
-      and nothing ever sets it.
+      and unanswerable in the UI. `listVersions`, `contractOfVersion` and `readSourceMd`
+      (`src/lib/db/read.ts`) already do the reading — nothing new belongs in `$lib/db`.
+      `/plan/[slug]/versions` lists every version newest first (number, import date, the
+      current marker, the AI's changelog where there is one) and `/plan/[slug]/versions/[n]`
+      renders that version's verbatim `source_md` with copy-and-download-fallback, the same
+      `copyText`/`downloadText` pattern as the bootstrap prompt and the export. Reached by a
+      link on the Home plan card beside Export, Progress and History — there is deliberately
+      no `/plan/[slug]` overview route to hang it off (settled 2026-08-23) — and from the
+      history detail, which already names the version a workout ran under.
+      **Watch for:** `readSourceMd` is a bare `readFileSync` on a path stored in the row. A
+      version whose document is missing from disk must render an explanation, not a 500.
+      **Done when:** the v1 document of a revised plan opens from the UI and an e2e asserts
+      it is byte-identical to what was imported.
+- [ ] **A user can reset their own account.** Today only an operator can, so an alpha tester
+      who wants to start fresh has to ask. Reuse `resetUserData`
+      (`src/lib/server/admin-reset.ts`) rather than writing a second wipe: its ordering is
+      load-bearing — sessions first, then the `data_generation` bump, then the cached handle
+      closed and evicted *before* the unlink, then re-provisioning — and the CLAUDE.md
+      invariant that names it means the caller changes, not the machinery. Type-to-confirm,
+      the same expanding panel `/admin` already uses.
+
+      Not on Home: nothing destructive belongs beside the workout the user is about to
+      start. There is no settings or account screen yet, and the cheapest honest home is a
+      small one reached from the footer.
+      **Done when:** a user resets themselves and lands on the empty state with the
+      bootstrap prompt, and a second device still holding a queued outbox gets the
+      generation 409 and clears — rather than quarantining forever, which is the failure this
+      reuses `data_generation` to avoid. Unit test on the route, e2e on the walkthrough.
+- [ ] **A backup recipe an operator can actually follow.** ARCHITECTURE §3 says "a single
+      volume snapshot is a complete backup," which is true of the *layout* and not of a live
+      database: every `gain.db` and `control.db` is opened `journal_mode = WAL`, so a `tar`
+      or `docker cp` taken while the container is writing can capture a torn `.db`/`-wal`
+      pair and produce a backup that restores to a state that never existed. This is the
+      only copy of the user's training history.
+      **Done when:** README's "Running it" has a Backups subsection giving one of the two
+      safe recipes — stop the container and copy, or `VACUUM INTO` each database to a
+      snapshot directory and copy that — and §3's sentence is corrected rather than left
+      implying a naive `tar` is safe.
 - [x] **The e2e harness shared one seeded database across every spec and every viewport
       project**, so any spec asserting on whole-account state — rather than its own
       `client_id`-scoped rows — would see another spec's or another project's concurrent

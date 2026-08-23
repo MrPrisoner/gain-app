@@ -2,6 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Status: shipped — this is an archived plan, kept for its reasoning.** Its
+> checkboxes were never ticked as the batches landed;
+> [`docs/ROADMAP.md`](../../ROADMAP.md) is the record of what shipped, with commit
+> SHAs. Do not restart it from its first unticked box.
+
 **Goal:** Make a logged block leave GAIN as one pasteable document in one tap, so the copy-paste loop has a return crossing.
 
 **Architecture:** The export generator (`src/lib/export/bundle.ts`) has been finished and unit-tested since phase 1 and is unreachable from the app. This phase builds the three things between it and a user: a read path turning `gain.db` rows into the plain-data `Logs` shape the generator consumes, a pure window-picker module, and a thin SvelteKit route that wires them to a copy button. Nothing pure needs writing — do not reimplement summary or CSV rendering.

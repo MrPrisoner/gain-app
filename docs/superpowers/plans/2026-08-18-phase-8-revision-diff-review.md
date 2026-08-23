@@ -2,6 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Status: shipped — this is an archived plan, kept for its reasoning.** Its
+> checkboxes were never ticked as the batches landed;
+> [`docs/ROADMAP.md`](../../ROADMAP.md) is the record of what shipped, with commit
+> SHAs. Do not restart it from its first unticked box.
+
 **Goal:** Close the loop — a logged block exports, comes back revised from an AI, and the diff is reviewed and committed, including a slug the AI renamed mapped back onto its history instead of silently splitting it.
 
 **Architecture:** The phase-1 diff engine is finished and untouched. A new pure module turns its `ContractDiff` into display-ready groups; a new `/import` route renders them and collects a disposition for every removed slug; and `importPlan` gains a rename step that runs inside its existing transaction, before `upsertExerciseDefs`, updating `exercise_def.slug` so every read path follows automatically.
