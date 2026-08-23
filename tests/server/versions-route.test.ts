@@ -16,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { isHttpError } from "@sveltejs/kit";
 import { load as listLoad } from "../../src/routes/plan/[slug]/versions/+page.server";
 import { load as detailLoad } from "../../src/routes/plan/[slug]/versions/[n]/+page.server";
+import { archivePlan } from "../../src/lib/db/archive";
 import { importPlan } from "../../src/lib/db/import-plan";
 import { getPlanBySlug, listVersions } from "../../src/lib/db/read";
 import { openUserDb } from "../../src/lib/db/user-db";
@@ -97,6 +98,12 @@ describe("the versions list", () => {
     // fallback for is the genuinely-absent one, not "this is v1".
     expect(data.versions[0]?.changelog.length).toBeGreaterThan(0);
     expect(data.versions[1]?.changelog[0]).toMatch(/^First plan/);
+  });
+
+  it("still lists for an archived plan", () => {
+    archivePlan(getUserDbFor(user.id), "home-training", LATER);
+    const data = listLoad(event("home-training")) as { planArchived: boolean };
+    expect(data.planArchived).toBe(true);
   });
 
   it("404s an unknown plan", () => {

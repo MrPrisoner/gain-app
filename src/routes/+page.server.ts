@@ -7,12 +7,13 @@
  * import flow itself lives at `/import` (`src/routes/import/+page.server.ts`).
  */
 
-import { redirect } from "@sveltejs/kit";
+import { fail, redirect } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
 import { getUserDbFor } from "$lib/server/app-state";
 import { bootstrapPromptTemplate, contractMd } from "$lib/server/assets";
 import { countPrescriptions } from "$lib/parse/parser";
 import { contractOfVersion, getCurrentVersion, listPlans } from "$lib/db/read";
+import { archivePlan, unarchivePlan } from "$lib/db/archive";
 import { deriveExerciseName, type GainContract } from "$lib/contract/schema";
 import { renderBootstrapPrompt, type BootstrapAnswers } from "$lib/templates/render";
 import { recentActivities, recentWorkoutsForPlan, nextMorningCandidates } from "$lib/db/home";
@@ -24,11 +25,24 @@ export const load: PageServerLoad = ({ locals }) => {
   if (!user) throw redirect(303, "/login");
 
   const userDb = getUserDbFor(user.id);
-  const plans = listPlans(userDb).filter((plan) => !plan.archived_at);
+  const all = listPlans(userDb);
+  const plans = all.filter((plan) => !plan.archived_at);
 
-  if (plans.length === 0) {
+  // First run is "this account has never imported anything", not "nothing is active".
+  // A user who archives their only plan must still land somewhere that can reach it —
+  // showing them the bootstrap interview instead would look exactly like the plan had
+  // been deleted, which is the failure archiving exists to avoid.
+  if (all.length === 0) {
     return { view: "first_run" as const, displayName: user.displayName };
   }
+
+  const archived = all
+    .filter((plan) => plan.archived_at)
+    .map((plan) => ({
+      slug: plan.slug,
+      name: plan.name,
+      archivedAt: plan.archived_at!.slice(0, 10),
+    }));
 
   const overviews = plans.flatMap((plan) => {
     const current = getCurrentVersion(userDb, plan.id);
@@ -78,6 +92,7 @@ export const load: PageServerLoad = ({ locals }) => {
   return {
     view: "plan" as const,
     plans: overviews,
+    archived,
     displayName: user.displayName,
     activityKinds: suggestActivityKinds(recentActivities(userDb)),
     nextMorningCandidates: nextMorningCandidates(userDb, new Date()),
@@ -108,6 +123,29 @@ export const actions: Actions = {
       display_name: locals.user?.displayName ?? undefined,
     };
     return { prompt: renderBootstrapPrompt(bootstrapPromptTemplate, answers, contractMd) };
+  },
+
+  /**
+   * Put a plan away. Reversible and read-only — see `$lib/db/archive.ts` for what that
+   * does and does not touch. Nothing here throws: a form action that throws is a 500,
+   * and a 500 on the Home screen is a wall where a sentence would do.
+   */
+  archive: async ({ request, locals }) => {
+    if (!locals.user) throw redirect(303, "/login");
+    const slug = formText(await request.formData(), "slug");
+    if (!archivePlan(getUserDbFor(locals.user.id), slug, new Date())) {
+      return fail(404, { planError: "That plan could not be archived." });
+    }
+    return { archived: slug };
+  },
+
+  unarchive: async ({ request, locals }) => {
+    if (!locals.user) throw redirect(303, "/login");
+    const slug = formText(await request.formData(), "slug");
+    if (!unarchivePlan(getUserDbFor(locals.user.id), slug)) {
+      return fail(404, { planError: "That plan could not be unarchived." });
+    }
+    return { unarchived: slug };
   },
 };
 

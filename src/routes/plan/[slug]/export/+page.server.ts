@@ -21,7 +21,10 @@ export const load: PageServerLoad = ({ params, locals }) => {
 
   const userDb = getUserDbFor(user.id);
   const plan = getPlanBySlug(userDb, params.slug);
-  if (!plan || plan.archived_at) throw error(404, "No such plan");
+  if (!plan) throw error(404, "No such plan");
+  // An archived plan still exports. Archiving is read-only and reversible (`$lib/db/
+  // archive.ts`) — the whole point of keeping a finished plan around is being able to
+  // hand its history to an AI, so the only mark it gets here is a note on the screen.
 
   const now = new Date();
   const context = windowContextFor(userDb, plan, now);
@@ -39,6 +42,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
   return {
     planSlug: plan.slug,
     planName: plan.name,
+    planArchived: !!plan.archived_at,
     versionNo: context.versionNo,
     options,
     totalWorkouts: logs.workouts.length,
@@ -60,7 +64,7 @@ export const actions: Actions = {
 
     const userDb = getUserDbFor(locals.user.id);
     const plan = getPlanBySlug(userDb, params.slug);
-    if (!plan || plan.archived_at) {
+    if (!plan) {
       return fail(404, { actionError: "That plan no longer exists." });
     }
 

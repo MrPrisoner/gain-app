@@ -3,6 +3,7 @@
   import { enhance } from "$app/forms";
   import { copyText, downloadText } from "$lib/copy";
   import BackLink from "$lib/components/BackLink.svelte";
+  import ArchivedNote from "$lib/components/ArchivedNote.svelte";
   import IconCheck from "~icons/lucide/check";
   import IconCopy from "~icons/lucide/copy";
   import IconDownload from "~icons/lucide/download";
@@ -37,6 +38,10 @@
 <svelte:head>
   <title>Export — {data.planName}</title>
 </svelte:head>
+
+{#if data.planArchived}
+  <ArchivedNote />
+{/if}
 
 <section class="card">
   <h1>Export for review</h1>

@@ -36,6 +36,10 @@ export const load: PageServerLoad = ({ params, locals }) => {
   const userDb = getUserDbFor(locals.user.id);
   const plan = getPlanBySlug(userDb, params.slug);
   if (!plan) throw error(404, "No such plan");
+  // Archiving is read-only, not deletion (`$lib/db/archive.ts`) — history, progress,
+  // export and version browsing all stay open on an archived plan. Starting a *new*
+  // session is the one thing it refuses, and this is where that refusal lives.
+  if (plan.archived_at) throw error(404, "That plan is archived");
 
   const version = getCurrentVersion(userDb, plan.id);
   if (!version) throw error(404, "This plan has no imported version");

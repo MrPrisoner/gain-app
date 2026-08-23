@@ -1,9 +1,14 @@
 <!-- src/routes/plan/[slug]/history/[workoutId]/+page.svelte -->
 <script lang="ts">
   import BackLink from "$lib/components/BackLink.svelte";
+  import ArchivedNote from "$lib/components/ArchivedNote.svelte";
   import type { PageData } from "./$types";
   let { data }: { data: PageData } = $props();
 </script>
+
+{#if data.planArchived}
+  <ArchivedNote />
+{/if}
 
 <h1>
   Session {data.workout.sessionKey}{data.workout.sessionName

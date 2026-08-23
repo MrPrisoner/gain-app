@@ -8,6 +8,8 @@
   import NextMorningPrompt from "./NextMorningPrompt.svelte";
   import { dueNextMorningPrompts } from "$lib/home/next-morning";
   import { startSyncLoop } from "$lib/sync/client.svelte";
+  import IconArchive from "~icons/lucide/archive";
+  import IconArchiveRestore from "~icons/lucide/archive-restore";
   import IconCheck from "~icons/lucide/check";
   import IconCopy from "~icons/lucide/copy";
   import IconDownload from "~icons/lucide/download";
@@ -249,8 +251,68 @@
           <IconUpload />Import a revised plan
         </a>
       </nav>
+
+      <!--
+        Archiving is reversible and read-only (`$lib/db/archive.ts`), so it gets a plain
+        button and no type-to-confirm: the plan reappears one tap away in the Archived
+        group directly below, and nothing it has logged is at risk. The line above it
+        says so, because "archive" reads as "delete" to most people until told otherwise.
+      -->
+      <form method="POST" action="?/archive" class="archive-form" use:enhance>
+        <input type="hidden" name="slug" value={plan.slug} />
+        <p class="muted archive-hint">
+          Finished with this plan? Archiving hides it here and stops new sessions. History,
+          progress, export and versions all stay open, and you can bring it back any time.
+        </p>
+        <button type="submit" class="quiet"><IconArchive />Archive plan</button>
+      </form>
     </section>
   {/each}
+
+  {#if data.plans.length === 0}
+    <section class="card">
+      <h2>Everything is archived</h2>
+      <p class="muted">
+        Every plan on this account is put away. Open one below to read its history, bring it back,
+        or start something new.
+      </p>
+      <a class="primary-link" href="/import"><IconUpload />Paste a new plan</a>
+    </section>
+  {/if}
+
+  {#if form?.planError}
+    <p class="plan-error">{form.planError}</p>
+  {/if}
+
+  {#if data.archived.length > 0}
+    <details class="archived-group">
+      <summary>Archived <span class="count">{data.archived.length}</span></summary>
+      {#each data.archived as plan (plan.slug)}
+        <div class="archived-plan">
+          <h3>{plan.name}</h3>
+          <p class="muted">archived {plan.archivedAt}</p>
+          <nav class="plan-links">
+            <a class="export-link" href={`/plan/${plan.slug}/history`}>
+              <IconHistory />History
+            </a>
+            <a class="export-link" href={`/plan/${plan.slug}/progress`}>
+              <IconTrendingUp />Progress
+            </a>
+            <a class="export-link" href={`/plan/${plan.slug}/export`}>
+              <IconExternalLink />Export for review
+            </a>
+            <a class="export-link" href={`/plan/${plan.slug}/versions`}>
+              <IconFileClock />Plan versions
+            </a>
+          </nav>
+          <form method="POST" action="?/unarchive" use:enhance>
+            <input type="hidden" name="slug" value={plan.slug} />
+            <button type="submit" class="quiet"><IconArchiveRestore />Unarchive</button>
+          </form>
+        </div>
+      {/each}
+    </details>
+  {/if}
 {/if}
 
 <style>
@@ -407,5 +469,71 @@
 
   .export-link:hover {
     text-decoration: none;
+  }
+
+  .archive-form {
+    margin-top: 1rem;
+    border-top: 1px solid var(--line-soft);
+    padding-top: 1rem;
+  }
+
+  .archive-hint {
+    margin-bottom: 0.6rem;
+  }
+
+  button.quiet {
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    padding: 0.55rem 1rem;
+    font-size: 0.9rem;
+  }
+
+  .plan-error {
+    margin: 1rem 0 0;
+    padding: 0.65rem 0.8rem;
+    border: 1px solid var(--red);
+    border-radius: var(--r-sm);
+    font-size: 0.9rem;
+  }
+
+  .archived-group {
+    margin-top: 1.25rem;
+    background: var(--surface);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-md);
+    padding: 0.9rem 1.25rem;
+  }
+
+  .archived-group summary {
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .archived-group .count {
+    color: var(--muted);
+    font-weight: 400;
+    font-size: 0.85rem;
+  }
+
+  .archived-plan {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--line-soft);
+    display: grid;
+    gap: 0.6rem;
+    justify-items: start;
+  }
+
+  .archived-plan h3 {
+    margin: 0;
+    font-size: 1rem;
+  }
+
+  .archived-plan .muted {
+    margin: 0;
   }
 </style>

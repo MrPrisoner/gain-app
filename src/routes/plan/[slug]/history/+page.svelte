@@ -3,11 +3,16 @@
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import BackLink from "$lib/components/BackLink.svelte";
+  import ArchivedNote from "$lib/components/ArchivedNote.svelte";
   import type { PageData } from "./$types";
   let { data }: { data: PageData } = $props();
 </script>
 
 <h1>{data.planName} — history</h1>
+
+{#if data.planArchived}
+  <ArchivedNote />
+{/if}
 
 {#if data.workouts.length === 0}
   <p class="muted">No workouts logged yet.</p>

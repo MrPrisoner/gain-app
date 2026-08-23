@@ -23,7 +23,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 
   const userDb = getUserDbFor(user.id);
   const plan = getPlanBySlug(userDb, params.slug);
-  if (!plan || plan.archived_at) throw error(404, "No such plan");
+  if (!plan) throw error(404, "No such plan");
 
   const logs = logsForPlan(userDb, plan.id);
   const workout = logs.workouts.find((w) => w.id === params.workoutId);
@@ -97,6 +97,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 
   return {
     planSlug: plan.slug,
+    planArchived: !!plan.archived_at,
     workout: {
       sessionKey: workout.session_key,
       sessionName,

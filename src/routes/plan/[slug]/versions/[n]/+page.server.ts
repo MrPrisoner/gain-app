@@ -40,6 +40,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
   return {
     planSlug: plan.slug,
     planName: plan.name,
+    planArchived: !!plan.archived_at,
     versionNo: version.version_no,
     importedAt: version.imported_at.slice(0, 10),
     isCurrent: version.is_current === 1,

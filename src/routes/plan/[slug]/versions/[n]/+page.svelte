@@ -12,6 +12,7 @@
 <script lang="ts">
   import { copyText, downloadText } from "$lib/copy";
   import BackLink from "$lib/components/BackLink.svelte";
+  import ArchivedNote from "$lib/components/ArchivedNote.svelte";
   import IconCheck from "~icons/lucide/check";
   import IconCopy from "~icons/lucide/copy";
   import IconDownload from "~icons/lucide/download";
@@ -43,6 +44,10 @@
 </svelte:head>
 
 <h1>{data.planName} — v{data.versionNo}</h1>
+
+{#if data.planArchived}
+  <ArchivedNote />
+{/if}
 
 <p class="muted">
   Imported {data.importedAt}{data.isCurrent ? " · the version in use now" : ""}

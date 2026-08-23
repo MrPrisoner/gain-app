@@ -78,6 +78,16 @@ export function revisionDevUserFor(projectName: string): string {
 }
 
 /**
+ * A per-project dev user for the archive walkthrough. Archiving changes what the whole
+ * Home screen lists, so this spec asserts on whole-account state and cannot share an
+ * account with anything else — same reasoning as `homeDevUserFor`, and the same
+ * `x-gain-e2e-user` header makes it work.
+ */
+export function archiveDevUserFor(projectName: string): string {
+  return `e2e-archive-${projectName}`;
+}
+
+/**
  * A per-project dev user for the version-browsing walkthrough. It imports a revision,
  * which changes the account's current plan version — see `revisionDevUserFor`.
  */

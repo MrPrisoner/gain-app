@@ -19,7 +19,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 
   const userDb = getUserDbFor(user.id);
   const plan = getPlanBySlug(userDb, params.slug);
-  if (!plan || plan.archived_at) throw error(404, "No such plan");
+  if (!plan) throw error(404, "No such plan");
 
   const logs = logsForPlan(userDb, plan.id);
   const versions = versionsByWorkout(userDb, plan.id);
@@ -40,6 +40,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
   return {
     planSlug: plan.slug,
     planName: plan.name,
+    planArchived: !!plan.archived_at,
     page,
     hasMore: sorted.length > (page + 1) * PAGE_SIZE,
     workouts: pageWorkouts.map((w) => ({

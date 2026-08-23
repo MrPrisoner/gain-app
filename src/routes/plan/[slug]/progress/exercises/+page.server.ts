@@ -20,7 +20,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 
   const userDb = getUserDbFor(user.id);
   const plan = getPlanBySlug(userDb, params.slug);
-  if (!plan || plan.archived_at) throw error(404, "No such plan");
+  if (!plan) throw error(404, "No such plan");
 
   const version = getCurrentVersion(userDb, plan.id);
   if (!version) throw error(409, "That plan has no current version");

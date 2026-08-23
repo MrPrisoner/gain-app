@@ -17,8 +17,11 @@ plan and progress for an AI to review and revise.
 > metric history and a full workout drill-down, a logged block leaving GAIN as one
 > pasteable document for the next AI review, and that revision — renamed exercises
 > included — coming back in for a plain-language review before it is committed, with
-> history mapped onto the new slug rather than silently split. What is left is smaller
-> than a phase — see [`docs/ROADMAP.md`](docs/ROADMAP.md)'s Loose ends.
+> history mapped onto the new slug rather than silently split. Plans archive and unarchive
+> without ever putting logged history at risk, every version of a plan stays browsable as
+> the document that was imported, and the full browser suite runs in CI on every pull
+> request. What is left is smaller than a phase — see
+> [`docs/ROADMAP.md`](docs/ROADMAP.md)'s Loose ends.
 
 ---
 

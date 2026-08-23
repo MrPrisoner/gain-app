@@ -41,6 +41,20 @@ function currentContract(userDb: UserDb, planSlug: string): GainContract | undef
   return current ? contractOfVersion(current) : undefined;
 }
 
+/**
+ * Archiving is reversible and read-only (`$lib/db/archive.ts`), and a revision is the
+ * one inbound write it refuses: committing a new version to a plan the user has put
+ * away would resurrect it silently and, worse, run the rename machinery against a plan
+ * they are no longer looking at. Says so rather than 404ing — the recovery is one tap
+ * on Home, and a bare "no such plan" would read as data loss for a plan that is right
+ * there.
+ */
+function archivedRefusal(userDb: UserDb, planSlug: string): string | undefined {
+  const plan = getPlanBySlug(userDb, planSlug);
+  if (!plan?.archived_at) return undefined;
+  return `${plan.name} is archived. Unarchive it on the home screen before importing a revision.`;
+}
+
 export const actions: Actions = {
   check: async ({ request, locals }) => {
     if (!locals.user) throw redirect(303, "/login");
@@ -61,6 +75,9 @@ export const actions: Actions = {
     if (review.kind === "first_import") {
       return { firstImport: review, source };
     }
+
+    const archived = archivedRefusal(userDb, review.plan_slug);
+    if (archived) return fail(409, { importError: archived, source });
 
     const before = currentContract(userDb, review.plan_slug);
     if (!before) {
@@ -85,6 +102,9 @@ export const actions: Actions = {
 
     const renames: ExerciseRename[] = [];
     if (review.kind === "revision") {
+      const archived = archivedRefusal(userDb, review.plan_slug);
+      if (archived) return fail(409, { importError: archived, source });
+
       const before = currentContract(userDb, review.plan_slug);
       if (!before) {
         return fail(500, { importError: "The stored plan could not be read.", source });

@@ -71,8 +71,19 @@ exercise's history. `importPlan` (`src/lib/db/import-plan.ts`) gained a `renames
 whose `applyRenames` repoints `exercise_def.slug` and the loose-text
 `deviation.substitute_exercise_slug`. `e2e/revision-walkthrough.spec.ts` is the durable
 proof: it logs a set, revises the plan with a rename, reviews the diff, commits, and
-confirms the set survived under the new slug. **All nine phases are done; what remains
-is the Loose Ends in `docs/ROADMAP.md`, not a numbered phase.**
+confirms the set survived under the new slug.
+
+Three of `docs/ROADMAP.md`'s Loose Ends have since closed. The Playwright suite runs in
+CI as its own job (`.github/workflows/ci.yml`), never folded into `verify`. Plan
+archiving (`src/lib/db/archive.ts`) is reversible and read-only: it takes a plan off the
+active Home list and closes the two inbound write paths — the session runner and a
+revision import — while `export`, `history`, `progress` and version browsing all stay
+open and marked, which is the half that matters, since shipping the button against the
+old `archived_at` 404s would have made archiving a silent loss of the user's own logged
+history. And every version of a plan is browsable at `/plan/[slug]/versions` and
+`/plan/[slug]/versions/[n]`, the latter replaying `source_md` verbatim. **All nine phases
+are done; what remains is the last two Loose Ends in `docs/ROADMAP.md` — a self-service
+account reset and a backup recipe — not a numbered phase.**
 
 Two files hold the plan: the build-order table in ARCHITECTURE §12 is the map, and
 [`docs/ROADMAP.md`](docs/ROADMAP.md) is the itinerary — the remaining work item by item,
@@ -90,7 +101,9 @@ Commands (Node 24 LTS — see `.nvmrc` and the `engines` field):
 dev`, so no offline spec can pass there. The build step means this project alone can
   take noticeably longer than the other three. Needs `npx playwright install chromium`
   once first (~150MB), which is exactly why it is deliberately kept out of `npm run
-verify` — CI's few-seconds check never downloads a browser. `e2e/` is still
+verify` — a few-second local check must never download a browser. CI runs the suite in
+  its own `e2e` job instead, on the same triggers as `check`, with the browser cached on
+  the resolved Playwright version. `e2e/` is still
   typechecked, linted and formatted by `verify`; it is only never _executed_ by it.
   Narrow a run with `npx playwright test --project=offline e2e/offline-session.spec.ts`
   rather than paying for the production build four times over. The three viewport

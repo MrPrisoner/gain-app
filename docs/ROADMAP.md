@@ -56,9 +56,11 @@ before the commit button unlocks. `e2e/revision-walkthrough.spec.ts` logs a set,
 plan with a rename, reviews the diff and commits, then confirms the set survived under the
 new slug.
 
-**Nothing left is phase-numbered.** What remains is the [Loose ends](#loose-ends) below:
-the e2e suite running in CI, plan archiving, old plan versions staying browsable, a
-self-service account reset, and a backup recipe an operator can follow.
+**Nothing left is phase-numbered.** The [Loose ends](#loose-ends) below took the first
+three: the e2e suite now runs in CI as its own job, a plan can be archived and brought
+back without ever putting its logged history at risk, and every version of a plan is
+browsable as the document that was imported. What remains is a self-service account reset
+and a backup recipe an operator can follow.
 
 | Phase | Deliverable | State |
 |---|---|---|
@@ -307,8 +309,8 @@ outbox — while no code path in the app can read another user's training conten
 
 Small, real, and owned by no phase. Pick them up wherever they fit.
 
-Ordered as they should be picked up: the CI job protects everything already built, the
-archiving semantics need settling before any of it is written, and the rest are independent.
+The first three are done. What is left — self-service reset and a backup recipe — is
+independent; pick either up first.
 
 - [x] **The e2e suite runs in CI.** An `e2e` job in `.github/workflows/ci.yml` on the same
       triggers as `check`, running alongside it rather than after it — the two fail for
@@ -325,24 +327,27 @@ archiving semantics need settling before any of it is written, and the rest are 
       (CLAUDE.md, Commands) is that a few-second *local* check must never download a
       browser, which a separate CI job does not. The suite is 134 tests across four
       projects in ~1.4 min locally, including the `offline` project's production build.
-- [ ] **Plan archiving.** `plan.archived_at` is filtered on read in
-      `src/routes/+page.server.ts` and nothing ever sets it. Needs an `archivePlan` /
-      `unarchivePlan` pair in `src/lib/db/` (injected `now`, like every other write there)
-      and a control on the Home plan card.
+- [x] **Plan archiving.** `src/lib/db/archive.ts` is the `archivePlan` / `unarchivePlan`
+      pair — injected `now`, one column, and idempotent in both directions so a second
+      archive cannot stamp today's date over the only record of when the plan was put away.
+      The control is on the Home plan card, and the archived plans sit in a collapsed
+      "Archived" group below it (`src/routes/+page.svelte`).
 
-      **The semantics are settled (2026-08-23): archiving is reversible and read-only, not
-      deletion.** An archived plan drops off the active Home list and refuses to start new
-      sessions; its history, progress, export and version browsing all stay open, marked
-      archived. That is the opposite of what the code does today — `export`, `history`,
-      `progress` and their children all `throw error(404)` on `archived_at` — so shipping a
-      button against the current guards would make archiving a silent, unrecoverable loss of
-      the user's own logged history, which is the exact failure class the slug rules exist to
-      prevent. The 404 stays on the session runner and on import; it comes off the read-only
-      routes.
-      **Done when:** a plan archives from its card, leaves the active list into a collapsed
-      "Archived" group, still opens its history and export, refuses a new session, and
-      unarchives back to exactly where it was. A unit test on the write path and an e2e that
-      archives, reads history, and unarchives.
+      **The semantics settled 2026-08-23: archiving is reversible and read-only, not
+      deletion**, and the read half is the load-bearing one. The `archived_at` 404 came off
+      `export`, `history`, `progress` and their children — each now returns `planArchived`
+      and marks itself with `$lib/components/ArchivedNote.svelte` — and went onto the two
+      inbound write paths instead: the session runner 404s, and `/import` refuses a revision
+      by name with a 409 rather than a bare "no such plan", which would read as data loss for
+      a plan that is right there on the screen behind it. First run is now keyed on "this
+      account has never imported anything", not "nothing is active", so archiving your only
+      plan cannot drop you into the bootstrap interview as though it had been deleted.
+
+      `tests/db/archive.test.ts` covers the write path (including that every logged workout
+      and set stays readable while archived); `tests/server/archive-route.test.ts` covers the
+      Home actions, the read routes staying open, and both refusals;
+      `e2e/archive-walkthrough.spec.ts` archives from the card, opens the history out of the
+      collapsed group, takes the 404 on the session runner, and unarchives back.
 - [x] **Old plan versions stay browsable** (§8). `/plan/[slug]/versions` lists every
       version newest first — number, import date, the current marker, the AI's changelog —
       and `/plan/[slug]/versions/[n]` replays that version's verbatim `source_md` with the

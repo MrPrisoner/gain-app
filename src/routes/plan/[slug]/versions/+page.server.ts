@@ -5,6 +5,10 @@
  * the plan say in week 3" was answerable in the data and unanswerable in the UI. All the
  * reading this needs already existed in `$lib/db/read.ts` — nothing new belongs there,
  * so this route is pure assembly.
+ *
+ * Archived plans still list. Archiving is read-only and reversible
+ * (`$lib/db/archive.ts`), and browsing what a finished plan used to say is exactly the
+ * kind of thing an archived plan is kept for.
  */
 
 import { error, redirect } from "@sveltejs/kit";
@@ -27,6 +31,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
   return {
     planSlug: plan.slug,
     planName: plan.name,
+    planArchived: !!plan.archived_at,
     versions: versions.map((version) => ({
       versionNo: version.version_no,
       importedAt: version.imported_at.slice(0, 10),

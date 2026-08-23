@@ -569,6 +569,15 @@ workout's history detail links straight to the version it ran under, which is wh
 question is actually asked. Nothing there reassembles a document — §11's
 never-paraphrase guarantee is what this screen is the plainest statement of.
 
+**Archiving a plan is reversible and read-only, not deletion.** `plan.archived_at` takes
+a plan off the active Home list into a collapsed Archived group, and closes the two
+inbound write paths — starting a session, and committing a revision to it. Every read
+path stays open and marked: history, progress, export and version browsing all still
+work, because the reason to keep a finished plan at all is to be able to read what
+happened under it and hand that to an AI. Unarchiving restores exactly the prior state;
+nothing is deleted, so nothing has to be recovered. The write pair lives in
+`src/lib/db/archive.ts` and touches one column.
+
 ---
 
 ## 9. The session runner

@@ -1,6 +1,7 @@
 <!-- src/routes/plan/[slug]/versions/+page.svelte -->
 <script lang="ts">
   import BackLink from "$lib/components/BackLink.svelte";
+  import ArchivedNote from "$lib/components/ArchivedNote.svelte";
   import IconCircleDot from "~icons/lucide/circle-dot";
   import type { PageData } from "./$types";
 
@@ -12,6 +13,10 @@
 </svelte:head>
 
 <h1>{data.planName} — versions</h1>
+
+{#if data.planArchived}
+  <ArchivedNote />
+{/if}
 
 <p class="muted">
   Every revision your AI has handed back, newest first. Each one opens as the document that was
