@@ -1,9 +1,10 @@
 /**
  * Full detail for one workout (design spec §8): every set rendered with
  * `renderExerciseSets`, reused verbatim from the export so a workout reads identically
- * here and in a bundle; every deviation; every metric value; the plan version as plain
- * text, per spec §2 decision 6 — no drill-in, since browsing an old version's document
- * is a separate, unbuilt ROADMAP loose end.
+ * here and in a bundle; every deviation; every metric value; and the plan version this
+ * workout ran under, linking through to that version's verbatim document
+ * (`/plan/[slug]/versions/[n]`) — the question "what did the plan say when I did this"
+ * is only ever asked from a specific workout, so this is the link that answers it.
  */
 
 import { error, redirect } from "@sveltejs/kit";

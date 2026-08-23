@@ -13,7 +13,10 @@
 <p class="muted">
   {new Date(data.workout.startedAt).toISOString().slice(0, 10)} · {data.workout.status}
   {#if data.version}
-    · Plan v{data.version.versionNo}, imported {data.version.importedAt.slice(0, 10)}
+    ·
+    <a href={`/plan/${data.planSlug}/versions/${data.version.versionNo}`}
+      >Plan v{data.version.versionNo}</a
+    >, imported {data.version.importedAt.slice(0, 10)}
   {/if}
 </p>
 {#if data.workout.note}

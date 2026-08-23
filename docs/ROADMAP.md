@@ -343,21 +343,25 @@ archiving semantics need settling before any of it is written, and the rest are 
       "Archived" group, still opens its history and export, refuses a new session, and
       unarchives back to exactly where it was. A unit test on the write path and an e2e that
       archives, reads history, and unarchives.
-- [ ] **Old plan versions stay browsable** (§8). Workouts are already bound to the version
-      they were logged under, so "what did the plan say in week 3" is answerable in the data
-      and unanswerable in the UI. `listVersions`, `contractOfVersion` and `readSourceMd`
-      (`src/lib/db/read.ts`) already do the reading — nothing new belongs in `$lib/db`.
-      `/plan/[slug]/versions` lists every version newest first (number, import date, the
-      current marker, the AI's changelog where there is one) and `/plan/[slug]/versions/[n]`
-      renders that version's verbatim `source_md` with copy-and-download-fallback, the same
-      `copyText`/`downloadText` pattern as the bootstrap prompt and the export. Reached by a
-      link on the Home plan card beside Export, Progress and History — there is deliberately
-      no `/plan/[slug]` overview route to hang it off (settled 2026-08-23) — and from the
-      history detail, which already names the version a workout ran under.
-      **Watch for:** `readSourceMd` is a bare `readFileSync` on a path stored in the row. A
-      version whose document is missing from disk must render an explanation, not a 500.
-      **Done when:** the v1 document of a revised plan opens from the UI and an e2e asserts
-      it is byte-identical to what was imported.
+- [x] **Old plan versions stay browsable** (§8). `/plan/[slug]/versions` lists every
+      version newest first — number, import date, the current marker, the AI's changelog —
+      and `/plan/[slug]/versions/[n]` replays that version's verbatim `source_md` with the
+      same `copyText`/`downloadText` fallback the bootstrap prompt and the export use.
+      Nothing new went into `$lib/db`: `listVersions` and `readSourceMd` already did all the
+      reading, so both routes are pure assembly. Reached from the Home plan card beside
+      Export, Progress and History, and from the history detail, whose "Plan v2" is now the
+      link — that is where the question is actually asked.
+
+      Two details worth keeping. The document rides the textarea as a `value` expression
+      rather than as element content, because HTML eats a newline immediately after an
+      opening tag and a plan starting with a blank line would come back a byte short. And
+      `readSourceMd` is a bare `readFileSync` on a path stored in the row, so a missing
+      document renders an explanation naming the path — the row is still good, only the file
+      is gone — rather than a 500. `tests/server/versions-route.test.ts` covers byte
+      identity, the missing file, and `/versions/2x` being a 404 rather than a loose parse
+      that serves version 2 under a URL that never named it;
+      `e2e/versions-walkthrough.spec.ts` imports a revision and asserts v1 comes back
+      byte-identical to the fixture through the browser.
 - [ ] **A user can reset their own account.** Today only an operator can, so an alpha tester
       who wants to start fresh has to ask. Reuse `resetUserData`
       (`src/lib/server/admin-reset.ts`) rather than writing a second wipe: its ordering is

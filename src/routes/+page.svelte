@@ -12,6 +12,7 @@
   import IconCopy from "~icons/lucide/copy";
   import IconDownload from "~icons/lucide/download";
   import IconExternalLink from "~icons/lucide/external-link";
+  import IconFileClock from "~icons/lucide/file-clock";
   import IconHistory from "~icons/lucide/history";
   import IconSparkles from "~icons/lucide/sparkles";
   import IconTrendingUp from "~icons/lucide/trending-up";
@@ -240,6 +241,9 @@
         </a>
         <a class="export-link" href={`/plan/${plan.slug}/history`}>
           <IconHistory />History
+        </a>
+        <a class="export-link" href={`/plan/${plan.slug}/versions`}>
+          <IconFileClock />Plan versions
         </a>
         <a class="export-link" href="/import">
           <IconUpload />Import a revised plan

@@ -78,6 +78,14 @@ export function revisionDevUserFor(projectName: string): string {
 }
 
 /**
+ * A per-project dev user for the version-browsing walkthrough. It imports a revision,
+ * which changes the account's current plan version — see `revisionDevUserFor`.
+ */
+export function versionsDevUserFor(projectName: string): string {
+  return `e2e-versions-${projectName}`;
+}
+
+/**
  * The one operator account. `GAIN_DEV_ADMIN` is a single environment variable read once
  * at boot, so unlike the subject below this cannot vary per project — which is fine,
  * because the admin spec asserts only on its own subject's card, never on the list as a

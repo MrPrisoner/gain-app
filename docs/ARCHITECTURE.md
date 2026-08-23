@@ -562,7 +562,12 @@ why it can ship in phase 3 while diff review waits for phase 8.
 
 Old versions stay browsable. Workouts remain attached to the version they were logged
 under, so "what did the plan actually say in week 3" is always answerable —
-context a future AI may well want.
+context a future AI may well want. `/plan/[slug]/versions` lists every version newest
+first with the AI's own changelog, and `/plan/[slug]/versions/[n]` replays that version's
+`source_md` verbatim, with the same copy-then-download fallback the export uses; a
+workout's history detail links straight to the version it ran under, which is where the
+question is actually asked. Nothing there reassembles a document — §11's
+never-paraphrase guarantee is what this screen is the plainest statement of.
 
 ---
 
