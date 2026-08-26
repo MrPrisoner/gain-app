@@ -298,9 +298,13 @@ The body is prose paragraphs, not bullets — the same split "How to report back
 between chat replies and files applies here: a commit message is a file. State what
 changed and why; call out a decision or a gotcha if the commit had one.
 
-`Co-Authored-By: Claude <model> <noreply@anthropic.com>` closes the message when Claude
-authored the commit. That is a standard git/GitHub trailer, not part of Conventional
-Commits itself.
+`Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>` closes the message when Claude
+authored the commit — the model's name, then one angle-bracket group, which is the
+address. That is a standard git/GitHub trailer, not part of Conventional Commits itself,
+and git parses whatever is inside the _first_ `<…>` as the email: a second group, as in
+`Claude <claude-opus-5> <noreply@anthropic.com>`, makes `claude-opus-5` the address and
+the trailer silently stops registering a co-author at all. Substitute the model
+(`Claude Sonnet 5`, …), never the brackets.
 
 The ~35 commits before this was written down (`Add icon svg`, `Phase 1: pure round-trip
 core`, ...) predate the convention and are not worth rewriting.
