@@ -17,6 +17,8 @@
     type RestSpec,
     type RestTimerState,
   } from "$lib/session/rest-timer";
+  import type { UpNextFigure } from "$lib/session/session-view";
+  import FigureIcon from "./FigureIcon.svelte";
 
   let {
     spec,
@@ -27,7 +29,7 @@
     /** What is coming next (UI-DECISIONS §4), pre-formatted by the caller the same way
      * `LogStrip`'s `context`/`lastPerformance` are — this component does no formatting
      * of its own, only rendering. */
-    upNext: { label: string; target: string; isLast: boolean };
+    upNext: { label: string; context: string; figures: readonly UpNextFigure[]; isLast: boolean };
     onSkip: () => void;
   } = $props();
 
@@ -148,7 +150,14 @@
   <div class="rest-upnext">
     <span class="upnext-kicker">Up next</span>
     <span class="upnext-label">{upNext.label}</span>
-    <span class="upnext-target tabular">{upNext.target}</span>
+    <span class="upnext-context">{upNext.context}</span>
+    {#if upNext.figures.length > 0}
+      <span class="upnext-figures tabular">
+        {#each upNext.figures as figure (figure.kind)}
+          <span class="upnext-figure"><FigureIcon kind={figure.kind} />{figure.text}</span>
+        {/each}
+      </span>
+    {/if}
   </div>
 
   <div class="rest-actions">
@@ -232,9 +241,22 @@
   .upnext-label {
     font-weight: 700;
   }
-  .upnext-target {
+  .upnext-context {
     color: var(--muted);
     font-size: 0.9rem;
+  }
+  .upnext-figures {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.9rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+  .upnext-figure {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
   }
 
   .rest-actions {

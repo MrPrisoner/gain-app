@@ -18,9 +18,7 @@
   import type { LoggedSet, ResolvedExercise, SetSlot } from "$lib/session/session-view";
   import { newOpId } from "$lib/sync/ops";
   import { logWrite } from "$lib/sync/client.svelte";
-  import IconRepeat from "~icons/lucide/repeat";
-  import IconDumbbell from "~icons/lucide/dumbbell";
-  import IconTimer from "~icons/lucide/timer";
+  import FigureIcon from "./FigureIcon.svelte";
 
   let {
     planSlug,
@@ -223,7 +221,7 @@
                 oninput={(event) => setField("durationS", event.currentTarget.value)}
                 onkeydown={onDialKeydown}
               />
-              <span class="dial-u"><IconTimer /> sec</span>
+              <span class="dial-u"><FigureIcon kind="time" /> sec</span>
             </span>
             <button
               type="button"
@@ -250,7 +248,7 @@
                 oninput={(event) => setField("reps", event.currentTarget.value)}
                 onkeydown={onDialKeydown}
               />
-              <span class="dial-u"><IconRepeat /> reps</span>
+              <span class="dial-u"><FigureIcon kind="reps" /> reps</span>
             </span>
             <button
               type="button"
@@ -278,7 +276,7 @@
                   oninput={(event) => setField("weightKg", event.currentTarget.value)}
                   onkeydown={onDialKeydown}
                 />
-                <span class="dial-u"><IconDumbbell /> kg total</span>
+                <span class="dial-u"><FigureIcon kind="load" /> kg total</span>
               </span>
               <button
                 type="button"

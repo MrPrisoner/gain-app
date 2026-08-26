@@ -420,36 +420,65 @@ export function formatSlotContext(
 }
 
 /**
- * The `" at 12 kg"` clause both shapes of the rest overlay's up-next card end with — the
- * pre-fill the log strip would show for the slot that is coming, passed in by the caller
- * because only the runner holds the pre-fill map. Omitted entirely when there is none: a
- * bodyweight movement, or no matching history and no configured default. One helper so
- * the two shapes can never spell the same number differently.
+ * One figure of the rest overlay's up-next line — an icon-tagged number, so `RestTimer`
+ * can pair each with its `FigureIcon` (UI-DECISIONS §4) instead of parsing a sentence
+ * back apart the way a single formatted string would require.
  */
-function formatUpNextLoad(weightKg: number | undefined): string {
-  return weightKg === undefined ? "" : ` at ${weightKg} kg`;
+export type UpNextFigure = { kind: "reps" | "time" | "load"; text: string };
+
+/** The rest overlay's up-next card, split the way `RestTimer` renders it: `context`
+ * names where you are (`"Set 3 of 3"`, `"3 sets"`), `figures` names what to do. Both
+ * `upNextSlotParts` and `upNextExerciseParts` return this shape so the overlay never has
+ * to know which one fired. */
+export type UpNextParts = { context: string; figures: readonly UpNextFigure[] };
+
+/**
+ * The reps/time and load figures for the rest overlay's up-next line, shared by
+ * `upNextSlotParts` and `upNextExerciseParts` so the two shapes can never tag the same
+ * number differently. The load figure is omitted entirely when there is none: a
+ * bodyweight movement, or no matching history and no configured default. The reps/time
+ * figure is omitted — never a throw — when the exercise carries no target of its own
+ * type, the same substitute-across-a-type-boundary case `formatTargetOrSets` already
+ * has to handle; a throw here would take the rest overlay down mid-session.
+ */
+function upNextFigures(
+  exercise: Pick<ResolvedExercise, "type" | "reps" | "durationSec">,
+  weightKg: number | undefined,
+): UpNextFigure[] {
+  const figures: UpNextFigure[] = [];
+  if (hasTarget(exercise)) {
+    const value = formatRepsOrDuration(exercise);
+    // `formatRepsOrDuration` already appends "sec" for a timed exercise; reps carries no
+    // unit of its own (the ledger's number column doesn't need one), so it is added here.
+    figures.push(
+      exercise.type === "time"
+        ? { kind: "time", text: value }
+        : { kind: "reps", text: `${value} reps` },
+    );
+  }
+  if (weightKg !== undefined) {
+    figures.push({ kind: "load", text: `${weightKg} kg` });
+  }
+  return figures;
 }
 
 /**
  * The rest overlay's up-next card (UI-DECISIONS §4: "names what is coming next") for the
- * *same* exercise's next slot — `"Set 3 of 3 · 8–12 reps at 12 kg"`. Built out of
- * `formatSlotContext` and `formatRepsOrDuration` rather than re-deriving either, so the
- * overlay can never describe the next slot differently than the ledger row it will fill
- * in.
+ * *same* exercise's next slot — `context: "Set 3 of 3"`, `figures: [8–12 reps, 12 kg]`.
+ * Built out of `formatSlotContext` so the overlay can never describe the next slot
+ * differently than the ledger row it will fill in.
  */
-export function formatUpNextSlot(
+export function upNextSlotParts(
   block: Pick<ResolvedBlock, "type" | "rounds">,
   slot: SetSlot,
   totalSets: number,
   exercise: Pick<ResolvedExercise, "type" | "reps" | "durationSec">,
   weightKg?: number,
-): string {
-  const context = formatSlotContext(block, slot, totalSets);
-  const value = formatRepsOrDuration(exercise);
-  // `formatRepsOrDuration` already appends "sec" for a timed exercise; reps carries no
-  // unit of its own (the ledger's number column doesn't need one), so it is added here.
-  const target = exercise.type === "reps" ? `${value} reps` : value;
-  return `${context} · ${target}${formatUpNextLoad(weightKg)}`;
+): UpNextParts {
+  return {
+    context: formatSlotContext(block, slot, totalSets),
+    figures: upNextFigures(exercise, weightKg),
+  };
 }
 
 /**
@@ -532,6 +561,14 @@ function hasTarget(exercise: Pick<ResolvedExercise, "type" | "reps" | "durationS
   return (exercise.type === "time" ? exercise.durationSec : exercise.reps) !== undefined;
 }
 
+/** The sets count alone — `"2 sets"`, `"1 set"`, `"2–3 sets per side"` — the fallback
+ * half of `formatTargetOrSets` and the whole of `upNextExerciseParts`'s context line,
+ * pulled out so neither has to restate the pluralisation/per-side rule. */
+function formatSetsCount(exercise: Pick<ResolvedExercise, "sets" | "perSide">): string {
+  const core = exercise.sets === 1 ? "1 set" : `${formatRange(exercise.sets)} sets`;
+  return exercise.perSide ? `${core} per side` : core;
+}
+
 /**
  * `formatTarget` for any exercise the runner might be *rendering*, prescribed or
  * substituted. Falls back to the sets count alone (`2 sets`) when the substitute carries
@@ -541,28 +578,30 @@ function hasTarget(exercise: Pick<ResolvedExercise, "type" | "reps" | "durationS
 export function formatTargetOrSets(
   exercise: Pick<ResolvedExercise, "type" | "sets" | "reps" | "durationSec" | "perSide">,
 ): string {
-  if (hasTarget(exercise)) return formatTarget(exercise);
-  const core = exercise.sets === 1 ? "1 set" : `${formatRange(exercise.sets)} sets`;
-  return exercise.perSide ? `${core} per side` : core;
+  return hasTarget(exercise) ? formatTarget(exercise) : formatSetsCount(exercise);
 }
 
 /**
  * The rest overlay's up-next card for the *next* exercise, once the current one is
- * finished — `"3 × 10–14 at 8 kg"`. The whole prescription rather than one slot, because
- * nothing of this movement has been logged yet and the sets count is the useful figure;
- * the load clause is the same one `formatUpNextSlot` appends, so crossing from one
- * exercise to the next no longer drops the weight the log strip is about to offer.
+ * finished — `context: "3 sets"`, `figures: [8–12 reps, 8 kg]`. The whole prescription
+ * rather than one slot, because nothing of this movement has been logged yet and the
+ * sets count is the useful figure; the figures come from the same `upNextFigures`
+ * helper `upNextSlotParts` uses, so crossing from one exercise to the next can never tag
+ * a number differently than the slot it lands on.
  *
- * `formatTargetOrSets`, not `formatTarget`: the exercise here is the *performed* one, so
- * it can be a substitute resolved across a `type` boundary with no target of its own —
+ * `formatSetsCount`, not `formatTarget`: the exercise here is the *performed* one, so it
+ * can be a substitute resolved across a `type` boundary with no target of its own —
  * which `formatTarget` throws on, and a throw inside the rest overlay would take the
- * whole session down.
+ * whole session down. Its reps/time figure is dropped by `upNextFigures` the same way.
  */
-export function formatUpNextExercise(
+export function upNextExerciseParts(
   exercise: Pick<ResolvedExercise, "type" | "sets" | "reps" | "durationSec" | "perSide">,
   weightKg?: number,
-): string {
-  return `${formatTargetOrSets(exercise)}${formatUpNextLoad(weightKg)}`;
+): UpNextParts {
+  return {
+    context: formatSetsCount(exercise),
+    figures: upNextFigures(exercise, weightKg),
+  };
 }
 
 /** `formatRepsOrDuration` for the same "prescribed or substituted" case — an em dash

@@ -76,7 +76,8 @@ test("Session A end-to-end: warm-up, four working exercises, rest, a deviation, 
   await logSet(page); // set 3
   await expect(rest).toBeVisible();
   await expect(rest.locator(".upnext-label")).toHaveText("Dumbbell floor press");
-  await expect(rest.locator(".upnext-target")).toHaveText("3 × 8–12 at 12 kg");
+  await expect(rest.locator(".upnext-context")).toHaveText("3 sets");
+  await expect(rest.locator(".upnext-figure")).toHaveText(["8–12 reps", "12 kg"]);
   await rest.getByRole("button", { name: "Start next set" }).click();
   await expect(rest).toHaveCount(0);
 

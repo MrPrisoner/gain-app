@@ -190,10 +190,15 @@ are at 1:14" rather than pretending 60 is a finish line. The band is **drawn**, 
 described in a caption — a fixed `rest_sec: 45` has no band and simply counts down, then
 counts up as over.
 
-**What is coming next is named on the overlay**, with its target: "Set 3 of 3 · 8–12 reps
-at 12 kg", or the next exercise where the current one is finished — "Dumbbell floor press,
-3 × 8–12 at 12 kg". A full-screen timer that shows only a number wastes the one screen the
-user is definitely looking at.
+**What is coming next is named on the overlay**, as a name and two lines beneath it — a
+context line naming where you are ("Set 3 of 3", "Round 2 of 4"), or the next exercise's
+sets count where the current one is finished ("Dumbbell floor press" / "3 sets"), then a
+row of icon-tagged figures below it: ⇅ reps or ⏱ time, and 🏋 the load. Two lines rather
+than one long sentence, and figures rather than a fourth prose clause, because this is
+the one screen the user is definitely looking at and the numbers on it are the ones they
+act on — the same reps/load iconography `LogStrip`'s dials use, via the shared
+`FigureIcon` component, so the overlay and the strip can never drift onto different
+glyphs for the same figure.
 
 **Both shapes carry the load**, and the cross-exercise one carries it for the *first* set.
 The load is the figure the user acts on during rest — it is what sends them to the rack —

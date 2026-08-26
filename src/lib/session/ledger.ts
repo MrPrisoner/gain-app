@@ -12,19 +12,20 @@
  */
 
 import {
-  formatUpNextExercise,
-  formatUpNextSlot,
   highestLoggedSetNo,
   nextExerciseKey,
   nextUnloggedSlot,
   setLogKey,
   setSlotsFor,
+  upNextExerciseParts,
+  upNextSlotParts,
   visibleSetCount,
   type LoggedSet,
   type ResolvedBlock,
   type ResolvedExercise,
   type ResolvedSession,
   type SetSlot,
+  type UpNextFigure,
 } from "./session-view";
 import { carryForwardFromPreviousSet, type PrefillByExercise } from "./prefill";
 
@@ -257,19 +258,25 @@ export function resolveOpenContext(
   return undefined;
 }
 
-/** UI-DECISIONS §4's up-next card: a name and a pre-formatted target line, following
- * the same pattern as `LogStrip`'s `context`/`lastPerformance` props — `RestTimer`
- * itself does no formatting, only rendering. `isLast` tells `RestTimer` whether its
- * dismiss button is starting something or just closing the overlay, so the button's own
- * label can agree with "Nothing left" instead of offering to start a set that isn't
- * coming. */
-export type UpNext = { label: string; target: string; isLast: boolean };
+/** UI-DECISIONS §4's up-next card: a name, a pre-formatted two-line body (`context` then
+ * icon-tagged `figures`), following the same pattern as `LogStrip`'s
+ * `context`/`lastPerformance` props — `RestTimer` itself does no formatting, only
+ * rendering. `isLast` tells `RestTimer` whether its dismiss button is starting something
+ * or just closing the overlay, so the button's own label can agree with "Nothing left"
+ * instead of offering to start a set that isn't coming. */
+export type UpNext = {
+  label: string;
+  context: string;
+  figures: readonly UpNextFigure[];
+  isLast: boolean;
+};
 
 /** Nothing else is scheduled — the rest overlay still needs an up-next card even when
  * this was the session's very last set or round. */
 export const UP_NEXT_FALLBACK: UpNext = {
   label: "Nothing left",
-  target: "Finish up when you're ready",
+  context: "Finish up when you're ready",
+  figures: [],
   isLast: true,
 };
 
@@ -307,11 +314,12 @@ export function prefillFor(
  * shared by `upNextForSetLogged`'s finished-exercise branch and `startNextRound`.
  *
  * It resolves that exercise's own next unlogged slot purely to read the load off it, so
- * the card carries the weight the log strip is about to offer — `"3 × 10–14 at 8 kg"` —
- * the same way the same-exercise branch already did. Without it, crossing from one
- * exercise to the next was the one moment the overlay went quiet about load: the user
- * saw a bare `3 × 10–14`, and the number they were about to lift only appeared once
- * they had logged set one and the *other* branch took over.
+ * the card carries the weight the log strip is about to offer — `context: "3 sets"`,
+ * `figures: [8–12 reps, 8 kg]` — the same way the same-exercise branch already did.
+ * Without it, crossing from one exercise to the next was the one moment the overlay went
+ * quiet about load: the user saw a bare `3 sets, 8–12 reps`, and the number they were
+ * about to lift only appeared once they had logged set one and the *other* branch took
+ * over.
  */
 export function upNextForExerciseAt(
   ledger: SessionLedger,
@@ -331,7 +339,7 @@ export function upNextForExerciseAt(
   ).weightKg;
   return {
     label: next.exercise.name,
-    target: formatUpNextExercise(next.exercise, weight),
+    ...upNextExerciseParts(next.exercise, weight),
     isLast: false,
   };
 }
@@ -373,13 +381,7 @@ export function upNextForSetLogged(
     ).weightKg;
     return {
       label: context.exercise.name,
-      target: formatUpNextSlot(
-        context.block,
-        nextSlot,
-        context.shownSets,
-        context.exercise,
-        weight,
-      ),
+      ...upNextSlotParts(context.block, nextSlot, context.shownSets, context.exercise, weight),
       isLast: false,
     };
   }

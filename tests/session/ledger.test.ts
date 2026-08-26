@@ -428,13 +428,13 @@ describe("upNextForExerciseAt", () => {
     expect(UP_NEXT_FALLBACK.isLast).toBe(true);
   });
 
-  it("names the exercise and its target line", () => {
+  it("names the exercise and its sets count", () => {
     const d = session("D");
     const row = exercise(block(d, "main"), "goblet-squat");
     const at = exerciseAt(d, emptyLedger(), "main:goblet-squat");
     const upNext = upNextForExerciseAt(emptyLedger(), {}, at);
     expect(upNext.label).toBe(row.name);
-    expect(upNext.target).toContain("×");
+    expect(upNext.context).toContain("sets");
     expect(upNext.isLast).toBe(false);
   });
 
@@ -442,27 +442,36 @@ describe("upNextForExerciseAt", () => {
     const a = session("A");
     const at = exerciseAt(a, emptyLedger(), "main:db-floor-press");
     const upNext = upNextForExerciseAt(emptyLedger(), prefill("db-floor-press", { none: 8 }), at);
-    expect(upNext.target).toBe("3 × 8–12 at 8 kg");
+    expect(upNext.context).toBe("3 sets");
+    expect(upNext.figures).toEqual([
+      { kind: "reps", text: "8–12 reps" },
+      { kind: "load", text: "8 kg" },
+    ]);
   });
 
   it("takes the first unlogged side's pre-fill for a per-side exercise", () => {
     const c = session("C");
     const at = exerciseAt(c, emptyLedger(), "main:split-squat");
     const both = prefill("split-squat", { left: 6, right: 10 });
-    expect(upNextForExerciseAt(emptyLedger(), both, at).target).toBe("2 × 10–12 per side at 6 kg");
+    const firstSide = upNextForExerciseAt(emptyLedger(), both, at);
+    expect(firstSide.context).toBe("2 sets per side");
+    expect(firstSide.figures).toContainEqual({ kind: "load", text: "6 kg" });
 
     // Left already logged, so the card describes the right side's slot instead.
     const leftDone = emptyLedger({
       loggedSets: new Map([[setLogKey("main", "split-squat", 1, "left"), { reps: 10 }]]),
     });
-    expect(upNextForExerciseAt(leftDone, both, at).target).toBe("2 × 10–12 per side at 10 kg");
+    expect(upNextForExerciseAt(leftDone, both, at).figures).toContainEqual({
+      kind: "load",
+      text: "10 kg",
+    });
   });
 
-  it("omits the load clause entirely for a movement with no pre-fill weight", () => {
+  it("omits the load figure entirely for a movement with no pre-fill weight", () => {
     const a = session("A");
     const at = exerciseAt(a, emptyLedger(), "core:side-plank");
     const upNext = upNextForExerciseAt(emptyLedger(), {}, at);
-    expect(upNext.target).not.toContain("kg");
+    expect(upNext.figures.some((f) => f.kind === "load")).toBe(false);
   });
 });
 
@@ -481,7 +490,7 @@ describe("upNextForSetLogged", () => {
     const nextSlot = { setNo: 2, side: undefined, key: setLogKey("main", "goblet-squat", 2) };
     const upNext = upNextForSetLogged(d, emptyLedger(), new Set(), {}, context, nextSlot);
     expect(upNext.label).toBe(row.name);
-    expect(upNext.target).toContain("Set 2 of 3");
+    expect(upNext.context).toBe("Set 2 of 3");
     expect(upNext.isLast).toBe(false);
   });
 
@@ -508,7 +517,7 @@ describe("upNextForSetLogged", () => {
       undefined,
     );
     expect(upNext.label).toBe(nextRow.name);
-    expect(upNext.target).toContain("at 8 kg");
+    expect(upNext.figures).toContainEqual({ kind: "load", text: "8 kg" });
     expect(upNext.isLast).toBe(false);
   });
 

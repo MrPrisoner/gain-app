@@ -11,7 +11,6 @@ import {
   formatSlotContext,
   formatSlotLabel,
   formatTarget,
-  formatUpNextSlot,
   formatTargetOrSets,
   highestLoggedSetNo,
   nextExerciseKey,
@@ -27,6 +26,7 @@ import {
   setSlotsFor,
   summariseLoggedSets,
   trackedExerciseKeys,
+  upNextSlotParts,
   visibleSetCount,
 } from "../../src/lib/session/session-view";
 import type { ResolvedExercise } from "../../src/lib/session/session-view";
@@ -328,41 +328,52 @@ describe("formatSlotContext / formatSlotLabel", () => {
   });
 });
 
-describe("formatUpNextSlot", () => {
+describe("upNextSlotParts", () => {
   const sequence = { type: "sequence" as const, rounds: undefined };
   const rounds = { type: "rounds" as const, rounds: 2 };
   const slot = (setNo: number, side?: "left" | "right") => ({ setNo, side, key: "k" });
 
-  it("names the next set, its rep target and its weight — UI-DECISIONS §4's example", () => {
+  it("names the next set, its rep figure and its load figure — UI-DECISIONS §4's example", () => {
     const session = resolveSession(fixtureContract(), "A");
     const main = session?.blocks.find((b) => b.key === "main");
     const squat = main?.exercises.find((e) => e.slug === "goblet-squat");
-    expect(squat && formatUpNextSlot(sequence, slot(3), 3, squat, 12)).toBe(
-      "Set 3 of 3 · 8–12 reps at 12 kg",
-    );
+    expect(squat && upNextSlotParts(sequence, slot(3), 3, squat, 12)).toEqual({
+      context: "Set 3 of 3",
+      figures: [
+        { kind: "reps", text: "8–12 reps" },
+        { kind: "load", text: "12 kg" },
+      ],
+    });
   });
 
-  it("omits the weight clause when there is no weight to show", () => {
+  it("omits the load figure when there is no weight to show", () => {
     const session = resolveSession(fixtureContract(), "A");
     const main = session?.blocks.find((b) => b.key === "main");
     const squat = main?.exercises.find((e) => e.slug === "goblet-squat");
-    expect(squat && formatUpNextSlot(sequence, slot(1), 3, squat)).toBe("Set 1 of 3 · 8–12 reps");
+    expect(squat && upNextSlotParts(sequence, slot(1), 3, squat)).toEqual({
+      context: "Set 1 of 3",
+      figures: [{ kind: "reps", text: "8–12 reps" }],
+    });
   });
 
   it("names the side of a per_side slot", () => {
     const session = resolveSession(fixtureContract(), "A");
     const core = session?.blocks.find((b) => b.key === "core");
     const sidePlank = core?.exercises.find((e) => e.slug === "side-plank");
-    expect(sidePlank && formatUpNextSlot(sequence, slot(1, "right"), 2, sidePlank)).toBe(
-      "Set 1 of 2 — right · 20–40 sec",
-    );
+    expect(sidePlank && upNextSlotParts(sequence, slot(1, "right"), 2, sidePlank)).toEqual({
+      context: "Set 1 of 2 — right",
+      figures: [{ kind: "time", text: "20–40 sec" }],
+    });
   });
 
   it("counts rounds, not sets, in a rounds block", () => {
     const session = resolveSession(fixtureContract(), "A");
     const main = session?.blocks.find((b) => b.key === "main");
     const squat = main?.exercises.find((e) => e.slug === "goblet-squat");
-    expect(squat && formatUpNextSlot(rounds, slot(1), 1, squat)).toBe("Round 1 of 2 · 8–12 reps");
+    expect(squat && upNextSlotParts(rounds, slot(1), 1, squat)).toEqual({
+      context: "Round 1 of 2",
+      figures: [{ kind: "reps", text: "8–12 reps" }],
+    });
   });
 });
 
