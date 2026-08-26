@@ -12,7 +12,7 @@
  */
 
 import {
-  formatTarget,
+  formatUpNextExercise,
   formatUpNextSlot,
   highestLoggedSetNo,
   nextExerciseKey,
@@ -273,14 +273,6 @@ export const UP_NEXT_FALLBACK: UpNext = {
   isLast: true,
 };
 
-/** The up-next card for a resolved exercise, or the fallback when there isn't one —
- * shared by `upNextForSetLogged`'s finished-exercise branch and `startNextRound`. */
-export function upNextForExerciseAt(next: ExerciseAt | undefined): UpNext {
-  return next
-    ? { label: next.exercise.name, target: formatTarget(next.exercise), isLast: false }
-    : UP_NEXT_FALLBACK;
-}
-
 /**
  * `blockKey`/`prescribedSlug` are the slot's identity (same as `setLogKey`), used to
  * look up whatever this session already logged for the *previous* set of the same slot
@@ -308,6 +300,40 @@ export function prefillFor(
     setLogKey(blockKey, prescribedSlug, slot.setNo - 1, slot.side),
   );
   return carryForwardFromPreviousSet(base, previous);
+}
+
+/**
+ * The up-next card for a resolved exercise, or the fallback when there isn't one —
+ * shared by `upNextForSetLogged`'s finished-exercise branch and `startNextRound`.
+ *
+ * It resolves that exercise's own next unlogged slot purely to read the load off it, so
+ * the card carries the weight the log strip is about to offer — `"3 × 10–14 at 8 kg"` —
+ * the same way the same-exercise branch already did. Without it, crossing from one
+ * exercise to the next was the one moment the overlay went quiet about load: the user
+ * saw a bare `3 × 10–14`, and the number they were about to lift only appeared once
+ * they had logged set one and the *other* branch took over.
+ */
+export function upNextForExerciseAt(
+  ledger: SessionLedger,
+  prefillByExercise: PrefillByExercise,
+  next: ExerciseAt | undefined,
+): UpNext {
+  if (!next) return UP_NEXT_FALLBACK;
+  const slot = nextUnloggedSlot(slotsFor(ledger, next.block, next.prescribed), ledger.loggedSets);
+  const weight = prefillFor(
+    ledger,
+    prefillByExercise,
+    next.block.key,
+    next.prescribed.slug,
+    next.exercise.slug,
+    next.exercise.perSide,
+    slot,
+  ).weightKg;
+  return {
+    label: next.exercise.name,
+    target: formatUpNextExercise(next.exercise, weight),
+    isLast: false,
+  };
 }
 
 /**
@@ -358,6 +384,8 @@ export function upNextForSetLogged(
     };
   }
   return upNextForExerciseAt(
+    ledger,
+    prefillByExercise,
     exerciseAt(session, ledger, nextExerciseKey(session, done, context.key)),
   );
 }

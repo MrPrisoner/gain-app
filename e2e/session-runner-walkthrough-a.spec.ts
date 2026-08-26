@@ -66,7 +66,20 @@ test("Session A end-to-end: warm-up, four working exercises, rest, a deviation, 
   await expect(rest).toHaveCount(0);
 
   await logSetThroughRest(page); // set 2
-  await logSetThroughRest(page); // set 3
+
+  // Set 3 finishes Goblet squat, so the overlay's up-next card crosses to the *next*
+  // exercise. That branch used to name the prescription alone — a bare "3 × 8–12" — and
+  // only start naming the load once the first set of the new exercise had been logged and
+  // the same-exercise branch took over. It now carries the load the strip is about to
+  // pre-fill (`row-pair`'s `default_kg`, here on a first-ever session), so the number the
+  // user is walking back to the dumbbells for is on the one screen they are looking at.
+  await logSet(page); // set 3
+  await expect(rest).toBeVisible();
+  await expect(rest.locator(".upnext-label")).toHaveText("Dumbbell floor press");
+  await expect(rest.locator(".upnext-target")).toHaveText("3 × 8–12 at 12 kg");
+  await rest.getByRole("button", { name: "Start next set" }).click();
+  await expect(rest).toHaveCount(0);
+
   const gobletSquat = page.locator(".exercise", { hasText: "Goblet squat" }).first();
   await expect(gobletSquat).toHaveClass(/done/);
 

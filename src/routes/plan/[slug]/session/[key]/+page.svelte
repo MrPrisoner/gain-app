@@ -422,7 +422,11 @@
 
     const rest = restBetweenRounds(block, round);
     if (rest) {
-      const upNext: UpNext = upNextForExerciseAt(exerciseAt(data.session, ledger, top));
+      const upNext: UpNext = upNextForExerciseAt(
+        ledger,
+        data.prefillByExercise,
+        exerciseAt(data.session, ledger, top),
+      );
       activeRest = { spec: restSpecFrom(rest), upNext };
     }
 

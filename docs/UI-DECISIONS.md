@@ -191,8 +191,16 @@ described in a caption — a fixed `rest_sec: 45` has no band and simply counts 
 counts up as over.
 
 **What is coming next is named on the overlay**, with its target: "Set 3 of 3 · 8–12 reps
-at 12 kg", or the next exercise where the current one is finished. A full-screen timer
-that shows only a number wastes the one screen the user is definitely looking at.
+at 12 kg", or the next exercise where the current one is finished — "Dumbbell floor press,
+3 × 8–12 at 12 kg". A full-screen timer that shows only a number wastes the one screen the
+user is definitely looking at.
+
+**Both shapes carry the load**, and the cross-exercise one carries it for the *first* set.
+The load is the figure the user acts on during rest — it is what sends them to the rack —
+so an overlay that names it only from set two onward is silent at the one moment it is
+most useful, and the user has to dismiss the timer to find out what to load. The number
+shown is the pre-fill the log strip is about to offer for that slot, never a second
+derivation of it: a plate change and the dial that follows it can never disagree.
 
 The screen takes a **wake lock** while resting, and releases it — a lock acquired after
 the overlay has already closed is a leak that outlives the session.

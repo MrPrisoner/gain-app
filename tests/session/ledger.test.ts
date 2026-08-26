@@ -66,6 +66,22 @@ function emptyLedger(overrides: Partial<SessionLedger> = {}): SessionLedger {
   };
 }
 
+/** A `PrefillByExercise` carrying nothing but a weight, which is all the up-next card
+ * reads out of it. */
+function prefill(
+  slug: string,
+  weights: { left?: number; right?: number; none?: number },
+): PrefillByExercise {
+  const entry: PrefillByExercise[string] = {};
+  for (const side of ["left", "right", "none"] as const) {
+    const weightKg = weights[side];
+    if (weightKg !== undefined) {
+      entry[side] = { reps: undefined, weightKg, durationS: undefined, isFirstTime: true };
+    }
+  }
+  return { [slug]: entry };
+}
+
 describe("performed", () => {
   it("returns the prescribed exercise when nothing has been substituted", () => {
     const main = block(session("A"), "main");
@@ -408,7 +424,7 @@ describe("prefillFor", () => {
 
 describe("upNextForExerciseAt", () => {
   it("falls back when nothing is scheduled", () => {
-    expect(upNextForExerciseAt(undefined)).toEqual(UP_NEXT_FALLBACK);
+    expect(upNextForExerciseAt(emptyLedger(), {}, undefined)).toEqual(UP_NEXT_FALLBACK);
     expect(UP_NEXT_FALLBACK.isLast).toBe(true);
   });
 
@@ -416,10 +432,37 @@ describe("upNextForExerciseAt", () => {
     const d = session("D");
     const row = exercise(block(d, "main"), "goblet-squat");
     const at = exerciseAt(d, emptyLedger(), "main:goblet-squat");
-    const upNext = upNextForExerciseAt(at);
+    const upNext = upNextForExerciseAt(emptyLedger(), {}, at);
     expect(upNext.label).toBe(row.name);
     expect(upNext.target).toContain("×");
     expect(upNext.isLast).toBe(false);
+  });
+
+  it("carries the load the next exercise's first set would pre-fill", () => {
+    const a = session("A");
+    const at = exerciseAt(a, emptyLedger(), "main:db-floor-press");
+    const upNext = upNextForExerciseAt(emptyLedger(), prefill("db-floor-press", { none: 8 }), at);
+    expect(upNext.target).toBe("3 × 8–12 at 8 kg");
+  });
+
+  it("takes the first unlogged side's pre-fill for a per-side exercise", () => {
+    const c = session("C");
+    const at = exerciseAt(c, emptyLedger(), "main:split-squat");
+    const both = prefill("split-squat", { left: 6, right: 10 });
+    expect(upNextForExerciseAt(emptyLedger(), both, at).target).toBe("2 × 10–12 per side at 6 kg");
+
+    // Left already logged, so the card describes the right side's slot instead.
+    const leftDone = emptyLedger({
+      loggedSets: new Map([[setLogKey("main", "split-squat", 1, "left"), { reps: 10 }]]),
+    });
+    expect(upNextForExerciseAt(leftDone, both, at).target).toBe("2 × 10–12 per side at 10 kg");
+  });
+
+  it("omits the load clause entirely for a movement with no pre-fill weight", () => {
+    const a = session("A");
+    const at = exerciseAt(a, emptyLedger(), "core:side-plank");
+    const upNext = upNextForExerciseAt(emptyLedger(), {}, at);
+    expect(upNext.target).not.toContain("kg");
   });
 });
 
@@ -456,8 +499,16 @@ describe("upNextForSetLogged", () => {
     };
     // Nothing in the session is done yet, so auto-advance from goblet-squat lands on the
     // very next tracked exercise in prescribed order.
-    const upNext = upNextForSetLogged(d, emptyLedger(), new Set(), {}, context, undefined);
+    const upNext = upNextForSetLogged(
+      d,
+      emptyLedger(),
+      new Set(),
+      prefill("db-floor-press", { none: 8 }),
+      context,
+      undefined,
+    );
     expect(upNext.label).toBe(nextRow.name);
+    expect(upNext.target).toContain("at 8 kg");
     expect(upNext.isLast).toBe(false);
   });
 
