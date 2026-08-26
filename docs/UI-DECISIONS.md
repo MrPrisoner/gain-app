@@ -191,14 +191,22 @@ described in a caption — a fixed `rest_sec: 45` has no band and simply counts 
 counts up as over.
 
 **What is coming next is named on the overlay**, as a name and two lines beneath it — a
-context line naming where you are ("Set 3 of 3", "Round 2 of 4"), or the next exercise's
-sets count where the current one is finished ("Dumbbell floor press" / "3 sets"), then a
-row of icon-tagged figures below it: ⇅ reps or ⏱ time, and 🏋 the load. Two lines rather
-than one long sentence, and figures rather than a fourth prose clause, because this is
-the one screen the user is definitely looking at and the numbers on it are the ones they
-act on — the same reps/load iconography `LogStrip`'s dials use, via the shared
-`FigureIcon` component, so the overlay and the strip can never drift onto different
-glyphs for the same figure.
+context line naming where you are, then a row of icon-tagged figures below it: ⇅ reps or
+⏱ time, and 🏋 the load. Two lines rather than one long sentence, and figures rather than
+a fourth prose clause, because this is the one screen the user is definitely looking at
+and the numbers on it are the ones they act on — the same reps/load iconography
+`LogStrip`'s dials use, via the shared `FigureIcon` component, so the overlay and the
+strip can never drift onto different glyphs for the same figure.
+
+**The context line says whatever the strip behind it will say**, with one exception. Mid
+exercise it is the coming slot ("Set 3 of 3", and "Round 2 of 2" between the rounds of a
+circuit) — the same `formatSlotContext` the log strip's own context line is built from,
+so dismissing the overlay can never reveal a different answer than the overlay gave. The
+exception is crossing to a *new* exercise in a sequence block, where the useful figure is
+the whole prescription rather than its first slot: "Dumbbell floor press" / "3 sets",
+because nothing of that movement has been logged yet and "Set 1 of 3" says less. A rounds
+block gets no such exception — a circuit's unit is the round, and a between-rounds
+overlay reading "1 set" is both useless and a contradiction of the strip underneath it.
 
 **Both shapes carry the load**, and the cross-exercise one carries it for the *first* set.
 The load is the figure the user acts on during rest — it is what sends them to the rack —

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { parsePlanDocument } from "../../src/lib/parse/parser";
 import {
   resolveSession,
+  resolveSubstitute,
   setLogKey,
   trackedExerciseKeys,
   type LoggedSet,
@@ -420,6 +421,24 @@ describe("prefillFor", () => {
       prefillFor(emptyLedger(), {}, "main", "front-plank", "front-plank", false, undefined),
     ).toEqual({});
   });
+
+  /* No slot means every slot on offer is already logged — the strip's "All sets logged"
+     state. There is no next set, so there is no side either, and `left`/`right` carry
+     genuinely different loads: picking one would name a load for a set that isn't
+     coming. */
+  it("pre-fills nothing for a per-side exercise once there is no slot left", () => {
+    expect(
+      prefillFor(
+        emptyLedger(),
+        prefillByExercise,
+        "main",
+        "split-squat",
+        "split-squat",
+        true,
+        undefined,
+      ),
+    ).toEqual({});
+  });
 });
 
 describe("upNextForExerciseAt", () => {
@@ -472,6 +491,42 @@ describe("upNextForExerciseAt", () => {
     const at = exerciseAt(a, emptyLedger(), "core:side-plank");
     const upNext = upNextForExerciseAt(emptyLedger(), {}, at);
     expect(upNext.figures.some((f) => f.kind === "load")).toBe(false);
+  });
+
+  /* A rounds block counts rounds, not sets — the between-rounds overlay
+     (`startNextRound`) is built by this function, and the strip it hands off to on
+     dismissal says "Round 2 of 2". A sets count there would be both useless in a circuit
+     and a contradiction of the screen behind it. */
+  it("counts rounds, not sets, when the coming exercise is in a rounds block", () => {
+    const d = session("D");
+    const afterRoundOne = emptyLedger({ completedRounds: new Map([["ab-finisher", 1]]) });
+    const at = exerciseAt(d, afterRoundOne, "ab-finisher:dead-bug");
+    const upNext = upNextForExerciseAt(afterRoundOne, {}, at);
+    expect(upNext.label).toBe("Dead bug");
+    expect(upNext.context).toBe("Round 2 of 2");
+    expect(upNext.figures).toEqual([{ kind: "reps", text: "16 reps" }]);
+  });
+
+  /* `reverse-crunch` (reps) swapped for `front-plank` (time) is the fixture's real
+     cross-`type` substitute, and the plan never says how long to hold it *here* — so the
+     performed exercise carries no target of its own type at all. `formatTarget` throws on
+     exactly that, and this function runs inside the rest overlay, where a throw takes the
+     whole session down mid-workout. The reps/time figure is dropped instead. */
+  it("drops the reps figure rather than throwing for a substitute across a type boundary", () => {
+    const contract = fixtureContract();
+    const d = session("D");
+    const crunch = exercise(block(d, "ab-finisher"), "reverse-crunch");
+    const plank = resolveSubstitute(contract.exercises, contract.loads, crunch, "front-plank");
+    if (!plank) throw new Error("fixture no longer declares front-plank as a substitute");
+    expect(plank.durationSec).toBeUndefined();
+
+    const swapped = emptyLedger({
+      substitutedExercises: new Map([["ab-finisher:reverse-crunch", plank]]),
+    });
+    const at = exerciseAt(d, swapped, "ab-finisher:reverse-crunch");
+    const upNext = upNextForExerciseAt(swapped, {}, at);
+    expect(upNext.label).toBe("Front plank");
+    expect(upNext.figures).toEqual([]);
   });
 });
 

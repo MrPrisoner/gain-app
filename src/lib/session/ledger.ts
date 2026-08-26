@@ -286,6 +286,13 @@ export const UP_NEXT_FALLBACK: UpNext = {
  * — the pre-fill's outermost rung (`carryForwardFromPreviousSet`): a set bumped from
  * 6 kg to 8 kg mid-exercise should not reset to 6 kg on the next set. `exerciseSlug` is
  * the *performed* movement (post-substitution), which is what history is keyed by.
+ *
+ * `slot` is `undefined` when every slot the exercise offers is already logged — the
+ * strip's "All sets logged" state, and the up-next card for an exercise that has nothing
+ * left to open. There is no next set then, so there is no side either, and a per-side
+ * exercise pre-fills nothing rather than picking a side arbitrarily: `left` and `right`
+ * carry genuinely different loads, so naming one of them would name a load for a set
+ * that isn't coming.
  */
 export function prefillFor(
   ledger: Pick<SessionLedger, "loggedSets">,
@@ -297,11 +304,8 @@ export function prefillFor(
   slot: SetSlot | undefined,
 ): { reps?: number; weightKg?: number; durationS?: number } {
   const entry = prefillByExercise[exerciseSlug];
-  const base = entry
-    ? perSide
-      ? ((slot?.side === "left" ? entry.left : entry.right) ?? {})
-      : (entry.none ?? {})
-    : {};
+  const sided = slot === undefined ? undefined : slot.side === "left" ? entry?.left : entry?.right;
+  const base = (perSide ? sided : entry?.none) ?? {};
   if (!slot || slot.setNo <= 1) return base;
   const previous = ledger.loggedSets.get(
     setLogKey(blockKey, prescribedSlug, slot.setNo - 1, slot.side),
@@ -313,13 +317,22 @@ export function prefillFor(
  * The up-next card for a resolved exercise, or the fallback when there isn't one —
  * shared by `upNextForSetLogged`'s finished-exercise branch and `startNextRound`.
  *
- * It resolves that exercise's own next unlogged slot purely to read the load off it, so
- * the card carries the weight the log strip is about to offer — `context: "3 sets"`,
+ * It resolves that exercise's own next unlogged slot to read the load off it, so the
+ * card carries the weight the log strip is about to offer — `context: "3 sets"`,
  * `figures: [8–12 reps, 8 kg]` — the same way the same-exercise branch already did.
  * Without it, crossing from one exercise to the next was the one moment the overlay went
  * quiet about load: the user saw a bare `3 sets, 8–12 reps`, and the number they were
  * about to lift only appeared once they had logged set one and the *other* branch took
  * over.
+ *
+ * The sets count is the right context for a *sequence* block, where nothing of the
+ * coming movement has been logged yet. A rounds block is the other way round: this is
+ * the function that builds the between-rounds card (`startNextRound`), where "1 set" is
+ * both useless and false — the user is starting round 2 of a circuit, which is exactly
+ * what the strip behind the overlay will say the moment it is dismissed. So a rounds
+ * block borrows `upNextSlotParts` and its already-resolved slot to say "Round 2 of 2",
+ * and the overlay can never name the coming set differently than the strip it hands off
+ * to.
  */
 export function upNextForExerciseAt(
   ledger: SessionLedger,
@@ -327,6 +340,7 @@ export function upNextForExerciseAt(
   next: ExerciseAt | undefined,
 ): UpNext {
   if (!next) return UP_NEXT_FALLBACK;
+  const shownSets = shownSetsFor(ledger, next.block, next.prescribed);
   const slot = nextUnloggedSlot(slotsFor(ledger, next.block, next.prescribed), ledger.loggedSets);
   const weight = prefillFor(
     ledger,
@@ -339,7 +353,9 @@ export function upNextForExerciseAt(
   ).weightKg;
   return {
     label: next.exercise.name,
-    ...upNextExerciseParts(next.exercise, weight),
+    ...(next.block.type === "rounds" && slot
+      ? upNextSlotParts(next.block, slot, shownSets, next.exercise, weight)
+      : upNextExerciseParts(next.exercise, weight)),
     isLast: false,
   };
 }
@@ -347,13 +363,14 @@ export function upNextForExerciseAt(
 /**
  * The rest overlay's up-next card (UI-DECISIONS §4) after a set is logged. Two cases:
  *
- * - The exercise isn't finished — "next" is the next slot of the *same* exercise,
- *   formatted the same way `LogStrip`'s own context line is, plus the weight the strip
- *   would pre-fill for that slot.
+ * - The exercise isn't finished — "next" is the next slot of the *same* exercise, its
+ *   context formatted the same way `LogStrip`'s own context line is, plus the reps/time
+ *   and load figures for that slot.
  * - The exercise IS finished — "next" is whatever auto-advance (`nextExerciseKey`)
- *   would open once this rest is dismissed, named by its own target line. Scoped from
- *   `context.key` exactly like the runner's own `advance()`, so the preview can never
- *   name a different exercise than the one that actually opens.
+ *   would open once this rest is dismissed, named by `upNextForExerciseAt`'s sets count
+ *   (or round, in a rounds block) and the same figures. Scoped from `context.key`
+ *   exactly like the runner's own `advance()`, so the preview can never name a
+ *   different exercise than the one that actually opens.
  */
 export function upNextForSetLogged(
   session: ResolvedSession,

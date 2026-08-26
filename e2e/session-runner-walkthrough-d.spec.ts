@@ -158,6 +158,16 @@ test("Session D end-to-end: a ranged set surviving a substitute, the two-round a
   await page.getByRole("button", { name: /^Round 1 of 2 done$/ }).click();
   const betweenRoundsRest = page.locator(".rest-overlay");
   await expect(betweenRoundsRest).toBeVisible();
+
+  // A circuit's unit is the round (UI-DECISIONS §4). This overlay is built by
+  // `upNextForExerciseAt` — the cross-exercise shape, whose context line is the sets
+  // count everywhere else — and a rounds block is its one exception: "1 set" here would
+  // be useless in a circuit *and* a contradiction of the strip revealed underneath,
+  // which says "Round 2 of 2" the moment this is dismissed (asserted below).
+  await expect(betweenRoundsRest.locator(".upnext-label")).toHaveText("Dead bug");
+  await expect(betweenRoundsRest.locator(".upnext-context")).toHaveText("Round 2 of 2");
+  await expect(betweenRoundsRest.locator(".upnext-figure")).toHaveText(["16 reps"]);
+
   await betweenRoundsRest.getByRole("button", { name: "Start next set" }).click();
   await expect(betweenRoundsRest).toHaveCount(0);
 
