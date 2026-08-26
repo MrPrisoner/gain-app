@@ -341,7 +341,7 @@ describe("upNextSlotParts", () => {
       context: "Set 3 of 3",
       figures: [
         { kind: "reps", text: "8–12 reps" },
-        { kind: "load", text: "12 kg" },
+        { kind: "load", text: "12 kg total" },
       ],
     });
   });

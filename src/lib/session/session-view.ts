@@ -440,6 +440,11 @@ export type UpNextParts = { context: string; figures: readonly UpNextFigure[] };
  * figure is omitted — never a throw — when the exercise carries no target of its own
  * type, the same substitute-across-a-type-boundary case `formatTargetOrSets` already
  * has to handle; a throw here would take the rest overlay down mid-session.
+ *
+ * The load says `"12 kg total"`, the same unit `LogStrip`'s own dial is labelled with,
+ * for the same reason: `weight_kg` is always the total being lifted (UI-DECISIONS §3,
+ * settled 2026-08-10), and this figure is the one the user reads on the way to the rack
+ * — a bare `"12 kg"` beside a paired movement invites loading 12 kg per hand.
  */
 function upNextFigures(
   exercise: Pick<ResolvedExercise, "type" | "reps" | "durationSec">,
@@ -457,7 +462,7 @@ function upNextFigures(
     );
   }
   if (weightKg !== undefined) {
-    figures.push({ kind: "load", text: `${weightKg} kg` });
+    figures.push({ kind: "load", text: `${weightKg} kg total` });
   }
   return figures;
 }

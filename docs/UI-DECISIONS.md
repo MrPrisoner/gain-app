@@ -205,7 +205,10 @@ The load is the figure the user acts on during rest — it is what sends them to
 so an overlay that names it only from set two onward is silent at the one moment it is
 most useful, and the user has to dismiss the timer to find out what to load. The number
 shown is the pre-fill the log strip is about to offer for that slot, never a second
-derivation of it: a plate change and the dial that follows it can never disagree.
+derivation of it: a plate change and the dial that follows it can never disagree. It is
+labelled "12 kg **total**", the same unit the strip's own dial carries, because §3 leaves
+paired lifts with no `2 × N` sub-line to disambiguate them — and this is the number
+someone reads on the way to the dumbbells.
 
 The screen takes a **wake lock** while resting, and releases it — a lock acquired after
 the overlay has already closed is a leak that outlives the session.

@@ -445,7 +445,7 @@ describe("upNextForExerciseAt", () => {
     expect(upNext.context).toBe("3 sets");
     expect(upNext.figures).toEqual([
       { kind: "reps", text: "8–12 reps" },
-      { kind: "load", text: "8 kg" },
+      { kind: "load", text: "8 kg total" },
     ]);
   });
 
@@ -455,7 +455,7 @@ describe("upNextForExerciseAt", () => {
     const both = prefill("split-squat", { left: 6, right: 10 });
     const firstSide = upNextForExerciseAt(emptyLedger(), both, at);
     expect(firstSide.context).toBe("2 sets per side");
-    expect(firstSide.figures).toContainEqual({ kind: "load", text: "6 kg" });
+    expect(firstSide.figures).toContainEqual({ kind: "load", text: "6 kg total" });
 
     // Left already logged, so the card describes the right side's slot instead.
     const leftDone = emptyLedger({
@@ -463,7 +463,7 @@ describe("upNextForExerciseAt", () => {
     });
     expect(upNextForExerciseAt(leftDone, both, at).figures).toContainEqual({
       kind: "load",
-      text: "10 kg",
+      text: "10 kg total",
     });
   });
 
@@ -517,7 +517,7 @@ describe("upNextForSetLogged", () => {
       undefined,
     );
     expect(upNext.label).toBe(nextRow.name);
-    expect(upNext.figures).toContainEqual({ kind: "load", text: "8 kg" });
+    expect(upNext.figures).toContainEqual({ kind: "load", text: "8 kg total" });
     expect(upNext.isLast).toBe(false);
   });
 
