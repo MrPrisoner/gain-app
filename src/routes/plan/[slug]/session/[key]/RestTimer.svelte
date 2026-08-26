@@ -17,7 +17,7 @@
     type RestSpec,
     type RestTimerState,
   } from "$lib/session/rest-timer";
-  import type { UpNextFigure } from "$lib/session/session-view";
+  import type { UpNext } from "$lib/session/ledger";
   import FigureIcon from "./FigureIcon.svelte";
 
   let {
@@ -28,8 +28,11 @@
     spec: RestSpec;
     /** What is coming next (UI-DECISIONS §4), pre-formatted by the caller the same way
      * `LogStrip`'s `context`/`lastPerformance` are — this component does no formatting
-     * of its own, only rendering. */
-    upNext: { label: string; context: string; figures: readonly UpNextFigure[]; isLast: boolean };
+     * of its own, only rendering. The `UpNext` type itself rather than a structural
+     * restatement of its fields: the two branches that build the card already have to
+     * agree on the shape, and a fourth copy of it here would drift silently the first
+     * time one of them grew a field. */
+    upNext: UpNext;
     onSkip: () => void;
   } = $props();
 
