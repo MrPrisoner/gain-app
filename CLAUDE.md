@@ -86,8 +86,15 @@ now reset their own account from `/account` (reached from the footer), which reu
 `resetUserData` (`src/lib/server/admin-reset.ts`) exactly as `/admin` does — only the
 caller changes, never the load-bearing ordering — and re-mints the requesting session
 afterward, since `resetUserData` signs out every session for the account including the
-one asking. **All nine phases are done; what remains is the last Loose End in
-`docs/ROADMAP.md` — a backup recipe — not a numbered phase.**
+one asking. The last Loose End closed with the backup recipe: README's "Running it" now
+carries a Backups subsection with both safe recipes — stop the container and copy, or
+`VACUUM INTO` each database live — plus restore and verify steps, and the "a single
+volume snapshot is a complete backup" claim is corrected in ARCHITECTURE §3 and in the
+Dockerfile comment that repeated it. The live recipe drives the app's own
+`better-sqlite3` through `docker compose exec … node -e` because the runtime image ships
+no `sqlite3` binary, and writes its snapshot inside the volume before copying it out
+because the container owns `/data` and nothing else. **All nine phases are done and
+`docs/ROADMAP.md`'s Loose ends are all closed; there is no numbered phase left.**
 
 Two files hold the plan: the build-order table in ARCHITECTURE §12 is the map, and
 [`docs/ROADMAP.md`](docs/ROADMAP.md) is the itinerary — the remaining work item by item,

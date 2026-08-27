@@ -54,10 +54,45 @@ sw.addEventListener("activate", (event) => {
 /** The app asks for a plan's session payloads to be cached while it still has a network. */
 sw.addEventListener("message", (event) => {
   const data = event.data as { type?: string; urls?: string[] } | undefined;
-  if (data?.type !== "precache" || !Array.isArray(data.urls)) return;
-  const urls = data.urls;
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(urls)));
+
+  if (data?.type === "precache" && Array.isArray(data.urls)) {
+    const urls = data.urls;
+    event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(urls)));
+    return;
+  }
+
+  /**
+   * Everything this cache holds *about the user's data* — the precached
+   * `/plan/<slug>/session/<key>/__data.json` payloads and every page `networkFirst` kept
+   * along the way — describes plans an account reset has just deleted. Left in place, a
+   * device that goes offline straight after a reset can still open a session route from
+   * cache and start logging against a `planVersionId` that no longer exists, and every op
+   * it queues quarantines on the next flush.
+   *
+   * The shell survives: `PRECACHED` and `/offline` are content-hashed build output with
+   * no account data in them, and dropping them would leave a just-reset phone with no
+   * offline page at all. The reply is what lets `/account` await this before navigating.
+   */
+  if (data?.type === "purge-user-data") {
+    const port = event.ports[0];
+    event.waitUntil(
+      purgeUserData()
+        .catch(() => undefined)
+        .then(() => port?.postMessage({ type: "purged" })),
+    );
+  }
 });
+
+async function purgeUserData(): Promise<void> {
+  const cache = await caches.open(CACHE);
+  const keep = new Set([...PRECACHED, "/offline"]);
+  const requests = await cache.keys();
+  await Promise.all(
+    requests
+      .filter((request) => !keep.has(new URL(request.url).pathname))
+      .map((request) => cache.delete(request)),
+  );
+}
 
 sw.addEventListener("fetch", (event) => {
   const request = event.request;

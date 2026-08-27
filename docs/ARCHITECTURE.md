@@ -135,7 +135,13 @@ Notes:
 - Trust `X-Forwarded-*` only from the proxy. Set `ADDRESS_HEADER=X-Forwarded-For`
   and `XFF_DEPTH` to match your proxy depth.
 - Health endpoint at `/healthz` (no auth) for Portainer/uptime checks.
-- Everything mutable lives under `/data`. A single volume snapshot is a complete backup.
+- Everything mutable lives under `/data`, so one volume is the entire backup surface —
+  but a naive snapshot of it is not a backup. Both `control.db` and every `gain.db` open
+  `journal_mode = WAL`, so a `tar` or `docker cp` taken while the container is writing
+  can capture a `.db` and its `-wal` from different instants and restore to a state that
+  never existed. Take the copy with the container stopped, or through `VACUUM INTO`,
+  which asks SQLite itself for a consistent copy of a database being written to. The
+  README's Backups subsection has both recipes in full.
 
 ### Data directory layout
 

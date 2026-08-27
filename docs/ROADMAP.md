@@ -57,11 +57,11 @@ plan with a rename, reviews the diff and commits, then confirms the set survived
 new slug.
 
 **Nothing left is phase-numbered.** The [Loose ends](#loose-ends) below took the first
-four: the e2e suite now runs in CI as its own job, a plan can be archived and brought
-back without ever putting its logged history at risk, every version of a plan is
-browsable as the document that was imported, and a user can wipe their own account and
-start over without asking an operator. What remains is a backup recipe an operator can
-follow.
+five, and the list is now clear: the e2e suite runs in CI as its own job, a plan can be
+archived and brought back without ever putting its logged history at risk, every version
+of a plan is browsable as the document that was imported, a user can wipe their own
+account and start over without asking an operator, and an operator has a backup recipe
+that survives a live WAL database rather than a naive `tar` of the volume.
 
 | Phase | Deliverable | State |
 |---|---|---|
@@ -395,16 +395,37 @@ them; pick it up whenever.
       browser. The second-device 409 reuses `tests/server/sync-route.test.ts`'s existing
       coverage rather than a new two-context e2e, since the generation-bump path is the same
       one an operator reset already exercises.
-- [ ] **A backup recipe an operator can actually follow.** ARCHITECTURE §3 says "a single
-      volume snapshot is a complete backup," which is true of the *layout* and not of a live
+- [x] **A backup recipe an operator can actually follow.** ARCHITECTURE §3 said "a single
+      volume snapshot is a complete backup," which was true of the *layout* and not of a live
       database: every `gain.db` and `control.db` is opened `journal_mode = WAL`, so a `tar`
       or `docker cp` taken while the container is writing can capture a torn `.db`/`-wal`
       pair and produce a backup that restores to a state that never existed. This is the
       only copy of the user's training history.
-      **Done when:** README's "Running it" has a Backups subsection giving one of the two
-      safe recipes — stop the container and copy, or `VACUUM INTO` each database to a
-      snapshot directory and copy that — and §3's sentence is corrected rather than left
-      implying a naive `tar` is safe.
+
+      README's "Running it" now has a Backups subsection carrying **both** recipes rather
+      than one: stop the container and `docker compose cp` the tree, which is what a
+      household instance should do, or snapshot the databases live with `VACUUM INTO` when
+      the backup has to be scripted and the app cannot go down for it. Restoring and
+      verifying are written down beside them, since a backup nobody has restored is a
+      hypothesis.
+
+      Two constraints shaped the live recipe. The runtime image ships no `sqlite3` binary
+      (`node:24-bookworm-slim` plus `tzdata`), so it drives the app's own `better-sqlite3`
+      through `docker compose exec … node -e` — which also means the recipe works against
+      every already-released tag rather than only after the next one. And the container
+      runs as an unprivileged user owning `/data` and nothing else, so the snapshot is
+      written *inside* the volume and copied out, then deleted so the next backup cannot
+      include the last. The snippet copies each user's `plans/` and `exports/` alongside
+      the databases, so what lands on the host is a complete `/data` tree and not a set of
+      loose `.db` files that would restore into an empty one.
+
+      Verified against a deliberately hostile case rather than reasoned about: a live
+      writer holding all three databases open with ~1.6 MB of committed rows sitting in
+      the `-wal` and an 8 KB `.db`. The read-only `VACUUM INTO` succeeded against it, the
+      snapshot passed `integrity_check`, and it contained the WAL-resident rows a copy of
+      the `.db` alone would have missed. §3's bullet and the same claim repeated in the
+      Dockerfile's `/data` comment are both corrected — a naive `tar` is now described as
+      the hazard it is, in all three places it was implied safe. (`397991d`)
 - [x] **The e2e harness shared one seeded database across every spec and every viewport
       project**, so any spec asserting on whole-account state — rather than its own
       `client_id`-scoped rows — would see another spec's or another project's concurrent

@@ -52,8 +52,10 @@ COPY --from=build --chown=node:node /app/package.json ./package.json
 COPY --from=build --chown=node:node /app/build ./build
 
 # Everything mutable lives under /data: control.db, users/<id>/gain.db, the
-# verbatim plan documents and generated exports. A single volume snapshot is a
-# complete backup (§3).
+# verbatim plan documents and generated exports — one volume is the entire backup
+# surface. Not a live `tar` of it, though: the databases are WAL-mode, so a copy
+# taken mid-write can tear a .db/-wal pair. Stop the container, or use VACUUM INTO
+# (§3, and README's Backups subsection).
 #
 # Created and chowned before the VOLUME declaration on purpose: Docker seeds a
 # named volume from the image's directory, ownership included, so `node` owns

@@ -22,6 +22,7 @@ import { createSession, getSession } from "$lib/server/control-db";
 import { setSessionCookie } from "$lib/server/auth";
 import { SESSION_COOKIE, verifySessionCookie } from "$lib/server/session-cookie";
 import { resetUserData } from "$lib/server/admin-reset";
+import { logServerError } from "$lib/server/log";
 
 export const load: PageServerLoad = ({ locals }) => {
   if (!locals.user) throw redirect(303, "/login");
@@ -48,32 +49,45 @@ export const actions: Actions = {
     const sessionId = cookieValue ? verifySessionCookie(config.sessionSecret, cookieValue) : null;
     const current = sessionId ? getSession(control, sessionId, new Date()) : undefined;
 
+    // In a `finally`, not on the success path alone. `resetUserData` ends every session
+    // for the user as its *first* step, so by the time any of its later steps can throw,
+    // the caller's session is already gone — and a `fail(400)` that says "re-run the
+    // reset" would be rendered on a page that can no longer authenticate a retry. The
+    // one case where this re-mints unnecessarily is a throw from the session delete
+    // itself, which leaves an orphaned row to age out rather than a signed-out user.
     let generation: number;
     try {
       ({ generation } = resetUserData(control, config.dataDir, locals.user.id));
     } catch (err) {
       // Never throw from an action (see `/admin`'s reset action): a 500 here would
       // strand the user on a page that just told them their data might be half-gone.
+      //
+      // The message itself stays on the server. `resetUserData`'s own failure names the
+      // absolute path it could not remove, which tells an operator on `/admin` exactly
+      // what to go and clear — and tells the account's owner nothing they can act on,
+      // while handing them a server filesystem path. They get what they can do instead.
+      logServerError(`self-service reset failed for ${locals.user.id}`, err);
       return fail(400, {
-        actionError: err instanceof Error ? err.message : "The reset did not finish.",
+        actionError:
+          "The reset did not finish. Your data may be partly deleted — try again, and " +
+          "ask an administrator if it keeps failing.",
       });
-    }
-
-    if (current) {
-      const now = new Date();
-      const fresh = createSession(control, {
-        userId: locals.user.id,
-        now,
-        idleMs: config.sessionIdleMs,
-        tokens: {
-          access_token: current.access_token,
-          access_expires_at: current.access_expires_at,
-          refresh_token: current.refresh_token,
-          id_token: current.id_token,
-        },
-        isAdmin: current.is_admin === 1,
-      });
-      setSessionCookie(cookies, config, fresh.id);
+    } finally {
+      if (current) {
+        const fresh = createSession(control, {
+          userId: locals.user.id,
+          now: new Date(),
+          idleMs: config.sessionIdleMs,
+          tokens: {
+            access_token: current.access_token,
+            access_expires_at: current.access_expires_at,
+            refresh_token: current.refresh_token,
+            id_token: current.id_token,
+          },
+          isAdmin: current.is_admin === 1,
+        });
+        setSessionCookie(cookies, config, fresh.id);
+      }
     }
 
     return { reset: true, generation };

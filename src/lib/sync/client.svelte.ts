@@ -90,6 +90,15 @@ export async function discardQuarantined(): Promise<void> {
 export async function clearAfterReset(): Promise<void> {
   const outbox = await store();
   await outbox.clearAll();
+  // The status is part of what the reset erases. A pending retry would otherwise fire
+  // against an empty outbox, and a `state`/`resetNotice` left over from before the wipe
+  // would surface on the freshly-reset Home screen — telling the person who just did
+  // this that syncing failed, or that "your data was reset by the administrator".
+  clearTimeout(retryTimer);
+  retryTimer = undefined;
+  backoffMs = 1_000;
+  syncStatus.state = "idle";
+  syncStatus.resetNotice = false;
   await refreshCounts();
 }
 
