@@ -20,8 +20,10 @@ plan and progress for an AI to review and revise.
 > history mapped onto the new slug rather than silently split. Plans archive and unarchive
 > without ever putting logged history at risk, every version of a plan stays browsable as
 > the document that was imported, the full browser suite runs in CI on every pull request,
-> and a user can reset their own account from the footer without needing an operator. What
-> is left is smaller than a phase — see [`docs/ROADMAP.md`](docs/ROADMAP.md)'s Loose ends.
+> a user can reset their own account from the footer without needing an operator, and the
+> operator running it has a backup recipe that survives a live database rather than a
+> naive archive of the volume. The roadmap's loose ends are closed — see
+> [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ---
 
@@ -109,6 +111,88 @@ startup so a proxy misconfiguration is easy to spot.
 
 For local development without an IdP, `GAIN_DEV_USER=you npm run dev` bypasses
 authentication — a production build refuses to start with that variable set.
+
+### Backups
+
+Everything mutable lives in the one volume, but a copy taken while the container is
+running is not automatically a copy that restores. `control.db` and every user's
+`gain.db` run in WAL mode, so at any instant some committed data sits in a `-wal`
+sidecar rather than in the `.db` file itself. A `tar` or `docker cp` that reads the
+two a moment apart captures a pair that never coexisted, and it restores to a state
+that never existed — or fails to open at all. This is the only copy of the training
+history, so take it one of these two ways rather than trusting a naive archive.
+
+**Stop the container and copy.** The recipe to prefer for a household instance: a
+stopped container has no writer, so the tree is consistent by definition, at the cost
+of a few seconds of downtime.
+
+```bash
+docker compose stop gain
+docker compose cp "gain:/data" "./gain-backup-$(date +%F)"
+docker compose start gain
+```
+
+**Or snapshot the databases live.** `VACUUM INTO` asks SQLite for a consistent copy
+of a database that is being written to, WAL and all, and writes it as one file with
+no sidecars. Use it when the backup has to be scripted and the app cannot go down for
+it. The runtime image ships no `sqlite3` binary, so the snippet drives the app's own
+`better-sqlite3`; it copies each user's plan documents and exports alongside, so the
+result is a complete `/data` tree rather than loose databases.
+
+```bash
+docker compose exec -T gain node -e '
+  const fs = require("fs"), path = require("path");
+  const Database = require("better-sqlite3");
+  const data = process.env.DATA_DIR || "/data";
+  const out = path.join(data, "backups", new Date().toISOString().slice(0, 10));
+  fs.rmSync(out, { recursive: true, force: true });
+  const usersDir = path.join(data, "users");
+  const users = fs.existsSync(usersDir) ? fs.readdirSync(usersDir) : [];
+  for (const rel of ["control.db", ...users.map((u) => path.join("users", u, "gain.db"))]) {
+    fs.mkdirSync(path.join(out, path.dirname(rel)), { recursive: true });
+    const db = new Database(path.join(data, rel), { readonly: true });
+    db.prepare("VACUUM INTO ?").run(path.join(out, rel));
+    db.close();
+  }
+  for (const user of users) {
+    for (const dir of ["plans", "exports"]) {
+      const from = path.join(usersDir, user, dir);
+      if (fs.existsSync(from))
+        fs.cpSync(from, path.join(out, "users", user, dir), { recursive: true });
+    }
+  }
+  console.log(out);
+'
+docker compose cp "gain:/data/backups/$(date +%F)" "./gain-backup-$(date +%F)"
+docker compose exec -T gain rm -rf "/data/backups/$(date +%F)"
+```
+
+The snapshot is written inside the volume and then copied out because the container
+runs as an unprivileged user that owns `/data` and nothing else; deleting it
+afterwards stops the next backup from including the last one.
+
+**Restoring** replaces the volume's contents wholesale, with the app stopped:
+
+```bash
+docker compose down
+docker compose run --rm --no-deps -v "$PWD/gain-backup-2026-08-27:/restore:ro" \
+  --entrypoint sh gain -c 'rm -rf /data/* && cp -a /restore/. /data/'
+docker compose up -d
+```
+
+Restore a backup as a whole tree, never file by file: a cold copy may contain `-wal`
+and `-shm` files, and a `.db` separated from the sidecar that sat beside it is the
+same torn pair this section exists to avoid. A live snapshot has no sidecars at all,
+which is normal — `VACUUM INTO` folds the WAL into the file it writes.
+
+A backup nobody has opened is a hypothesis. SQLite will check one for you, against
+the copy rather than the original:
+
+```bash
+docker compose exec -T gain node -e 'const D = require("better-sqlite3");
+  console.log(new D(process.argv[1], { readonly: true }).pragma("integrity_check"));
+' /data/backups/2026-08-27/control.db
+```
 
 ## Documentation
 
