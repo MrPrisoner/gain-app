@@ -444,3 +444,143 @@ them; pick it up whenever.
       today — but any future one that does should call `homeDevUserFor` with its own
       project name the same way, rather than reusing this spec's users or the shared
       `E2E_DEV_USER`. (`dd543bc`)
+
+---
+
+## Post-review work (2026-08-27)
+
+From [`REVIEW-2026-08-27.md`](REVIEW-2026-08-27.md), a full-stack review conducted ahead of
+opening the instance to real users. Findings smaller than a commit went to
+[`todo.md`](todo.md); what is here is bigger than that. The documentation corrections the
+review called for are **done** — ARCHITECTURE §2 now carries a "why" column, §4 and
+CLAUDE.md describe what `control.db` actually holds, and UI-DECISIONS §5, §12 and its
+closing section describe the app that exists.
+
+Ordered by what the review recommended, not by size.
+
+### Before real users
+
+- [ ] **The auth bypass guard cannot rely on `NODE_ENV`.** `loadConfig` refuses
+      `GAIN_DEV_USER` in production by testing `nodeEnv === "production"`, but `node build`
+      never sets it and neither does adapter-node — so a production bundle started outside
+      the container serves unauthenticated **and logs "production builds refuse it" while
+      doing it.** Verified live at `43a5b8c`. Docker is unaffected (`Dockerfile:43` sets the
+      variable), so this is about every other way of running the app, both of which the
+      README documents.
+      **Done when:** the guard keys on something that is true of a real deployment rather
+      than on the absence of a variable nothing sets — the presence of OIDC configuration
+      is the obvious candidate — and a test covers a production-shaped boot with
+      `GAIN_DEV_USER` set and `NODE_ENV` unset.
+
+- [ ] **A Content-Security-Policy, and the security headers that go with it.** There are
+      none at all today — confirmed empirically against `node build`, not just by grep — and
+      nothing in the README or `docs/` tells the operator to set them at the proxy either.
+      SvelteKit's `kit.csp` handles the nonce/hash plumbing that would otherwise make this
+      painful.
+      **Done when:** `/`, `/healthz` and a hashed asset all answer with a CSP, and the
+      decision about which of the remaining five headers belong in the app versus at the
+      reverse proxy is written down in ARCHITECTURE §3 either way.
+
+- [ ] **Branch protection on `main`.** `ci.yml` runs nothing on a push to `main`, and its
+      comment justifies that with "every commit that reaches `main` was already vetted by
+      its PR". Nothing enforces the premise: the repository reports no branch protection and
+      no rulesets, on a public forkable repo. This is a settings change, not code — it makes
+      an existing decision true.
+      **Done when:** `main` requires a PR and a green `check` + `e2e`, and a tag can only be
+      cut from an ancestor of `main`.
+
+- [ ] **The quarantine path is proven only against a test double.** `tests/sync/queue.test.ts`
+      exercises `tests/sync/memory-outbox.ts`, a hand-written double; the code that actually
+      runs on a phone, `src/lib/sync/idb.ts`, has no unit test, and **no e2e spec has ever
+      produced a quarantine**. Both failure modes CLAUDE.md's invariant names — a record
+      deleted rather than held, or `pending()` no longer filtering on state and retrying
+      forever — are reachable with a fully green suite. CLAUDE.md is explicit that an
+      invisible quarantined op "is exactly the data loss this whole phase exists to prevent,
+      just moved one step later."
+      **Done when:** one e2e syncs an op naming a slug a revision removed, then asserts both
+      the surviving IndexedDB record and the banner the user actually sees.
+
+- [ ] **Nothing keeps `docs/CONTRACT.md` and the Zod schema in sync.** The three-places rule
+      is pure convention: the only test touching CONTRACT.md asserts it is embedded
+      *verbatim*, never that its content matches the schema, and `tests/schema.test.ts`'s
+      "minimal valid block from CONTRACT §6" is a hand-copy. Edit the spec without touching
+      the schema and the suite stays green while GAIN ships instructions telling every AI to
+      emit something its own parser rejects.
+      **Done when:** CONTRACT §6's minimal block is extracted from the file at test time and
+      parsed through `contractSchema`, replacing the hand-copy.
+
+### Before more feature work
+
+- [ ] **Decide whether GAIN shows a plan's symptom framework to the user.** `safety.symptom_framework`
+      — the green/yellow/red pain guidance, with an action and modifications per level — has
+      been parsed, validated and stored in `plan_version.safety_json` since phase 2, and is
+      replayed verbatim into every export so the reviewing AI reads it. **No route and no
+      component has ever read it back.** The plan tells the user which sensations mean stop,
+      and the app never shows them, at the one moment the guidance exists for.
+
+      This is a product decision, not a cleanup, and it is the reason UI-DECISIONS §5 was
+      rewritten rather than merely corrected: the colour triad was reserved for this and
+      nothing else, so the answer here decides what the colour system is for. Note the data
+      models do not line up — the framework has three levels, the metric the app collects is
+      a 0–10 scale, and nothing maps one onto the other — so "render the metric as a traffic
+      light" is not the cheap version of this.
+      **Done when:** either the framework is rendered in the runner and §5's reservation
+      comes back with it, or the decision not to render it is recorded in UI-DECISIONS §5
+      with its reason. Storing safety guidance the user never sees is the one outcome that
+      should not continue by default.
+
+- [ ] **Per-user migration observability.** Migrations run lazily, per user, only when that
+      user's next request opens their database — so a deploy migrates nobody, there is no
+      point at which the fleet is known to be on one schema, a failure for one user is
+      invisible, and a rollback strands whoever already advanced. `appliedSchemaVersion`
+      exists and is exactly the right function; it is called only from
+      `tests/db/provision.test.ts`. `admin-stats.ts` also reads foreign databases without
+      migrating them, so a future migration that restructures `plan`, `plan_version`,
+      `workout` or `set_log` breaks the operator screen for exactly the users who have not
+      logged in since the deploy.
+      **Done when:** `/admin` shows each user's applied schema version, and the rollback
+      policy is written down — "we roll forward" is a fine answer, an unwritten one is not.
+
+- [ ] **`/import`'s failure screens have no coverage of any kind.** The parser side is
+      excellent — all seven `ParseFailureKind` variants are tested, malformed YAML included.
+      The screen has nothing: no e2e renders a parse failure, the pasted-bundle explanation
+      (a UI-DECISIONS §11 requirement) or the blocking-revision report, and `blockingReport()`
+      lives inside `src/routes/import/+page.svelte` where no unit test can reach it. The
+      user's whole recovery path from the most likely failure in the loop is unverified.
+      **Done when:** `blockingReport` moves to `$lib` with unit tests, and one e2e pastes a
+      broken plan and asserts the report is on screen and copyable.
+
+- [ ] **Server error reporting.** `src/lib/server/log.ts` is one `console.error` wrapper with
+      a single call site, and there is no custom `handleError` hook — so an unhandled error
+      reaches the operator as a raw stack trace against minified bundle paths, with no
+      timestamp, no request id, no user id and ANSI codes in the stream. "Which user lost a
+      workout" is currently unanswerable. Worth doing before real users rather than after,
+      because the first unreproducible bug report is when you cannot add it retroactively.
+      **Done when:** a `handleError` hook attaches a request id and user id, and there is one
+      log line per request.
+
+- [ ] **`/healthz` verifies nothing**, so a container whose storage has failed reports
+      healthy to both Docker and Portainer and is never restarted. Verified by making the
+      data directory unwritable under a running server: `healthz` 200, page 500. Note the
+      failure presents as *new and uncached users breaking while existing sessions continue*,
+      because handles are cached process-wide — harder to notice, not easier.
+      **Done when:** the endpoint opens `control.db` and runs `SELECT 1`, still cheap and
+      still unauthenticated.
+
+- [ ] **Dependency automation and scanning.** No Dependabot, no Renovate, no `npm audit` in
+      CI, no image scan, no SBOM. The stated "every dependency on a current major" policy has
+      already drifted — TypeScript is a full major behind. Note the audit blind spot when
+      wiring this up: `npm audit --omit=dev` reports zero while `npm audit` reports three,
+      because adapter-node inlines `@sveltejs/kit` — a devDependency — into the shipped
+      server bundle.
+      **Done when:** a dependency bot is configured and CI runs a non-gating `npm audit`.
+
+- [ ] **Make the cross-user module boundary real.** CLAUDE.md describes `admin-stats.ts` as
+      the single cross-user reader and calls that "a property of a module boundary rather than
+      a rule" — but no lint rule or test enforces it, so a second reader added anywhere
+      dissolves ARCHITECTURE §4 silently. Related: `client_id TEXT UNIQUE` is correct on all
+      five sync tables and asserted by nothing, and the invariant's forward-looking half
+      ("any new log table needs one") has no mechanism at all.
+      **Done when:** a restricted-import rule confines `better-sqlite3` to the three files
+      that may hold it, and one test reads `sqlite_master` and asserts `client_id TEXT UNIQUE`
+      on each of the five tables.
