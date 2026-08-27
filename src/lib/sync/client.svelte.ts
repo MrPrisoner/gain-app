@@ -77,6 +77,22 @@ export async function discardQuarantined(): Promise<void> {
   await refreshCounts();
 }
 
+/**
+ * The device that just reset itself, not the one told about it via a 409 (`/account`'s
+ * reset action). Everything in this outbox describes data the reset already erased, and
+ * it is not protected by the ordinary 409 path: this same page load re-seeds
+ * `currentGeneration` to the freshly-bumped value via `setGeneration`, so a queue left
+ * in place would now match and flush straight into the clean database instead of being
+ * rejected. Clearing it locally, on this one device, at the moment it asked for the
+ * reset, is what keeps that from happening — a second device with its own stale queue
+ * still takes the ordinary 409 branch above.
+ */
+export async function clearAfterReset(): Promise<void> {
+  const outbox = await store();
+  await outbox.clearAll();
+  await refreshCounts();
+}
+
 export async function flushNow(planSlug: string): Promise<void> {
   // `retryTimer` set means a retry is already pending — including a `needs-auth` retry.
   // A 401 must not be a dead end: nothing else in this module ever transitions a

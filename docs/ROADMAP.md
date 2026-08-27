@@ -57,10 +57,11 @@ plan with a rename, reviews the diff and commits, then confirms the set survived
 new slug.
 
 **Nothing left is phase-numbered.** The [Loose ends](#loose-ends) below took the first
-three: the e2e suite now runs in CI as its own job, a plan can be archived and brought
-back without ever putting its logged history at risk, and every version of a plan is
-browsable as the document that was imported. What remains is a self-service account reset
-and a backup recipe an operator can follow.
+four: the e2e suite now runs in CI as its own job, a plan can be archived and brought
+back without ever putting its logged history at risk, every version of a plan is
+browsable as the document that was imported, and a user can wipe their own account and
+start over without asking an operator. What remains is a backup recipe an operator can
+follow.
 
 | Phase | Deliverable | State |
 |---|---|---|
@@ -309,8 +310,8 @@ outbox — while no code path in the app can read another user's training conten
 
 Small, real, and owned by no phase. Pick them up wherever they fit.
 
-The first three are done. What is left — self-service reset and a backup recipe — is
-independent; pick either up first.
+The first four are done. What is left — a backup recipe — has no dependency on any of
+them; pick it up whenever.
 
 - [x] **The e2e suite runs in CI.** An `e2e` job in `.github/workflows/ci.yml` on the same
       triggers as `check`, running alongside it rather than after it — the two fail for
@@ -367,21 +368,33 @@ independent; pick either up first.
       that serves version 2 under a URL that never named it;
       `e2e/versions-walkthrough.spec.ts` imports a revision and asserts v1 comes back
       byte-identical to the fixture through the browser.
-- [ ] **A user can reset their own account.** Today only an operator can, so an alpha tester
-      who wants to start fresh has to ask. Reuse `resetUserData`
-      (`src/lib/server/admin-reset.ts`) rather than writing a second wipe: its ordering is
-      load-bearing — sessions first, then the `data_generation` bump, then the cached handle
-      closed and evicted *before* the unlink, then re-provisioning — and the CLAUDE.md
-      invariant that names it means the caller changes, not the machinery. Type-to-confirm,
-      the same expanding panel `/admin` already uses.
+- [x] **A user can reset their own account.** `/account` (`src/routes/account/`), reached
+      from the footer — not Home, since nothing destructive belongs beside the workout the
+      user is about to start. Reuses `resetUserData` (`src/lib/server/admin-reset.ts`)
+      exactly as `/admin` does, the same expanding type-to-confirm panel and all; only the
+      caller changes, never the machinery, per the CLAUDE.md invariant that names it. The
+      confirmation phrase is a case-insensitive `RESET`, not the account's own label —
+      `/admin`'s confirmation identifies *which* card an operator is about to wipe among
+      many, a distinction that does not exist when the account resetting is the only one
+      you can ever reach from here.
 
-      Not on Home: nothing destructive belongs beside the workout the user is about to
-      start. There is no settings or account screen yet, and the cheapest honest home is a
-      small one reached from the footer.
+      Reset ends every session for the account, including the one asking — `resetUserData`
+      does not carry an exception for its caller — so the action captures the current
+      session's tokens before the wipe and re-mints a fresh session afterwards (OIDC mode
+      only; dev-bypass mode has no session row to find or restore). The device that just
+      reset also clears its own sync outbox and `gain:workout:*` `localStorage` keys before
+      navigating home: those local writes are not protected by the ordinary generation
+      check, since this same page load is what re-seeds the client's belief about the
+      generation to the fresh value the 409 path exists to react to.
       **Done when:** a user resets themselves and lands on the empty state with the
       bootstrap prompt, and a second device still holding a queued outbox gets the
       generation 409 and clears — rather than quarantining forever, which is the failure this
-      reuses `data_generation` to avoid. Unit test on the route, e2e on the walkthrough.
+      reuses `data_generation` to avoid. `tests/server/account-route.test.ts` covers the
+      route (wrong confirmation, case-insensitive match, the re-mint, and the bypass
+      skip-path); `e2e/account-reset-walkthrough.spec.ts` walks a real reset through the
+      browser. The second-device 409 reuses `tests/server/sync-route.test.ts`'s existing
+      coverage rather than a new two-context e2e, since the generation-bump path is the same
+      one an operator reset already exercises.
 - [ ] **A backup recipe an operator can actually follow.** ARCHITECTURE §3 says "a single
       volume snapshot is a complete backup," which is true of the *layout* and not of a live
       database: every `gain.db` and `control.db` is opened `journal_mode = WAL`, so a `tar`

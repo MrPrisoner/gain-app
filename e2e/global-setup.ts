@@ -12,6 +12,7 @@ import {
   E2E_DATA_DIR_VAR,
   E2E_DEV_USER,
   E2E_VIEWPORT_PROJECTS,
+  accountResetDevUserFor,
   adminSubjectFor,
   homeDevUserFor,
 } from "./env";
@@ -43,6 +44,11 @@ export default function globalSetup(): void {
     } finally {
       control.close();
     }
+  }
+  // One disposable account per project for the self-service reset walkthrough — same
+  // reasoning as the admin subjects above, since this reset is just as destructive.
+  for (const project of E2E_VIEWPORT_PROJECTS) {
+    seedFixturePlan(E2E_DATA_DIR, accountResetDevUserFor(project));
   }
   // Published for the worker processes, which are forked after this runs and would
   // otherwise re-import `env.ts` and mint an empty temp directory of their own.

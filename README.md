@@ -19,9 +19,9 @@ plan and progress for an AI to review and revise.
 > included — coming back in for a plain-language review before it is committed, with
 > history mapped onto the new slug rather than silently split. Plans archive and unarchive
 > without ever putting logged history at risk, every version of a plan stays browsable as
-> the document that was imported, and the full browser suite runs in CI on every pull
-> request. What is left is smaller than a phase — see
-> [`docs/ROADMAP.md`](docs/ROADMAP.md)'s Loose ends.
+> the document that was imported, the full browser suite runs in CI on every pull request,
+> and a user can reset their own account from the footer without needing an operator. What
+> is left is smaller than a phase — see [`docs/ROADMAP.md`](docs/ROADMAP.md)'s Loose ends.
 
 ---
 

@@ -113,6 +113,16 @@ export function adminSubjectFor(projectName: string): string {
   return `e2e-admin-subject-${projectName}`;
 }
 
+/**
+ * A per-project dev user for the self-service account-reset walkthrough. Resetting is
+ * destructive and `fullyParallel: true` runs this spec concurrently across all three
+ * viewport projects, so a shared account would have its data wiped out from under a
+ * sibling run mid-assertion — the same hazard `adminSubjectFor` exists for.
+ */
+export function accountResetDevUserFor(projectName: string): string {
+  return `e2e-account-reset-${projectName}`;
+}
+
 /** Off the beaten path, so a developer's own `npm run dev` on 5173 is untouched. */
 export const E2E_PORT = 4319;
 export const E2E_BASE_URL = `http://127.0.0.1:${E2E_PORT}`;

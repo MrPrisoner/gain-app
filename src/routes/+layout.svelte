@@ -85,6 +85,9 @@
     GAIN is free software under AGPL-3.0 —
     <a href={REPO_URL} rel="external">source</a>
     · {data.appVersion}
+    {#if data.user}
+      · <a href="/account">Account</a>
+    {/if}
   </footer>
 </div>
 

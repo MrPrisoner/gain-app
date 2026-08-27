@@ -73,17 +73,21 @@ whose `applyRenames` repoints `exercise_def.slug` and the loose-text
 proof: it logs a set, revises the plan with a rename, reviews the diff, commits, and
 confirms the set survived under the new slug.
 
-Three of `docs/ROADMAP.md`'s Loose Ends have since closed. The Playwright suite runs in
+Four of `docs/ROADMAP.md`'s Loose Ends have since closed. The Playwright suite runs in
 CI as its own job (`.github/workflows/ci.yml`), never folded into `verify`. Plan
 archiving (`src/lib/db/archive.ts`) is reversible and read-only: it takes a plan off the
 active Home list and closes the two inbound write paths — the session runner and a
 revision import — while `export`, `history`, `progress` and version browsing all stay
 open and marked, which is the half that matters, since shipping the button against the
 old `archived_at` 404s would have made archiving a silent loss of the user's own logged
-history. And every version of a plan is browsable at `/plan/[slug]/versions` and
-`/plan/[slug]/versions/[n]`, the latter replaying `source_md` verbatim. **All nine phases
-are done; what remains is the last two Loose Ends in `docs/ROADMAP.md` — a self-service
-account reset and a backup recipe — not a numbered phase.**
+history. Every version of a plan is browsable at `/plan/[slug]/versions` and
+`/plan/[slug]/versions/[n]`, the latter replaying `source_md` verbatim. And a user can
+now reset their own account from `/account` (reached from the footer), which reuses
+`resetUserData` (`src/lib/server/admin-reset.ts`) exactly as `/admin` does — only the
+caller changes, never the load-bearing ordering — and re-mints the requesting session
+afterward, since `resetUserData` signs out every session for the account including the
+one asking. **All nine phases are done; what remains is the last Loose End in
+`docs/ROADMAP.md` — a backup recipe — not a numbered phase.**
 
 Two files hold the plan: the build-order table in ARCHITECTURE §12 is the map, and
 [`docs/ROADMAP.md`](docs/ROADMAP.md) is the itinerary — the remaining work item by item,
