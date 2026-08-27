@@ -388,11 +388,22 @@ wrong number rather than failing.
 ### Isolation is physical, not a WHERE clause
 
 Each user gets their own `gain.db` and their own directory under `/data/users/<id>/`.
-There is no cross-user query because there is no cross-user database. There is no admin
-role and no code path by which one user reads another's data. Do not introduce a shared
-table keyed by `user_id`. The one shared database is `control.db` — the OIDC `sub` →
-user id mapping and server-side sessions — and it stays that way: nothing personal in
-it, no names, no emails.
+There is no cross-user query because there is no cross-user database. Do not introduce a
+shared table keyed by `user_id`. There is exactly one optional operator role
+(`OIDC_ADMIN_GROUP`, phase 9) and exactly one module it may read another user's database
+from — `src/lib/server/admin-stats.ts`, which returns counts, dates and byte totals and
+never a content row. Outside that module there is no code path by which one user reads
+another's training data.
+
+The one shared database is `control.db` — the OIDC `sub` → user id mapping and
+server-side sessions — and it holds **no training data**, which is the line that actually
+matters. It is not, however, free of personal data, and reasoning that assumes otherwise
+is wrong: `control_user.display_label` holds whatever the IdP supplied
+(`preferred_username`, else the **email address**, else `name` — `extractDisplayLabel`,
+`src/lib/server/oidc.ts`), and every `session` row holds the IdP's access, refresh and ID
+tokens in plain text. A refresh token is a live credential, so `control.db` is a
+secret-bearing file: it is what the operator screen identifies accounts by, and it is
+what the README's backup recipe copies onto the host.
 
 ### Offline is a hard requirement, not a nicety
 
@@ -473,7 +484,9 @@ protect:
   charts, the export. Settled 2026-08-10: the contract has no field meaning "this movement
   is paired", `per_side` is not that field, and adding one was rejected because
   `docs/CONTRACT.md` ships verbatim in every export and bootstrap prompt. So UI-DECISIONS
-  §3's `2 × N` sub-line is the single clause of that document deliberately left unbuilt.
+  §3's `2 × N` sub-line is the one clause of that document _deliberately_ left unbuilt
+  (§5's symptom triad is also unbuilt, but that was drift rather than a decision — see
+  below).
   Do not implement it, do not add a `paired` field, and do not infer pairing from a slug
   or a load label. The full reasoning, including the one honest consequence it leaves
   behind, is in UI-DECISIONS §3.
@@ -482,16 +495,19 @@ protect:
   heading — the same mark in all three, because a screen that says "done" two different
   ways makes the user learn two vocabularies for one idea. Settled 2026-08-15; the
   reasoning, including why the pills do not reserve space and why a rounds block asks its
-  round counter rather than its exercises, is in UI-DECISIONS §1. Do not add a green
-  success state here: inside the session runner, green, amber and red are reserved for
-  §5's symptom triad and mean nothing else, and a list that traffic-lights progress
-  competes with the one scale that has to stay readable. That reservation is scoped to
-  the runner, not the app — `--red`/`--amber` already carry their ordinary meanings
-  outside it (a blocking error, a warning) in the admin screen, the export screen, the
-  sync banner and the import review, and using them there is correct, not an exception
-  to guard against.
-- **The post-session celebration is a moment, never a step, and carries no colour §5
-  otherwise reserves.** It renders after the finish op is already written and the
+  round counter rather than its exercises, is in UI-DECISIONS §1. **Inside the session runner there is no
+  colour but the accent** — do not add a green success state, and do not traffic-light
+  progress; the runner is read one-handed at arm's length, and every extra hue competes
+  with whatever matters most. Outside the runner, `--red` and `--amber` carry their
+  ordinary meanings (a blocking error, a destructive action, a warning) in the admin
+  screen, the export screen, the sync banner, `/account` and the import review, and
+  using them there is correct rather than an exception. Corrected 2026-08-27: this used
+  to say the triad was reserved for "§5's symptom triad", which described a feature that
+  was never built — `--green` has zero call sites app-wide, and `safety_json` is read by
+  no UI code at all. UI-DECISIONS §5 has what replaced it; whether the framework gets
+  built is an open question in ROADMAP.
+- **The post-session celebration is a moment, never a step, and is the one full-screen
+  exception to the runner's accent-only rule.** It renders after the finish op is already written and the
   workout's local key already cleared, so dismissing it — or never dismissing it — cannot
   change what reaches the export; a red-flag stop skips it entirely. Its confetti is
   accent/gold/silver, a deliberate, narrow exception to §5's green/amber/red symptom
