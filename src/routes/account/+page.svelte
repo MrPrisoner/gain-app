@@ -4,6 +4,7 @@
   import { enhance } from "$app/forms";
   import IconTriangleAlert from "~icons/lucide/triangle-alert";
   import { clearAfterReset, setGeneration } from "$lib/sync/client.svelte";
+  import { purgeCachedUserData } from "$lib/sync/precache";
   import type { ActionData, PageData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -55,23 +56,34 @@
     class="danger-panel"
     use:enhance={() => {
       resetting = true;
-      return async ({ result }) => {
-        resetting = false;
+      return async ({ result, update }) => {
         if (result.type === "success" && (result.data as { reset?: boolean })?.reset) {
           const { generation } = result.data as { generation: number };
           await clearAfterReset();
           clearWorkoutStorage();
+          await purgeCachedUserData();
           // The next full load would re-seed this from the server's own read anyway,
           // but this tab's in-memory copy (`client.svelte.ts`) must not wait for that:
           // any write attempted between now and then has to be judged against the
           // generation this reset just produced, not the stale one seeded on page load.
           setGeneration(generation);
+          // Deliberately still `resetting` on the way out: clearing it before the awaits
+          // above re-enables the button with RESET still typed, and a second tap fires a
+          // second reset. The component leaves with the navigation instead.
           await goto(resolve("/", {}), { replaceState: true });
           return;
         }
+
+        resetting = false;
         if (result.type === "failure") {
           form = result.data as ActionData;
+          return;
         }
+        // `error` and `redirect`, which are exactly the results that mean the wipe may
+        // have happened and the re-mint may not have. Swallowing them here would leave
+        // the user looking at an unchanged page after a destructive action; `update()`
+        // renders the error boundary or follows the redirect, as `/admin`'s does.
+        await update();
       };
     }}
   >

@@ -9,12 +9,16 @@
  * session with the same tokens so the caller is not left signed out; and a request with
  * no session to re-mint (the dev bypass shape) skips that step cleanly rather than
  * erroring.
+ *
+ * A fourth: the re-mint also has to happen when the wipe *fails*. `resetUserData` ends
+ * every session as its first step, so a failure partway through would otherwise return a
+ * "re-run the reset" message to a caller who can no longer authenticate the retry.
  */
 
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { actions } from "../../src/routes/account/+page.server";
 import { openUserDb, type UserDb } from "../../src/lib/db/user-db";
 import { importPlan } from "../../src/lib/db/import-plan";
@@ -22,14 +26,22 @@ import { parsePlanDocument } from "../../src/lib/parse/parser";
 import {
   createSession,
   createUser,
+  deleteSessionsForUser,
   getDataGeneration,
   getSession,
   type ControlUser,
 } from "../../src/lib/server/control-db";
+import { resetUserData } from "../../src/lib/server/admin-reset";
 import { getControlDb, resetAppStateForTests } from "../../src/lib/server/app-state";
 import { getConfig, resetConfigForTests } from "../../src/lib/server/config";
 import { SESSION_COOKIE, signSessionId } from "../../src/lib/server/session-cookie";
 import { statsForUsers } from "../../src/lib/server/admin-stats";
+
+// Only so one test can make the wipe fail; every other test runs the real thing.
+vi.mock("../../src/lib/server/admin-reset", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../src/lib/server/admin-reset")>();
+  return { ...actual, resetUserData: vi.fn(actual.resetUserData) };
+});
 
 const fixtureMd = fs.readFileSync("fixtures/plans/home-training-v1.md", "utf8");
 const NOW = new Date("2026-08-27T09:00:00Z");
@@ -145,9 +157,13 @@ describe("/account reset action", () => {
 
   it("re-mints a fresh session with the old tokens when one was found", async () => {
     const control = getControlDb();
+    // The route reads the session at `new Date()`, so a session minted at the fixture's
+    // fixed `NOW` is always already idle-expired by the time the test runs and is never
+    // found at all — the assertions below would then be passing on the bypass path.
+    const live = new Date();
     const original = createSession(control, {
       userId: subject.id,
-      now: NOW,
+      now: live,
       idleMs: 60_000,
       tokens: {
         access_token: "at-1",
@@ -165,7 +181,7 @@ describe("/account reset action", () => {
     expect(result).toMatchObject({ reset: true });
 
     // The old session row is gone — `resetUserData` signs everyone out first.
-    expect(getSession(control, original.id, NOW)).toBeUndefined();
+    expect(getSession(control, original.id, live)).toBeUndefined();
 
     // A new cookie was set, and it verifies to a session id different from the old one,
     // carrying the same tokens forward.
@@ -176,9 +192,52 @@ describe("/account reset action", () => {
     const newSessionId = set.value.slice(0, dot);
     expect(newSessionId).not.toBe(original.id);
 
-    const fresh = getSession(control, newSessionId, NOW);
+    const fresh = getSession(control, newSessionId, live);
     expect(fresh?.access_token).toBe("at-1");
     expect(fresh?.refresh_token).toBe("rt-1");
     expect(fresh?.id_token).toBe("idt-1");
+  });
+
+  it("still re-mints the session when the wipe itself fails", async () => {
+    const control = getControlDb();
+    const live = new Date();
+    const original = createSession(control, {
+      userId: subject.id,
+      now: live,
+      idleMs: 60_000,
+      tokens: {
+        access_token: "at-1",
+        access_expires_at: null,
+        refresh_token: "rt-1",
+        id_token: "idt-1",
+      },
+      isAdmin: false,
+    });
+
+    // The shape of a real mid-reset failure: sessions are already gone (step 1) when a
+    // later step throws.
+    vi.mocked(resetUserData).mockImplementationOnce((controlDb, _dataDir, userId) => {
+      deleteSessionsForUser(controlDb, userId);
+      throw new Error("could not remove the directory");
+    });
+
+    const config = getConfig();
+    const cookies = cookieJar(signSessionId(config.sessionSecret, original.id));
+    const result = await reset(event(subject, { confirm: "RESET" }, cookies));
+
+    expect(result).toMatchObject({ status: 400, data: { actionError: expect.any(String) } });
+    // What went wrong is the server's business: the underlying failure names an absolute
+    // path under the data directory, which the account's own owner can neither act on nor
+    // is owed.
+    const { actionError } = (result as { data: { actionError: string } }).data;
+    expect(actionError).not.toContain(dataDir);
+
+    // The retry the error message invites has to be possible: a fresh cookie, verifying
+    // to a live session, rather than the deleted one.
+    expect(cookies.sets).toHaveLength(1);
+    const set = cookies.sets[0]!;
+    const newSessionId = set.value.slice(0, set.value.lastIndexOf("."));
+    expect(newSessionId).not.toBe(original.id);
+    expect(getSession(control, newSessionId, live)?.access_token).toBe("at-1");
   });
 });
