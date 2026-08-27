@@ -425,7 +425,7 @@ them; pick it up whenever.
       snapshot passed `integrity_check`, and it contained the WAL-resident rows a copy of
       the `.db` alone would have missed. §3's bullet and the same claim repeated in the
       Dockerfile's `/data` comment are both corrected — a naive `tar` is now described as
-      the hazard it is, in all three places it was implied safe.
+      the hazard it is, in all three places it was implied safe. (`397991d`)
 - [x] **The e2e harness shared one seeded database across every spec and every viewport
       project**, so any spec asserting on whole-account state — rather than its own
       `client_id`-scoped rows — would see another spec's or another project's concurrent
