@@ -107,6 +107,48 @@ export default tseslint.config(
     },
   },
   {
+    /**
+     * Physical isolation, enforced rather than described.
+     *
+     * ARCHITECTURE §4 and CLAUDE.md both state that exactly one module may open another
+     * user's `gain.db` — `src/lib/server/admin-stats.ts`, which returns only counts,
+     * dates and byte totals — and CLAUDE.md calls that "the single module boundary, not
+     * a rule". It was a rule: nothing stopped a second cross-user reader being added
+     * anywhere, and adding one dissolves the guarantee silently, with no failing test.
+     *
+     * Restricting the *value* import of `better-sqlite3` is what makes it a boundary.
+     * The three files below are the only ones that construct a database: `control-db.ts`
+     * (the shared control database, which holds no training data), `user-db.ts` (reached
+     * only through `openUserDb`, and only ever with the session's own user id), and
+     * `admin-stats.ts` (the sanctioned reader). Type-only imports stay allowed —
+     * `Database.Statement` and `Database` as a parameter type open nothing.
+     */
+    files: ["src/**/*.ts", "src/**/*.svelte"],
+    ignores: [
+      "src/lib/server/control-db.ts",
+      "src/lib/db/user-db.ts",
+      "src/lib/server/admin-stats.ts",
+    ],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "better-sqlite3",
+              allowTypeImports: true,
+              message:
+                "Only control-db.ts, user-db.ts and admin-stats.ts may open a database " +
+                "(ARCHITECTURE §4: one user, one database, one sanctioned cross-user " +
+                "reader). Reach a user's database through getUserDbFor() instead. A " +
+                "type-only import (`import type`) is fine.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // The service worker's own project (`tsconfig.worker.json`) — see that file's
     // comment for why it exists separately.
     files: ["src/service-worker.ts"],
@@ -134,14 +176,17 @@ export default tseslint.config(
   },
   {
     // The phase-1 no-console rule stands for the pure core; the server layer logs
-    // deliberately — the startup origin/redirect-URI line is a §14 mitigation.
-    files: ["src/lib/server/**/*.ts", "src/hooks.server.ts"],
+    // deliberately — the startup origin/redirect-URI line is a §14 mitigation, and
+    // `/healthz` logs the storage fault it refuses to put in an unauthenticated response.
+    files: ["src/lib/server/**/*.ts", "src/hooks.server.ts", "src/routes/healthz/+server.ts"],
     rules: { "no-console": "off" },
   },
   {
     // SvelteKit control flow throws `redirect()` and `error()` results, which
-    // are not Error objects — that is the framework's idiom, not a bug.
-    files: ["src/hooks.server.ts", "src/routes/**/*.ts"],
+    // are not Error objects — that is the framework's idiom, not a bug. `hooks.server.ts`
+    // is deliberately not here: `handle` returns its refusals rather than throwing them,
+    // so that they pass through `withSecurityHeaders` like every other response.
+    files: ["src/routes/**/*.ts"],
     rules: { "@typescript-eslint/only-throw-error": "off" },
   },
 );

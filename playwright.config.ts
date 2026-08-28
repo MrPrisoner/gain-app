@@ -94,12 +94,10 @@ export default defineConfig({
         // adapter-node requires ORIGIN outside dev, and a wrong one is the #1 cause of
         // login loops behind a proxy (svelte.config.js).
         ORIGIN: E2E_BUILT_BASE_URL,
-        // NODE_ENV is deliberately NOT set to production. `src/lib/server/config.ts`
-        // refuses GAIN_DEV_USER when NODE_ENV=production, and these specs need both the
-        // dev-user bypass and a real build. The refusal keys on NODE_ENV rather than on
-        // being a built bundle, so leaving it unset satisfies both — do not "fix" this by
-        // weakening the refusal, which exists so a production deploy cannot ship an auth
-        // bypass.
+        // These specs need both the dev-user bypass and a real build.
+        // `src/lib/server/config.ts` allows that combination only because ORIGIN above is
+        // a loopback address; point it at a routable host and the server will refuse to
+        // start, which is the guard working rather than a bug to route around.
       },
     },
   ],

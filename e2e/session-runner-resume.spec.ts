@@ -113,7 +113,10 @@ test("a reload restores a swap, so the strip still logs the substitute", async (
   await expect(page.locator(".log-strip")).toBeVisible();
 
   await page.locator(".exercise-head", { hasText: "Reverse crunch" }).first().click();
-  await openExercise(page).getByRole("button", { name: "Swap: dead-bug" }).click();
+  // "Dead bug", not "dead-bug": the chip shows the catalogue name, since a slug is
+  // not a name to offer a user (review 2026-08-27, U9). The *logged* slug is still
+  // `dead-bug`, which is what the assertions below check.
+  await openExercise(page).getByRole("button", { name: "Swap: Dead bug" }).click();
   await expect(openExercise(page).locator(".exercise-name")).toHaveText("Dead bug");
 
   await page.reload();

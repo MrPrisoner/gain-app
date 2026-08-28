@@ -81,20 +81,26 @@ the context — anything it cannot parse, it preserves.
 
 ## 2. Decisions
 
-| # | Decision | Choice |
-|---|---|---|
-| 1 | Plan structuring | Contract block (fenced YAML) emitted by the AI + review/diff editor before commit |
-| 2 | AI integration | None in-app. Export/import only |
-| 3 | Authentication | OIDC client against Authentik |
-| 4 | Access control | Gated on an Authentik group, auto-provision on first login, optional operator role on a second group |
-| 5 | Storage | One SQLite DB **per user**, plus a per-user file directory. DB is source of truth |
-| 6 | Client | Installable PWA, offline-capable sessions with sync |
-| 7 | Log schema | Fixed core (reps/weight/duration/difficulty) + plan-declared custom metrics |
-| 8 | Scheduling | Suggested-next-session, no calendar; one-tap logging of activity outside the plan |
-| 9 | Stack | TypeScript + SvelteKit, single Node container, `better-sqlite3` |
-| 10 | Versioning | Immutable plan versions, diff review at import, logs bound to their version |
-| 11 | Export | One self-contained `.md` bundle, windowed by default |
-| 12 | Deviation | Skip / substitute / add sets mid-session, with structured reasons |
+**Each row carries its reason, and the reason is the operative part.** These are settled
+in the sense that they should be implemented rather than re-argued from scratch — but a
+decision whose reason has become false is open again, and cannot be recognised as open if
+the reason was never written down. The "why" column exists so that test can actually be
+applied.
+
+| # | Decision | Choice | Why |
+|---|---|---|---|
+| 1 | Plan structuring | Contract block (fenced YAML) emitted by the AI + review/diff editor before commit | An AI can reliably emit structure inside a fence; it cannot reliably be trusted to preserve identity across a rewrite. The review is where a human catches a renamed exercise before it splits history (§8) |
+| 2 | AI integration | None in-app. Export/import only | The loop crosses to whichever chat the user already pays for and trusts. Embedding a model would mean API keys, a provider choice and a running cost, to replace a paste that already works (§1) |
+| 3 | Authentication | OIDC client against Authentik | This is a self-hosted instance beside an IdP the operator already runs. Identity is administered there, so GAIN stores no password and owns no account recovery |
+| 4 | Access control | Gated on an Authentik group, auto-provision on first login, optional operator role on a second group | Access stays a question answered in Authentik, not a user-management screen GAIN would otherwise have to build and secure. Leaving the second group unset means the instance has no admin at all |
+| 5 | Storage | One SQLite DB **per user**, plus a per-user file directory. DB is source of truth | Physical isolation cannot be forgotten the way a `WHERE user_id = ?` can. No cross-user query can exist because there is no cross-user database, and deleting a user is `rm -rf` plus one row |
+| 6 | Client | Installable PWA, offline-capable sessions with sync | The screen is used in a garage with no signal, one-handed, mid-set. Losing a workout to a dropped connection or a locked phone is the one failure that would stop someone using the app |
+| 7 | Log schema | Fixed core (reps/weight/duration/difficulty) + plan-declared custom metrics | The core four are what every plan logs and what every chart needs. Everything else varies per plan, so the plan declares it — hardcoding a symptom or energy field would fix one plan's vocabulary onto all of them |
+| 8 | Scheduling | Suggested-next-session, no calendar; one-tap logging of activity outside the plan | A calendar turns a missed day into a failure state. Suggesting the next session keeps the plan's *order* without asserting a date the user never agreed to (§13) |
+| 9 | Stack | TypeScript + SvelteKit, single Node container, `better-sqlite3` | One image, one port, one volume is what makes this deployable as a Portainer stack by one person. A synchronous embedded database is adequate at this scale and removes a service |
+| 10 | Versioning | Immutable plan versions, diff review at import, logs bound to their version | A logged set means "what the plan prescribed at the time". Mutating a version in place would silently rewrite the past, and nothing downstream could detect it |
+| 11 | Export | One self-contained `.md` bundle, windowed by default | One document per crossing (§1), and a window because a year of raw sets outgrows a chat context window and buries recent signal in old noise |
+| 12 | Deviation | Skip / substitute / add or drop sets / stop on a red flag, mid-session, with structured reasons | What actually happened has to reach the next revision. An unrecorded substitution becomes an export claiming the user performed the movement the plan told them to avoid |
 
 ---
 
@@ -143,6 +149,48 @@ Notes:
   which asks SQLite itself for a consistent copy of a database being written to. The
   README's Backups subsection has both recipes in full.
 
+### Security headers
+
+The app ships every header that is a property of *itself*, and leaves the proxy exactly
+one. `hooks.server.ts` stamps `X-Content-Type-Options`, `X-Frame-Options`,
+`Referrer-Policy` and `Permissions-Policy` on every response it renders, from the constants
+in `src/lib/server/headers.ts`; the Content-Security-Policy comes from `kit.csp`
+(`svelte.config.js`) instead, because SvelteKit is the only thing that knows the nonce it
+stamped into the page's own hydration script — a second static CSP header would be
+intersected with that one by the browser and would block the app's own scripts. Responses
+SvelteKit renders no page for, `/healthz` among them, get a
+`default-src 'none'` fallback from the hook.
+
+`Strict-Transport-Security` is the proxy's, and it is the only one. The container listens
+on plain HTTP by design and cannot know whether it was reached over TLS, so a fixed HSTS
+header from the app would be a claim it is not in a position to make. Set it where TLS is
+terminated.
+
+Two consequences worth stating rather than rediscovering:
+
+- **Static assets carry no headers from the app.** adapter-node serves `client/` and
+  `static/` through its own middleware, ahead of the SvelteKit handler, so no hook sees
+  those responses — a hashed asset answers with neither a CSP nor `nosniff`. This is
+  accepted. Closing it would mean replacing `node build` with a custom server around
+  `build/handler.js`, and a CSP on a script response governs nothing about that script's
+  execution in the page that imported it; the importing page's policy does. Every asset
+  GAIN serves is a build artifact rather than user content. An operator who wants headers
+  on everything sets them at the proxy, which is where a blanket rule belongs anyway.
+- **The gate returns its refusals rather than throwing them.** SvelteKit catches an
+  `HttpError` or a `Redirect` thrown out of `handle` and builds that response itself,
+  entirely outside the hook — so the 401 an expired fetch gets, the login redirect a
+  navigation gets and the 403 a lost group gets used to be the only responses in the app
+  shipping without any of these headers. `$lib/server/gate.ts`'s `refusal` and `seeOther`
+  build them instead, and `handle` returns them through the same wrapper as everything
+  else. The 403's message names the configured group, so it is escaped: owning a response
+  body means owning its escaping.
+- **`style-src-attr 'unsafe-inline'` is deliberate and narrow.** Svelte's `style:`
+  directives compile to inline style *attributes* — the confetti overlay, every chart,
+  `app.html`'s own `display: contents` wrapper — so the attribute directive has to allow
+  them. `style-src` itself stays `'self'` in the shipped policy, so an injected `<style>`
+  element is still refused. The dev server relaxes `style-src` to include `'unsafe-inline'`
+  for HMR; that is SvelteKit's doing and does not reach the build.
+
 ### Data directory layout
 
 ```
@@ -176,7 +224,11 @@ provider.
 - **Provisioning:** first successful login creates the user row, the DB file and the
   directory.
 - **Session:** an httpOnly, `Secure`, `SameSite=Lax` cookie holding an opaque session
-  ID; server-side session records live in `control.db`. No JWT in the cookie.
+  ID; server-side session records live in `control.db`. No JWT in the cookie — but the
+  session row does hold the IdP's `access_token`, `refresh_token` and `id_token` as
+  plain text, so that a group re-check can happen without a fresh login. A refresh token
+  is a live credential: `control.db` is therefore a secret-bearing file, and the backup
+  recipe in the README copies it. Treat it accordingly.
 - **Logout:** clear the local session, then redirect to Authentik's end-session
   endpoint so it's a real logout, not a re-login-in-one-click.
 - **Offline reality:** the PWA must work with an expired session. Requests that 401
@@ -185,8 +237,12 @@ provider.
 
 There is one optional operator role, gated on a second Authentik group
 (`OIDC_ADMIN_GROUP`); leave it unset and the instance has no admin at all. The operator
-sees that a user exists, when they were last active, and how much they have logged, and
-can reset any user's data to a clean slate. They cannot read any of it. No plan, exercise,
+sees that a user exists, the label that user's IdP supplied — `preferred_username`, or
+failing that their **email address** — their OIDC subject, when they were last active, and
+how much they have logged, and can reset any user's data to a clean slate. The identifying
+label is deliberate: an operator aiming a destructive reset at one of several accounts has
+to be able to tell which one, and pushing that identification out into Authentik would
+make it unchecked. What they cannot see is any *training content*. No plan, exercise,
 set, metric or note is reachable from `/admin` through any code path — every cross-user
 read in the app lives in `src/lib/server/admin-stats.ts` and returns nothing but counts,
 dates and byte totals. Access itself is still administered entirely in Authentik.
@@ -898,3 +954,4 @@ Explicitly out of scope, to stop agents inventing work:
 | `ORIGIN` / proxy misconfiguration breaks login | Documented in compose; startup logs the effective origin and redirect URI |
 | Context prose mangled on round-trip | `context_md` stored and replayed verbatim; byte-equality asserted in the golden test |
 | A resumed workout attributes a set to the wrong slot of the same session | Accepted and bounded (§9, "Resuming"): log rows carry no `block_key`, so reconstruction infers. It can never cross workouts, invent a row or drop one. The exact fix is a schema column, deferred until a real plan needs it |
+| A device with a badly wrong clock files its sets into the wrong week | Accepted and bounded. `set_log` carries no timestamp column at all: chronology comes from the ULID primary key, which sorts by its embedded millisecond timestamp and is generated on the phone, because the offline model has no server to stamp it. A few seconds out is harmless — order *within* a session is by `set_no` — but a device days out (a flat battery, a factory reset) interleaves permanently into the wrong week, and the export's progress summary is arithmetic the reviewing AI will trust and not check. Closing it means a server-stamped `received_at` written at replay, as a monotonic fallback that leaves the offline model alone; not worth the schema change until a real device is seen doing it |

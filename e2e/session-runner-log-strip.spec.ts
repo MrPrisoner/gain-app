@@ -25,7 +25,7 @@
 
 import { expect, test } from "@playwright/test";
 import { E2E_PLAN_SLUG } from "./env";
-import { dismissPreSessionPrompt } from "./helpers";
+import { dismissPreSessionPrompt, logSetThroughRest } from "./helpers";
 
 test("Enter in a dial does not log the set at Easy", async ({ page }) => {
   await page.goto(`/plan/${E2E_PLAN_SLUG}/session/A`);
@@ -68,4 +68,48 @@ test("a double tap on an effort key logs exactly one set", async ({ page }) => {
 
   // Set 2 is untouched: the cursor advanced exactly once, so the second tap was inert.
   await expect(page.locator(".exercise.open .ledger-row").nth(1)).toContainText("Up next");
+});
+
+/**
+ * A third way the shared strip can offer a value nobody logged, found in the 2026-08-27
+ * review (U2).
+ *
+ * `LogStrip`'s per-slot input drafts deliberately *shadow* the pre-fill, so an adjustment
+ * survives looking at another exercise and coming back. Nothing removed an entry, and the
+ * component never remounts — so backing out of a correction left the abandoned number
+ * waiting in the strip the next time that row was tapped, presented as the current value
+ * and one effort tap from being committed.
+ *
+ * That sits directly against the invariant the ledger already honours: client state is
+ * what was submitted, never what was pre-filled. A surviving draft is a third thing that
+ * is neither, and it is the one of the three that reaches the export.
+ */
+test("a cancelled correction does not leave its abandoned value in the strip", async ({ page }) => {
+  await page.goto(`/plan/${E2E_PLAN_SLUG}/session/A`);
+  await dismissPreSessionPrompt(page);
+  await expect(page.locator(".log-strip")).toBeVisible();
+
+  const reps = page.locator('.log-strip input[aria-label="Reps"]');
+  await reps.fill("10");
+  // Clears the rest overlay this set fires, which would otherwise sit over the ledger.
+  await logSetThroughRest(page);
+
+  const loggedRow = page.locator(".exercise.open .ledger-row.logged").first();
+  await expect(loggedRow).toContainText("10");
+
+  // Reopen it for correction, type a number, then back out without writing.
+  await loggedRow.locator("button.ledger-edit").click();
+  await expect(page.locator(".log-strip .strip-set")).toContainText("Editing");
+  await expect(reps).toHaveValue("10");
+  await reps.fill("99");
+  await page.locator(".log-strip .strip-change").click();
+
+  // Nothing was written: the ledger still reads what was actually logged.
+  await expect(loggedRow).toContainText("10");
+  await expect(loggedRow).not.toContainText("99");
+
+  // And the strip does not re-offer the abandoned 99 on the next tap.
+  await loggedRow.locator("button.ledger-edit").click();
+  await expect(page.locator(".log-strip .strip-set")).toContainText("Editing");
+  await expect(reps).toHaveValue("10");
 });

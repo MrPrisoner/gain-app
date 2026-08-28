@@ -213,3 +213,36 @@ export async function waitForPrecached(page: Page, url: string): Promise<void> {
     return false;
   }, url);
 }
+
+/** One outbox record as IndexedDB holds it — enough of `OutboxRecord` to assert on. */
+export type OutboxRecordShape = {
+  op: { kind: string; exerciseSlug?: string };
+  state: string;
+  error?: string;
+};
+
+/**
+ * Every outbox record this browser profile holds, read straight out of IndexedDB rather
+ * than through the app. The quarantine invariant is about what *survives* a failure, and
+ * the UI only ever shows a count — so a spec asserting an op was held rather than dropped
+ * has to look at the store itself.
+ */
+export async function outboxRecords(page: Page): Promise<OutboxRecordShape[]> {
+  return page.evaluate(
+    () =>
+      new Promise<OutboxRecordShape[]>((resolve, reject) => {
+        const request = indexedDB.open("gain-sync");
+        request.onerror = () =>
+          reject(new Error(request.error?.message ?? "indexedDB.open failed"));
+        request.onsuccess = () => {
+          const db = request.result;
+          const all = db.transaction("outbox", "readonly").objectStore("outbox").getAll();
+          all.onerror = () => reject(new Error(all.error?.message ?? "outbox getAll failed"));
+          all.onsuccess = () => {
+            db.close();
+            resolve(all.result as OutboxRecordShape[]);
+          };
+        };
+      }),
+  );
+}

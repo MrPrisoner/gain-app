@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { applyAck, planBatch } from "../../src/lib/sync/queue";
+import {
+  applyAck,
+  BATCH_LIMIT,
+  planBatch,
+  resolvePermanentFailure,
+} from "../../src/lib/sync/queue";
 import type { SyncOp } from "../../src/lib/sync/ops";
 import { memoryOutbox } from "./memory-outbox";
 
@@ -79,5 +84,42 @@ describe("the outbox contract", () => {
     await outbox.clearAll();
 
     expect(await outbox.counts()).toEqual({ pending: 0, quarantined: 0 });
+  });
+});
+
+describe("resolvePermanentFailure", () => {
+  const batch = [setOp("01"), setOp("02"), setOp("03"), setOp("04")];
+
+  it("halves the batch rather than replaying a rejection that can never succeed", () => {
+    expect(resolvePermanentFailure(batch, 413)).toEqual({ kind: "narrow", limit: 2 });
+  });
+
+  it("keeps narrowing until one op is left", () => {
+    expect(resolvePermanentFailure(batch.slice(0, 2), 400)).toEqual({ kind: "narrow", limit: 1 });
+  });
+
+  it("quarantines the single op that cannot be sent, rather than retrying it forever", () => {
+    expect(resolvePermanentFailure([setOp("01")], 413)).toEqual({
+      kind: "quarantine",
+      entry: { id: "01", error: "This entry is too large to send." },
+    });
+  });
+
+  it("explains a rejected body differently from an oversized one", () => {
+    expect(resolvePermanentFailure([setOp("01")], 400)).toEqual({
+      kind: "quarantine",
+      entry: { id: "01", error: "The server could not read this entry." },
+    });
+  });
+
+  it("names an unexpected status rather than inventing an explanation for it", () => {
+    expect(resolvePermanentFailure([setOp("01")], 422)).toEqual({
+      kind: "quarantine",
+      entry: { id: "01", error: "The server rejected this entry (HTTP 422)." },
+    });
+  });
+
+  it("resets to the full limit on an empty batch, which has nothing to narrow", () => {
+    expect(resolvePermanentFailure([], 413)).toEqual({ kind: "narrow", limit: BATCH_LIMIT });
   });
 });

@@ -47,6 +47,7 @@
     applySubstitute,
     onError,
     onEditSlot,
+    nameForSlug,
   }: {
     block: ResolvedBlock;
     prescribed: ResolvedExercise;
@@ -67,6 +68,9 @@
     /** Reopens an already-logged slot in the pinned strip for correction (a tap on its
      * ledger row) rather than logging the next one. */
     onEditSlot: (slot: SetSlot) => void;
+    /** Resolves a substitute's slug to its catalogue name — the swap chips offer these to
+     * a user, and a bare slug is not a name (`$lib/session/session-view`). */
+    nameForSlug: (slug: string) => string;
   } = $props();
 
   let swapping = $state(false);
@@ -96,6 +100,11 @@
   }
 
   const exerciseKey = $derived(`${block.key}:${prescribed.slug}`);
+  /** The disclosure target for `aria-expanded`/`aria-controls` on the head button.
+   * `exerciseKey` carries a `:` separator, which is legal in an HTML id but not in a CSS
+   * selector — nothing selects this id, only `aria-controls` refers to it, so the
+   * separator is replaced anyway rather than leaving that trap for a later stylesheet. */
+  const bodyId = $derived(`exercise-body-${exerciseKey.replace(/[^a-zA-Z0-9_-]/g, "-")}`);
   const exercise = $derived(performed(ledger, block.key, prescribed));
   const substituted = $derived(exercise.slug !== prescribed.slug);
   const isOpen = $derived(openSlug === exerciseKey);
@@ -132,7 +141,17 @@
   class:skipped={isSkipped}
   class:upcoming={!isOpen && !isDone}
 >
-  <button type="button" class="exercise-head" onclick={() => onOpen(exerciseKey)}>
+  <!-- A disclosure control: the row expands the body below it rather than navigating, so
+       it needs `aria-expanded` or a screen-reader user has no way to tell which exercise
+       is open. `aria-controls` is set only while open, because the body is removed from
+       the DOM when collapsed and a dangling reference names nothing. -->
+  <button
+    type="button"
+    class="exercise-head"
+    aria-expanded={isOpen}
+    aria-controls={isOpen ? bodyId : undefined}
+    onclick={() => onOpen(exerciseKey)}
+  >
     <!-- The completion mark. `role="img"` for the same reason as `.led-effort` below and
          `.rounds-indicator` in BlockSection: a bare `<span>` maps to the generic role and
          most screen readers drop its label, so the state would be visual only. It carries
@@ -152,7 +171,7 @@
   </button>
 
   {#if isOpen}
-    <div class="exercise-body">
+    <div class="exercise-body" id={bodyId}>
       {#if isSkipped}
         <p class="cue">Skipped — the deviation is recorded. Nothing further will be logged here.</p>
       {:else}
@@ -177,7 +196,7 @@
                   disabled={swapping}
                   onclick={() => submitConditionSwap(sub)}
                 >
-                  Swap: {sub}
+                  Swap: {nameForSlug(sub)}
                 </button>
               {/each}
               <button

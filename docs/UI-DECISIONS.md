@@ -7,8 +7,12 @@ before any code existed. **Built in phase 4**, at
 architectural half is ARCHITECTURE §9.
 
 The build was made to conform to this document rather than the document to the build, and
-that stays the direction of travel. Exactly one clause goes deliberately unbuilt — §3's
-`2 × N` sub-line, for the reason recorded there.
+that stays the direction of travel. Two parts of it are not built, for different reasons
+and with different standing: §3's `2 × N` sub-line is **deliberately** unbuilt, for the
+reason recorded there, and is settled. §5's symptom triad was never built at all — the
+section described a colour system the app does not have, and was corrected on 2026-08-27
+to say so. Whether that feature gets built is an open product question, tracked in
+[`ROADMAP.md`](ROADMAP.md).
 
 These are decisions, not suggestions — implement against them rather than relitigating
 them, the same way ARCHITECTURE §2 works. Where a decision has a *reason* attached, the
@@ -223,35 +227,66 @@ the overlay has already closed is a leak that outlives the session.
 
 ## 5. Colour is reserved for meaning
 
-**Green, amber and red belong to the plan's pain-response framework** (CONTRACT
-`safety`, fixture §4) and appear nowhere decorative. One accent hue carries interactivity.
-Everything else is neutral.
+**One accent hue carries interactivity. Everything else is neutral.** That is the whole of
+the rule as built, and the session runner honours it strictly: there is no colour anywhere
+in the runner beyond the accent, and the one completion mark (§1) is an accent tick rather
+than a green one.
 
-This forces a specific consequence: **Easy / Medium / Hard is a fill level, not a traffic
-light.** One, two or three filled segments in the accent. Colouring "Hard" red would say
-*stop* about the outcome the plan is usually trying to produce — the exact inversion
-of what red means everywhere else in this app.
+This forces a specific consequence, and it is the part of this section that has always
+been true: **Easy / Medium / Hard is a fill level, not a traffic light.** One, two or three
+filled segments in the accent. Colouring "Hard" red would say *stop* about the outcome the
+plan is usually trying to produce — the exact inversion of what red would mean if it meant
+anything here.
 
-Semantic colour and accent colour must stay separate. Do not introduce a green "success"
-state or a red "error" state that competes with the symptom scale.
+### Corrected 2026-08-27, settled 2026-08-28: the symptom triad is built, and the reservation is back
 
-**One narrow exception, settled 2026-08-15:** the post-session celebration screen's
-confetti (§8) is accent, gold and silver — genuinely decorative, and deliberately kept out
-of the green/amber/red triad rather than added to it. It is confined to a single
-full-screen moment that carries no plan or symptom data; nothing else in the app gets this
-exception.
+For most of this project's life this section opened by reserving green, amber and red for
+"the plan's pain-response framework (CONTRACT `safety`, fixture §4)", and forbade a success
+green or an error red anywhere that might compete with it — while the framework itself had
+never been rendered. The 2026-08-27 review (D1, D2) caught the gap: `safety.symptom_framework`
+was parsed, validated, stored and exported, and no route or component ever read it back, so
+the reservation was protecting the legibility of a scale that was never drawn, and the
+`--green` token sat defined in all four theme blocks at zero call sites.
 
-**A second narrow exception, settled 2026-08-17:** the reset control on `/admin` is red.
-The triad above belongs to the plan's pain-response framework, and it earns its
-exclusivity on the surfaces where a user reads their own body signals — the session
-runner, progress, the export. `/admin` renders no plan and no symptom data at all, so
-there is no scale for red to compete with there, and red is the conventional signal for an
-irreversible destructive action. The exception covers that button and the panel it sits
-in, on that route, and nothing else: not the error message inside that panel, which stays
-`var(--text)` because red-on-red is unreadable, and not destructive styling anywhere that
-renders plan or symptom data. Note also what is *not* coloured — the per-user activity
-line reads "Last trained 6 weeks ago" rather than showing an amber dot, because a sentence
-needs no legend and the triad could not have been borrowed for it anyway.
+**The gap is closed.** `$lib/session/symptom-guide.ts` turns a plan's `safety` block into a
+canonically-ordered (`green` → `yellow` → `red`), token-mapped, display-ready list — pure,
+unit-tested, no framework. The runner's header carries a "Symptom guide" trigger, shown
+only when the plan declares a framework at all, opening `SymptomGuideSheet.svelte`: each
+level's label, its action as a verb ("Carry on" / "Modify" / "Stop"), its modifications, and
+`safety.escalation` as a closing note. `DeviationSheet`'s `stop_red_flag` choice quotes the
+`red` level inline, so the runner's one safety-critical control now says what stopping
+means rather than asking blind. `e2e/symptom-guide.spec.ts` opens both from a real session
+and asserts the fixture's own level text is on screen, not merely that a sheet's shell
+rendered — the vacuous-assertion trap phase 7 and U4 both already caught here.
+
+**What is true now:**
+
+- **Colour is never the sole carrier.** Every level renders its label and action word
+  regardless of hue — the swatch reinforces, it does not replace. This is the same rule U1
+  raised elsewhere in the runner (the symptom *scale*, a different surface — see below).
+- **Inside the ordinary flow of the runner — logging sets, resting, the ledger — there is
+  still no colour but the accent.** The symptom guide sheet and the red-flag quote inside
+  the deviation sheet are the one exception, and it is the exception the original
+  reservation was written for: this *is* the pain-response framework, not a second
+  unrelated colour system competing with it.
+- **Outside the runner, `--red` and `--amber` carry their ordinary meanings** — a blocking
+  error, a destructive action, a warning — in the import review, the export screen, the
+  sync banner, `/admin` and `/account`.
+- **`--green` now has its first call sites**, in the symptom guide's `green` level swatch.
+
+**One vocabulary note, applied.** The contract's middle level is spelled `yellow`; the
+design token is `--amber`. `symptom-guide.ts`'s `TOKEN_BY_LEVEL` is the one place that
+mapping is made, so a future edit maps onto it rather than rediscovering the spelling
+mismatch.
+
+This section's rule from its preamble held: a decision's reason had gone false, so the
+decision was open again, and building the framework closed it. Nothing here is a decision
+still to make — see [`ROADMAP.md`](ROADMAP.md) for where this item was tracked.
+
+**One vocabulary note for whoever builds it.** The contract's middle level is spelled
+`yellow` (`safety.symptom_framework[].level`), while the design token is `--amber`. The
+contract's spelling is the one that cannot change, because `docs/CONTRACT.md` ships
+verbatim in every export and bootstrap prompt; the token is the one to map onto it.
 
 ## 6. The awkward primitives, and how each renders
 
@@ -429,19 +464,47 @@ The narrow viewport is not a responsive afterthought here; it is the device the 
 exists for. **360 × 800 is the floor**, and every screen is also checked at 390 × 844 and
 768 × 1024, in both themes.
 
-`document.documentElement.scrollWidth <= window.innerWidth` is asserted on every screen at
-every viewport, with the sheets and the rest overlay open as well as closed. **No
-horizontal overflow, ever.** This is one assertion and it is worth more than any amount of
-eyeballing: the failure it catches is a fixed-width track that silently pushes a control
-off the edge, which looks like nothing at all on a desktop browser. `npm run test:e2e`
-(Playwright, kept out of `npm run verify` — ARCHITECTURE §12) is where it lives.
+`document.documentElement.scrollWidth <= window.innerWidth` is asserted with the sheets and
+the rest overlay open as well as closed. **No horizontal overflow, ever.** This is one
+assertion and it is worth more than any amount of eyeballing: the failure it catches is a
+fixed-width track that silently pushes a control off the edge, which looks like nothing at
+all on a desktop browser. `npm run test:e2e` (Playwright, kept out of `npm run verify` —
+ARCHITECTURE §12) is where it lives, via `assertNoHorizontalOverflow` in `e2e/helpers.ts`.
 
-Everything interactive is at least 44 px, and the log strip's controls are deliberately
-larger than that. Sweaty hands, a phone on the floor, arm's length.
+**What is actually enforced, as of 2026-08-27** — stated precisely, because this section
+previously claimed more than the suite delivers and an over-claimed mechanical check is
+worse than an acknowledged manual one:
+
+- **Overflow** is asserted at all three viewports on the runner and its four overlays,
+  Home, export, the four progress routes, history, versions, admin and account. It is
+  **not** asserted anywhere on `/import` — the largest unchecked surface, and the one whose
+  shape most invites a 360 px break — nor on `/login`, `/offline`, `+error`, the
+  pre-session metric gate, or the activity sheet and next-morning prompt in their *open*
+  states.
+- **Both themes** is delivered on three screens only (the runner, admin, account), and the
+  runner's theme spec pins itself to 360 × 800. The light palette is never rendered at 390
+  or 768, and never at all on home, import, export, progress, history or versions.
+- **44 px touch targets** are asserted **nowhere**. `min-height: 2.75rem` is applied across
+  the runner, the metric rows and the activity strip, and is absent on `/admin`,
+  `/account`, `/export`, `/import` and the layout chrome, which use padding with no floor.
+
+Everything interactive *should* be at least 44 px, and the log strip's controls are
+deliberately larger than that — sweaty hands, a phone on the floor, arm's length. Closing
+the gap between that intent and what is mechanically checked is a roadmap item; a
+touch-target sweep is the same shape of assertion as the overflow one and catches the same
+class of desktop-invisible bug.
 
 ---
 
 ## What this does not decide
 
-Still open: the Today/home screen with suggested-next-session, the history and progress
-screens, and the offline sync-state indicator.
+This document covers the session runner. The screens it once listed as "still open" — Home
+with the suggested next session, history, progress, and the offline sync-state indicator —
+all shipped in phases 6 and 7, and their decisions live where they were made: ARCHITECTURE
+§9 and §10 for the architecture, the phase entries in [`ROADMAP.md`](ROADMAP.md) for what
+each one settled, and CLAUDE.md's Invariants for the two that hardened into rules (the sync
+banner's 700 ms / 1.5 s gate, and the celebration being a moment rather than a step).
+
+What genuinely remains undecided is §5's symptom framework: whether GAIN shows a plan's
+green/yellow/red pain guidance to the person training, having stored it since phase 2 and
+never rendered it.

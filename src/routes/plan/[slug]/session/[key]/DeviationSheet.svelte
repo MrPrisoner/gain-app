@@ -4,11 +4,14 @@
   import { trapFocus } from "$lib/actions/focus-trap";
   import { newOpId } from "$lib/sync/ops";
   import { logWrite } from "$lib/sync/client.svelte";
+  import type { SymptomGuideLevel } from "$lib/session/symptom-guide";
 
   let {
     exerciseSlug,
     substitutes,
+    nameForSlug,
     canChangeSetCount,
+    redLevel,
     planSlug,
     workoutClientId,
     onClose,
@@ -18,6 +21,9 @@
   }: {
     exerciseSlug: string;
     substitutes: string[];
+    /** Resolves a substitute's slug to its catalogue name — the sheet offers these to a
+     * user, and a bare slug is not a name (`$lib/session/session-view`). */
+    nameForSlug: (slug: string) => string;
     /**
      * Whether adding or dropping a set is a thing that can happen here at all. False
      * inside a `type: rounds` block: CONTRACT makes `sets` invalid there because `set_no`
@@ -26,6 +32,10 @@
      * the sheet would close, the row would be written, and the ledger would not budge.
      */
     canChangeSetCount: boolean;
+    /** The plan's `red` symptom level (D2), quoted inline on the `stop_red_flag` choice
+     * so a control that ends the workout also says what stopping means. `undefined` when
+     * the plan declares no symptom framework at all. */
+    redLevel: SymptomGuideLevel | undefined;
     planSlug: string;
     workoutClientId: string;
     onClose: () => void;
@@ -124,7 +134,12 @@
   >
     <h3 id="deviation-heading" tabindex="-1" data-trap-focus-heading>Change this set</h3>
 
-    <div class="kind-row">
+    <!-- `role="radiogroup"` with an `aria-label` rather than a `fieldset`/`legend`: both
+         name the group, but a legend adds visible chrome to a sheet whose whole point is
+         that deviating is never slower than lying (UI-DECISIONS §7). Without a name the
+         radios announce individually and a screen-reader user hears "Skip, radio button"
+         with no indication of what is being chosen. -->
+    <div class="kind-row" role="radiogroup" aria-label="What changed">
       <label><input type="radio" name="kind" value="skip" bind:group={kind} /> Skip</label>
       {#if substitutes.length > 0}
         <label><input type="radio" name="kind" value="substitute" bind:group={kind} /> Swap</label>
@@ -142,14 +157,27 @@
     </div>
 
     {#if kind === "substitute" && substitutes.length > 0}
-      <select bind:value={substituteSlug}>
+      <select bind:value={substituteSlug} aria-label="Swap in which exercise">
         {#each substitutes as sub (sub)}
-          <option value={sub}>{sub}</option>
+          <option value={sub}>{nameForSlug(sub)}</option>
         {/each}
       </select>
     {/if}
 
-    <div class="reason-row">
+    {#if kind === "stop_red_flag" && redLevel}
+      <div class="red-level" style:border-color={`var(${redLevel.token})`}>
+        <p class="red-level-label">{redLevel.label}</p>
+        {#if redLevel.modifications.length > 0}
+          <ul>
+            {#each redLevel.modifications as modification (modification)}
+              <li>{modification}</li>
+            {/each}
+          </ul>
+        {/if}
+      </div>
+    {/if}
+
+    <div class="reason-row" role="radiogroup" aria-label="Why">
       {#each reasons as reason (reason.code)}
         <label>
           <input type="radio" name="reason_code" value={reason.code} bind:group={reasonCode} />
@@ -158,7 +186,10 @@
       {/each}
     </div>
 
+    <!-- A placeholder is not an accessible name: it is announced as a hint at best, and
+         vanishes the moment the field has content. -->
     <textarea
+      aria-label="Note"
       placeholder="Optional note — exported as signal for the revising AI."
       bind:value={note}></textarea>
 
@@ -196,6 +227,22 @@
     flex-wrap: wrap;
     gap: 0.6rem;
     font-size: 0.85rem;
+  }
+  .red-level {
+    border-left: 3px solid;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+    background: var(--raised);
+    border-radius: var(--r-xs);
+  }
+  .red-level-label {
+    margin: 0;
+    font-weight: 600;
+  }
+  .red-level ul {
+    margin: 0.35rem 0 0;
+    padding-left: 1.25rem;
+    color: var(--muted);
   }
   /* Each label is the tap target for its radio (the input itself is a few px), so it
      needs the same 44px minimum as every other control here — a row of chip-like

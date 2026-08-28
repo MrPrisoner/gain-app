@@ -110,7 +110,9 @@ checks, and the container logs the effective origin and redirect URI at
 startup so a proxy misconfiguration is easy to spot.
 
 For local development without an IdP, `GAIN_DEV_USER=you npm run dev` bypasses
-authentication — a production build refuses to start with that variable set.
+authentication. It is refused unless `ORIGIN` is a loopback address, so an
+instance anyone else can reach will not start with that variable set — the guard
+keys on `ORIGIN` rather than on `NODE_ENV`, which `node build` never sets.
 
 ### Backups
 

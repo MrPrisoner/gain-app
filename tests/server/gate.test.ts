@@ -3,7 +3,9 @@ import {
   isNavigationRequest,
   isPublicPath,
   loginUrlFor,
+  refusal,
   safeReturnTo,
+  seeOther,
 } from "../../src/lib/server/gate";
 
 function req(method: string, headers: Record<string, string>): Request {
@@ -93,5 +95,40 @@ describe("login URL", () => {
 
   it("drops a destination it would refuse to honour anyway", () => {
     expect(loginUrlFor("//evil.example", "")).toBe("/login");
+  });
+});
+
+/**
+ * The gate builds its own refusals rather than throwing them, so that `handle` can stamp
+ * the security headers on the way out (`tests/server/hooks-headers.test.ts`). That means
+ * the gate now owns a response body, which means it owns escaping it.
+ */
+describe("refusal", () => {
+  it("answers a fetch with JSON, which is what the sync client can read", async () => {
+    const response = refusal(401, "Your session has expired.", false);
+    expect(response.status).toBe(401);
+    expect(response.headers.get("content-type")).toContain("application/json");
+    expect(await response.json()).toEqual({ message: "Your session has expired." });
+  });
+
+  it("answers a navigation with a readable page", async () => {
+    const response = refusal(403, "You are not in the required group.", true);
+    expect(response.headers.get("content-type")).toContain("text/html");
+    expect(await response.text()).toContain("You are not in the required group.");
+  });
+
+  it("escapes the message, which carries a group name straight from configuration", async () => {
+    const response = refusal(403, 'no <script>alert("x")</script> for you', true);
+    const body = await response.text();
+    expect(body).not.toContain("<script>");
+    expect(body).toContain("&lt;script&gt;");
+  });
+});
+
+describe("seeOther", () => {
+  it("redirects without a body, so nothing needs escaping", () => {
+    const response = seeOther("/login?returnTo=%2Fplan");
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("/login?returnTo=%2Fplan");
   });
 });

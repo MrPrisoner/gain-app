@@ -444,3 +444,205 @@ them; pick it up whenever.
       today — but any future one that does should call `homeDevUserFor` with its own
       project name the same way, rather than reusing this spec's users or the shared
       `E2E_DEV_USER`. (`dd543bc`)
+
+---
+
+## Post-review work (2026-08-27)
+
+From [`REVIEW-2026-08-27.md`](REVIEW-2026-08-27.md), a full-stack review conducted ahead of
+opening the instance to real users. Findings smaller than a commit went to
+[`todo.md`](todo.md); what is here is bigger than that. The documentation corrections the
+review called for are **done** — ARCHITECTURE §2 now carries a "why" column, §4 and
+CLAUDE.md describe what `control.db` actually holds, and UI-DECISIONS §5, §12 and its
+closing section describe the app that exists.
+
+Ordered by what the review recommended, not by size.
+
+### Before real users
+
+All four are closed. The fifth, branch protection on `main`, moved to
+[`todo.md`](todo.md) on 2026-08-28 — it is a repository settings change rather than work
+that can be done in the tree.
+
+- [x] **The auth bypass guard cannot rely on `NODE_ENV`.** `loadConfig` refused
+      `GAIN_DEV_USER` in production by testing `nodeEnv === "production"`, but `node build`
+      never sets it and neither does adapter-node — so a production bundle started outside
+      the container served unauthenticated **and logged "production builds refuse it" while
+      doing it.**
+      The guard now keys on `ORIGIN`: `GAIN_DEV_USER` and `GAIN_DEV_ADMIN` are refused
+      unless it is a loopback address (`localhost`, `127.0.0.1`, `[::1]`), production or
+      not. "The presence of OIDC configuration" cannot be the signal, which is worth
+      recording rather than rediscovering — the bypass is only ever *selected* when OIDC is
+      absent, so keying on it would have been vacuous. `ORIGIN` is the one variable a
+      published instance cannot avoid setting correctly, since SvelteKit checks form posts
+      against it and it forms the OIDC redirect URI. An unparseable `ORIGIN` counts as
+      non-loopback: guessing permissively is how an unauthenticated server ships.
+      Setting `GAIN_DEV_USER` on a deployed instance is now fatal even when OIDC is
+      complete and would have won the auth branch — a variable that turns authentication
+      off has no business surviving there. `tests/server/config.test.ts` covers the
+      production-shaped boot the review found (public `ORIGIN`, `NODE_ENV` unset) plus each
+      loopback form; verified live against `node build`, which refuses to start with a
+      public `ORIGIN` and boots normally on `http://127.0.0.1`. The startup warning in
+      `hooks.server.ts` now says why the bypass was permitted rather than claiming a
+      refusal that was not happening.
+
+- [x] **A Content-Security-Policy, and the security headers that go with it.** There were
+      none at all — confirmed empirically against `node build`, not just by grep — and
+      nothing told the operator to set them at the proxy either.
+      `svelte.config.js` now carries a `kit.csp` policy (`mode: "auto"`, so dynamic pages
+      are nonced and prerendered ones hashed), and `hooks.server.ts` stamps
+      `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` and
+      `Permissions-Policy` from `src/lib/server/headers.ts` on everything it renders, plus
+      a `default-src 'none'` CSP on the responses SvelteKit renders no page for. The CSP
+      cannot come from the hook: SvelteKit alone knows the nonce it stamped into the page's
+      hydration script, and a second policy header is intersected with the first by the
+      browser, so it would block the app's own scripts. `style-src-attr 'unsafe-inline'` is
+      the one allowance, because `style:` directives compile to inline style attributes;
+      `style-src` itself stays `'self'`.
+      The split is written down in ARCHITECTURE §3, "Security headers": `Strict-Transport-Security`
+      is the proxy's alone, since the container listens on plain HTTP and cannot know it was
+      reached over TLS. **`/` and `/healthz` answer with a CSP; a hashed asset does not, and
+      that is accepted rather than fixed** — adapter-node serves `client/` and `static/`
+      through its own middleware ahead of the SvelteKit handler, so no hook can see those
+      responses at all, and closing it means replacing `node build` with a custom server
+      around `build/handler.js` in exchange for headers that govern nothing (a CSP on a
+      script response does not constrain that script in the page that imported it, and
+      every asset here is a build artifact rather than user content). ARCHITECTURE §3 says
+      so and points the operator at the proxy.
+      `e2e/security-headers.spec.ts` asserts the headers and that the session runner — the
+      screen with the most inline-style surface in the app — loads with no policy violation
+      in the console; the full Playwright suite passes under the policy, which is the real
+      proof that nothing was broken by it.
+
+- [x] **The quarantine path is proven only against a test double.** `tests/sync/queue.test.ts`
+      exercises `tests/sync/memory-outbox.ts`; `src/lib/sync/idb.ts` — the code that runs on
+      a phone — had no test, and no e2e had ever produced a quarantine at all.
+      `e2e/quarantine.spec.ts` now produces one the way a user would: it logs a set with the
+      device offline, commits a revision that renames `goblet-squat` out from under the
+      queued op (`e2e/seed.ts`'s new `importRevision`, the same `parsePlanDocument` +
+      `importPlan` path the commit action takes — `e2e/revision-walkthrough.spec.ts` is
+      already the proof that the review *screen* works, so this spec has no business
+      re-driving it), reconnects, and asserts the surviving IndexedDB record, its error
+      text, and the banner the user actually sees. Both failure modes the invariant names
+      were confirmed reachable and are now caught, by mutation rather than by inspection:
+      deleting the record in `quarantine()` instead of updating it fails the banner
+      assertion, and dropping the state filter from `pending()` fails the "not sent again"
+      assertion — which is why that one counts `POST /api/sync` requests across a
+      `visibilitychange` nudge rather than trusting a count of pending records.
+      It runs on the dev server rather than the `offline` project: nothing in it navigates
+      while offline, so no service worker is involved and it costs no second production
+      build.
+
+- [x] **Nothing keeps `docs/CONTRACT.md` and the Zod schema in sync.** The three-places rule
+      was pure convention: the only test touching CONTRACT.md asserted it is embedded
+      *verbatim*, never that its content matches the schema, and `tests/schema.test.ts`'s
+      "minimal valid block from CONTRACT §6" was a hand-copy. Edit the spec without touching
+      the schema and the suite stayed green while GAIN shipped instructions telling every AI
+      to emit something its own parser rejects.
+      `tests/schema.test.ts` now reads §6's block out of the file through the real
+      `scanFences`, and clones *that* into every mutation test — the raw YAML deliberately,
+      since `parsePlanDocument` returns the schema's output with defaults already applied
+      and starting from that would quietly stop those tests exercising the shape an AI
+      actually emits. A second test runs the whole document through `parsePlanDocument`, so
+      the fence scan and the YAML parse are covered on the same path an import takes; its
+      failure message is the report GAIN would hand a user whose AI had followed
+      CONTRACT.md to the letter. Verified by mutating §6 (`name:` → `title:`) and watching
+      it fail with "Unrecognized key". Note §2 holds a *second* ```gain-plan fence nested
+      inside a four-backtick ````markdown block, which the scanner consumes as that block's
+      body — so the document has exactly one contract block, and any future edit that
+      un-nests it will break this test rather than the parser.
+
+### Before more feature work
+
+- [x] **Decide whether GAIN shows a plan's symptom framework to the user.** Decided: build
+      it. `safety.symptom_framework` — the green/yellow/red pain guidance, with an action
+      and modifications per level — had been parsed, validated and stored in
+      `plan_version.safety_json` since phase 2, replayed verbatim into every export, and
+      never read back by any route or component.
+
+      `src/lib/session/symptom-guide.ts` is the pure module: it turns a plan's `safety`
+      block into a canonically-ordered (`green` → `yellow` → `red`, regardless of
+      declaration order), token-mapped, display-ready list, unit-tested without a
+      framework. The runner's header carries a "Symptom guide" trigger — shown only when
+      the plan declares a framework at all — opening `SymptomGuideSheet.svelte`: each
+      level's label, its action as a verb, its modifications, and `safety.escalation` as a
+      closing note. `DeviationSheet`'s `stop_red_flag` choice quotes the `red` level
+      inline, so the runner's one safety-critical control says what stopping means rather
+      than asking blind. `e2e/symptom-guide.spec.ts` opens both from a real session and
+      asserts the fixture's own level text is on screen, not merely that a sheet's shell
+      rendered.
+      This resolves UI-DECISIONS §5's reservation: the colour triad now has the framework
+      it was reserved for, `--green` has its first call sites, and the section describes
+      the app that exists.
+
+- [ ] **Per-user migration observability.** Migrations run lazily, per user, only when that
+      user's next request opens their database — so a deploy migrates nobody, there is no
+      point at which the fleet is known to be on one schema, a failure for one user is
+      invisible, and a rollback strands whoever already advanced. `appliedSchemaVersion`
+      exists and is exactly the right function; it is called only from
+      `tests/db/provision.test.ts`. `admin-stats.ts` also reads foreign databases without
+      migrating them, so a future migration that restructures `plan`, `plan_version`,
+      `workout` or `set_log` breaks the operator screen for exactly the users who have not
+      logged in since the deploy.
+      **Done when:** `/admin` shows each user's applied schema version, and the rollback
+      policy is written down — "we roll forward" is a fine answer, an unwritten one is not.
+
+- [ ] **`/import`'s failure screens have no coverage of any kind.** The parser side is
+      excellent — all seven `ParseFailureKind` variants are tested, malformed YAML included.
+      The screen has nothing: no e2e renders a parse failure, the pasted-bundle explanation
+      (a UI-DECISIONS §11 requirement) or the blocking-revision report, and `blockingReport()`
+      lives inside `src/routes/import/+page.svelte` where no unit test can reach it. The
+      user's whole recovery path from the most likely failure in the loop is unverified.
+      **Done when:** `blockingReport` moves to `$lib` with unit tests, and one e2e pastes a
+      broken plan and asserts the report is on screen and copyable.
+
+- [ ] **Server error reporting.** `src/lib/server/log.ts` is one `console.error` wrapper with
+      a single call site, and there is no custom `handleError` hook — so an unhandled error
+      reaches the operator as a raw stack trace against minified bundle paths, with no
+      timestamp, no request id, no user id and ANSI codes in the stream. "Which user lost a
+      workout" is currently unanswerable. Worth doing before real users rather than after,
+      because the first unreproducible bug report is when you cannot add it retroactively.
+      **Done when:** a `handleError` hook attaches a request id and user id, and there is one
+      log line per request.
+
+- [x] **`/healthz` verified nothing**, so a container whose storage had failed reported
+      healthy to both Docker and Portainer and was never restarted. The failure presents as
+      *new and uncached users breaking while existing sessions continue*, because handles
+      are cached process-wide — harder to notice, not easier.
+      The endpoint now checks `access(R_OK | W_OK)` on the data directory and then
+      `SELECT 1` on `control.db`, answering 503 with the error on either. **The `SELECT 1`
+      this item originally specified is not sufficient on its own, and that is worth
+      knowing rather than rediscovering:** reproducing the review's own scenario — `chmod
+      000` on the data directory under a running server — left the query *succeeding*,
+      because SQLite reads through a file descriptor opened at startup and revoking a
+      directory's permissions does not revoke an open fd. It answered 200 while the app
+      500'd, which is the bug verbatim. The `access` check is the load-bearing half; the
+      `SELECT 1` is kept for a corrupted or closed handle, which `access` cannot see.
+      Verified end to end against a real `node build`: 200 healthy → 503 on `chmod 000` →
+      200 again on restore. A full disk is still not caught, and nothing cheap catches it.
+
+- [ ] **Dependency automation and scanning.** No Dependabot, no Renovate, no `npm audit` in
+      CI, no image scan, no SBOM. The stated "every dependency on a current major" policy has
+      already drifted — TypeScript is a full major behind. Note the audit blind spot when
+      wiring this up: `npm audit --omit=dev` reports zero while `npm audit` reports three,
+      because adapter-node inlines `@sveltejs/kit` — a devDependency — into the shipped
+      server bundle.
+      **Done when:** a dependency bot is configured and CI runs a non-gating `npm audit`.
+
+- [x] **Make the cross-user module boundary real.** CLAUDE.md described `admin-stats.ts` as
+      the single cross-user reader and called that "a property of a module boundary rather
+      than a rule" — but nothing enforced it, so a second reader added anywhere dissolved
+      ARCHITECTURE §4 silently.
+      `eslint.config.js` now restricts the *value* import of `better-sqlite3` to
+      `control-db.ts`, `user-db.ts` and `admin-stats.ts`, with `allowTypeImports` so
+      `Database.Statement` as a type stays free — `import-plan.ts` moved to `import type`
+      for exactly that. Verified by adding a value import to `src/lib/db/read.ts` and
+      watching it fail. A fourth entry in that ignore list is the guarantee dissolving, not
+      a rule to widen.
+      `tests/db/log-tables.test.ts` covers the `client_id` half, asserting off `PRAGMA
+      index_list` on a freshly-migrated database rather than off DDL text, so a table-level
+      `UNIQUE(...)` or a separate unique index counts too. It also scans
+      `src/lib/db/workout.ts` for `INSERT INTO` targets — that being the module every sync
+      op is written through, whereas `replay.ts` issues no SQL of its own — and asserts the
+      scan found all five, so it cannot pass vacuously and a sixth log table cannot join the
+      replay uncovered. Verified by dropping a `UNIQUE` and watching it fail.

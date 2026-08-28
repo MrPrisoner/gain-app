@@ -388,11 +388,22 @@ wrong number rather than failing.
 ### Isolation is physical, not a WHERE clause
 
 Each user gets their own `gain.db` and their own directory under `/data/users/<id>/`.
-There is no cross-user query because there is no cross-user database. There is no admin
-role and no code path by which one user reads another's data. Do not introduce a shared
-table keyed by `user_id`. The one shared database is `control.db` — the OIDC `sub` →
-user id mapping and server-side sessions — and it stays that way: nothing personal in
-it, no names, no emails.
+There is no cross-user query because there is no cross-user database. Do not introduce a
+shared table keyed by `user_id`. There is exactly one optional operator role
+(`OIDC_ADMIN_GROUP`, phase 9) and exactly one module it may read another user's database
+from — `src/lib/server/admin-stats.ts`, which returns counts, dates and byte totals and
+never a content row. Outside that module there is no code path by which one user reads
+another's training data.
+
+The one shared database is `control.db` — the OIDC `sub` → user id mapping and
+server-side sessions — and it holds **no training data**, which is the line that actually
+matters. It is not, however, free of personal data, and reasoning that assumes otherwise
+is wrong: `control_user.display_label` holds whatever the IdP supplied
+(`preferred_username`, else the **email address**, else `name` — `extractDisplayLabel`,
+`src/lib/server/oidc.ts`), and every `session` row holds the IdP's access, refresh and ID
+tokens in plain text. A refresh token is a live credential, so `control.db` is a
+secret-bearing file: it is what the operator screen identifies accounts by, and it is
+what the README's backup recipe copies onto the host.
 
 ### Offline is a hard requirement, not a nicety
 
@@ -404,7 +415,15 @@ container restart, and an expired session — a 401 must never discard queued lo
 That idempotency is physical: every table the client writes to — `workout`, `set_log`,
 `metric_value`, `deviation`, `activity` — carries a `client_id TEXT UNIQUE`, and any new
 log table needs one. A log table without that column looks fine until the day a queue is
-replayed, and then it silently doubles someone's history.
+replayed, and then it silently doubles someone's history. `tests/db/log-tables.test.ts`
+asserts this off `PRAGMA index_list` on a freshly-migrated database rather than off the
+DDL text, so a table-level `UNIQUE(...)` or a separate unique index counts too — it is
+the property being asserted, not the spelling. It also scans `src/lib/db/workout.ts` for
+`INSERT INTO` targets, because that is the module every sync op is written through: a
+sixth log table cannot join the replay without failing that test. Idempotency itself is
+achieved in application code (`selectByClientId`-then-insert), so without those
+assertions the constraint was documentation — every idempotency test still passed with
+it dropped.
 
 **A quarantined op is held, never dropped, and never retried forever.** An op that can
 never succeed — an `exerciseSlug` a plan revision removed, a payload that fails its schema
@@ -413,6 +432,16 @@ indefinitely against the ops behind it. This is the one place "hold everything" 
 lose anything" conflict, and it resolves in favour of keeping the data and telling the
 user (design spec §6). An invisible quarantined op — one the banner does not surface — is
 exactly the data loss this whole phase exists to prevent, just moved one step later.
+
+The hard case is a rejection that names **no** op — a 413, which the server answers before
+reading the body, or a 400 from a batch that fails `syncBatchSchema` whole. Neither can
+carry a `failed[]` entry, so neither reaches `applyAck`, and retrying rebuilds an
+identical batch to be refused identically forever. `resolvePermanentFailure`
+(`$lib/sync/queue.ts`) halves the batch instead, and quarantines the single op left once
+halving has converged on it — which op is at fault is knowable only to the server, and in
+both these cases the server refused before it could say. Any new status the flush loop
+learns to receive has to be classified as retryable or permanent; routing a permanent one
+into `scheduleRetry` is the failure this rule exists to prevent.
 
 ## Invariants
 
@@ -433,6 +462,14 @@ protect:
   verbatim document is staged beside its destination and renamed in after the transaction
   commits, never written straight to `plans/<slug>/v<N>.md`. The version guard reads
   `MAX(version_no)` and the insert depends on it, so the transaction is `IMMEDIATE`.
+  There is one window this does not close, and it is accepted rather than fixed: if the
+  `renameSync` itself fails after the commit — a full disk, a permissions change — the
+  `plan_version` row is already written and names a `source_path` that does not exist.
+  That direction is deliberately survivable rather than prevented: `readSourceMd` is a
+  bare `readFileSync` whose failure renders an explanation naming the path rather than a
+  500, so the version browses as "the document is missing" instead of crashing, and no
+  logged history is lost. The transaction-throws direction is the one that is genuinely
+  all-or-nothing, and `tests/db/import.test.ts` proves it with an `ABORT` trigger.
 - **`docs/CONTRACT.md` is shipped output, not internal documentation.** It is reproduced
   verbatim in **both** outbound templates — Section 4 of every export and Section 2 of the
   bootstrap prompt — so editing it changes the instructions every AI receives, whether it
@@ -473,7 +510,9 @@ protect:
   charts, the export. Settled 2026-08-10: the contract has no field meaning "this movement
   is paired", `per_side` is not that field, and adding one was rejected because
   `docs/CONTRACT.md` ships verbatim in every export and bootstrap prompt. So UI-DECISIONS
-  §3's `2 × N` sub-line is the single clause of that document deliberately left unbuilt.
+  §3's `2 × N` sub-line is the one clause of that document _deliberately_ left unbuilt —
+  §5's symptom triad, once also unbuilt through drift rather than decision, is now built
+  (see below).
   Do not implement it, do not add a `paired` field, and do not infer pairing from a slug
   or a load label. The full reasoning, including the one honest consequence it leaves
   behind, is in UI-DECISIONS §3.
@@ -482,16 +521,22 @@ protect:
   heading — the same mark in all three, because a screen that says "done" two different
   ways makes the user learn two vocabularies for one idea. Settled 2026-08-15; the
   reasoning, including why the pills do not reserve space and why a rounds block asks its
-  round counter rather than its exercises, is in UI-DECISIONS §1. Do not add a green
-  success state here: inside the session runner, green, amber and red are reserved for
-  §5's symptom triad and mean nothing else, and a list that traffic-lights progress
-  competes with the one scale that has to stay readable. That reservation is scoped to
-  the runner, not the app — `--red`/`--amber` already carry their ordinary meanings
-  outside it (a blocking error, a warning) in the admin screen, the export screen, the
-  sync banner and the import review, and using them there is correct, not an exception
-  to guard against.
-- **The post-session celebration is a moment, never a step, and carries no colour §5
-  otherwise reserves.** It renders after the finish op is already written and the
+  round counter rather than its exercises, is in UI-DECISIONS §1. **Inside the ordinary
+  flow of the runner — logging sets, resting, the ledger — there is no colour but the
+  accent** — do not add a green success state there, and do not traffic-light progress;
+  the runner is read one-handed at arm's length, and every extra hue competes with
+  whatever matters most. Outside the runner, `--red` and `--amber` carry their ordinary
+  meanings (a blocking error, a destructive action, a warning) in the admin screen, the
+  export screen, the sync banner, `/account` and the import review, and using them there
+  is correct rather than an exception. Settled 2026-08-28 (D2, `docs/REVIEW-2026-08-27.md`):
+  the plan's own pain-response framework (`safety.symptom_framework`) is now rendered —
+  `$lib/session/symptom-guide.ts` plus a header-reachable sheet
+  (`session/[key]/SymptomGuideSheet.svelte`) and an inline quote on the deviation sheet's
+  `stop_red_flag` choice — and it is the one exception to the accent-only rule, because it
+  _is_ the framework the rule was reserving colour for, not a second system competing with
+  it. `--green` has its first call sites there. UI-DECISIONS §5 has the full account.
+- **The post-session celebration is a moment, never a step, and is the one full-screen
+  exception to the runner's accent-only rule.** It renders after the finish op is already written and the
   workout's local key already cleared, so dismissing it — or never dismissing it — cannot
   change what reaches the export; a red-flag stop skips it entirely. Its confetti is
   accent/gold/silver, a deliberate, narrow exception to §5's green/amber/red symptom
@@ -537,13 +582,44 @@ protect:
   read goes through `src/lib/server/admin-stats.ts`, which returns only `COUNT(*)`,
   `MAX(...)` and byte totals. Nothing else in the app may open another user's `gain.db`;
   putting a second such reader anywhere else dissolves the guarantee, because it is the
-  single module boundary — not a rule — that keeps it true. The reset in
+  single module boundary — not a rule — that keeps it true. That boundary is now
+  enforced rather than described: `eslint.config.js` restricts the _value_ import of
+  `better-sqlite3` to the only three files that may construct one — `control-db.ts`,
+  `user-db.ts` and `admin-stats.ts` — with `allowTypeImports`, so `Database.Statement`
+  as a type stays free. Reach a user's database through `getUserDbFor()`; if you find
+  yourself adding a fourth entry to that ignore list, that is the guarantee dissolving
+  and the reason to stop, not a lint rule to widen. The reset in
   `src/lib/server/admin-reset.ts` closes and evicts the cached handle **before** the
   unlink: `better-sqlite3` holds the file open, so unlinking first leaves the process
   writing to a deleted inode and the reset silently does nothing. It also bumps
   `control_user.data_generation`, which is what stops the wiped user's offline outbox
   flushing back in and quarantining forever — the one place GAIN deliberately discards
   local data, and narrow by construction: only on the server's explicit 409.
+- **The Content-Security-Policy comes from `kit.csp`, and the other headers from
+  `hooks.server.ts` — never both from one place.** Settled 2026-08-28 (ARCHITECTURE §3,
+  "Security headers"). SvelteKit alone knows the nonce it stamped into the page's own
+  hydration script, and a browser _intersects_ two CSP headers, so a second static policy
+  set in the hook would block exactly the scripts the app needs. The hook sets the four
+  static headers plus a `default-src 'none'` CSP for the responses SvelteKit renders no
+  page for. The consequence for anything user-facing: **no inline `<script>` and no
+  inline `<style>` element** — the policy is `script-src 'self' 'nonce-…'` and
+  `style-src 'self'`. `style-src-attr 'unsafe-inline'` is allowed and load-bearing, since
+  Svelte's `style:` directives compile to inline style attributes; do not widen it to
+  `style-src`. Static assets carry no headers at all, because adapter-node serves them
+  ahead of any hook — accepted, documented, and not worth a custom server to fix. And
+  settled 2026-08-28: **`handle` must return its refusals, never throw them.** SvelteKit
+  builds the response for an `HttpError` or a `Redirect` thrown out of `handle` itself,
+  outside the hook, so a thrown 401/403/303 ships with none of these headers —
+  `$lib/server/gate.ts`'s `refusal` and `seeOther` exist so the gate's own responses go
+  out through `withSecurityHeaders` like every other one.
+- **The export archive under `users/<id>/exports/` keeps the last 20 files per plan, not
+  per user.** Settled 2026-08-28: nothing lists, reads or deletes an archived export, so
+  without a cap the directory grows forever. `bundle-for-plan.ts`'s `pruneArchive` deletes
+  the oldest surplus after every write, scoped to files matching that plan's own
+  `gain-export-<slug>-v` prefix — per plan rather than per user so a plan revised weekly
+  can't crowd out the archive of one touched rarely. It sorts on the filename's trailing
+  instant, not the filename itself: the version number in the middle is unpadded, so a
+  plain string sort would put `-v10-` before `-v2-`.
 
 ## The fixture
 

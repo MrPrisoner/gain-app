@@ -6,36 +6,51 @@
  * CLAUDE.md (synonyms rejected loudly, slugs protected).
  */
 
+import fs from "node:fs";
+import { parse as parseYaml } from "yaml";
 import { describe, expect, it } from "vitest";
 
 import { contractSchema } from "../src/lib/contract/schema";
+import { parsePlanDocument, scanFences } from "../src/lib/parse/parser";
 
-/** The minimal valid block, straight from CONTRACT §6. */
-const minimal = {
-  schema_version: 1,
-  plan: {
-    slug: "simple-plan",
-    name: "Simple Plan",
-    version: 1,
-    based_on_version: null,
-  },
-  loads: [{ ref: "main", label: "Working weight", default_kg: 20 }],
-  exercises: [{ id: "goblet-squat" }],
-  sessions: [
-    {
-      key: "A",
-      name: "Session A",
-      order: 1,
-      blocks: [
-        {
-          key: "main",
-          name: "Main work",
-          exercises: [{ id: "goblet-squat", sets: 3, reps: [8, 12], load: "main" }],
-        },
-      ],
-    },
-  ],
-};
+const ROOT = new URL("../", import.meta.url);
+const contractMd = fs.readFileSync(new URL("docs/CONTRACT.md", ROOT), "utf8");
+
+/**
+ * The minimal valid block, read out of docs/CONTRACT.md §6 at test time rather than
+ * hand-copied into this file.
+ *
+ * CONTRACT.md is shipped output — reproduced verbatim in Section 4 of every export and
+ * Section 2 of the bootstrap prompt — so it *is* the instruction set every AI receives.
+ * CLAUDE.md's "contract changes touch three places together" rule covers the document,
+ * the Zod schema and the fixture, and the schema↔fixture half is genuinely coupled: six
+ * test files parse the fixture through `contractSchema`, so that direction fails loudly.
+ * The document half was pure convention. With a hand-copy here, CONTRACT.md's own worked
+ * example could drift away from what the parser accepts and the entire suite would still
+ * pass — and GAIN would then ship instructions telling every AI to emit something GAIN's
+ * own parser rejects, with the user's only recovery being to paste that rejection back
+ * into a chat that was faithfully following GAIN's document.
+ *
+ * The *raw* YAML is what the rest of this file clones, deliberately: `parsePlanDocument`
+ * returns the schema's output, with defaults already applied, and starting the mutation
+ * tests from that would quietly stop them exercising the shape an AI actually emits.
+ * `documentParses` below covers the whole fence → YAML → schema path instead.
+ *
+ * §2 contains a second ```gain-plan fence, nested inside a four-backtick ````markdown
+ * block. `scanFences` consumes it as that block's body, so the document holds exactly one
+ * contract block — the same rule §2 states for a plan document.
+ */
+const minimal = ((): Record<string, unknown> => {
+  const blocks = scanFences(contractMd).filter((f) => f.info === "gain-plan");
+  if (blocks.length !== 1) {
+    throw new Error(
+      `docs/CONTRACT.md should hold exactly one \`gain-plan\` block (§6's minimal ` +
+        `example); found ${blocks.length}.`,
+    );
+  }
+  const block = blocks[0]!;
+  return parseYaml(contractMd.slice(block.bodyStart, block.bodyEnd)) as Record<string, unknown>;
+})();
 
 // Tests mutate the clone freely (adding changelogs, metrics, scheduling...), so it
 // is deliberately untyped.
@@ -52,6 +67,24 @@ function issuesOf(data: unknown): string[] {
 describe("contract schema", () => {
   it("accepts the minimal valid block from CONTRACT §6", () => {
     expect(contractSchema.safeParse(minimal).success).toBe(true);
+  });
+
+  /**
+   * The same coupling, one level up: the shipped document itself goes through the real
+   * import path — fence scan, YAML parse, schema validation. If this ever fails, the
+   * failure text is the report GAIN would hand a user whose AI had followed CONTRACT.md
+   * to the letter, which is the most direct way to see why the drift matters.
+   */
+  it("parses docs/CONTRACT.md through the real import path", () => {
+    const parsed = parsePlanDocument(contractMd);
+    if (!parsed.ok) {
+      throw new Error(
+        `docs/CONTRACT.md §6's minimal block no longer imports (${parsed.kind}). The ` +
+          `document and the Zod schema have drifted apart, and CONTRACT.md ships verbatim ` +
+          `in every export and bootstrap prompt.\n\n${parsed.report}`,
+      );
+    }
+    expect(parsed.contract.plan.slug).toBe("simple-plan");
   });
 
   // -- The contract key is `plan`, and synonyms are not accepted.

@@ -37,6 +37,7 @@
     onError,
     onStartNextRound,
     onEditSlot,
+    nameForSlug,
   }: {
     block: ResolvedBlock;
     ledger: SessionLedger;
@@ -56,6 +57,8 @@
     onError: (message: string | undefined) => void;
     onStartNextRound: (block: ResolvedBlock) => void;
     onEditSlot: (slot: SetSlot) => void;
+    /** Passed straight through to every `ExerciseCard` — see that component's prop. */
+    nameForSlug: (slug: string) => string;
   } = $props();
 
   const completed = $derived(ledger.completedRounds.get(block.key) ?? 0);
@@ -144,6 +147,7 @@
           {applySubstitute}
           {onError}
           {onEditSlot}
+          {nameForSlug}
         />
       {/each}
     </ul>

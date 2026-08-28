@@ -105,7 +105,8 @@
       {form.windowLabel} · {form.bundle.length.toLocaleString()} characters. Copy the whole thing; download
       is the fallback.
     </p>
-    <textarea class="doc" readonly rows="14" value={form.bundle}></textarea>
+    <textarea class="doc" readonly rows="14" aria-label="Export bundle" value={form.bundle}
+    ></textarea>
     <div class="actions">
       <button type="button" class="primary" onclick={copyBundle}>
         {#if copied}<IconCheck />{:else}<IconCopy />{/if}

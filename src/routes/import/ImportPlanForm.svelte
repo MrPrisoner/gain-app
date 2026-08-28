@@ -24,10 +24,13 @@
 </script>
 
 <form method="POST" action="?/check" use:enhance>
+  <!-- A placeholder is a hint, not an accessible name, and it disappears as soon as the
+       box has content — which for this box is the entire time it matters. -->
   <textarea
     class="doc"
     name="source_md"
     rows="10"
+    aria-label="Plan document"
     placeholder="Paste the plan document here…"
     bind:value={pasted}></textarea>
   <div class="actions">

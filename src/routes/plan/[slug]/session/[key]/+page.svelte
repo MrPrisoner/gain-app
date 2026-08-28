@@ -7,6 +7,7 @@
     formatSlotContext,
     nextExerciseKey,
     nextUnloggedSlot,
+    exerciseNameFor,
     resolveSubstitute,
     restForSet,
     restBetweenRounds,
@@ -37,6 +38,7 @@
   import { logWrite, opsForWorkout, startSyncLoop } from "$lib/sync/client.svelte";
   import { historyFromOps } from "$lib/sync/history";
   import IconFlag from "~icons/lucide/flag";
+  import IconInfo from "~icons/lucide/info";
   import RestTimer from "./RestTimer.svelte";
   import DeviationSheet from "./DeviationSheet.svelte";
   import LogStrip from "./LogStrip.svelte";
@@ -44,6 +46,7 @@
   import BlockSection from "./BlockSection.svelte";
   import WrapUpSheet from "./WrapUpSheet.svelte";
   import CelebrationOverlay from "./CelebrationOverlay.svelte";
+  import SymptomGuideSheet from "./SymptomGuideSheet.svelte";
   import { restSpecFrom, type RestSpec } from "$lib/session/rest-timer";
 
   let { data }: { data: PageData; form: ActionData } = $props();
@@ -285,6 +288,11 @@
   // movement appears in two blocks with different overrides.
   let deviationFor = $state<{ blockKey: string; slug: string } | undefined>(undefined);
 
+  // Whether the symptom guide sheet is showing (D2). One tap away from the header at any
+  // point in the session — the moment the guidance exists for is mid-set, not only at the
+  // red-flag stop.
+  let showSymptomGuide = $state(false);
+
   // Whether the end-of-session wrap-up sheet is showing.
   let showWrapUp = $state(false);
   // Whether the celebration screen is showing. Set only once the finish op is written, so
@@ -450,6 +458,11 @@
     };
   });
 
+  /** Substitutes reach the user as bare slugs (CONTRACT declares them as `id` refs), so
+   * anything that shows one — the deviation sheet's picker, the inline condition chips —
+   * resolves it here, where the catalogue already is. */
+  const nameForSlug = (slug: string): string => exerciseNameFor(data.catalogue, slug);
+
   /** Resolve a declared substitute through the plan's catalogue and swap it in for the
    * prescribed exercise. */
   function applySubstitute(
@@ -536,7 +549,20 @@
 </svelte:head>
 
 <header class="runner-head">
-  <h1>{data.session.name}</h1>
+  <div class="runner-head-row">
+    <h1>{data.session.name}</h1>
+    {#if data.symptomGuide.length > 0}
+      <button
+        type="button"
+        class="symptom-guide-trigger"
+        aria-expanded={showSymptomGuide}
+        aria-label="Symptom guide"
+        onclick={() => (showSymptomGuide = true)}
+      >
+        <IconInfo />
+      </button>
+    {/if}
+  </div>
   {#if data.session.note}<p class="note">{data.session.note}</p>{/if}
 </header>
 
@@ -605,6 +631,7 @@
         onError={setError}
         onStartNextRound={startNextRound}
         {onEditSlot}
+        {nameForSlug}
       />
     {/each}
 
@@ -673,13 +700,23 @@
   <DeviationSheet
     exerciseSlug={target.exercise.slug}
     substitutes={target.prescribed.substitutes}
+    {nameForSlug}
     canChangeSetCount={target.block.type !== "rounds"}
+    redLevel={data.symptomGuide.find((level) => level.level === "red")}
     planSlug={data.planSlug}
     {workoutClientId}
     onClose={() => (deviationFor = undefined)}
     onApplied={onDeviationApplied}
     {onRedFlagStop}
     onError={setError}
+  />
+{/if}
+
+{#if showSymptomGuide}
+  <SymptomGuideSheet
+    levels={data.symptomGuide}
+    escalation={data.safetyEscalation}
+    onClose={() => (showSymptomGuide = false)}
   />
 {/if}
 
@@ -708,9 +745,26 @@
   .runner-head {
     padding: 1rem 0 0.5rem;
   }
+  .runner-head-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
   .runner-head h1 {
     margin: 0;
     font-size: 1.25rem;
+  }
+  .symptom-guide-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    margin-left: auto;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-size: 1.1rem;
   }
   .note {
     color: var(--muted);

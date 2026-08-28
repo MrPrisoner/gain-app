@@ -20,7 +20,7 @@ describe("loadConfig", () => {
         {
           ...FULL_OIDC,
           ORIGIN: "https://gain.example.com",
-          SESSION_SECRET: "abc123",
+          SESSION_SECRET: "a".repeat(32),
           DATA_DIR: "/data",
         },
         "production",
@@ -38,7 +38,7 @@ describe("loadConfig", () => {
 
     it("strips a trailing slash from ORIGIN", () => {
       const config = loadConfig(
-        { ...FULL_OIDC, ORIGIN: "https://gain.example.com/", SESSION_SECRET: "s" },
+        { ...FULL_OIDC, ORIGIN: "https://gain.example.com/", SESSION_SECRET: "a".repeat(32) },
         "production",
       );
       expect(config.origin).toBe("https://gain.example.com");
@@ -56,7 +56,7 @@ describe("loadConfig", () => {
           },
           "production",
         ),
-      ).toThrow(/GAIN_DEV_USER.*cannot be enabled in a production build/);
+      ).toThrow(/GAIN_DEV_USER is set on what looks like a real deployment/);
     });
 
     it("requires ORIGIN", () => {
@@ -69,6 +69,24 @@ describe("loadConfig", () => {
       expect(() =>
         loadConfig({ ...FULL_OIDC, ORIGIN: "https://g.example.com" }, "production"),
       ).toThrow(/SESSION_SECRET is not set/);
+    });
+
+    it("rejects a short SESSION_SECRET", () => {
+      expect(() =>
+        loadConfig(
+          { ...FULL_OIDC, ORIGIN: "https://g.example.com", SESSION_SECRET: "short" },
+          "production",
+        ),
+      ).toThrow(/SESSION_SECRET is only 5 characters/);
+    });
+
+    it("rejects a non-HTTPS ORIGIN", () => {
+      expect(() =>
+        loadConfig(
+          { ...FULL_OIDC, ORIGIN: "http://g.example.com", SESSION_SECRET: "a".repeat(32) },
+          "production",
+        ),
+      ).toThrow(/ORIGIN must be an https:\/\/ URL/);
     });
 
     it("requires a complete OIDC set", () => {
@@ -88,6 +106,98 @@ describe("loadConfig", () => {
           "production",
         ),
       ).toThrow(/Partial OIDC configuration/);
+    });
+  });
+
+  /**
+   * The guard that stops a real deployment shipping an auth bypass. It cannot key on
+   * `NODE_ENV`: `node build` does not set it and neither does adapter-node, so the whole
+   * point of these tests is the production-shaped boot with `nodeEnv` undefined (review
+   * 2026-08-27, E1). ORIGIN is the signal instead — a published instance has a
+   * non-loopback one by construction.
+   */
+  describe("the dev-only variables outside a container", () => {
+    const deployed = {
+      ORIGIN: "https://gain.example.com",
+      SESSION_SECRET: "a".repeat(32),
+    };
+
+    it("refuses GAIN_DEV_USER on a public ORIGIN with NODE_ENV unset", () => {
+      expect(() => loadConfig({ ...deployed, GAIN_DEV_USER: "me" }, undefined)).toThrow(
+        /GAIN_DEV_USER is set on what looks like a real deployment \(ORIGIN=https:\/\/gain\.example\.com\)/,
+      );
+    });
+
+    it("refuses GAIN_DEV_USER on a public ORIGIN even when OIDC is complete", () => {
+      // OIDC would have won the auth branch, so this used to load cleanly — but a variable
+      // that turns off authentication has no business surviving on a deployed instance.
+      expect(() =>
+        loadConfig({ ...FULL_OIDC, ...deployed, GAIN_DEV_USER: "me" }, undefined),
+      ).toThrow(/GAIN_DEV_USER is set on what looks like a real deployment/);
+    });
+
+    it("refuses GAIN_DEV_ADMIN on a public ORIGIN with NODE_ENV unset", () => {
+      expect(() =>
+        loadConfig({ ...FULL_OIDC, ...deployed, GAIN_DEV_ADMIN: "me" }, undefined),
+      ).toThrow(/GAIN_DEV_ADMIN is set on what looks like a real deployment/);
+    });
+
+    it("refuses a plain HTTP ORIGIN on another host too", () => {
+      // Not every wrong deployment is served over TLS directly; a bare `node build` on a
+      // LAN address is the same exposure.
+      expect(() =>
+        loadConfig(
+          { ORIGIN: "http://192.168.1.10:3000", SESSION_SECRET: "s", GAIN_DEV_USER: "me" },
+          undefined,
+        ),
+      ).toThrow(/GAIN_DEV_USER is set on what looks like a real deployment/);
+    });
+
+    it.each(["http://localhost:5173", "http://127.0.0.1:4173", "http://[::1]:3000"])(
+      "still allows the bypass on %s",
+      (origin) => {
+        const config = loadConfig({ ORIGIN: origin, GAIN_DEV_USER: "me" }, undefined);
+        expect(config.auth).toEqual({ mode: "bypass", devUser: "me" });
+      },
+    );
+
+    it("refuses a plain http ORIGIN with NODE_ENV unset", () => {
+      // The session cookie is issued Secure regardless of NODE_ENV, so this fails login
+      // with no diagnostic — and `node build` outside the container never sets NODE_ENV,
+      // which is the whole reason these guards key on ORIGIN.
+      expect(() =>
+        loadConfig({ ...FULL_OIDC, ...deployed, ORIGIN: "http://gain.example.com" }, undefined),
+      ).toThrow(/ORIGIN must be an https:\/\/ URL/);
+    });
+
+    it("requires SESSION_SECRET on a public ORIGIN with NODE_ENV unset", () => {
+      // Without this, the secret silently defaults to a fresh random one per boot: every
+      // session cookie is invalidated by a restart, and no error says why.
+      expect(() =>
+        loadConfig({ ...FULL_OIDC, ORIGIN: "https://gain.example.com" }, undefined),
+      ).toThrow(/SESSION_SECRET is not set/);
+    });
+
+    it("rejects a short SESSION_SECRET on a public ORIGIN with NODE_ENV unset", () => {
+      expect(() =>
+        loadConfig({ ...FULL_OIDC, ...deployed, SESSION_SECRET: "short" }, undefined),
+      ).toThrow(/SESSION_SECRET is only 5 characters/);
+    });
+
+    it("still mints a throwaway secret on a loopback ORIGIN", () => {
+      const config = loadConfig(
+        { ORIGIN: "http://localhost:5173", GAIN_DEV_USER: "me" },
+        undefined,
+      );
+      expect(config.sessionSecret.length).toBeGreaterThanOrEqual(32);
+    });
+
+    it("refuses the bypass on an ORIGIN it cannot parse", () => {
+      // A malformed ORIGIN is not a loopback one, and guessing in the permissive
+      // direction is how an unauthenticated server gets shipped.
+      expect(() =>
+        loadConfig({ ORIGIN: "gain.example.com", GAIN_DEV_USER: "me" }, undefined),
+      ).toThrow(/GAIN_DEV_USER is set on what looks like a real deployment/);
     });
   });
 
@@ -147,7 +257,7 @@ describe("loadConfig", () => {
     const prodEnv = {
       ...FULL_OIDC,
       ORIGIN: "https://gain.example.com",
-      SESSION_SECRET: "abc123",
+      SESSION_SECRET: "a".repeat(32),
     };
 
     it("carries the admin group when OIDC is complete", () => {
