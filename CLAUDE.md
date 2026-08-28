@@ -415,7 +415,15 @@ container restart, and an expired session — a 401 must never discard queued lo
 That idempotency is physical: every table the client writes to — `workout`, `set_log`,
 `metric_value`, `deviation`, `activity` — carries a `client_id TEXT UNIQUE`, and any new
 log table needs one. A log table without that column looks fine until the day a queue is
-replayed, and then it silently doubles someone's history.
+replayed, and then it silently doubles someone's history. `tests/db/log-tables.test.ts`
+asserts this off `PRAGMA index_list` on a freshly-migrated database rather than off the
+DDL text, so a table-level `UNIQUE(...)` or a separate unique index counts too — it is
+the property being asserted, not the spelling. It also scans `src/lib/db/workout.ts` for
+`INSERT INTO` targets, because that is the module every sync op is written through: a
+sixth log table cannot join the replay without failing that test. Idempotency itself is
+achieved in application code (`selectByClientId`-then-insert), so without those
+assertions the constraint was documentation — every idempotency test still passed with
+it dropped.
 
 **A quarantined op is held, never dropped, and never retried forever.** An op that can
 never succeed — an `exerciseSlug` a plan revision removed, a payload that fails its schema
@@ -444,6 +452,14 @@ protect:
   verbatim document is staged beside its destination and renamed in after the transaction
   commits, never written straight to `plans/<slug>/v<N>.md`. The version guard reads
   `MAX(version_no)` and the insert depends on it, so the transaction is `IMMEDIATE`.
+  There is one window this does not close, and it is accepted rather than fixed: if the
+  `renameSync` itself fails after the commit — a full disk, a permissions change — the
+  `plan_version` row is already written and names a `source_path` that does not exist.
+  That direction is deliberately survivable rather than prevented: `readSourceMd` is a
+  bare `readFileSync` whose failure renders an explanation naming the path rather than a
+  500, so the version browses as "the document is missing" instead of crashing, and no
+  logged history is lost. The transaction-throws direction is the one that is genuinely
+  all-or-nothing, and `tests/db/import.test.ts` proves it with an `ABORT` trigger.
 - **`docs/CONTRACT.md` is shipped output, not internal documentation.** It is reproduced
   verbatim in **both** outbound templates — Section 4 of every export and Section 2 of the
   bootstrap prompt — so editing it changes the instructions every AI receives, whether it
@@ -553,7 +569,13 @@ protect:
   read goes through `src/lib/server/admin-stats.ts`, which returns only `COUNT(*)`,
   `MAX(...)` and byte totals. Nothing else in the app may open another user's `gain.db`;
   putting a second such reader anywhere else dissolves the guarantee, because it is the
-  single module boundary — not a rule — that keeps it true. The reset in
+  single module boundary — not a rule — that keeps it true. That boundary is now
+  enforced rather than described: `eslint.config.js` restricts the _value_ import of
+  `better-sqlite3` to the only three files that may construct one — `control-db.ts`,
+  `user-db.ts` and `admin-stats.ts` — with `allowTypeImports`, so `Database.Statement`
+  as a type stays free. Reach a user's database through `getUserDbFor()`; if you find
+  yourself adding a fourth entry to that ignore list, that is the guarantee dissolving
+  and the reason to stop, not a lint rule to widen. The reset in
   `src/lib/server/admin-reset.ts` closes and evicts the cached handle **before** the
   unlink: `better-sqlite3` holds the file open, so unlinking first leaves the process
   writing to a deleted inode and the reset silently does nothing. It also bumps

@@ -500,14 +500,24 @@ Ordered by what the review recommended, not by size.
       **Done when:** one e2e syncs an op naming a slug a revision removed, then asserts both
       the surviving IndexedDB record and the banner the user actually sees.
 
-- [ ] **Nothing keeps `docs/CONTRACT.md` and the Zod schema in sync.** The three-places rule
-      is pure convention: the only test touching CONTRACT.md asserts it is embedded
+- [x] **Nothing keeps `docs/CONTRACT.md` and the Zod schema in sync.** The three-places rule
+      was pure convention: the only test touching CONTRACT.md asserted it is embedded
       *verbatim*, never that its content matches the schema, and `tests/schema.test.ts`'s
-      "minimal valid block from CONTRACT §6" is a hand-copy. Edit the spec without touching
-      the schema and the suite stays green while GAIN ships instructions telling every AI to
-      emit something its own parser rejects.
-      **Done when:** CONTRACT §6's minimal block is extracted from the file at test time and
-      parsed through `contractSchema`, replacing the hand-copy.
+      "minimal valid block from CONTRACT §6" was a hand-copy. Edit the spec without touching
+      the schema and the suite stayed green while GAIN shipped instructions telling every AI
+      to emit something its own parser rejects.
+      `tests/schema.test.ts` now reads §6's block out of the file through the real
+      `scanFences`, and clones *that* into every mutation test — the raw YAML deliberately,
+      since `parsePlanDocument` returns the schema's output with defaults already applied
+      and starting from that would quietly stop those tests exercising the shape an AI
+      actually emits. A second test runs the whole document through `parsePlanDocument`, so
+      the fence scan and the YAML parse are covered on the same path an import takes; its
+      failure message is the report GAIN would hand a user whose AI had followed
+      CONTRACT.md to the letter. Verified by mutating §6 (`name:` → `title:`) and watching
+      it fail with "Unrecognized key". Note §2 holds a *second* ```gain-plan fence nested
+      inside a four-backtick ````markdown block, which the scanner consumes as that block's
+      body — so the document has exactly one contract block, and any future edit that
+      un-nests it will break this test rather than the parser.
 
 ### Before more feature work
 
@@ -559,13 +569,21 @@ Ordered by what the review recommended, not by size.
       **Done when:** a `handleError` hook attaches a request id and user id, and there is one
       log line per request.
 
-- [ ] **`/healthz` verifies nothing**, so a container whose storage has failed reports
-      healthy to both Docker and Portainer and is never restarted. Verified by making the
-      data directory unwritable under a running server: `healthz` 200, page 500. Note the
-      failure presents as *new and uncached users breaking while existing sessions continue*,
-      because handles are cached process-wide — harder to notice, not easier.
-      **Done when:** the endpoint opens `control.db` and runs `SELECT 1`, still cheap and
-      still unauthenticated.
+- [x] **`/healthz` verified nothing**, so a container whose storage had failed reported
+      healthy to both Docker and Portainer and was never restarted. The failure presents as
+      *new and uncached users breaking while existing sessions continue*, because handles
+      are cached process-wide — harder to notice, not easier.
+      The endpoint now checks `access(R_OK | W_OK)` on the data directory and then
+      `SELECT 1` on `control.db`, answering 503 with the error on either. **The `SELECT 1`
+      this item originally specified is not sufficient on its own, and that is worth
+      knowing rather than rediscovering:** reproducing the review's own scenario — `chmod
+      000` on the data directory under a running server — left the query *succeeding*,
+      because SQLite reads through a file descriptor opened at startup and revoking a
+      directory's permissions does not revoke an open fd. It answered 200 while the app
+      500'd, which is the bug verbatim. The `access` check is the load-bearing half; the
+      `SELECT 1` is kept for a corrupted or closed handle, which `access` cannot see.
+      Verified end to end against a real `node build`: 200 healthy → 503 on `chmod 000` →
+      200 again on restore. A full disk is still not caught, and nothing cheap catches it.
 
 - [ ] **Dependency automation and scanning.** No Dependabot, no Renovate, no `npm audit` in
       CI, no image scan, no SBOM. The stated "every dependency on a current major" policy has
@@ -575,12 +593,20 @@ Ordered by what the review recommended, not by size.
       server bundle.
       **Done when:** a dependency bot is configured and CI runs a non-gating `npm audit`.
 
-- [ ] **Make the cross-user module boundary real.** CLAUDE.md describes `admin-stats.ts` as
-      the single cross-user reader and calls that "a property of a module boundary rather than
-      a rule" — but no lint rule or test enforces it, so a second reader added anywhere
-      dissolves ARCHITECTURE §4 silently. Related: `client_id TEXT UNIQUE` is correct on all
-      five sync tables and asserted by nothing, and the invariant's forward-looking half
-      ("any new log table needs one") has no mechanism at all.
-      **Done when:** a restricted-import rule confines `better-sqlite3` to the three files
-      that may hold it, and one test reads `sqlite_master` and asserts `client_id TEXT UNIQUE`
-      on each of the five tables.
+- [x] **Make the cross-user module boundary real.** CLAUDE.md described `admin-stats.ts` as
+      the single cross-user reader and called that "a property of a module boundary rather
+      than a rule" — but nothing enforced it, so a second reader added anywhere dissolved
+      ARCHITECTURE §4 silently.
+      `eslint.config.js` now restricts the *value* import of `better-sqlite3` to
+      `control-db.ts`, `user-db.ts` and `admin-stats.ts`, with `allowTypeImports` so
+      `Database.Statement` as a type stays free — `import-plan.ts` moved to `import type`
+      for exactly that. Verified by adding a value import to `src/lib/db/read.ts` and
+      watching it fail. A fourth entry in that ignore list is the guarantee dissolving, not
+      a rule to widen.
+      `tests/db/log-tables.test.ts` covers the `client_id` half, asserting off `PRAGMA
+      index_list` on a freshly-migrated database rather than off DDL text, so a table-level
+      `UNIQUE(...)` or a separate unique index counts too. It also scans
+      `src/lib/db/workout.ts` for `INSERT INTO` targets — that being the module every sync
+      op is written through, whereas `replay.ts` issues no SQL of its own — and asserts the
+      scan found all five, so it cannot pass vacuously and a sixth log table cannot join the
+      replay uncovered. Verified by dropping a `UNIQUE` and watching it fail.
