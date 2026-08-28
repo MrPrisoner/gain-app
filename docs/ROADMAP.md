@@ -460,17 +460,27 @@ Ordered by what the review recommended, not by size.
 
 ### Before real users
 
-- [ ] **The auth bypass guard cannot rely on `NODE_ENV`.** `loadConfig` refuses
+- [x] **The auth bypass guard cannot rely on `NODE_ENV`.** `loadConfig` refused
       `GAIN_DEV_USER` in production by testing `nodeEnv === "production"`, but `node build`
       never sets it and neither does adapter-node — so a production bundle started outside
-      the container serves unauthenticated **and logs "production builds refuse it" while
-      doing it.** Verified live at `43a5b8c`. Docker is unaffected (`Dockerfile:43` sets the
-      variable), so this is about every other way of running the app, both of which the
-      README documents.
-      **Done when:** the guard keys on something that is true of a real deployment rather
-      than on the absence of a variable nothing sets — the presence of OIDC configuration
-      is the obvious candidate — and a test covers a production-shaped boot with
-      `GAIN_DEV_USER` set and `NODE_ENV` unset.
+      the container served unauthenticated **and logged "production builds refuse it" while
+      doing it.**
+      The guard now keys on `ORIGIN`: `GAIN_DEV_USER` and `GAIN_DEV_ADMIN` are refused
+      unless it is a loopback address (`localhost`, `127.0.0.1`, `[::1]`), production or
+      not. "The presence of OIDC configuration" cannot be the signal, which is worth
+      recording rather than rediscovering — the bypass is only ever *selected* when OIDC is
+      absent, so keying on it would have been vacuous. `ORIGIN` is the one variable a
+      published instance cannot avoid setting correctly, since SvelteKit checks form posts
+      against it and it forms the OIDC redirect URI. An unparseable `ORIGIN` counts as
+      non-loopback: guessing permissively is how an unauthenticated server ships.
+      Setting `GAIN_DEV_USER` on a deployed instance is now fatal even when OIDC is
+      complete and would have won the auth branch — a variable that turns authentication
+      off has no business surviving there. `tests/server/config.test.ts` covers the
+      production-shaped boot the review found (public `ORIGIN`, `NODE_ENV` unset) plus each
+      loopback form; verified live against `node build`, which refuses to start with a
+      public `ORIGIN` and boots normally on `http://127.0.0.1`. The startup warning in
+      `hooks.server.ts` now says why the bypass was permitted rather than claiming a
+      refusal that was not happening.
 
 - [ ] **A Content-Security-Policy, and the security headers that go with it.** There are
       none at all today — confirmed empirically against `node build`, not just by grep — and

@@ -52,23 +52,17 @@ function startup(): void {
       `data_dir=${config.dataDir} auth=${config.auth.mode}`,
   );
   if (config.auth.mode === "bypass") {
-    // The warning says what is actually in force, not what is intended. The refusal in
-    // `config.ts` keys on `NODE_ENV === "production"`, and `node build` sets NODE_ENV to
-    // nothing — only the Dockerfile does. So the documented Docker deployment is genuinely
-    // protected, and a bare `node build` with a GAIN_DEV_USER left in the shell is not:
-    // it serves every request unauthenticated. Claiming "production builds refuse it" on
-    // that server told the operator the opposite of the truth, which is worse than saying
-    // nothing (review 2026-08-27, E1).
+    // Reachable only on a loopback ORIGIN (`config.ts`), so this is a development server
+    // by construction — but it is still a server that answers every request as one user,
+    // and the operator deserves to be told which user in plain language. The refusal used
+    // to key on `NODE_ENV === "production"`, which `node build` never sets, so this warning
+    // once claimed "production builds refuse it" on a server that was in fact serving a
+    // real deployment unauthenticated (review 2026-08-27, E1).
     console.warn(
       "[gain] AUTH BYPASS IS ACTIVE (GAIN_DEV_USER): every request is served as " +
-        `"${config.auth.devUser}" with no authentication. This is a development tool.`,
+        `"${config.auth.devUser}" with no authentication. This is a development tool, and ` +
+        `it is only permitted because ORIGIN (${config.origin}) is a loopback address.`,
     );
-    if (!config.isProduction) {
-      console.warn(
-        "[gain] NODE_ENV is not 'production', so the bypass was not refused. If this is " +
-          "a real deployment, stop it now, unset GAIN_DEV_USER and set NODE_ENV=production.",
-      );
-    }
   }
 }
 
@@ -92,7 +86,8 @@ export const handle: Handle = async ({ event, resolve }) => {
     // — `GAIN_DEV_USER` is read once at boot (module-level `config`), so there is no
     // other way for one running dev server to answer two browser contexts as two
     // different users. Only reachable inside this already dev-only branch: bypass mode
-    // requires `GAIN_DEV_USER` to be set, and `getConfig` refuses that in production.
+    // requires `GAIN_DEV_USER` to be set, and `getConfig` refuses that on any ORIGIN that
+    // is not a loopback address.
     const devUser = event.request.headers.get("x-gain-e2e-user") ?? config.auth.devUser;
     event.locals.user = {
       id: ensureBypassUser(devUser, now),

@@ -18,7 +18,7 @@ export type OidcConfig = {
 
 export type AuthConfig =
   | { mode: "oidc"; oidc: OidcConfig }
-  /** Dev-only bypass (`GAIN_DEV_USER`); refused outright in production. */
+  /** Dev-only bypass (`GAIN_DEV_USER`); refused on any non-loopback ORIGIN. */
   | { mode: "bypass"; devUser: string };
 
 export type GainConfig = {
@@ -46,8 +46,8 @@ export type GainConfig = {
   /**
    * Dev-only: the single `GAIN_DEV_USER`-style name that is treated as an operator.
    * A name rather than a flag, so an e2e run can drive an admin and a non-admin at
-   * once through the `x-gain-e2e-user` header. Refused in production, like the bypass
-   * itself.
+   * once through the `x-gain-e2e-user` header. Refused on a non-loopback ORIGIN, like
+   * the bypass itself.
    */
   devAdmin: string | null;
   /** Release tag baked into the image at build time (`APP_VERSION`); `"dev"` outside CI. */
@@ -65,19 +65,48 @@ export function loadConfig(
   const isProduction = nodeEnv === "production";
   const dataDir = env.DATA_DIR ?? "./data";
 
-  const devUser = env.GAIN_DEV_USER?.trim() || null;
-  if (devUser && isProduction) {
+  const origin = env.ORIGIN?.trim() || (isProduction ? null : "http://localhost:5173");
+  if (!origin) {
     throw new Error(
-      "GAIN_DEV_USER is set but NODE_ENV=production — the auth bypass is a development tool " +
-        "and cannot be enabled in a production build. Unset GAIN_DEV_USER.",
+      "ORIGIN is not set. It must be the public HTTPS URL of this instance — SvelteKit needs " +
+        "it for CSRF checks and the OIDC redirect URI (ARCHITECTURE §3).",
+    );
+  }
+  if (isProduction && !origin.startsWith("https://")) {
+    // The session cookie is always issued Secure (§3), so an http:// ORIGIN and the
+    // cookie silently disagree: the browser never sends the cookie back, and login
+    // fails with no diagnostic pointing at why (docs/todo.md).
+    throw new Error(
+      `ORIGIN must be an https:// URL in production, got "${origin}". The session cookie ` +
+        "is issued Secure regardless, so an http:// origin fails login without explaining why.",
+    );
+  }
+
+  // Both dev-only variables are refused on anything that looks like a real deployment.
+  // The signal is ORIGIN, not NODE_ENV: `node build` sets NODE_ENV to nothing and neither
+  // does adapter-node, so keying on it meant a production bundle started outside the
+  // container served every request unauthenticated — while logging that production builds
+  // refuse to do so (review 2026-08-27, E1). ORIGIN is the one variable a real deployment
+  // cannot avoid setting correctly: SvelteKit rejects cross-origin form posts against it
+  // and it forms the OIDC redirect URI, so an instance reachable by anyone but the machine
+  // it runs on has a non-loopback ORIGIN by construction.
+  const localOrigin = isLoopbackOrigin(origin);
+  const devUser = env.GAIN_DEV_USER?.trim() || null;
+  if (devUser && (isProduction || !localOrigin)) {
+    throw new Error(
+      `GAIN_DEV_USER is set on what looks like a real deployment (ORIGIN=${origin}` +
+        `${isProduction ? ", NODE_ENV=production" : ""}) — the auth bypass serves every ` +
+        "request unauthenticated and is a development tool. Unset GAIN_DEV_USER, or point " +
+        "ORIGIN at localhost if this is a development server.",
     );
   }
 
   const devAdmin = env.GAIN_DEV_ADMIN?.trim() || null;
-  if (devAdmin && isProduction) {
+  if (devAdmin && (isProduction || !localOrigin)) {
     throw new Error(
-      "GAIN_DEV_ADMIN is set but NODE_ENV=production — it is a development tool and " +
-        "cannot be enabled in a production build. Use OIDC_ADMIN_GROUP instead.",
+      `GAIN_DEV_ADMIN is set on what looks like a real deployment (ORIGIN=${origin}` +
+        `${isProduction ? ", NODE_ENV=production" : ""}) — it is a development tool. ` +
+        "Use OIDC_ADMIN_GROUP instead.",
     );
   }
 
@@ -135,23 +164,6 @@ export function loadConfig(
     );
   }
 
-  const origin = env.ORIGIN?.trim() || (isProduction ? null : "http://localhost:5173");
-  if (!origin) {
-    throw new Error(
-      "ORIGIN is not set. It must be the public HTTPS URL of this instance — SvelteKit needs " +
-        "it for CSRF checks and the OIDC redirect URI (ARCHITECTURE §3).",
-    );
-  }
-  if (isProduction && !origin.startsWith("https://")) {
-    // The session cookie is always issued Secure (§3), so an http:// ORIGIN and the
-    // cookie silently disagree: the browser never sends the cookie back, and login
-    // fails with no diagnostic pointing at why (docs/todo.md).
-    throw new Error(
-      `ORIGIN must be an https:// URL in production, got "${origin}". The session cookie ` +
-        "is issued Secure regardless, so an http:// origin fails login without explaining why.",
-    );
-  }
-
   const sessionSecret = env.SESSION_SECRET || (isProduction ? null : devRandomSecret());
   if (!sessionSecret) {
     throw new Error("SESSION_SECRET is not set. Generate one with: openssl rand -hex 32");
@@ -176,6 +188,26 @@ export function loadConfig(
     devAdmin: auth.mode === "bypass" ? devAdmin : null,
     appVersion: env.APP_VERSION?.trim() || "dev",
   };
+}
+
+/**
+ * Is this ORIGIN a loopback address — i.e. reachable only from the machine serving it?
+ *
+ * Deliberately narrow: a hostname that merely *resolves* to 127.0.0.1 today (a `.local`
+ * name, a hosts-file entry) is not accepted, because the question is whether an operator
+ * has published this instance, not what DNS currently says.
+ */
+function isLoopbackOrigin(origin: string): boolean {
+  let host: string;
+  try {
+    host = new URL(origin).hostname;
+  } catch {
+    // An unparseable ORIGIN is not a loopback one. adapter-node reports the malformed
+    // value itself; this only decides whether the bypass is allowed, and "no" is right.
+    return false;
+  }
+  // URL normalises an IPv6 literal to bracketed lowercase, so `[::1]` is what lands here.
+  return host === "localhost" || host === "127.0.0.1" || host === "[::1]";
 }
 
 function devRandomSecret(): string {

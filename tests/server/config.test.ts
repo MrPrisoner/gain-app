@@ -56,7 +56,7 @@ describe("loadConfig", () => {
           },
           "production",
         ),
-      ).toThrow(/GAIN_DEV_USER.*cannot be enabled in a production build/);
+      ).toThrow(/GAIN_DEV_USER is set on what looks like a real deployment/);
     });
 
     it("requires ORIGIN", () => {
@@ -106,6 +106,67 @@ describe("loadConfig", () => {
           "production",
         ),
       ).toThrow(/Partial OIDC configuration/);
+    });
+  });
+
+  /**
+   * The guard that stops a real deployment shipping an auth bypass. It cannot key on
+   * `NODE_ENV`: `node build` does not set it and neither does adapter-node, so the whole
+   * point of these tests is the production-shaped boot with `nodeEnv` undefined (review
+   * 2026-08-27, E1). ORIGIN is the signal instead — a published instance has a
+   * non-loopback one by construction.
+   */
+  describe("the dev-only variables outside a container", () => {
+    const deployed = {
+      ORIGIN: "https://gain.example.com",
+      SESSION_SECRET: "a".repeat(32),
+    };
+
+    it("refuses GAIN_DEV_USER on a public ORIGIN with NODE_ENV unset", () => {
+      expect(() => loadConfig({ ...deployed, GAIN_DEV_USER: "me" }, undefined)).toThrow(
+        /GAIN_DEV_USER is set on what looks like a real deployment \(ORIGIN=https:\/\/gain\.example\.com\)/,
+      );
+    });
+
+    it("refuses GAIN_DEV_USER on a public ORIGIN even when OIDC is complete", () => {
+      // OIDC would have won the auth branch, so this used to load cleanly — but a variable
+      // that turns off authentication has no business surviving on a deployed instance.
+      expect(() =>
+        loadConfig({ ...FULL_OIDC, ...deployed, GAIN_DEV_USER: "me" }, undefined),
+      ).toThrow(/GAIN_DEV_USER is set on what looks like a real deployment/);
+    });
+
+    it("refuses GAIN_DEV_ADMIN on a public ORIGIN with NODE_ENV unset", () => {
+      expect(() =>
+        loadConfig({ ...FULL_OIDC, ...deployed, GAIN_DEV_ADMIN: "me" }, undefined),
+      ).toThrow(/GAIN_DEV_ADMIN is set on what looks like a real deployment/);
+    });
+
+    it("refuses a plain HTTP ORIGIN on another host too", () => {
+      // Not every wrong deployment is served over TLS directly; a bare `node build` on a
+      // LAN address is the same exposure.
+      expect(() =>
+        loadConfig(
+          { ORIGIN: "http://192.168.1.10:3000", SESSION_SECRET: "s", GAIN_DEV_USER: "me" },
+          undefined,
+        ),
+      ).toThrow(/GAIN_DEV_USER is set on what looks like a real deployment/);
+    });
+
+    it.each(["http://localhost:5173", "http://127.0.0.1:4173", "http://[::1]:3000"])(
+      "still allows the bypass on %s",
+      (origin) => {
+        const config = loadConfig({ ORIGIN: origin, GAIN_DEV_USER: "me" }, undefined);
+        expect(config.auth).toEqual({ mode: "bypass", devUser: "me" });
+      },
+    );
+
+    it("refuses the bypass on an ORIGIN it cannot parse", () => {
+      // A malformed ORIGIN is not a loopback one, and guessing in the permissive
+      // direction is how an unauthenticated server gets shipped.
+      expect(() =>
+        loadConfig({ ORIGIN: "gain.example.com", GAIN_DEV_USER: "me" }, undefined),
+      ).toThrow(/GAIN_DEV_USER is set on what looks like a real deployment/);
     });
   });
 
