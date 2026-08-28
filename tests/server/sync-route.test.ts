@@ -68,21 +68,59 @@ afterEach(() => {
 
 // ---------------------------------------------------------------------------
 // Minimal RequestEvent stand-in — the handler only ever reads `locals.user`,
-// `request.headers`, `request.json()` and `url.searchParams` (same shape
-// first-run.test.ts uses for the page actions).
+// `request` and `url.searchParams` (same shape first-run.test.ts uses for the page
+// actions). The request itself is a real `Request` rather than a stub: the body cap
+// reads the body as a stream, so a hand-written `{ json() }` double could not exercise
+// it at all, and the cases that matter are precisely the ones where the headers and the
+// actual bytes disagree.
 // ---------------------------------------------------------------------------
 
-function event(opts: { authed?: boolean; body?: unknown; contentLength?: string }) {
-  const { authed = true, body, contentLength = null } = opts;
+function event(opts: {
+  authed?: boolean;
+  body?: unknown;
+  /** A raw body, for the size cases — notably a stream, which carries no length. */
+  rawBody?: BodyInit;
+  /** Sent verbatim, so a test can lie about the length or send nonsense. */
+  contentLength?: string;
+}) {
+  const { authed = true, body, rawBody, contentLength } = opts;
   const url = new URL("https://gain.example.com/api/sync");
+  const headers = new Headers({ "content-type": "application/json" });
+  if (contentLength !== undefined) headers.set("content-length", contentLength);
+
+  const init: RequestInit & { duplex?: string } = { method: "POST", headers };
+  if (rawBody !== undefined) {
+    init.body = rawBody;
+    // Node requires this on any request whose body is a stream.
+    init.duplex = "half";
+  } else if (body !== undefined) {
+    init.body = JSON.stringify(body);
+  }
+
   return {
-    request: {
-      json: () => Promise.resolve(body),
-      headers: { get: (name: string) => (name === "content-length" ? contentLength : null) },
-    },
+    request: new Request(url, init),
     locals: authed ? { user: { id: USER_ID, bypass: true } } : { user: null },
     url,
   } as never;
+}
+
+/** A body of `bytes` valid-JSON bytes, delivered in chunks so it carries no length. */
+function oversizedStream(bytes: number): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder();
+  const chunk = encoder.encode("x".repeat(64 * 1024));
+  let sent = 0;
+  return new ReadableStream({
+    pull(controller) {
+      if (sent === 0) controller.enqueue(encoder.encode('{"ops":[],"note":"'));
+      if (sent >= bytes) {
+        controller.enqueue(encoder.encode('"}'));
+        controller.close();
+        return;
+      }
+      sent += chunk.byteLength;
+      controller.enqueue(chunk);
+    },
+  });
 }
 
 function validBatch() {
@@ -136,6 +174,22 @@ describe("POST /api/sync", () => {
 
   it("rejects an oversized batch with 413 before parsing the body", async () => {
     const res = await POST(event({ body: validBatch(), contentLength: "2000000" }));
+    expect(res.status).toBe(413);
+    expect(counts()).toEqual({ workouts: 0, sets: 0 });
+  });
+
+  it("rejects an oversized body that declares no length at all", async () => {
+    // A chunked request has no Content-Length, so a cap that reads only the header lets
+    // an unbounded body straight through to be buffered whole.
+    const res = await POST(event({ rawBody: oversizedStream(1_500_000) }));
+    expect(res.status).toBe(413);
+    expect(counts()).toEqual({ workouts: 0, sets: 0 });
+  });
+
+  it("rejects an oversized body whose declared length is nonsense", async () => {
+    // `Number("banana")` is NaN and every comparison against it is false, so a garbage
+    // header skipped the check entirely rather than failing it.
+    const res = await POST(event({ rawBody: oversizedStream(1_500_000), contentLength: "banana" }));
     expect(res.status).toBe(413);
     expect(counts()).toEqual({ workouts: 0, sets: 0 });
   });
