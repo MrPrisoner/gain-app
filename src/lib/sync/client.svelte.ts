@@ -11,7 +11,15 @@
  * needs the Svelte compiler to see this file.
  */
 
-import { applyAck, planBatch, type AckResponse, type OutboxStore, type SyncStatus } from "./queue";
+import {
+  applyAck,
+  BATCH_LIMIT,
+  planBatch,
+  resolvePermanentFailure,
+  type AckResponse,
+  type OutboxStore,
+  type SyncStatus,
+} from "./queue";
 import type { SyncOp } from "./ops";
 import { openOutbox } from "./idb";
 
@@ -26,6 +34,13 @@ let storePromise: Promise<OutboxStore> | undefined;
 let flushing = false;
 let backoffMs = 1_000;
 let retryTimer: ReturnType<typeof setTimeout> | undefined;
+
+/**
+ * How many ops the next batch may carry. Narrows on a rejection that names no op and
+ * resets on any success — see `resolvePermanentFailure`. Module state rather than a
+ * parameter because the narrowing has to survive the scheduled retry that acts on it.
+ */
+let batchLimit = BATCH_LIMIT;
 
 /**
  * The generation this browser tab believes its outbox was filled under (spec §7).
@@ -113,7 +128,7 @@ export async function flushNow(planSlug: string): Promise<void> {
 
   try {
     const outbox = await store();
-    const batch = planBatch(await outbox.pending());
+    const batch = planBatch(await outbox.pending(), batchLimit);
     if (batch.length === 0) {
       syncStatus.state = "idle";
       await refreshCounts();
@@ -165,6 +180,28 @@ export async function flushNow(planSlug: string): Promise<void> {
       return;
     }
 
+    /**
+     * A rejection that names no op. Retrying it verbatim is the one failure mode
+     * ARCHITECTURE §4 forbids outright, so narrow the batch — or, once it is down to the
+     * single op that cannot be sent, quarantine that op and let everything behind it
+     * through. Both outcomes are progress, so the backoff resets rather than doubling:
+     * converging on one bad op out of a hundred is seven quick round trips, not seven
+     * doublings up to a minute apiece.
+     */
+    if (response.status === 400 || response.status === 413) {
+      const outcome = resolvePermanentFailure(batch, response.status);
+      if (outcome.kind === "narrow") {
+        batchLimit = outcome.limit;
+      } else {
+        await outbox.quarantine([outcome.entry]);
+        batchLimit = BATCH_LIMIT;
+      }
+      await refreshCounts();
+      backoffMs = 1_000;
+      scheduleRetry(planSlug, "error");
+      return;
+    }
+
     if (!response.ok) {
       scheduleRetry(planSlug, "error");
       return;
@@ -176,6 +213,7 @@ export async function flushNow(planSlug: string): Promise<void> {
     if (quarantine.length > 0) await outbox.quarantine(quarantine);
 
     backoffMs = 1_000;
+    batchLimit = BATCH_LIMIT;
     await refreshCounts();
     syncStatus.state = syncStatus.pending > 0 ? "syncing" : "idle";
 

@@ -87,3 +87,43 @@ export function applyAck(
     quarantine: ack.failed.filter((entry) => sent.has(entry.id)),
   };
 }
+
+/**
+ * What to do about a whole-batch rejection the server can never change its mind about.
+ *
+ * `narrow` sends fewer ops next time; `quarantine` gives up on the one op that is left.
+ */
+export type PermanentFailure =
+  { kind: "narrow"; limit: number } | { kind: "quarantine"; entry: { id: string; error: string } };
+
+/**
+ * Resolve a rejection that names no op — a 413 (the body was never read) or a 400 (the
+ * body was read and failed `syncBatchSchema` whole). Neither can produce a `failed[]`
+ * entry, so neither can reach `applyAck`, and a plain retry rebuilds the identical batch
+ * and is rejected identically forever — the one thing ARCHITECTURE §4 says an op must
+ * never be, with every op behind it held hostage.
+ *
+ * Halving converges on the offending op in log(n) round trips without needing to know
+ * which one it is, which the client cannot know: only the server can say why the batch
+ * was refused, and in both these cases it refused before it could attribute anything.
+ * Once the batch is down to one op and that op is still refused, the op itself is the
+ * problem, and quarantining it is what "held, never dropped, never retried forever"
+ * means here — it stays in the outbox, surfaces in the banner, and stops blocking the
+ * queue behind it.
+ */
+export function resolvePermanentFailure(
+  batch: readonly SyncOp[],
+  status: number,
+): PermanentFailure {
+  const [first] = batch;
+  if (!first) return { kind: "narrow", limit: BATCH_LIMIT };
+  if (batch.length > 1) return { kind: "narrow", limit: Math.floor(batch.length / 2) };
+  return { kind: "quarantine", entry: { id: first.id, error: permanentFailureReason(status) } };
+}
+
+/** Why one op could not be sent, in the words the sync banner will show the user. */
+function permanentFailureReason(status: number): string {
+  if (status === 413) return "This entry is too large to send.";
+  if (status === 400) return "The server could not read this entry.";
+  return `The server rejected this entry (HTTP ${status}).`;
+}

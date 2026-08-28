@@ -29,39 +29,13 @@ import {
   dismissPreSessionPrompt,
   logSet,
   openExercise,
+  outboxRecords,
   setLogsOf,
   workoutClientId,
 } from "./helpers";
 import { importRevision, seedFixturePlan } from "./seed";
 
 const V2_FIXTURE_PATH = path.join(process.cwd(), "fixtures/plans/home-training-v2.md");
-
-/** Every outbox record this browser profile holds, read straight out of IndexedDB. */
-type OutboxRecordShape = {
-  op: { kind: string; exerciseSlug?: string };
-  state: string;
-  error?: string;
-};
-
-async function outboxRecords(page: import("@playwright/test").Page): Promise<OutboxRecordShape[]> {
-  return page.evaluate(
-    () =>
-      new Promise<OutboxRecordShape[]>((resolve, reject) => {
-        const request = indexedDB.open("gain-sync");
-        request.onerror = () =>
-          reject(new Error(request.error?.message ?? "indexedDB.open failed"));
-        request.onsuccess = () => {
-          const db = request.result;
-          const all = db.transaction("outbox", "readonly").objectStore("outbox").getAll();
-          all.onerror = () => reject(new Error(all.error?.message ?? "outbox getAll failed"));
-          all.onsuccess = () => {
-            db.close();
-            resolve(all.result as OutboxRecordShape[]);
-          };
-        };
-      }),
-  );
-}
 
 test("an op naming a renamed-away slug is held, marked and surfaced — never dropped", async ({
   page,
