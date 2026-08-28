@@ -97,6 +97,15 @@
     };
   });
 
+  /**
+   * The phase, as the one word the live region announces. Derived rather than written
+   * into three branches of the template so that the region itself can stay a single
+   * element across every phase change — see the markup below.
+   */
+  const phaseWord = $derived(
+    phase.phase === "counting_down" ? "Resting" : phase.phase === "in_band" ? "Ready" : "Over rest",
+  );
+
   function addThirty() {
     timerState = extendRest(timerState, 30);
   }
@@ -129,25 +138,30 @@
        `data-trap-focus-heading` is what the action looks for. Naming the dialog by the
        clock and its phase ("1:15, Resting") is the honest answer to "what is this?". -->
   <div class="rest-state" id="rest-heading" tabindex="-1" data-trap-focus-heading>
-    {#if phase.phase === "counting_down"}
-      <span class="rest-time tabular" role="timer">{formatSeconds(phase.remainingS)}</span>
-      <span class="rest-label" aria-live="polite">Resting</span>
-    {:else if phase.phase === "in_band"}
-      <span class="rest-time tabular" role="timer">{formatSeconds(phase.elapsedS)}</span>
-      <!-- Only the phase word is live. The remaining-window figure changes every second,
-           and inside the live region it re-announced the whole label on each tick —
-           roughly fifteen times across a 75-90s rest's window, over the top of whatever
-           the user was actually doing. The clock beside it is `role="timer"`, which is
-           not a live region, so both numbers stay readable on demand without either of
-           them interrupting. -->
-      <span class="rest-label"
-        ><span aria-live="polite">Ready</span> — {formatSeconds(phase.bandMaxS - phase.elapsedS)} left
-        in the window</span
-      >
-    {:else}
-      <span class="rest-time tabular" role="timer">{formatSeconds(phase.elapsedS)}</span>
-      <span class="rest-label" aria-live="polite">Over rest</span>
-    {/if}
+    <!-- One clock and one live region for the whole overlay, rather than a set per phase
+         inside an `{#if}`. A live region is only announced when its *contents* change
+         while it is in the document: an element inserted with its text already in place
+         is not a change, so re-mounting the region on every phase transition meant the
+         one transition that matters — "Resting" becoming "Ready" — announced nothing at
+         all. It was announced before only as a side effect of the countdown mutating the
+         same element every second; shrinking it to a static word removed the only thing
+         making it speak.
+
+         `role="timer"` sits on the readout, not on the overlay: one element has one role,
+         and `dialog` is the one that matters for containment. A timer is not a live
+         region, so the digits stay readable on demand without interrupting anything. -->
+    <span class="rest-time tabular" role="timer"
+      >{formatSeconds(phase.phase === "counting_down" ? phase.remainingS : phase.elapsedS)}</span
+    >
+    <!-- Only the phase word is live. The remaining-window figure changes every second, and
+         inside the live region it re-announced the whole label on each tick — roughly
+         fifteen times across a 75-90s rest's window, over the top of whatever the user was
+         actually doing. -->
+    <span class="rest-label"
+      ><span aria-live="polite">{phaseWord}</span>{#if phase.phase === "in_band"}
+        —
+        {formatSeconds(bandMaxS - phase.elapsedS)} left in the window{/if}</span
+    >
   </div>
 
   <div class="rest-track" aria-hidden="true">
