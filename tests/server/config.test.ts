@@ -20,7 +20,7 @@ describe("loadConfig", () => {
         {
           ...FULL_OIDC,
           ORIGIN: "https://gain.example.com",
-          SESSION_SECRET: "abc123",
+          SESSION_SECRET: "a".repeat(32),
           DATA_DIR: "/data",
         },
         "production",
@@ -38,7 +38,7 @@ describe("loadConfig", () => {
 
     it("strips a trailing slash from ORIGIN", () => {
       const config = loadConfig(
-        { ...FULL_OIDC, ORIGIN: "https://gain.example.com/", SESSION_SECRET: "s" },
+        { ...FULL_OIDC, ORIGIN: "https://gain.example.com/", SESSION_SECRET: "a".repeat(32) },
         "production",
       );
       expect(config.origin).toBe("https://gain.example.com");
@@ -69,6 +69,24 @@ describe("loadConfig", () => {
       expect(() =>
         loadConfig({ ...FULL_OIDC, ORIGIN: "https://g.example.com" }, "production"),
       ).toThrow(/SESSION_SECRET is not set/);
+    });
+
+    it("rejects a short SESSION_SECRET", () => {
+      expect(() =>
+        loadConfig(
+          { ...FULL_OIDC, ORIGIN: "https://g.example.com", SESSION_SECRET: "short" },
+          "production",
+        ),
+      ).toThrow(/SESSION_SECRET is only 5 characters/);
+    });
+
+    it("rejects a non-HTTPS ORIGIN", () => {
+      expect(() =>
+        loadConfig(
+          { ...FULL_OIDC, ORIGIN: "http://g.example.com", SESSION_SECRET: "a".repeat(32) },
+          "production",
+        ),
+      ).toThrow(/ORIGIN must be an https:\/\/ URL/);
     });
 
     it("requires a complete OIDC set", () => {
@@ -147,7 +165,7 @@ describe("loadConfig", () => {
     const prodEnv = {
       ...FULL_OIDC,
       ORIGIN: "https://gain.example.com",
-      SESSION_SECRET: "abc123",
+      SESSION_SECRET: "a".repeat(32),
     };
 
     it("carries the admin group when OIDC is complete", () => {

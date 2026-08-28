@@ -55,6 +55,8 @@ export type GainConfig = {
 };
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+/** `openssl rand -hex 32` produces 64; this is a floor well below that, not the target. */
+const MIN_SESSION_SECRET_LENGTH = 32;
 
 export function loadConfig(
   env: Record<string, string | undefined>,
@@ -140,10 +142,26 @@ export function loadConfig(
         "it for CSRF checks and the OIDC redirect URI (ARCHITECTURE §3).",
     );
   }
+  if (isProduction && !origin.startsWith("https://")) {
+    // The session cookie is always issued Secure (§3), so an http:// ORIGIN and the
+    // cookie silently disagree: the browser never sends the cookie back, and login
+    // fails with no diagnostic pointing at why (docs/todo.md).
+    throw new Error(
+      `ORIGIN must be an https:// URL in production, got "${origin}". The session cookie ` +
+        "is issued Secure regardless, so an http:// origin fails login without explaining why.",
+    );
+  }
 
   const sessionSecret = env.SESSION_SECRET || (isProduction ? null : devRandomSecret());
   if (!sessionSecret) {
     throw new Error("SESSION_SECRET is not set. Generate one with: openssl rand -hex 32");
+  }
+  if (sessionSecret.length < MIN_SESSION_SECRET_LENGTH && isProduction) {
+    throw new Error(
+      `SESSION_SECRET is only ${sessionSecret.length} characters — a short secret is ` +
+        `brute-forceable and every session is signed with it. Generate one with: ` +
+        "openssl rand -hex 32",
+    );
   }
 
   return {
