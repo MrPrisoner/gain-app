@@ -582,6 +582,18 @@ protect:
   `control_user.data_generation`, which is what stops the wiped user's offline outbox
   flushing back in and quarantining forever — the one place GAIN deliberately discards
   local data, and narrow by construction: only on the server's explicit 409.
+- **The Content-Security-Policy comes from `kit.csp`, and the other headers from
+  `hooks.server.ts` — never both from one place.** Settled 2026-08-28 (ARCHITECTURE §3,
+  "Security headers"). SvelteKit alone knows the nonce it stamped into the page's own
+  hydration script, and a browser *intersects* two CSP headers, so a second static policy
+  set in the hook would block exactly the scripts the app needs. The hook sets the four
+  static headers plus a `default-src 'none'` CSP for the responses SvelteKit renders no
+  page for. The consequence for anything user-facing: **no inline `<script>` and no
+  inline `<style>` element** — the policy is `script-src 'self' 'nonce-…'` and
+  `style-src 'self'`. `style-src-attr 'unsafe-inline'` is allowed and load-bearing, since
+  Svelte's `style:` directives compile to inline style attributes; do not widen it to
+  `style-src`. Static assets carry no headers at all, because adapter-node serves them
+  ahead of any hook — accepted, documented, and not worth a custom server to fix.
 - **The export archive under `users/<id>/exports/` keeps the last 20 files per plan, not
   per user.** Settled 2026-08-28: nothing lists, reads or deletes an archived export, so
   without a cap the directory grows forever. `bundle-for-plan.ts`'s `pruneArchive` deletes

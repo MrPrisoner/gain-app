@@ -460,6 +460,10 @@ Ordered by what the review recommended, not by size.
 
 ### Before real users
 
+All four are closed. The fifth, branch protection on `main`, moved to
+[`todo.md`](todo.md) on 2026-08-28 — it is a repository settings change rather than work
+that can be done in the tree.
+
 - [x] **The auth bypass guard cannot rely on `NODE_ENV`.** `loadConfig` refused
       `GAIN_DEV_USER` in production by testing `nodeEnv === "production"`, but `node build`
       never sets it and neither does adapter-node — so a production bundle started outside
@@ -510,24 +514,24 @@ Ordered by what the review recommended, not by size.
       in the console; the full Playwright suite passes under the policy, which is the real
       proof that nothing was broken by it.
 
-- [ ] **Branch protection on `main`.** `ci.yml` runs nothing on a push to `main`, and its
-      comment justifies that with "every commit that reaches `main` was already vetted by
-      its PR". Nothing enforces the premise: the repository reports no branch protection and
-      no rulesets, on a public forkable repo. This is a settings change, not code — it makes
-      an existing decision true.
-      **Done when:** `main` requires a PR and a green `check` + `e2e`, and a tag can only be
-      cut from an ancestor of `main`.
-
-- [ ] **The quarantine path is proven only against a test double.** `tests/sync/queue.test.ts`
-      exercises `tests/sync/memory-outbox.ts`, a hand-written double; the code that actually
-      runs on a phone, `src/lib/sync/idb.ts`, has no unit test, and **no e2e spec has ever
-      produced a quarantine**. Both failure modes CLAUDE.md's invariant names — a record
-      deleted rather than held, or `pending()` no longer filtering on state and retrying
-      forever — are reachable with a fully green suite. CLAUDE.md is explicit that an
-      invisible quarantined op "is exactly the data loss this whole phase exists to prevent,
-      just moved one step later."
-      **Done when:** one e2e syncs an op naming a slug a revision removed, then asserts both
-      the surviving IndexedDB record and the banner the user actually sees.
+- [x] **The quarantine path is proven only against a test double.** `tests/sync/queue.test.ts`
+      exercises `tests/sync/memory-outbox.ts`; `src/lib/sync/idb.ts` — the code that runs on
+      a phone — had no test, and no e2e had ever produced a quarantine at all.
+      `e2e/quarantine.spec.ts` now produces one the way a user would: it logs a set with the
+      device offline, commits a revision that renames `goblet-squat` out from under the
+      queued op (`e2e/seed.ts`'s new `importRevision`, the same `parsePlanDocument` +
+      `importPlan` path the commit action takes — `e2e/revision-walkthrough.spec.ts` is
+      already the proof that the review *screen* works, so this spec has no business
+      re-driving it), reconnects, and asserts the surviving IndexedDB record, its error
+      text, and the banner the user actually sees. Both failure modes the invariant names
+      were confirmed reachable and are now caught, by mutation rather than by inspection:
+      deleting the record in `quarantine()` instead of updating it fails the banner
+      assertion, and dropping the state filter from `pending()` fails the "not sent again"
+      assertion — which is why that one counts `POST /api/sync` requests across a
+      `visibilitychange` nudge rather than trusting a count of pending records.
+      It runs on the dev server rather than the `offline` project: nothing in it navigates
+      while offline, so no service worker is involved and it costs no second production
+      build.
 
 - [x] **Nothing keeps `docs/CONTRACT.md` and the Zod schema in sync.** The three-places rule
       was pure convention: the only test touching CONTRACT.md asserted it is embedded

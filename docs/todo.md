@@ -23,4 +23,10 @@ Then clear it up behind you:
 From [`REVIEW-2026-08-27.md`](REVIEW-2026-08-27.md). Everything here is a single commit or
 less; the bigger findings went to [`ROADMAP.md`](ROADMAP.md) under "Post-review work".
 
-Empty — all four items from the 2026-08-27 review closed on 2026-08-28.
+- **Branch protection on `main`.** A settings change, not code — it makes an existing
+  decision true. `ci.yml` runs nothing on a push to `main` and justifies that with "every
+  commit that reaches `main` was already vetted by its PR"; nothing enforces the premise,
+  and the repository reports no branch protection and no rulesets on a public forkable
+  repo. Require a PR, require `check` and `e2e` green, and allow a tag to be cut only from
+  an ancestor of `main`. Moved here from ROADMAP's "Before real users" on 2026-08-28
+  because it is not work an agent can do in the repository.

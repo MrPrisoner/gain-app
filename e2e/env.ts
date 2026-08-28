@@ -96,6 +96,15 @@ export function versionsDevUserFor(projectName: string): string {
 }
 
 /**
+ * A per-project dev user for the quarantine spec. It commits a revision that renames an
+ * exercise out from under a queued op, which changes the account's current plan version —
+ * see `revisionDevUserFor` for the same reasoning and the header that makes it work.
+ */
+export function quarantineDevUserFor(projectName: string): string {
+  return `e2e-quarantine-${projectName}`;
+}
+
+/**
  * The one operator account. `GAIN_DEV_ADMIN` is a single environment variable read once
  * at boot, so unlike the subject below this cannot vary per project — which is fine,
  * because the admin spec asserts only on its own subject's card, never on the list as a

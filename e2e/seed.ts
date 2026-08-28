@@ -72,6 +72,44 @@ export function seedFixturePlan(dataDir: string, devUser: string, now = new Date
 }
 
 /**
+ * Commits a revision of the fixture plan into an already-seeded account, from outside the
+ * browser — the same `parsePlanDocument` + `importPlan` path `seedFixturePlan` uses and
+ * the import route's `commit` action calls, with the accepted renames supplied directly
+ * rather than chosen through the review screen.
+ *
+ * `e2e/revision-walkthrough.spec.ts` drives that screen and is the proof it works; a spec
+ * that only needs the *consequence* of a rename — a slug that no longer resolves — has no
+ * business re-driving the whole review UI to get one.
+ */
+export function importRevision(
+  dataDir: string,
+  devUser: string,
+  sourcePath: string,
+  renames: readonly { from: string; to: string }[],
+  now = new Date(),
+): void {
+  const control = openControlDb(dataDir, now);
+  try {
+    const user = findUserBySub(control, `dev-bypass:${devUser}`);
+    if (!user) throw new Error(`no seeded user for devUser "${devUser}" under ${dataDir}`);
+
+    const userDb = openUserDb(dataDir, user.id, { now });
+    try {
+      const parsed = parsePlanDocument(fs.readFileSync(sourcePath, "utf8"));
+      if (!parsed.ok) {
+        throw new Error(`revision failed to parse (${parsed.kind}):\n${parsed.report}`);
+      }
+      const result = importPlan(userDb, { parsed, now, renames });
+      if (!result.ok) throw new Error(`revision failed to import: ${result.message}`);
+    } finally {
+      userDb.close();
+    }
+  } finally {
+    control.close();
+  }
+}
+
+/**
  * A read-only handle on one seeded user's `gain.db`, for specs that need to assert on
  * what a form action actually wrote rather than only on what the page draws — resume's
  * "re-logging cannot create a duplicate `(workout, exercise, set_no, side)`" is a claim
