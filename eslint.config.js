@@ -176,14 +176,17 @@ export default tseslint.config(
   },
   {
     // The phase-1 no-console rule stands for the pure core; the server layer logs
-    // deliberately — the startup origin/redirect-URI line is a §14 mitigation.
-    files: ["src/lib/server/**/*.ts", "src/hooks.server.ts"],
+    // deliberately — the startup origin/redirect-URI line is a §14 mitigation, and
+    // `/healthz` logs the storage fault it refuses to put in an unauthenticated response.
+    files: ["src/lib/server/**/*.ts", "src/hooks.server.ts", "src/routes/healthz/+server.ts"],
     rules: { "no-console": "off" },
   },
   {
     // SvelteKit control flow throws `redirect()` and `error()` results, which
-    // are not Error objects — that is the framework's idiom, not a bug.
-    files: ["src/hooks.server.ts", "src/routes/**/*.ts"],
+    // are not Error objects — that is the framework's idiom, not a bug. `hooks.server.ts`
+    // is deliberately not here: `handle` returns its refusals rather than throwing them,
+    // so that they pass through `withSecurityHeaders` like every other response.
+    files: ["src/routes/**/*.ts"],
     rules: { "@typescript-eslint/only-throw-error": "off" },
   },
 );

@@ -39,10 +39,12 @@ export function GET() {
     fs.accessSync(getConfig().dataDir, fs.constants.R_OK | fs.constants.W_OK);
     getControlDb().db.prepare("SELECT 1").get();
   } catch (err) {
-    return json(
-      { status: "error", error: err instanceof Error ? err.message : "storage unreachable" },
-      { status: 503 },
-    );
+    // The cause goes to the container log, not to the response. This endpoint is outside
+    // the auth gate by design, and `err.message` carries the absolute path and the errno
+    // (`EACCES: permission denied, access '/data'`) — neither of which either consumer
+    // reads: the Docker `HEALTHCHECK` and Portainer both look at `r.ok` and nothing else.
+    console.error("[gain] healthz failed:", err);
+    return json({ status: "error" }, { status: 503 });
   }
   return json({ status: "ok" });
 }
