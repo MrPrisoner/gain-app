@@ -102,4 +102,22 @@ describe("buildExportBundle", () => {
     const archived = fs.readdirSync(path.join(userDb.userDir, "exports"));
     expect(archived).toContain("gain-export-home-training-v1-2026-09-08T080000Z.md");
   });
+
+  it("prunes the archive to the retention cap, oldest first", () => {
+    const plan = getPlanBySlug(userDb, "home-training");
+    if (!plan) throw new Error("plan missing");
+
+    for (let i = 0; i < 22; i++) {
+      const at = new Date(NOW.getTime() + i * 60_000);
+      const result = buildExportBundle(userDb, plan, "full", at);
+      if (!result.ok) throw new Error(result.message);
+    }
+
+    const archived = fs.readdirSync(path.join(userDb.userDir, "exports")).sort();
+    expect(archived).toHaveLength(20);
+    // The first two instants (i = 0, 1) should have been pruned; the last should remain.
+    expect(archived.some((name) => name.includes("2026-09-08T080000Z"))).toBe(false);
+    expect(archived.some((name) => name.includes("2026-09-08T080100Z"))).toBe(false);
+    expect(archived.some((name) => name.includes("2026-09-08T082100Z"))).toBe(true);
+  });
 });

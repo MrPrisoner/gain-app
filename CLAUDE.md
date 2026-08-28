@@ -582,6 +582,14 @@ protect:
   `control_user.data_generation`, which is what stops the wiped user's offline outbox
   flushing back in and quarantining forever — the one place GAIN deliberately discards
   local data, and narrow by construction: only on the server's explicit 409.
+- **The export archive under `users/<id>/exports/` keeps the last 20 files per plan, not
+  per user.** Settled 2026-08-28: nothing lists, reads or deletes an archived export, so
+  without a cap the directory grows forever. `bundle-for-plan.ts`'s `pruneArchive` deletes
+  the oldest surplus after every write, scoped to files matching that plan's own
+  `gain-export-<slug>-v` prefix — per plan rather than per user so a plan revised weekly
+  can't crowd out the archive of one touched rarely. It sorts on the filename's trailing
+  instant, not the filename itself: the version number in the middle is unpadded, so a
+  plain string sort would put `-v10-` before `-v2-`.
 
 ## The fixture
 

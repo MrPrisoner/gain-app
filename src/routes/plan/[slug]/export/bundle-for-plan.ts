@@ -92,6 +92,14 @@ export function buildExportBundle(
 }
 
 /**
+ * No route lists, reads or deletes an archived export (docs/todo.md), so without a cap
+ * this directory grows forever — three years of weekly exports at ~1.6 MB each is real
+ * disk. Kept per plan, not per user, so one actively-revised plan can't starve the
+ * archive of a plan the user touches rarely.
+ */
+const MAX_ARCHIVED_EXPORTS_PER_PLAN = 20;
+
+/**
  * Keep a copy under `users/<id>/exports/` (ARCHITECTURE §3's data layout), so a user who
  * loses the paste can find it again. Best-effort by design: failing the export the user is
  * about to paste because an archive write failed would break the crossing to save a
@@ -113,7 +121,30 @@ function archive(
       bundle,
       "utf8",
     );
+    pruneArchive(dir, plan.slug);
   } catch {
     // Deliberately swallowed — see the comment above.
+  }
+}
+
+/**
+ * Drop the oldest archived exports for this plan beyond the retention cap. Sorting the
+ * filename itself is not safe here — the version number in the middle is unpadded, so
+ * `-v10-` sorts before `-v2-` — so this pulls out the trailing instant (which is fixed
+ * width and always increasing) and sorts on that instead.
+ */
+function pruneArchive(dir: string, slug: string): void {
+  const pattern = new RegExp(`^gain-export-${slug}-v\\d+-(.+)\\.md$`);
+  const files = fs
+    .readdirSync(dir)
+    .flatMap((name) => {
+      const match = pattern.exec(name);
+      const stamp = match?.[1];
+      return stamp !== undefined ? [{ name, stamp }] : [];
+    })
+    .sort((a, b) => a.stamp.localeCompare(b.stamp));
+  const surplus = files.length - MAX_ARCHIVED_EXPORTS_PER_PLAN;
+  for (const { name } of files.slice(0, Math.max(0, surplus))) {
+    fs.unlinkSync(path.join(dir, name));
   }
 }
