@@ -14,7 +14,9 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import Database from "better-sqlite3";
+// Type-only: `Database.Statement`. Constructing a database is confined to the three
+// files the `no-restricted-imports` rule in eslint.config.js allows a value import in.
+import type Database from "better-sqlite3";
 import type {
   ExerciseDef,
   GainContract,
