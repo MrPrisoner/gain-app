@@ -15,8 +15,8 @@ import { error, redirect, type Handle } from "@sveltejs/kit";
 import { checkSession, ensureBypassUser, setSessionCookie } from "$lib/server/auth";
 import { getControlDb } from "$lib/server/app-state";
 import { getConfig } from "$lib/server/config";
-import { purgeExpiredSessions, purgeOidcState } from "$lib/server/control-db";
 import { isNavigationRequest, isPublicPath, loginUrlFor } from "$lib/server/gate";
+import { runHousekeeping } from "$lib/server/housekeeping";
 import { FALLBACK_CSP, SECURITY_HEADERS } from "$lib/server/headers";
 
 /**
@@ -30,23 +30,16 @@ const HOUSEKEEPING_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 let started = false;
 
-function runHousekeeping(): void {
-  const control = getControlDb();
-  const now = new Date();
-  purgeExpiredSessions(control, now);
-  // 10-minute-lifetime rows (control-db.ts) that were never taken back — an abandoned
-  // login — never expire on their own otherwise.
-  purgeOidcState(control, now, 60 * 60 * 1000);
-}
-
 function startup(): void {
   if (started || building) return;
   started = true;
 
   const config = getConfig();
-  getControlDb();
-  runHousekeeping();
-  setInterval(runHousekeeping, HOUSEKEEPING_INTERVAL_MS).unref();
+  const control = getControlDb();
+  runHousekeeping(control, new Date());
+  // Never `runHousekeeping` bare as the callback: it takes the clock as an argument, so a
+  // bare reference would pass `setInterval`'s own tick count as the `now`.
+  setInterval(() => runHousekeeping(control, new Date()), HOUSEKEEPING_INTERVAL_MS).unref();
 
   console.log(
     `[gain] ready — origin=${config.origin} redirect_uri=${config.redirectUri} ` +
