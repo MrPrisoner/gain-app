@@ -161,6 +161,37 @@ describe("loadConfig", () => {
       },
     );
 
+    it("refuses a plain http ORIGIN with NODE_ENV unset", () => {
+      // The session cookie is issued Secure regardless of NODE_ENV, so this fails login
+      // with no diagnostic — and `node build` outside the container never sets NODE_ENV,
+      // which is the whole reason these guards key on ORIGIN.
+      expect(() =>
+        loadConfig({ ...FULL_OIDC, ...deployed, ORIGIN: "http://gain.example.com" }, undefined),
+      ).toThrow(/ORIGIN must be an https:\/\/ URL/);
+    });
+
+    it("requires SESSION_SECRET on a public ORIGIN with NODE_ENV unset", () => {
+      // Without this, the secret silently defaults to a fresh random one per boot: every
+      // session cookie is invalidated by a restart, and no error says why.
+      expect(() =>
+        loadConfig({ ...FULL_OIDC, ORIGIN: "https://gain.example.com" }, undefined),
+      ).toThrow(/SESSION_SECRET is not set/);
+    });
+
+    it("rejects a short SESSION_SECRET on a public ORIGIN with NODE_ENV unset", () => {
+      expect(() =>
+        loadConfig({ ...FULL_OIDC, ...deployed, SESSION_SECRET: "short" }, undefined),
+      ).toThrow(/SESSION_SECRET is only 5 characters/);
+    });
+
+    it("still mints a throwaway secret on a loopback ORIGIN", () => {
+      const config = loadConfig(
+        { ORIGIN: "http://localhost:5173", GAIN_DEV_USER: "me" },
+        undefined,
+      );
+      expect(config.sessionSecret.length).toBeGreaterThanOrEqual(32);
+    });
+
     it("refuses the bypass on an ORIGIN it cannot parse", () => {
       // A malformed ORIGIN is not a loopback one, and guessing in the permissive
       // direction is how an unauthenticated server gets shipped.

@@ -72,16 +72,6 @@ export function loadConfig(
         "it for CSRF checks and the OIDC redirect URI (ARCHITECTURE §3).",
     );
   }
-  if (isProduction && !origin.startsWith("https://")) {
-    // The session cookie is always issued Secure (§3), so an http:// ORIGIN and the
-    // cookie silently disagree: the browser never sends the cookie back, and login
-    // fails with no diagnostic pointing at why (docs/todo.md).
-    throw new Error(
-      `ORIGIN must be an https:// URL in production, got "${origin}". The session cookie ` +
-        "is issued Secure regardless, so an http:// origin fails login without explaining why.",
-    );
-  }
-
   // Both dev-only variables are refused on anything that looks like a real deployment.
   // The signal is ORIGIN, not NODE_ENV: `node build` sets NODE_ENV to nothing and neither
   // does adapter-node, so keying on it meant a production bundle started outside the
@@ -91,8 +81,16 @@ export function loadConfig(
   // and it forms the OIDC redirect URI, so an instance reachable by anyone but the machine
   // it runs on has a non-loopback ORIGIN by construction.
   const localOrigin = isLoopbackOrigin(origin);
+  /**
+   * Does this look like an instance somebody other than the operator can reach? Every
+   * check below that exists to protect a real deployment keys on this rather than on
+   * `isProduction`, for the reason the comment above gives — and that reasoning is not
+   * specific to the two dev-only variables. A short signing key, a missing one, and a
+   * plaintext ORIGIN are all just as wrong on a `node build` with NODE_ENV unset.
+   */
+  const looksDeployed = isProduction || !localOrigin;
   const devUser = env.GAIN_DEV_USER?.trim() || null;
-  if (devUser && (isProduction || !localOrigin)) {
+  if (devUser && looksDeployed) {
     throw new Error(
       `GAIN_DEV_USER is set on what looks like a real deployment (ORIGIN=${origin}` +
         `${isProduction ? ", NODE_ENV=production" : ""}) — the auth bypass serves every ` +
@@ -102,11 +100,24 @@ export function loadConfig(
   }
 
   const devAdmin = env.GAIN_DEV_ADMIN?.trim() || null;
-  if (devAdmin && (isProduction || !localOrigin)) {
+  if (devAdmin && looksDeployed) {
     throw new Error(
       `GAIN_DEV_ADMIN is set on what looks like a real deployment (ORIGIN=${origin}` +
         `${isProduction ? ", NODE_ENV=production" : ""}) — it is a development tool. ` +
         "Use OIDC_ADMIN_GROUP instead.",
+    );
+  }
+
+  if (looksDeployed && !origin.startsWith("https://")) {
+    // The session cookie is always issued Secure (§3), so an http:// ORIGIN and the
+    // cookie silently disagree: the browser never sends the cookie back, and login
+    // fails with no diagnostic pointing at why (docs/todo.md). Checked after the two
+    // guards above deliberately — when a deployment has both problems, "you shipped an
+    // auth bypass" is the one to say first.
+    throw new Error(
+      `ORIGIN must be an https:// URL on a deployed instance, got "${origin}". The session ` +
+        "cookie is issued Secure regardless, so an http:// origin fails login without " +
+        "explaining why.",
     );
   }
 
@@ -164,11 +175,11 @@ export function loadConfig(
     );
   }
 
-  const sessionSecret = env.SESSION_SECRET || (isProduction ? null : devRandomSecret());
+  const sessionSecret = env.SESSION_SECRET || (looksDeployed ? null : devRandomSecret());
   if (!sessionSecret) {
     throw new Error("SESSION_SECRET is not set. Generate one with: openssl rand -hex 32");
   }
-  if (sessionSecret.length < MIN_SESSION_SECRET_LENGTH && isProduction) {
+  if (sessionSecret.length < MIN_SESSION_SECRET_LENGTH && looksDeployed) {
     throw new Error(
       `SESSION_SECRET is only ${sessionSecret.length} characters — a short secret is ` +
         `brute-forceable and every session is signed with it. Generate one with: ` +
