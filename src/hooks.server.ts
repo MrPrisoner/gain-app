@@ -15,10 +15,28 @@ import { error, redirect, type Handle } from "@sveltejs/kit";
 import { checkSession, ensureBypassUser, setSessionCookie } from "$lib/server/auth";
 import { getControlDb } from "$lib/server/app-state";
 import { getConfig } from "$lib/server/config";
-import { purgeExpiredSessions } from "$lib/server/control-db";
+import { purgeExpiredSessions, purgeOidcState } from "$lib/server/control-db";
 import { isNavigationRequest, isPublicPath, loginUrlFor } from "$lib/server/gate";
 
+/**
+ * How often to re-run housekeeping after startup. A container runs for months, and
+ * `session` rows carry a plaintext refresh token (CLAUDE.md, "control.db"), so the
+ * startup-only purge used to mean the only credential cleanup was the one at boot. Once
+ * a day is frequent enough that no meaningfully-expired row lingers for long, and rare
+ * enough not to matter next to normal request traffic.
+ */
+const HOUSEKEEPING_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
 let started = false;
+
+function runHousekeeping(): void {
+  const control = getControlDb();
+  const now = new Date();
+  purgeExpiredSessions(control, now);
+  // 10-minute-lifetime rows (control-db.ts) that were never taken back — an abandoned
+  // login — never expire on their own otherwise.
+  purgeOidcState(control, now, 60 * 60 * 1000);
+}
 
 function startup(): void {
   if (started || building) return;
@@ -26,7 +44,8 @@ function startup(): void {
 
   const config = getConfig();
   getControlDb();
-  purgeExpiredSessions(getControlDb(), new Date());
+  runHousekeeping();
+  setInterval(runHousekeeping, HOUSEKEEPING_INTERVAL_MS).unref();
 
   console.log(
     `[gain] ready — origin=${config.origin} redirect_uri=${config.redirectUri} ` +
