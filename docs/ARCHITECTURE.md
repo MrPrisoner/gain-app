@@ -149,6 +149,40 @@ Notes:
   which asks SQLite itself for a consistent copy of a database being written to. The
   README's Backups subsection has both recipes in full.
 
+### Security headers
+
+The app ships every header that is a property of *itself*, and leaves the proxy exactly
+one. `hooks.server.ts` stamps `X-Content-Type-Options`, `X-Frame-Options`,
+`Referrer-Policy` and `Permissions-Policy` on every response it renders, from the constants
+in `src/lib/server/headers.ts`; the Content-Security-Policy comes from `kit.csp`
+(`svelte.config.js`) instead, because SvelteKit is the only thing that knows the nonce it
+stamped into the page's own hydration script — a second static CSP header would be
+intersected with that one by the browser and would block the app's own scripts. Responses
+SvelteKit renders no page for, `/healthz` among them, get a
+`default-src 'none'` fallback from the hook.
+
+`Strict-Transport-Security` is the proxy's, and it is the only one. The container listens
+on plain HTTP by design and cannot know whether it was reached over TLS, so a fixed HSTS
+header from the app would be a claim it is not in a position to make. Set it where TLS is
+terminated.
+
+Two consequences worth stating rather than rediscovering:
+
+- **Static assets carry no headers from the app.** adapter-node serves `client/` and
+  `static/` through its own middleware, ahead of the SvelteKit handler, so no hook sees
+  those responses — a hashed asset answers with neither a CSP nor `nosniff`. This is
+  accepted. Closing it would mean replacing `node build` with a custom server around
+  `build/handler.js`, and a CSP on a script response governs nothing about that script's
+  execution in the page that imported it; the importing page's policy does. Every asset
+  GAIN serves is a build artifact rather than user content. An operator who wants headers
+  on everything sets them at the proxy, which is where a blanket rule belongs anyway.
+- **`style-src-attr 'unsafe-inline'` is deliberate and narrow.** Svelte's `style:`
+  directives compile to inline style *attributes* — the confetti overlay, every chart,
+  `app.html`'s own `display: contents` wrapper — so the attribute directive has to allow
+  them. `style-src` itself stays `'self'` in the shipped policy, so an injected `<style>`
+  element is still refused. The dev server relaxes `style-src` to include `'unsafe-inline'`
+  for HMR; that is SvelteKit's doing and does not reach the build.
+
 ### Data directory layout
 
 ```

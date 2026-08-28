@@ -17,6 +17,7 @@ import { getControlDb } from "$lib/server/app-state";
 import { getConfig } from "$lib/server/config";
 import { purgeExpiredSessions, purgeOidcState } from "$lib/server/control-db";
 import { isNavigationRequest, isPublicPath, loginUrlFor } from "$lib/server/gate";
+import { FALLBACK_CSP, SECURITY_HEADERS } from "$lib/server/headers";
 
 /**
  * How often to re-run housekeeping after startup. A container runs for months, and
@@ -68,13 +69,29 @@ function startup(): void {
 
 startup();
 
+/**
+ * The security headers (ARCHITECTURE §3), stamped on the way out so no route can forget
+ * one. The CSP is left alone when SvelteKit has already written it — that one carries the
+ * page's nonce, and a second policy header would be intersected with it and block the
+ * app's own hydration script.
+ */
+function withSecurityHeaders(response: Response): Response {
+  for (const [name, value] of SECURITY_HEADERS) {
+    response.headers.set(name, value);
+  }
+  if (!response.headers.has("content-security-policy")) {
+    response.headers.set("content-security-policy", FALLBACK_CSP);
+  }
+  return response;
+}
+
 export const handle: Handle = async ({ event, resolve }) => {
   startup();
   event.locals.user = null;
 
   const { pathname, search } = event.url;
   if (isPublicPath(pathname)) {
-    return resolve(event);
+    return withSecurityHeaders(await resolve(event));
   }
 
   const config = getConfig();
@@ -99,7 +116,7 @@ export const handle: Handle = async ({ event, resolve }) => {
       // `x-gain-e2e-user` against one server process.
       isAdmin: config.devAdmin !== null && config.devAdmin === devUser,
     };
-    return resolve(event);
+    return withSecurityHeaders(await resolve(event));
   }
 
   const check = await checkSession(event.cookies, config, config.auth.oidc, now);
@@ -125,5 +142,5 @@ export const handle: Handle = async ({ event, resolve }) => {
     displayName: check.displayName,
     isAdmin: check.isAdmin,
   };
-  return resolve(event);
+  return withSecurityHeaders(await resolve(event));
 };

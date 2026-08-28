@@ -482,14 +482,33 @@ Ordered by what the review recommended, not by size.
       `hooks.server.ts` now says why the bypass was permitted rather than claiming a
       refusal that was not happening.
 
-- [ ] **A Content-Security-Policy, and the security headers that go with it.** There are
-      none at all today — confirmed empirically against `node build`, not just by grep — and
-      nothing in the README or `docs/` tells the operator to set them at the proxy either.
-      SvelteKit's `kit.csp` handles the nonce/hash plumbing that would otherwise make this
-      painful.
-      **Done when:** `/`, `/healthz` and a hashed asset all answer with a CSP, and the
-      decision about which of the remaining five headers belong in the app versus at the
-      reverse proxy is written down in ARCHITECTURE §3 either way.
+- [x] **A Content-Security-Policy, and the security headers that go with it.** There were
+      none at all — confirmed empirically against `node build`, not just by grep — and
+      nothing told the operator to set them at the proxy either.
+      `svelte.config.js` now carries a `kit.csp` policy (`mode: "auto"`, so dynamic pages
+      are nonced and prerendered ones hashed), and `hooks.server.ts` stamps
+      `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` and
+      `Permissions-Policy` from `src/lib/server/headers.ts` on everything it renders, plus
+      a `default-src 'none'` CSP on the responses SvelteKit renders no page for. The CSP
+      cannot come from the hook: SvelteKit alone knows the nonce it stamped into the page's
+      hydration script, and a second policy header is intersected with the first by the
+      browser, so it would block the app's own scripts. `style-src-attr 'unsafe-inline'` is
+      the one allowance, because `style:` directives compile to inline style attributes;
+      `style-src` itself stays `'self'`.
+      The split is written down in ARCHITECTURE §3, "Security headers": `Strict-Transport-Security`
+      is the proxy's alone, since the container listens on plain HTTP and cannot know it was
+      reached over TLS. **`/` and `/healthz` answer with a CSP; a hashed asset does not, and
+      that is accepted rather than fixed** — adapter-node serves `client/` and `static/`
+      through its own middleware ahead of the SvelteKit handler, so no hook can see those
+      responses at all, and closing it means replacing `node build` with a custom server
+      around `build/handler.js` in exchange for headers that govern nothing (a CSP on a
+      script response does not constrain that script in the page that imported it, and
+      every asset here is a build artifact rather than user content). ARCHITECTURE §3 says
+      so and points the operator at the proxy.
+      `e2e/security-headers.spec.ts` asserts the headers and that the session runner — the
+      screen with the most inline-style surface in the app — loads with no policy violation
+      in the console; the full Playwright suite passes under the policy, which is the real
+      proof that nothing was broken by it.
 
 - [ ] **Branch protection on `main`.** `ci.yml` runs nothing on a push to `main`, and its
       comment justifies that with "every commit that reaches `main` was already vetted by
