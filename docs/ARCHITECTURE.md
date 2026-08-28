@@ -176,6 +176,14 @@ Two consequences worth stating rather than rediscovering:
   execution in the page that imported it; the importing page's policy does. Every asset
   GAIN serves is a build artifact rather than user content. An operator who wants headers
   on everything sets them at the proxy, which is where a blanket rule belongs anyway.
+- **The gate returns its refusals rather than throwing them.** SvelteKit catches an
+  `HttpError` or a `Redirect` thrown out of `handle` and builds that response itself,
+  entirely outside the hook — so the 401 an expired fetch gets, the login redirect a
+  navigation gets and the 403 a lost group gets used to be the only responses in the app
+  shipping without any of these headers. `$lib/server/gate.ts`'s `refusal` and `seeOther`
+  build them instead, and `handle` returns them through the same wrapper as everything
+  else. The 403's message names the configured group, so it is escaped: owning a response
+  body means owning its escaping.
 - **`style-src-attr 'unsafe-inline'` is deliberate and narrow.** Svelte's `style:`
   directives compile to inline style *attributes* — the confetti overlay, every chart,
   `app.html`'s own `display: contents` wrapper — so the attribute directive has to allow

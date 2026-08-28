@@ -433,6 +433,16 @@ lose anything" conflict, and it resolves in favour of keeping the data and telli
 user (design spec §6). An invisible quarantined op — one the banner does not surface — is
 exactly the data loss this whole phase exists to prevent, just moved one step later.
 
+The hard case is a rejection that names **no** op — a 413, which the server answers before
+reading the body, or a 400 from a batch that fails `syncBatchSchema` whole. Neither can
+carry a `failed[]` entry, so neither reaches `applyAck`, and retrying rebuilds an
+identical batch to be refused identically forever. `resolvePermanentFailure`
+(`$lib/sync/queue.ts`) halves the batch instead, and quarantines the single op left once
+halving has converged on it — which op is at fault is knowable only to the server, and in
+both these cases the server refused before it could say. Any new status the flush loop
+learns to receive has to be classified as retryable or permanent; routing a permanent one
+into `scheduleRetry` is the failure this rule exists to prevent.
+
 ## Invariants
 
 These break things quietly. The test suite catches some of them — the golden round-trip
@@ -596,7 +606,12 @@ protect:
   `style-src 'self'`. `style-src-attr 'unsafe-inline'` is allowed and load-bearing, since
   Svelte's `style:` directives compile to inline style attributes; do not widen it to
   `style-src`. Static assets carry no headers at all, because adapter-node serves them
-  ahead of any hook — accepted, documented, and not worth a custom server to fix.
+  ahead of any hook — accepted, documented, and not worth a custom server to fix. And
+  settled 2026-08-28: **`handle` must return its refusals, never throw them.** SvelteKit
+  builds the response for an `HttpError` or a `Redirect` thrown out of `handle` itself,
+  outside the hook, so a thrown 401/403/303 ships with none of these headers —
+  `$lib/server/gate.ts`'s `refusal` and `seeOther` exist so the gate's own responses go
+  out through `withSecurityHeaders` like every other one.
 - **The export archive under `users/<id>/exports/` keeps the last 20 files per plan, not
   per user.** Settled 2026-08-28: nothing lists, reads or deletes an archived export, so
   without a cap the directory grows forever. `bundle-for-plan.ts`'s `pruneArchive` deletes

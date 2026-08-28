@@ -128,14 +128,6 @@ function resolveExercise(
 }
 
 /**
- * The half of a `ResolvedExercise` that belongs to the *movement* rather than to the
- * occasion it is performed on — CONTRACT: "All occurrences share one `id`, and therefore
- * one identity, one name and one set of movement properties." Shared by
- * `resolveExercise`, which layers a prescription's targets and overrides on top, and
- * `resolveSubstitute`, which layers the targets of the occasion being *replaced* on top
- * instead. Neither may re-derive load/type/per_side resolution on its own.
- */
-/**
  * The display name for a bare slug, resolved through the plan's catalogue.
  *
  * Substitutes travel as slugs everywhere — CONTRACT declares them as `id` references, and
@@ -153,6 +145,14 @@ export function exerciseNameFor(catalogue: readonly ExerciseDef[], slug: string)
   return def?.name ?? deriveExerciseName(slug);
 }
 
+/**
+ * The half of a `ResolvedExercise` that belongs to the *movement* rather than to the
+ * occasion it is performed on — CONTRACT: "All occurrences share one `id`, and therefore
+ * one identity, one name and one set of movement properties." Shared by
+ * `resolveExercise`, which layers a prescription's targets and overrides on top, and
+ * `resolveSubstitute`, which layers the targets of the occasion being *replaced* on top
+ * instead. Neither may re-derive load/type/per_side resolution on its own.
+ */
 function catalogueIdentity(
   def: ExerciseDef,
   loads: readonly LoadConfig[],
