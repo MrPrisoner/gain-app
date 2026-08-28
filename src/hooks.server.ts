@@ -33,9 +33,23 @@ function startup(): void {
       `data_dir=${config.dataDir} auth=${config.auth.mode}`,
   );
   if (config.auth.mode === "bypass") {
+    // The warning says what is actually in force, not what is intended. The refusal in
+    // `config.ts` keys on `NODE_ENV === "production"`, and `node build` sets NODE_ENV to
+    // nothing — only the Dockerfile does. So the documented Docker deployment is genuinely
+    // protected, and a bare `node build` with a GAIN_DEV_USER left in the shell is not:
+    // it serves every request unauthenticated. Claiming "production builds refuse it" on
+    // that server told the operator the opposite of the truth, which is worse than saying
+    // nothing (review 2026-08-27, E1).
     console.warn(
-      "[gain] AUTH BYPASS IS ACTIVE (GAIN_DEV_USER). Development only — production builds refuse it.",
+      "[gain] AUTH BYPASS IS ACTIVE (GAIN_DEV_USER): every request is served as " +
+        `"${config.auth.devUser}" with no authentication. This is a development tool.`,
     );
+    if (!config.isProduction) {
+      console.warn(
+        "[gain] NODE_ENV is not 'production', so the bypass was not refused. If this is " +
+          "a real deployment, stop it now, unset GAIN_DEV_USER and set NODE_ENV=production.",
+      );
+    }
   }
 }
 
