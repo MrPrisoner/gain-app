@@ -48,6 +48,7 @@
     type="button"
     class="secondary list-toggle"
     aria-expanded={listOpen}
+    aria-controls={listOpen ? `override-sessions-${planSlug}` : undefined}
     onclick={() => (listOpen = !listOpen)}
   >
     <span>Choose a different session</span>
@@ -55,7 +56,7 @@
   </button>
 
   {#if listOpen}
-    <ul class="sessions">
+    <ul class="sessions" id={`override-sessions-${planSlug}`}>
       {#each sessions as session (session.key)}
         {@const isOpen = openSession === session.key}
         <li>

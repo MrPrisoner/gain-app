@@ -9,7 +9,7 @@
  *    review's rebuild, the list
  *    just sat there and you hunted for the next row one-handed.
  * 2. **A swap actually substitutes** — this is the one that corrupts the export rather
- *    than merely annoying the user. Before the rebuild, tapping "Swap: dead-bug" on the
+ *    than merely annoying the user. Before the rebuild, tapping "Swap: Dead bug" on the
  *    conditional reverse-crunch logged the deviation and then kept posting
  *    `exercise_slug=reverse-crunch`, so the file said you did the movement the plan told
  *    you to avoid. Phase 6 moved the write off the network entirely (`logWrite` appends
@@ -72,7 +72,10 @@ test("a swap logs against the substitute, not the movement it replaced", async (
   await expect(openExercise(page).locator(".condition")).toContainText(
     "familiar hip or lower-back symptoms",
   );
-  await openExercise(page).getByRole("button", { name: "Swap: dead-bug" }).click();
+  // "Dead bug", not "dead-bug": the chip shows the catalogue name, since a slug is
+  // not a name to offer a user (review 2026-08-27, U9). The *logged* slug is still
+  // `dead-bug`, which is what the assertions below check.
+  await openExercise(page).getByRole("button", { name: "Swap: Dead bug" }).click();
 
   // The row renames itself to the movement now being performed, and says which prescribed
   // slot it is filling.

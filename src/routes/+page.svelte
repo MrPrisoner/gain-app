@@ -178,7 +178,8 @@
         One document — the AI reads it, interviews you, and returns a plan. Copy the whole thing;
         download is the fallback.
       </p>
-      <textarea class="doc" readonly rows="14" value={form.prompt}></textarea>
+      <textarea class="doc" readonly rows="14" aria-label="Bootstrap prompt" value={form.prompt}
+      ></textarea>
       <div class="actions">
         <button type="button" class="primary" onclick={copyPrompt}>
           {#if copied}<IconCheck />{:else}<IconCopy />{/if}

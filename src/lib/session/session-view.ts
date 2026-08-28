@@ -135,6 +135,24 @@ function resolveExercise(
  * `resolveSubstitute`, which layers the targets of the occasion being *replaced* on top
  * instead. Neither may re-derive load/type/per_side resolution on its own.
  */
+/**
+ * The display name for a bare slug, resolved through the plan's catalogue.
+ *
+ * Substitutes travel as slugs everywhere — CONTRACT declares them as `id` references, and
+ * the runner writes `deviation.substitute_exercise_slug` as loose text — so any screen
+ * offering one to a *user* has to resolve it or it shows them
+ * "seated-floor-shoulder-press" where the plan says "Seated floor shoulder press".
+ *
+ * `deriveExerciseName` is the fallback rather than the answer: CONTRACT requires every
+ * substitute to be declared in the catalogue, so the lookup normally hits, and a derived
+ * name is noticeably worse (`deriveExerciseName("db-floor-press")` gives "Db floor
+ * press"). The fallback exists so this can never render blank.
+ */
+export function exerciseNameFor(catalogue: readonly ExerciseDef[], slug: string): string {
+  const def = catalogue.find((e) => e.id === slug);
+  return def?.name ?? deriveExerciseName(slug);
+}
+
 function catalogueIdentity(
   def: ExerciseDef,
   loads: readonly LoadConfig[],

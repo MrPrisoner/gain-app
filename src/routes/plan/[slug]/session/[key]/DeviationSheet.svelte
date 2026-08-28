@@ -8,6 +8,7 @@
   let {
     exerciseSlug,
     substitutes,
+    nameForSlug,
     canChangeSetCount,
     planSlug,
     workoutClientId,
@@ -18,6 +19,9 @@
   }: {
     exerciseSlug: string;
     substitutes: string[];
+    /** Resolves a substitute's slug to its catalogue name — the sheet offers these to a
+     * user, and a bare slug is not a name (`$lib/session/session-view`). */
+    nameForSlug: (slug: string) => string;
     /**
      * Whether adding or dropping a set is a thing that can happen here at all. False
      * inside a `type: rounds` block: CONTRACT makes `sets` invalid there because `set_no`
@@ -124,7 +128,12 @@
   >
     <h3 id="deviation-heading" tabindex="-1" data-trap-focus-heading>Change this set</h3>
 
-    <div class="kind-row">
+    <!-- `role="radiogroup"` with an `aria-label` rather than a `fieldset`/`legend`: both
+         name the group, but a legend adds visible chrome to a sheet whose whole point is
+         that deviating is never slower than lying (UI-DECISIONS §7). Without a name the
+         radios announce individually and a screen-reader user hears "Skip, radio button"
+         with no indication of what is being chosen. -->
+    <div class="kind-row" role="radiogroup" aria-label="What changed">
       <label><input type="radio" name="kind" value="skip" bind:group={kind} /> Skip</label>
       {#if substitutes.length > 0}
         <label><input type="radio" name="kind" value="substitute" bind:group={kind} /> Swap</label>
@@ -142,14 +151,14 @@
     </div>
 
     {#if kind === "substitute" && substitutes.length > 0}
-      <select bind:value={substituteSlug}>
+      <select bind:value={substituteSlug} aria-label="Swap in which exercise">
         {#each substitutes as sub (sub)}
-          <option value={sub}>{sub}</option>
+          <option value={sub}>{nameForSlug(sub)}</option>
         {/each}
       </select>
     {/if}
 
-    <div class="reason-row">
+    <div class="reason-row" role="radiogroup" aria-label="Why">
       {#each reasons as reason (reason.code)}
         <label>
           <input type="radio" name="reason_code" value={reason.code} bind:group={reasonCode} />
@@ -158,7 +167,10 @@
       {/each}
     </div>
 
+    <!-- A placeholder is not an accessible name: it is announced as a hint at best, and
+         vanishes the moment the field has content. -->
     <textarea
+      aria-label="Note"
       placeholder="Optional note — exported as signal for the revising AI."
       bind:value={note}></textarea>
 

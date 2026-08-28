@@ -7,6 +7,7 @@
     formatSlotContext,
     nextExerciseKey,
     nextUnloggedSlot,
+    exerciseNameFor,
     resolveSubstitute,
     restForSet,
     restBetweenRounds,
@@ -450,6 +451,11 @@
     };
   });
 
+  /** Substitutes reach the user as bare slugs (CONTRACT declares them as `id` refs), so
+   * anything that shows one — the deviation sheet's picker, the inline condition chips —
+   * resolves it here, where the catalogue already is. */
+  const nameForSlug = (slug: string): string => exerciseNameFor(data.catalogue, slug);
+
   /** Resolve a declared substitute through the plan's catalogue and swap it in for the
    * prescribed exercise. */
   function applySubstitute(
@@ -605,6 +611,7 @@
         onError={setError}
         onStartNextRound={startNextRound}
         {onEditSlot}
+        {nameForSlug}
       />
     {/each}
 
@@ -673,6 +680,7 @@
   <DeviationSheet
     exerciseSlug={target.exercise.slug}
     substitutes={target.prescribed.substitutes}
+    {nameForSlug}
     canChangeSetCount={target.block.type !== "rounds"}
     planSlug={data.planSlug}
     {workoutClientId}

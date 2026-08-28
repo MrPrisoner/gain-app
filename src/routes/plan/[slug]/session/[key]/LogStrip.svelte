@@ -67,8 +67,20 @@
    * mid-keystroke. Keying by slot (rather than resetting on change) means the strip
    * needs no effect to follow the cursor, and an adjustment survives looking at another
    * exercise and coming back.
+   *
+   * A draft *shadows* the pre-fill, so it has to be dropped the moment it stops
+   * describing something unsubmitted — on a successful log, and on a cancelled
+   * correction. Without that, correcting a logged row to 99, cancelling, and tapping the
+   * row again re-offered 99: a number that was never logged, presented as the current
+   * value, one effort tap from being committed. CLAUDE.md's rule is that client state is
+   * what was submitted, never what was pre-filled; a surviving draft is a third thing
+   * that is neither.
    */
   const edits = new SvelteMap<string, Partial<Record<Field, string>>>();
+
+  function clearDraft(key: string): void {
+    edits.delete(key);
+  }
 
   const draft = $derived(slot ? (edits.get(slot.key) ?? {}) : {});
   const repsValue = $derived(draft.reps ?? asText(prefill.reps));
@@ -165,6 +177,7 @@
         // this from a reference match on its own (`$lib/db/workout.ts`'s `logSet`).
         isCorrection: !!onCancel,
       });
+      clearDraft(loggedSlot.key);
       onLogged(loggedSlot, submitted);
       onError(undefined);
     } catch (err) {
@@ -172,6 +185,17 @@
     } finally {
       submitting = false;
     }
+  }
+
+  /**
+   * Backing out of a correction has to drop the draft as well as close the strip — the
+   * value the user typed and then abandoned must not be waiting for them the next time
+   * they tap the same row (see `edits`). `onCancel` is only ever supplied in correction
+   * mode, so this is only ever reachable there.
+   */
+  function cancel(): void {
+    if (slot) clearDraft(slot.key);
+    onCancel?.();
   }
 
   const efforts = [
@@ -188,7 +212,7 @@
       <span class="strip-set tabular">{context}</span>
     </span>
     {#if onCancel}
-      <button type="button" class="strip-change" onclick={onCancel}>Cancel</button>
+      <button type="button" class="strip-change" onclick={cancel}>Cancel</button>
     {:else}
       <!-- UI-DECISIONS §7: deviating must never be slower than lying, so skip/swap/add
            live one tap away here, not at the bottom of the exercise body. -->

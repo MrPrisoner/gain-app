@@ -134,8 +134,15 @@
       <span class="rest-label" aria-live="polite">Resting</span>
     {:else if phase.phase === "in_band"}
       <span class="rest-time tabular" role="timer">{formatSeconds(phase.elapsedS)}</span>
-      <span class="rest-label" aria-live="polite"
-        >Ready — {formatSeconds(phase.bandMaxS - phase.elapsedS)} left in the window</span
+      <!-- Only the phase word is live. The remaining-window figure changes every second,
+           and inside the live region it re-announced the whole label on each tick —
+           roughly fifteen times across a 75-90s rest's window, over the top of whatever
+           the user was actually doing. The clock beside it is `role="timer"`, which is
+           not a live region, so both numbers stay readable on demand without either of
+           them interrupting. -->
+      <span class="rest-label"
+        ><span aria-live="polite">Ready</span> — {formatSeconds(phase.bandMaxS - phase.elapsedS)} left
+        in the window</span
       >
     {:else}
       <span class="rest-time tabular" role="timer">{formatSeconds(phase.elapsedS)}</span>

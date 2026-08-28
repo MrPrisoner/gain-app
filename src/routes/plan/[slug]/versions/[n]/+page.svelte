@@ -70,7 +70,8 @@
     </button>
   </div>
 
-  <textarea class="doc" readonly rows="24" value={data.source}></textarea>
+  <textarea class="doc" readonly rows="24" aria-label="Plan document" value={data.source}
+  ></textarea>
 {/if}
 
 <BackLink href={`/plan/${data.planSlug}/versions`} label="← All versions" />

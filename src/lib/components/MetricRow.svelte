@@ -14,7 +14,12 @@
    *
    * A `fieldset`/`legend` names the group rather than a `<label>` wrapping the whole row
    * of buttons — a label associates with exactly one control, and this row is a group of
-   * several independent buttons, one per cell. The row is sized to its own cell count
+   * several independent buttons, one per cell. Each cell carries `aria-pressed`, because
+   * `.selected` is a background and a border colour and nothing else: without it the
+   * selection is conveyed by colour alone, and a screen-reader user can hear the question
+   * and every available value while having no way to tell which one they just recorded.
+   * That is not acceptable for the 0-10 symptom scale this component exists to collect.
+   * The row is sized to its own cell count
    * (`--cells`) rather than a fixed column count, so an 11-cell 0–10 scale and a 3-option
    * enum each get a grid fit to what they actually render — UI-DECISIONS §8: "a row of
    * tappable cells", not a wrap.
@@ -68,6 +73,7 @@
           type="button"
           class="scale-cell"
           class:selected={selected === value}
+          aria-pressed={selected === value}
           onclick={() => select(value)}
         >
           {value}
@@ -85,6 +91,7 @@
           type="button"
           class="scale-cell"
           class:selected={selected === option}
+          aria-pressed={selected === option}
           onclick={() => select(option)}
         >
           {option}

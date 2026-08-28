@@ -109,8 +109,14 @@ test("the metric trends list and detail chart the session-scope symptoms metric"
   await expect(
     page.getByRole("heading", { name: "Hip / lower-back symptoms during this session" }),
   ).toBeVisible();
+  // `.dot`, not the bare `svg`, for the same reason as the two charts above: Sparkline
+  // renders its `<svg role="group" aria-label>` in both the populated and the empty
+  // branch — only the contents swap — so asserting on the shell alone passes with zero
+  // plotted points and proves nothing about the metric series reaching the chart.
   await expect(
-    page.locator('svg[aria-label="Hip / lower-back symptoms during this session trend chart"]'),
+    page
+      .locator('svg[aria-label="Hip / lower-back symptoms during this session trend chart"] .dot')
+      .first(),
   ).toBeVisible();
 
   await assertNoHorizontalOverflow(page);

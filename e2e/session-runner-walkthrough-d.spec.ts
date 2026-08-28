@@ -142,7 +142,10 @@ test("Session D end-to-end: a ranged set surviving a substitute, the two-round a
   await expect(openExercise(page).locator(".condition")).toContainText(
     "familiar hip or lower-back symptoms",
   );
-  await openExercise(page).getByRole("button", { name: "Swap: dead-bug" }).click();
+  // "Dead bug", not "dead-bug": the chip shows the catalogue name, since a slug is not
+  // a name to offer a user (review 2026-08-27, U9). The *logged* slug is still
+  // `dead-bug`, which is what the assertions at the bottom of this spec check.
+  await openExercise(page).getByRole("button", { name: "Swap: Dead bug" }).click();
   await expect(openExercise(page).locator(".exercise-name")).toHaveText("Dead bug");
   await expect(openExercise(page)).toContainText("Swapped in for Reverse crunch");
 
