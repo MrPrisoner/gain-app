@@ -48,11 +48,12 @@ async function outboxRecords(page: import("@playwright/test").Page): Promise<Out
     () =>
       new Promise<OutboxRecordShape[]>((resolve, reject) => {
         const request = indexedDB.open("gain-sync");
-        request.onerror = () => reject(request.error);
+        request.onerror = () =>
+          reject(new Error(request.error?.message ?? "indexedDB.open failed"));
         request.onsuccess = () => {
           const db = request.result;
           const all = db.transaction("outbox", "readonly").objectStore("outbox").getAll();
-          all.onerror = () => reject(all.error);
+          all.onerror = () => reject(new Error(all.error?.message ?? "outbox getAll failed"));
           all.onsuccess = () => {
             db.close();
             resolve(all.result as OutboxRecordShape[]);
@@ -122,9 +123,9 @@ test("an op naming a renamed-away slug is held, marked and surfaced — never dr
   const afterFlush = await outboxRecords(page);
   const quarantined = afterFlush.filter((record) => record.state === "quarantined");
   expect(quarantined, "the failed op must survive in the outbox").toHaveLength(1);
-  expect(quarantined[0].op.kind).toBe("set");
-  expect(quarantined[0].op.exerciseSlug).toBe("goblet-squat");
-  expect(quarantined[0].error).toContain("goblet-squat");
+  expect(quarantined[0]!.op.kind).toBe("set");
+  expect(quarantined[0]!.op.exerciseSlug).toBe("goblet-squat");
+  expect(quarantined[0]!.error).toContain("goblet-squat");
 
   // ...and never retried forever behind the ops that follow it: nothing is pending, and
   // the server never applied it under either slug.
