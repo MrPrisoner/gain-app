@@ -554,23 +554,26 @@ that can be done in the tree.
 
 ### Before more feature work
 
-- [ ] **Decide whether GAIN shows a plan's symptom framework to the user.** `safety.symptom_framework`
-      — the green/yellow/red pain guidance, with an action and modifications per level — has
-      been parsed, validated and stored in `plan_version.safety_json` since phase 2, and is
-      replayed verbatim into every export so the reviewing AI reads it. **No route and no
-      component has ever read it back.** The plan tells the user which sensations mean stop,
-      and the app never shows them, at the one moment the guidance exists for.
+- [x] **Decide whether GAIN shows a plan's symptom framework to the user.** Decided: build
+      it. `safety.symptom_framework` — the green/yellow/red pain guidance, with an action
+      and modifications per level — had been parsed, validated and stored in
+      `plan_version.safety_json` since phase 2, replayed verbatim into every export, and
+      never read back by any route or component.
 
-      This is a product decision, not a cleanup, and it is the reason UI-DECISIONS §5 was
-      rewritten rather than merely corrected: the colour triad was reserved for this and
-      nothing else, so the answer here decides what the colour system is for. Note the data
-      models do not line up — the framework has three levels, the metric the app collects is
-      a 0–10 scale, and nothing maps one onto the other — so "render the metric as a traffic
-      light" is not the cheap version of this.
-      **Done when:** either the framework is rendered in the runner and §5's reservation
-      comes back with it, or the decision not to render it is recorded in UI-DECISIONS §5
-      with its reason. Storing safety guidance the user never sees is the one outcome that
-      should not continue by default.
+      `src/lib/session/symptom-guide.ts` is the pure module: it turns a plan's `safety`
+      block into a canonically-ordered (`green` → `yellow` → `red`, regardless of
+      declaration order), token-mapped, display-ready list, unit-tested without a
+      framework. The runner's header carries a "Symptom guide" trigger — shown only when
+      the plan declares a framework at all — opening `SymptomGuideSheet.svelte`: each
+      level's label, its action as a verb, its modifications, and `safety.escalation` as a
+      closing note. `DeviationSheet`'s `stop_red_flag` choice quotes the `red` level
+      inline, so the runner's one safety-critical control says what stopping means rather
+      than asking blind. `e2e/symptom-guide.spec.ts` opens both from a real session and
+      asserts the fixture's own level text is on screen, not merely that a sheet's shell
+      rendered.
+      This resolves UI-DECISIONS §5's reservation: the colour triad now has the framework
+      it was reserved for, `--green` has its first call sites, and the section describes
+      the app that exists.
 
 - [ ] **Per-user migration observability.** Migrations run lazily, per user, only when that
       user's next request opens their database — so a deploy migrates nobody, there is no

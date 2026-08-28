@@ -500,9 +500,9 @@ protect:
   charts, the export. Settled 2026-08-10: the contract has no field meaning "this movement
   is paired", `per_side` is not that field, and adding one was rejected because
   `docs/CONTRACT.md` ships verbatim in every export and bootstrap prompt. So UI-DECISIONS
-  §3's `2 × N` sub-line is the one clause of that document _deliberately_ left unbuilt
-  (§5's symptom triad is also unbuilt, but that was drift rather than a decision — see
-  below).
+  §3's `2 × N` sub-line is the one clause of that document _deliberately_ left unbuilt —
+  §5's symptom triad, once also unbuilt through drift rather than decision, is now built
+  (see below).
   Do not implement it, do not add a `paired` field, and do not infer pairing from a slug
   or a load label. The full reasoning, including the one honest consequence it leaves
   behind, is in UI-DECISIONS §3.
@@ -511,17 +511,20 @@ protect:
   heading — the same mark in all three, because a screen that says "done" two different
   ways makes the user learn two vocabularies for one idea. Settled 2026-08-15; the
   reasoning, including why the pills do not reserve space and why a rounds block asks its
-  round counter rather than its exercises, is in UI-DECISIONS §1. **Inside the session runner there is no
-  colour but the accent** — do not add a green success state, and do not traffic-light
-  progress; the runner is read one-handed at arm's length, and every extra hue competes
-  with whatever matters most. Outside the runner, `--red` and `--amber` carry their
-  ordinary meanings (a blocking error, a destructive action, a warning) in the admin
-  screen, the export screen, the sync banner, `/account` and the import review, and
-  using them there is correct rather than an exception. Corrected 2026-08-27: this used
-  to say the triad was reserved for "§5's symptom triad", which described a feature that
-  was never built — `--green` has zero call sites app-wide, and `safety_json` is read by
-  no UI code at all. UI-DECISIONS §5 has what replaced it; whether the framework gets
-  built is an open question in ROADMAP.
+  round counter rather than its exercises, is in UI-DECISIONS §1. **Inside the ordinary
+  flow of the runner — logging sets, resting, the ledger — there is no colour but the
+  accent** — do not add a green success state there, and do not traffic-light progress;
+  the runner is read one-handed at arm's length, and every extra hue competes with
+  whatever matters most. Outside the runner, `--red` and `--amber` carry their ordinary
+  meanings (a blocking error, a destructive action, a warning) in the admin screen, the
+  export screen, the sync banner, `/account` and the import review, and using them there
+  is correct rather than an exception. Settled 2026-08-28 (D2, `docs/REVIEW-2026-08-27.md`):
+  the plan's own pain-response framework (`safety.symptom_framework`) is now rendered —
+  `$lib/session/symptom-guide.ts` plus a header-reachable sheet
+  (`session/[key]/SymptomGuideSheet.svelte`) and an inline quote on the deviation sheet's
+  `stop_red_flag` choice — and it is the one exception to the accent-only rule, because it
+  _is_ the framework the rule was reserving colour for, not a second system competing with
+  it. `--green` has its first call sites there. UI-DECISIONS §5 has the full account.
 - **The post-session celebration is a moment, never a step, and is the one full-screen
   exception to the runner's accent-only rule.** It renders after the finish op is already written and the
   workout's local key already cleared, so dismissing it — or never dismissing it — cannot
@@ -585,7 +588,7 @@ protect:
 - **The Content-Security-Policy comes from `kit.csp`, and the other headers from
   `hooks.server.ts` — never both from one place.** Settled 2026-08-28 (ARCHITECTURE §3,
   "Security headers"). SvelteKit alone knows the nonce it stamped into the page's own
-  hydration script, and a browser *intersects* two CSP headers, so a second static policy
+  hydration script, and a browser _intersects_ two CSP headers, so a second static policy
   set in the hook would block exactly the scripts the app needs. The hook sets the four
   static headers plus a `default-src 'none'` CSP for the responses SvelteKit renders no
   page for. The consequence for anything user-facing: **no inline `<script>` and no

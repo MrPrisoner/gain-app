@@ -28,6 +28,7 @@ import type { UserDb } from "$lib/db/user-db";
 import { pickPrefill, type PrefillByExercise } from "$lib/session/prefill";
 import { hydrateSession, type SessionHydration } from "$lib/session/resume";
 import { resolveLoad, resolveSession, sessionMetrics } from "$lib/session/session-view";
+import { symptomGuideLevels } from "$lib/session/symptom-guide";
 import type { IntOrRange } from "$lib/contract/schema";
 
 export const load: PageServerLoad = ({ params, locals }) => {
@@ -129,6 +130,10 @@ export const load: PageServerLoad = ({ params, locals }) => {
     // the wrap-up sheet — the runner uses this only to render the honest "we'll ask
     // tomorrow" note, never to prompt for them here.
     nextMorningMetrics: sessionMetrics(contract, "next_morning"),
+    // D2 (`docs/REVIEW-2026-08-27.md`): the plan's own pain-response guidance, rendered
+    // in the runner rather than only exported. `[]` when the plan declares none.
+    symptomGuide: symptomGuideLevels(contract.safety),
+    safetyEscalation: contract.safety?.escalation,
   };
 };
 

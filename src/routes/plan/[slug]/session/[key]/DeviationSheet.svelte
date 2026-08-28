@@ -4,12 +4,14 @@
   import { trapFocus } from "$lib/actions/focus-trap";
   import { newOpId } from "$lib/sync/ops";
   import { logWrite } from "$lib/sync/client.svelte";
+  import type { SymptomGuideLevel } from "$lib/session/symptom-guide";
 
   let {
     exerciseSlug,
     substitutes,
     nameForSlug,
     canChangeSetCount,
+    redLevel,
     planSlug,
     workoutClientId,
     onClose,
@@ -30,6 +32,10 @@
      * the sheet would close, the row would be written, and the ledger would not budge.
      */
     canChangeSetCount: boolean;
+    /** The plan's `red` symptom level (D2), quoted inline on the `stop_red_flag` choice
+     * so a control that ends the workout also says what stopping means. `undefined` when
+     * the plan declares no symptom framework at all. */
+    redLevel: SymptomGuideLevel | undefined;
     planSlug: string;
     workoutClientId: string;
     onClose: () => void;
@@ -158,6 +164,19 @@
       </select>
     {/if}
 
+    {#if kind === "stop_red_flag" && redLevel}
+      <div class="red-level" style:border-color={`var(${redLevel.token})`}>
+        <p class="red-level-label">{redLevel.label}</p>
+        {#if redLevel.modifications.length > 0}
+          <ul>
+            {#each redLevel.modifications as modification (modification)}
+              <li>{modification}</li>
+            {/each}
+          </ul>
+        {/if}
+      </div>
+    {/if}
+
     <div class="reason-row" role="radiogroup" aria-label="Why">
       {#each reasons as reason (reason.code)}
         <label>
@@ -208,6 +227,22 @@
     flex-wrap: wrap;
     gap: 0.6rem;
     font-size: 0.85rem;
+  }
+  .red-level {
+    border-left: 3px solid;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+    background: var(--raised);
+    border-radius: var(--r-xs);
+  }
+  .red-level-label {
+    margin: 0;
+    font-weight: 600;
+  }
+  .red-level ul {
+    margin: 0.35rem 0 0;
+    padding-left: 1.25rem;
+    color: var(--muted);
   }
   /* Each label is the tap target for its radio (the input itself is a few px), so it
      needs the same 44px minimum as every other control here — a row of chip-like

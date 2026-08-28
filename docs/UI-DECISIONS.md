@@ -238,41 +238,50 @@ filled segments in the accent. Colouring "Hard" red would say *stop* about the o
 plan is usually trying to produce — the exact inversion of what red would mean if it meant
 anything here.
 
-### Corrected 2026-08-27: the symptom triad is not built, and this section described it as though it were
+### Corrected 2026-08-27, settled 2026-08-28: the symptom triad is built, and the reservation is back
 
 For most of this project's life this section opened by reserving green, amber and red for
 "the plan's pain-response framework (CONTRACT `safety`, fixture §4)", and forbade a success
-green or an error red anywhere that might compete with it. **That framework has never been
-rendered.** `safety.symptom_framework` is parsed, validated and stored in
-`plan_version.safety_json`, it is replayed verbatim into every export so the reviewing AI
-reads it — and no route and no component in the app has ever read it back. The `--green`
-token is defined in all four theme blocks and used at zero call sites.
+green or an error red anywhere that might compete with it — while the framework itself had
+never been rendered. The 2026-08-27 review (D1, D2) caught the gap: `safety.symptom_framework`
+was parsed, validated, stored and exported, and no route or component ever read it back, so
+the reservation was protecting the legibility of a scale that was never drawn, and the
+`--green` token sat defined in all four theme blocks at zero call sites.
 
-So the reservation was protecting the legibility of a scale that is never drawn, while
-still charging rent: it is why there is no success state anywhere in this app. Two
-amendments were recorded against it as "narrow exceptions" — the celebration confetti
-(2026-08-15) and the `/admin` reset control (2026-08-17) — and between them, plus red and
-amber's ordinary use in the import, export, account and sync surfaces, the exceptions had
-become the entire practice.
+**The gap is closed.** `$lib/session/symptom-guide.ts` turns a plan's `safety` block into a
+canonically-ordered (`green` → `yellow` → `red`), token-mapped, display-ready list — pure,
+unit-tested, no framework. The runner's header carries a "Symptom guide" trigger, shown
+only when the plan declares a framework at all, opening `SymptomGuideSheet.svelte`: each
+level's label, its action as a verb ("Carry on" / "Modify" / "Stop"), its modifications, and
+`safety.escalation` as a closing note. `DeviationSheet`'s `stop_red_flag` choice quotes the
+`red` level inline, so the runner's one safety-critical control now says what stopping
+means rather than asking blind. `e2e/symptom-guide.spec.ts` opens both from a real session
+and asserts the fixture's own level text is on screen, not merely that a sheet's shell
+rendered — the vacuous-assertion trap phase 7 and U4 both already caught here.
 
 **What is true now:**
 
-- **Inside the session runner, there is no colour but the accent.** This is the durable
-  half of the original decision and it should stay. The runner is used one-handed, mid-set,
-  at arm's length; a screen that traffic-lights progress competes with whatever scale
-  matters most, and the fewer hues in play there, the better.
+- **Colour is never the sole carrier.** Every level renders its label and action word
+  regardless of hue — the swatch reinforces, it does not replace. This is the same rule U1
+  raised elsewhere in the runner (the symptom *scale*, a different surface — see below).
+- **Inside the ordinary flow of the runner — logging sets, resting, the ledger — there is
+  still no colour but the accent.** The symptom guide sheet and the red-flag quote inside
+  the deviation sheet are the one exception, and it is the exception the original
+  reservation was written for: this *is* the pain-response framework, not a second
+  unrelated colour system competing with it.
 - **Outside the runner, `--red` and `--amber` carry their ordinary meanings** — a blocking
   error, a destructive action, a warning — in the import review, the export screen, the
-  sync banner, `/admin` and `/account`. This is correct and is no longer an exception to
-  anything.
-- **`--green` is currently unused.** It is kept defined because it is the token the symptom
-  framework would claim if that feature is ever built.
+  sync banner, `/admin` and `/account`.
+- **`--green` now has its first call sites**, in the symptom guide's `green` level swatch.
 
-**If the symptom framework is built, this section is open again**, and the reservation
-comes back with it — that is precisely the rule this document sets out in its preamble:
-where a decision has a reason attached, a change that makes the reason false reopens the
-decision. Whether to build it is a live product question rather than a settled one, and it
-is recorded as such in [`ROADMAP.md`](ROADMAP.md) rather than implied here.
+**One vocabulary note, applied.** The contract's middle level is spelled `yellow`; the
+design token is `--amber`. `symptom-guide.ts`'s `TOKEN_BY_LEVEL` is the one place that
+mapping is made, so a future edit maps onto it rather than rediscovering the spelling
+mismatch.
+
+This section's rule from its preamble held: a decision's reason had gone false, so the
+decision was open again, and building the framework closed it. Nothing here is a decision
+still to make — see [`ROADMAP.md`](ROADMAP.md) for where this item was tracked.
 
 **One vocabulary note for whoever builds it.** The contract's middle level is spelled
 `yellow` (`safety.symptom_framework[].level`), while the design token is `--amber`. The
