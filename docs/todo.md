@@ -23,24 +23,4 @@ Then clear it up behind you:
 From [`REVIEW-2026-08-27.md`](REVIEW-2026-08-27.md). Everything here is a single commit or
 less; the bigger findings went to [`ROADMAP.md`](ROADMAP.md) under "Post-review work".
 
-- **Expired sessions are purged only at process start** (`hooks.server.ts:29`, guarded by
-  `started`), so a container running for months never purges again. Not a security hole —
-  expiry is checked on use — but every retained row still holds its plaintext refresh
-  token, which makes the purge the only thing that ever removes stored credentials.
-
-- **Exports are written to `users/<id>/exports/` forever** — no retention, no cap, and no
-  route anywhere lists, reads or deletes them, so the user cannot see or manage files that
-  reach 1.6 MB each at three years of history. Decide what the archive is for: give it a UI
-  and a retention window, or stop writing it. The `try {} catch {}` around the write is
-  correct and should stay either way.
-
-- **`syncBatchSchema` caps ops at 500 but nothing caps request size**, and `/api/sync`
-  replays a batch in one synchronous transaction. A batch-size bound belongs in the app
-  rather than the proxy, because only the app knows what a plausible batch looks like.
-
-- **`ORIGIN` is not required to be HTTPS and `SESSION_SECRET` has no strength check.**
-  `SESSION_SECRET=x` starts and serves in production; `ORIGIN=http://…` starts cleanly and
-  logs a plaintext OIDC redirect URI while the cookie is still issued `Secure`, so the two
-  silently disagree and login fails with no diagnostic. Also worth a line in `.env.example`:
-  rotating `SESSION_SECRET` signs every user out at once, because `verifySessionCookie`
-  computes one MAC from one secret with no previous-secret fallback.
+Empty — all four items from the 2026-08-27 review closed on 2026-08-28.
