@@ -68,15 +68,18 @@ afterEach(() => {
 
 // ---------------------------------------------------------------------------
 // Minimal RequestEvent stand-in — the handler only ever reads `locals.user`,
-// `request.json()` and `url.searchParams` (same shape first-run.test.ts uses
-// for the page actions).
+// `request.headers`, `request.json()` and `url.searchParams` (same shape
+// first-run.test.ts uses for the page actions).
 // ---------------------------------------------------------------------------
 
-function event(opts: { authed?: boolean; body?: unknown }) {
-  const { authed = true, body } = opts;
+function event(opts: { authed?: boolean; body?: unknown; contentLength?: string }) {
+  const { authed = true, body, contentLength = null } = opts;
   const url = new URL("https://gain.example.com/api/sync");
   return {
-    request: { json: () => Promise.resolve(body) },
+    request: {
+      json: () => Promise.resolve(body),
+      headers: { get: (name: string) => (name === "content-length" ? contentLength : null) },
+    },
     locals: authed ? { user: { id: USER_ID, bypass: true } } : { user: null },
     url,
   } as never;
@@ -128,6 +131,12 @@ describe("POST /api/sync", () => {
     expect(data).not.toHaveProperty("applied");
     expect(data).not.toHaveProperty("failed");
 
+    expect(counts()).toEqual({ workouts: 0, sets: 0 });
+  });
+
+  it("rejects an oversized batch with 413 before parsing the body", async () => {
+    const res = await POST(event({ body: validBatch(), contentLength: "2000000" }));
+    expect(res.status).toBe(413);
     expect(counts()).toEqual({ workouts: 0, sets: 0 });
   });
 

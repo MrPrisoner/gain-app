@@ -17,8 +17,23 @@ import { getDataGeneration } from "$lib/server/control-db";
 import { syncBatchSchema } from "$lib/sync/ops";
 import { replayOps } from "$lib/sync/replay";
 
+/**
+ * `syncBatchSchema` caps op *count* at 500 but not the size of any one op's free-text
+ * fields (a deviation's `note`, a metric's `valueText`, ...), so op count alone does not
+ * bound request size. This is an app-level bound rather than a proxy setting because
+ * only the app knows what a plausible batch looks like (docs/todo.md) — 500 ops of
+ * realistic field sizes lands nowhere near this, so it only ever rejects something
+ * pathological.
+ */
+const MAX_SYNC_BODY_BYTES = 1_000_000;
+
 export const POST: RequestHandler = async ({ request, locals }) => {
   if (!locals.user) return json({ error: "Not signed in." }, { status: 401 });
+
+  const contentLength = Number(request.headers.get("content-length") ?? "0");
+  if (contentLength > MAX_SYNC_BODY_BYTES) {
+    return json({ error: "Batch is too large." }, { status: 413 });
+  }
 
   let body: unknown;
   try {
