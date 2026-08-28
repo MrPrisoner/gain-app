@@ -68,3 +68,58 @@ export function loginUrlFor(pathname: string, search = ""): string {
   if (target === "/") return "/login";
   return `/login?return_to=${encodeURIComponent(target)}`;
 }
+
+/**
+ * The gate's own refusal, as a response rather than a thrown `error()`.
+ *
+ * Throwing is what a route does; `handle` cannot. SvelteKit catches an `HttpError` out of
+ * `handle` and builds the response itself through `handle_fatal_error`, which never
+ * passes back through the hook's own `withSecurityHeaders` — so every response an
+ * unauthenticated caller could see shipped with no CSP, no `x-frame-options` and no
+ * `nosniff`, while every response an authenticated one saw had all four (ARCHITECTURE
+ * §3). Returning the response instead puts the refusals back on the same path as
+ * everything else.
+ *
+ * The two shapes match what SvelteKit was negotiating anyway: JSON for a fetch, which is
+ * all `$lib/sync/client.svelte.ts` ever reads, and a page for a navigation. The page is
+ * deliberately unstyled — `FALLBACK_CSP` is `default-src 'none'`, so an inline `<style>`
+ * would be blocked by the very header this exists to carry.
+ */
+export function refusal(status: number, message: string, isNavigation: boolean): Response {
+  if (!isNavigation) {
+    return new Response(JSON.stringify({ message }), {
+      status,
+      headers: { "content-type": "application/json" },
+    });
+  }
+  return new Response(
+    `<!doctype html><html lang="en"><head><meta charset="utf-8">` +
+      `<title>${status}</title></head><body><h1>${status}</h1>` +
+      `<p>${escapeHtml(message)}</p></body></html>`,
+    { status, headers: { "content-type": "text/html; charset=utf-8" } },
+  );
+}
+
+/**
+ * The login redirect, for the same reason `refusal` exists — a thrown `redirect()` skips
+ * the header wrapper too. 303 rather than 302 so the method is reset to GET, and a body
+ * would be ignored, so there is nothing here to escape.
+ */
+export function seeOther(location: string): Response {
+  return new Response(null, { status: 303, headers: { location } });
+}
+
+/**
+ * The 403's message is `checkSession`'s, and that one names the required group — which
+ * comes from `OIDC_REQUIRED_GROUP`, i.e. from configuration rather than from this
+ * codebase. Interpolating it into markup unescaped is how a refusal page becomes an
+ * injection point.
+ */
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}

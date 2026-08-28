@@ -11,11 +11,17 @@
  */
 
 import { building } from "$app/environment";
-import { error, redirect, type Handle } from "@sveltejs/kit";
+import type { Handle } from "@sveltejs/kit";
 import { checkSession, ensureBypassUser, setSessionCookie } from "$lib/server/auth";
 import { getControlDb } from "$lib/server/app-state";
 import { getConfig } from "$lib/server/config";
-import { isNavigationRequest, isPublicPath, loginUrlFor } from "$lib/server/gate";
+import {
+  isNavigationRequest,
+  isPublicPath,
+  loginUrlFor,
+  refusal,
+  seeOther,
+} from "$lib/server/gate";
 import { runHousekeeping } from "$lib/server/housekeeping";
 import { FALLBACK_CSP, SECURITY_HEADERS } from "$lib/server/headers";
 
@@ -113,17 +119,25 @@ export const handle: Handle = async ({ event, resolve }) => {
   }
 
   const check = await checkSession(event.cookies, config, config.auth.oidc, now);
+  const navigation = isNavigationRequest(event.request);
   if (check.status === "anonymous") {
     // A navigation goes to the login page and comes back to where it was
     // headed; anything else gets a 401 it can act on, because a 303 would
     // replay a POST as a GET and discard the body (§4).
-    if (!isNavigationRequest(event.request)) {
-      throw error(401, "Your session has expired. Sign in again to continue.");
+    //
+    // Returned rather than thrown, both of them: SvelteKit builds the response for an
+    // `HttpError` or a `Redirect` out of `handle` itself, which never comes back through
+    // `withSecurityHeaders` — so the gate's refusals were the only responses in the app
+    // shipping without a CSP or any of the other three (`$lib/server/gate.ts`).
+    if (!navigation) {
+      return withSecurityHeaders(
+        refusal(401, "Your session has expired. Sign in again to continue.", false),
+      );
     }
-    throw redirect(303, loginUrlFor(pathname, search));
+    return withSecurityHeaders(seeOther(loginUrlFor(pathname, search)));
   }
   if (check.status === "forbidden") {
-    throw error(403, check.message);
+    return withSecurityHeaders(refusal(403, check.message, navigation));
   }
   if (check.setCookie) {
     setSessionCookie(event.cookies, config, check.setCookie);
