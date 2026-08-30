@@ -22,6 +22,8 @@ import { resetConfigForTests } from "../../src/lib/server/config";
 import { SECURITY_HEADERS } from "../../src/lib/server/headers";
 
 let tmpDir: string;
+let logSpy: ReturnType<typeof vi.spyOn>;
+let errorSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "gain-hooks-test-"));
@@ -35,7 +37,8 @@ beforeEach(() => {
   delete process.env.GAIN_DEV_USER;
   resetConfigForTests();
   resetAppStateForTests();
-  vi.spyOn(console, "log").mockImplementation(() => {});
+  logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+  errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
 afterEach(() => {
@@ -92,5 +95,43 @@ describe("the gate's own refusals", () => {
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe("/login?return_to=%2Fplan%2Fhome-training");
     assertSecured(response);
+  });
+});
+
+describe("request logging (review 2026-08-27, E6)", () => {
+  it("logs one line per response, including a gate refusal that never reached resolve", async () => {
+    await refuse({ "sec-fetch-mode": "cors" });
+
+    expect(logSpy).toHaveBeenCalledWith(
+      expect.stringMatching(/^\[gain] GET \/plan\/home-training 401 \d+ms user=-$/),
+    );
+  });
+});
+
+describe("handleError (review 2026-08-27, E6)", () => {
+  it("logs the cause with an error id and returns that id to the client", async () => {
+    const { handleError } = await import("../../src/hooks.server");
+    const cause = new Error("something unhandled");
+    const url = new URL("https://gain.example.com/plan/home-training");
+
+    const result = await handleError({
+      error: cause,
+      event: {
+        url,
+        locals: { user: { id: "alice", bypass: false, displayName: null, isAdmin: false } },
+        request: new Request(url, { method: "GET" }),
+      },
+      status: 500,
+      message: "Internal Error",
+    } as never);
+
+    expect(result).toMatchObject({ message: "Internal Error" });
+    const errorId = (result as { errorId: string }).errorId;
+    expect(typeof errorId).toBe("string");
+    expect(errorId.length).toBeGreaterThan(0);
+    expect(errorSpy).toHaveBeenCalledWith(
+      `[gain] unhandled error id=${errorId} GET /plan/home-training user=alice`,
+      cause,
+    );
   });
 });

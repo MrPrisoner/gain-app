@@ -31,7 +31,17 @@ declare global {
         isAdmin: boolean;
       } | null;
     }
-    // interface Error {}
+    /**
+     * `hooks.server.ts`'s `handleError` attaches `errorId` to every *unhandled* error so
+     * `+error.svelte` can show it: the id names the exact log line an operator needs to
+     * find the stack trace behind whatever the user is reporting. Optional, not present
+     * on the app's own `error(status, "message")` calls — those are expected refusals
+     * (`$lib/server/gate.ts`'s wording, a 404, a validation failure) with their own
+     * message and no unhandled-error log line behind them to point at.
+     */
+    interface Error {
+      errorId?: string;
+    }
     // interface PageData {}
     // interface PageState {}
     // interface Platform {}

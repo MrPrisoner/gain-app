@@ -11,7 +11,7 @@
  */
 
 import { building } from "$app/environment";
-import type { Handle } from "@sveltejs/kit";
+import type { Handle, HandleServerError } from "@sveltejs/kit";
 import { checkSession, ensureBypassUser, setSessionCookie } from "$lib/server/auth";
 import { getControlDb } from "$lib/server/app-state";
 import { getConfig } from "$lib/server/config";
@@ -24,6 +24,7 @@ import {
 } from "$lib/server/gate";
 import { runHousekeeping } from "$lib/server/housekeeping";
 import { FALLBACK_CSP, SECURITY_HEADERS } from "$lib/server/headers";
+import { logRequest, logUnhandledError } from "$lib/server/log";
 
 /**
  * How often to re-run housekeeping after startup. A container runs for months, and
@@ -84,7 +85,27 @@ function withSecurityHeaders(response: Response): Response {
   return response;
 }
 
-export const handle: Handle = async ({ event, resolve }) => {
+/**
+ * One request-log line per response, timed and attributed to whichever user `route`
+ * resolved onto `event.locals` — including the anonymous case, since a gate refusal is
+ * exactly the response an operator most wants a record of. Wrapping rather than logging
+ * from inside `route` keeps every one of its early returns covered by one call instead of
+ * needing its own.
+ */
+export const handle: Handle = async (input) => {
+  const start = Date.now();
+  const response = await route(input);
+  logRequest({
+    method: input.event.request.method,
+    path: input.event.url.pathname,
+    status: response.status,
+    durationMs: Date.now() - start,
+    userId: input.event.locals.user?.id ?? null,
+  });
+  return response;
+};
+
+const route: Handle = async ({ event, resolve }) => {
   startup();
   event.locals.user = null;
 
@@ -150,4 +171,27 @@ export const handle: Handle = async ({ event, resolve }) => {
     isAdmin: check.isAdmin,
   };
   return withSecurityHeaders(await resolve(event));
+};
+
+/**
+ * SvelteKit calls this for whatever a route or a load function threw that was not one of
+ * its own `error()`/`redirect()` results — an unhandled error, in other words, which
+ * before this landed as a bare `console.error(error)` with no request context and no way
+ * for the person hitting it to hand back anything but "it broke" (review 2026-08-27, E6).
+ * The id is returned to the client as `App.Error.errorId` (`src/app.d.ts`) and rendered on
+ * `+error.svelte`, so a user quoting it is quoting exactly the log line that has the
+ * stack trace.
+ */
+export const handleError: HandleServerError = ({ error, event, message }) => {
+  const errorId = crypto.randomUUID();
+  logUnhandledError(
+    {
+      errorId,
+      method: event.request.method,
+      path: event.url.pathname,
+      userId: event.locals.user?.id ?? null,
+    },
+    error,
+  );
+  return { message, errorId };
 };

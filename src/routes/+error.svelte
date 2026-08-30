@@ -17,6 +17,11 @@
     <p class="explain">
       {page.error?.message ?? "An unexpected error occurred."}
     </p>
+    {#if page.error?.errorId}
+      <p class="error-id">
+        If this keeps happening, mention error id <code>{page.error.errorId}</code>.
+      </p>
+    {/if}
   {/if}
 
   <p><a href="/">Back to GAIN</a></p>
@@ -44,5 +49,12 @@
     max-width: 34rem;
     margin: 0 auto 1.5rem;
     color: var(--muted);
+  }
+
+  .error-id {
+    max-width: 34rem;
+    margin: -1rem auto 1.5rem;
+    color: var(--dim);
+    font-size: 0.8125rem;
   }
 </style>
