@@ -2,6 +2,7 @@
   import { untrack } from "svelte";
   import { enhance } from "$app/forms";
   import { copyText, downloadText } from "$lib/copy";
+  import { blockingReport } from "$lib/import/blocking-report";
   import { refreshCounts, syncStatus } from "$lib/sync/client.svelte";
   import IconCheck from "~icons/lucide/check";
   import IconCircleCheck from "~icons/lucide/circle-check";
@@ -76,19 +77,9 @@
     copyBlockingTimer = setTimeout(() => (copiedBlocking = false), 2000);
   }
 
-  function blockingReport(): string {
-    if (!form?.revision) return "";
-    const { planSlug, fromVersion, toVersion, blocking } = form.revision;
-    return [
-      `GAIN could not accept version ${toVersion} of "${planSlug}" as a revision of version ${fromVersion}. Fix the following and return a corrected document:`,
-      "",
-      ...blocking.map((problem) => `- ${problem}`),
-    ].join("\n");
-  }
-
   async function copyBlocking() {
-    const report = blockingReport();
-    if (!report) return;
+    if (!form?.revision) return;
+    const report = blockingReport(form.revision);
     if (await copyText(report)) {
       flashCopiedBlocking();
     } else {

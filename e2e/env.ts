@@ -132,6 +132,16 @@ export function accountResetDevUserFor(projectName: string): string {
   return `e2e-account-reset-${projectName}`;
 }
 
+/**
+ * A per-project dev user for the import failure-screen walkthrough. It seeds v1 of the
+ * fixture and then re-submits it as a "revision" to produce a blocking diff (mismatched
+ * `based_on_version`) — that write is enough to need the same per-project isolation as
+ * `revisionDevUserFor`, even though the spec never actually commits an import.
+ */
+export function importFailureDevUserFor(projectName: string): string {
+  return `e2e-import-failure-${projectName}`;
+}
+
 /** Off the beaten path, so a developer's own `npm run dev` on 5173 is untouched. */
 export const E2E_PORT = 4319;
 export const E2E_BASE_URL = `http://127.0.0.1:${E2E_PORT}`;
