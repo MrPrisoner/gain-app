@@ -13,16 +13,18 @@ history rather than silently split.
 
 Where each part lives:
 
-| Area                                                                                                 | Code                                                                            |
-| ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| Pure round-trip core — contract schema, parser, diff engine, export generator, both prompt templates | `src/lib/contract/`, `parse/`, `diff/`, `export/`, `templates/`                 |
-| Storage — per-user provisioning, migrations, the import writer, reads                                | `src/lib/db/`                                                                   |
-| Server — config, `control.db`, OIDC, the auth gate, admin stats and reset, logging                   | `src/lib/server/`                                                               |
-| Session runner — resolution, pre-fill, rest timer, resume, symptom guide                             | `src/lib/session/`; route at `src/routes/plan/[slug]/session/[key]/`            |
-| Offline write layer — IndexedDB outbox, flush loop, replay, precache                                 | `src/lib/sync/`, `src/service-worker.ts`                                        |
-| Progress, charts & history                                                                           | `src/lib/progress/`, `src/lib/db/history.ts`                                    |
-| Import & revision diff review                                                                        | `src/lib/diff/present.ts`, `src/lib/import/`; route at `src/routes/import/`     |
-| Operator view                                                                                        | `src/lib/server/admin-stats.ts`, `admin-reset.ts`; route at `src/routes/admin/` |
+| Area                                                                                                 | Code                                                                                                                    |
+| ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Pure round-trip core — contract schema, parser, diff engine, export generator, both prompt templates | `src/lib/contract/`, `parse/`, `diff/`, `export/`, `templates/`                                                         |
+| Storage — per-user provisioning, migrations, the import writer, reads                                | `src/lib/db/`                                                                                                           |
+| Server — config, `control.db`, OIDC, the auth gate, admin stats and reset, logging                   | `src/lib/server/`                                                                                                       |
+| Session runner — resolution, pre-fill, rest timer, resume, symptom guide                             | `src/lib/session/`; route at `src/routes/plan/[slug]/session/[key]/`                                                    |
+| Offline write layer — IndexedDB outbox, flush loop, replay, precache                                 | `src/lib/sync/`, `src/service-worker.ts`                                                                                |
+| Progress, charts & history                                                                           | `src/lib/progress/`, `src/lib/db/history.ts`                                                                            |
+| Home screen — next session, last done, activity strip, morning prompt                                | `src/lib/home/`; route at `src/routes/+page.svelte` and its sibling components                                          |
+| Import & revision diff review                                                                        | `src/lib/diff/present.ts`, `src/lib/import/`; route at `src/routes/import/`                                             |
+| Operator view                                                                                        | `src/lib/server/admin-stats.ts`, `admin-reset.ts`; route at `src/routes/admin/`                                         |
+| Shared components & actions                                                                          | `src/lib/components/` (`Sparkline.svelte`, `BarChart.svelte`, `MetricRow`, `BackLink`), `src/lib/actions/focus-trap.ts` |
 
 The Playwright suite is the durable proof of each surface, and reading the relevant spec
 is the fastest way to learn how one actually behaves:
@@ -68,7 +70,8 @@ tsconfig.worker.json` pass for `src/service-worker.ts` — SvelteKit's generated
   (`node build` serves it; `ORIGIN` required outside dev). `GAIN_DEV_USER=you npm run dev`
   bypasses OIDC so the UI can be driven without an Authentik to point at; per-developer
   variables belong in the git-ignored `.env.local`, and the bottom of `.env.example` says
-  which ones are allowed there
+  which ones are allowed there. `GAIN_DEV_HOSTS=my-phone.home.arpa` also binds the dev
+  server beyond localhost, which is how a session gets driven on a real phone
 - `npm run lint` — ESLint
 - `npm run format` / `npm run format:check` — Prettier. `docs/`, `fixtures/`,
   `templates/` and `design/` are byte-sensitive and excluded from formatting; never
@@ -525,10 +528,12 @@ protect:
   It renders above `<main>`, so mounting one reflows the page — and a healthy online write
   goes idle → pending → syncing → idle in about a tenth of a second, which used to raise
   and drop two banners under the user's thumb mid-set. `$lib/sync/banner-gate.ts` holds
-  the rule: say nothing until a message has held for 700ms, and once said leave it up for
-  1.5s. The consequence is deliberate — a healthy sync is now _silent_, because there is
-  nothing the user can do about it, and "Syncing…" only ever appears when syncing is
-  genuinely slow. A component that reads `syncStatus.state` directly to render its own
+  the rule — say nothing until a message has held long enough to be worth saying, and once
+  said leave it up long enough to be read — while the durations themselves are the gate's
+  options, set once at its only call site in `src/routes/+layout.svelte` (700ms to appear,
+  1.5s minimum visible). The consequence is deliberate — a healthy sync is now _silent_,
+  because there is nothing the user can do about it, and "Syncing…" only ever appears when
+  syncing is genuinely slow. A component that reads `syncStatus.state` directly to render its own
   spinner or badge reintroduces the flicker one screen at a time; route sync feedback
   through the banner, or through the gate.
 - **The operator sees counts, never content — and the reset's order is load-bearing.**
@@ -566,6 +571,14 @@ protect:
   outside the hook, so a thrown 401/403/303 ships with none of these headers —
   `$lib/server/gate.ts`'s `refusal` and `seeOther` exist so the gate's own responses go
   out through `withSecurityHeaders` like every other one.
+- **Archiving a plan closes the session runner and leaves every read route open.**
+  Settled 2026-08-23. `export`, `history` and `progress` all 404'd on `archived_at` before
+  the feature landed, so a button shipped against those guards would have made archiving a
+  silent, unrecoverable loss of the user's own logged history. The asymmetry is the
+  feature: the plan leaves the active list into a collapsed Archived group, its history
+  still opens from there, unarchiving restores it in place, and only the runner refuses.
+  `tests/db/archive.test.ts` and `e2e/archive-walkthrough.spec.ts` hold both halves. A new
+  per-plan route has to decide which half it is on, and a read route defaults to open.
 - **There is no export archive.** `users/<id>/exports/` existed briefly (settled
   2026-08-28, capped at 20 files per plan) and was removed 2026-08-30 (review
   2026-08-27, A6/C2): nothing ever listed, read or deleted an archived file — the only
