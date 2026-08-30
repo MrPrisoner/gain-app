@@ -5,6 +5,7 @@
   import { blockingReport } from "$lib/import/blocking-report";
   import { refreshCounts, syncStatus } from "$lib/sync/client.svelte";
   import Button from "$lib/components/Button.svelte";
+  import Card from "$lib/components/Card.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import IconCheck from "~icons/lucide/check";
   import IconCircleCheck from "~icons/lucide/circle-check";
@@ -96,15 +97,17 @@
 
 <PageHeader title="Import a plan" />
 
-<section class="card">
-  <p class="muted">
-    The whole document — prose and contract block. GAIN checks it before writing anything.
-  </p>
-  <ImportPlanForm bind:pasted />
-</section>
+<div class="card">
+  <Card>
+    <p class="muted">
+      The whole document — prose and contract block. GAIN checks it before writing anything.
+    </p>
+    <ImportPlanForm bind:pasted />
+  </Card>
+</div>
 
 {#if form?.importError}
-  <section class="card report-card">
+  <section class="report-card">
     <h2>Nothing was imported</h2>
     <p>{form.importError}</p>
   </section>
@@ -118,7 +121,7 @@
       case gets no field paths and no copy-for-the-AI action — sending a
       bundle back to the chat would only confuse it.
     -->
-    <section class="card report-card">
+    <section class="report-card">
       <h2>That is a GAIN export, not a plan</h2>
       <p>
         Export bundles are what GAIN hands <em>to</em> an AI. Paste what your AI gave you back: the
@@ -126,7 +129,7 @@
       </p>
     </section>
   {:else}
-    <section class="card report-card">
+    <section class="report-card">
       <h2>Nothing was imported</h2>
       <p class="muted">
         This report is written for your AI, not for you — copy it back into the chat and the AI will
@@ -146,114 +149,119 @@
 {/if}
 
 {#if form?.firstImport}
-  <section class="card">
-    <h2>Ready to import</h2>
-    <p>
-      <strong>{form.firstImport.plan_name}</strong> — version {form.firstImport.version_no}:
-      {form.firstImport.counts.sessions} sessions, {form.firstImport.counts.exercises} exercises,
-      {form.firstImport.counts.prescriptions} prescriptions.
-    </p>
-    <form method="POST" action="?/commit" use:enhance>
-      <input type="hidden" name="source_md" value={form?.source ?? ""} />
-      <div class="actions">
-        {#snippet commitImportIcon()}<IconCircleCheck />{/snippet}
-        <Button variant="primary" type="submit" icon={commitImportIcon}>Commit import</Button>
-      </div>
-    </form>
-  </section>
+  <div class="card">
+    <Card>
+      <h2>Ready to import</h2>
+      <p>
+        <strong>{form.firstImport.plan_name}</strong> — version {form.firstImport.version_no}:
+        {form.firstImport.counts.sessions} sessions, {form.firstImport.counts.exercises} exercises,
+        {form.firstImport.counts.prescriptions} prescriptions.
+      </p>
+      <form method="POST" action="?/commit" use:enhance>
+        <input type="hidden" name="source_md" value={form?.source ?? ""} />
+        <div class="actions">
+          {#snippet commitImportIcon()}<IconCircleCheck />{/snippet}
+          <Button variant="primary" type="submit" icon={commitImportIcon}>Commit import</Button>
+        </div>
+      </form>
+    </Card>
+  </div>
 {/if}
 
 {#if form?.revision}
-  <section class="card">
-    <h2>Review the revision</h2>
-    <p class="muted">
-      Version {form.revision.fromVersion} → {form.revision.toVersion} of {form.revision.planSlug}.
-      Nothing is written until you commit.
-    </p>
+  <div class="card">
+    <Card>
+      <h2>Review the revision</h2>
+      <p class="muted">
+        Version {form.revision.fromVersion} → {form.revision.toVersion} of {form.revision.planSlug}.
+        Nothing is written until you commit.
+      </p>
 
-    {#if form.revision.blocking.length > 0}
-      <div class="blocking">
-        <p class="section-label"><IconTriangleAlert />This revision cannot be imported yet</p>
-        <ul>
-          {#each form.revision.blocking as problem (problem)}
-            <li>{problem}</li>
-          {/each}
-        </ul>
+      {#if form.revision.blocking.length > 0}
+        <div class="blocking">
+          <p class="section-label"><IconTriangleAlert />This revision cannot be imported yet</p>
+          <ul>
+            {#each form.revision.blocking as problem (problem)}
+              <li>{problem}</li>
+            {/each}
+          </ul>
+          <div class="actions">
+            {#snippet copyBlockingIcon()}
+              {#if copiedBlocking}<IconCheck />{:else}<IconCopy />{/if}
+            {/snippet}
+            <Button
+              variant="secondary"
+              type="button"
+              onclick={copyBlocking}
+              icon={copyBlockingIcon}
+            >
+              {copiedBlocking ? "Copied" : "Copy for the AI"}
+            </Button>
+          </div>
+        </div>
+      {/if}
+
+      <form method="POST" action="?/commit" use:enhance>
+        <input type="hidden" name="source_md" value={form?.source ?? ""} />
+
+        {#if form.revision.dispositions.length > 0}
+          <div class="block">
+            <p class="section-label">What happened to these exercises?</p>
+            <DispositionList dispositions={form.revision.dispositions} bind:choices />
+          </div>
+        {/if}
+
+        {#if form.revision.changelog.length > 0}
+          <div class="block">
+            <p class="section-label">What the AI says changed</p>
+            <ul>
+              {#each form.revision.changelog as line, i (i)}
+                <li>{line}</li>
+              {/each}
+            </ul>
+          </div>
+        {/if}
+
+        {#if form.revision.groups.length > 0}
+          <div class="block">
+            <p class="section-label">Everything that changed</p>
+            <DiffGroups groups={form.revision.groups} />
+          </div>
+        {/if}
+
+        {#if form.revision.warnings.length > 0}
+          <div class="block warnings">
+            <p class="section-label"><IconTriangleAlert />Worth a look</p>
+            <ul>
+              {#each form.revision.warnings as warning, i (i)}
+                <li>{warning}</li>
+              {/each}
+            </ul>
+          </div>
+        {/if}
+
+        {#if outboxNote}
+          <p class="outbox-note">
+            {syncStatus.pending}
+            {syncStatus.pending === 1 ? "entry is" : "entries are"} still waiting to sync. A rename can
+            leave one naming the old exercise — check the sync banner once this commits, and discard it
+            there if it no longer applies.
+          </p>
+        {/if}
+
         <div class="actions">
-          {#snippet copyBlockingIcon()}
-            {#if copiedBlocking}<IconCheck />{:else}<IconCopy />{/if}
-          {/snippet}
-          <Button variant="secondary" type="button" onclick={copyBlocking} icon={copyBlockingIcon}>
-            {copiedBlocking ? "Copied" : "Copy for the AI"}
+          {#snippet commitRevisionIcon()}<IconCircleCheck />{/snippet}
+          <Button variant="primary" type="submit" disabled={!ready} icon={commitRevisionIcon}>
+            Commit revision
           </Button>
         </div>
-      </div>
-    {/if}
-
-    <form method="POST" action="?/commit" use:enhance>
-      <input type="hidden" name="source_md" value={form?.source ?? ""} />
-
-      {#if form.revision.dispositions.length > 0}
-        <div class="block">
-          <p class="section-label">What happened to these exercises?</p>
-          <DispositionList dispositions={form.revision.dispositions} bind:choices />
-        </div>
-      {/if}
-
-      {#if form.revision.changelog.length > 0}
-        <div class="block">
-          <p class="section-label">What the AI says changed</p>
-          <ul>
-            {#each form.revision.changelog as line, i (i)}
-              <li>{line}</li>
-            {/each}
-          </ul>
-        </div>
-      {/if}
-
-      {#if form.revision.groups.length > 0}
-        <div class="block">
-          <p class="section-label">Everything that changed</p>
-          <DiffGroups groups={form.revision.groups} />
-        </div>
-      {/if}
-
-      {#if form.revision.warnings.length > 0}
-        <div class="block warnings">
-          <p class="section-label"><IconTriangleAlert />Worth a look</p>
-          <ul>
-            {#each form.revision.warnings as warning, i (i)}
-              <li>{warning}</li>
-            {/each}
-          </ul>
-        </div>
-      {/if}
-
-      {#if outboxNote}
-        <p class="outbox-note">
-          {syncStatus.pending}
-          {syncStatus.pending === 1 ? "entry is" : "entries are"} still waiting to sync. A rename can
-          leave one naming the old exercise — check the sync banner once this commits, and discard it
-          there if it no longer applies.
-        </p>
-      {/if}
-
-      <div class="actions">
-        {#snippet commitRevisionIcon()}<IconCircleCheck />{/snippet}
-        <Button variant="primary" type="submit" disabled={!ready} icon={commitRevisionIcon}>
-          Commit revision
-        </Button>
-      </div>
-    </form>
-  </section>
+      </form>
+    </Card>
+  </div>
 {/if}
 
 <style>
   .card {
-    background: var(--surface);
-    border: 1px solid var(--line-soft);
-    border-radius: var(--r-md);
-    padding: var(--pad-card);
     margin-top: 1.25rem;
   }
 
@@ -275,8 +283,20 @@
     flex-wrap: wrap;
   }
 
+  /* Not `Card`: the amber border is meaningful signal (an import failure), not the
+     neutral shell `Card` renders, so this stays a self-contained shell rather than a
+     colour override reaching into a shared component. */
   .report-card {
-    border-color: var(--amber);
+    background: var(--surface);
+    border: 1px solid var(--amber);
+    border-radius: var(--r-md);
+    padding: var(--pad-card);
+    margin-top: 1.25rem;
+  }
+
+  .report-card h2 {
+    margin: 0 0 0.5rem;
+    font-size: var(--t-base);
   }
 
   .report {

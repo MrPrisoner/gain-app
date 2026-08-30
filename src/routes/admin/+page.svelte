@@ -2,6 +2,7 @@
   import { enhance } from "$app/forms";
   import IconTriangleAlert from "~icons/lucide/triangle-alert";
   import Button from "$lib/components/Button.svelte";
+  import Card from "$lib/components/Card.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import type { ActionData, PageData } from "./$types";
 
@@ -57,77 +58,79 @@
 <ul class="users">
   {#each data.users as user (user.userId)}
     <li class="card">
-      <h2>{user.displayLabel ?? "No name yet"}</h2>
-      <p class="status">{user.status}</p>
+      <Card>
+        <h2>{user.displayLabel ?? "No name yet"}</h2>
+        <p class="status">{user.status}</p>
 
-      <p class="counts tabular">
-        {user.plans}
-        {user.plans === 1 ? "plan" : "plans"} ·
-        {user.workoutsFinished} of {user.workoutsStarted} finished ·
-        {user.setLogs}
-        {user.setLogs === 1 ? "set" : "sets"}
-      </p>
-      <p class="meta tabular">
-        Joined {isoDate(user.createdAt)} · last seen {isoDate(user.lastLoginAt)} ·
-        {formatBytes(user.diskBytes)}
-      </p>
-      <p class="meta identity">{user.oidcSub}</p>
-      {#if user.schemaNote}
-        <p class="schema-note">{user.schemaNote}</p>
-      {/if}
+        <p class="counts tabular">
+          {user.plans}
+          {user.plans === 1 ? "plan" : "plans"} ·
+          {user.workoutsFinished} of {user.workoutsStarted} finished ·
+          {user.setLogs}
+          {user.setLogs === 1 ? "set" : "sets"}
+        </p>
+        <p class="meta tabular">
+          Joined {isoDate(user.createdAt)} · last seen {isoDate(user.lastLoginAt)} ·
+          {formatBytes(user.diskBytes)}
+        </p>
+        <p class="meta identity">{user.oidcSub}</p>
+        {#if user.schemaNote}
+          <p class="schema-note">{user.schemaNote}</p>
+        {/if}
 
-      {#if openFor === user.userId}
-        <form
-          method="POST"
-          action="?/reset"
-          class="danger-panel"
-          use:enhance={() => {
-            return async ({ update }) => {
-              await update();
-              close();
-            };
-          }}
-        >
-          <input type="hidden" name="userId" value={user.userId} />
+        {#if openFor === user.userId}
+          <form
+            method="POST"
+            action="?/reset"
+            class="danger-panel"
+            use:enhance={() => {
+              return async ({ update }) => {
+                await update();
+                close();
+              };
+            }}
+          >
+            <input type="hidden" name="userId" value={user.userId} />
 
-          <p class="warning" id="warn-{user.userId}">
-            <IconTriangleAlert aria-hidden="true" />
-            <span>
-              This permanently erases every plan, workout and log for
-              <strong>{user.confirmation}</strong>. They keep their account and can start again from
-              an empty GAIN.
-            </span>
-          </p>
+            <p class="warning" id="warn-{user.userId}">
+              <IconTriangleAlert aria-hidden="true" />
+              <span>
+                This permanently erases every plan, workout and log for
+                <strong>{user.confirmation}</strong>. They keep their account and can start again
+                from an empty GAIN.
+              </span>
+            </p>
 
-          <label for="confirm-{user.userId}">Type {user.confirmation} to confirm</label>
-          <input
-            id="confirm-{user.userId}"
-            name="confirmLabel"
-            bind:value={typed}
-            aria-describedby="warn-{user.userId}"
-            autocomplete="off"
-            autocapitalize="none"
-            spellcheck="false"
-          />
+            <label for="confirm-{user.userId}">Type {user.confirmation} to confirm</label>
+            <input
+              id="confirm-{user.userId}"
+              name="confirmLabel"
+              bind:value={typed}
+              aria-describedby="warn-{user.userId}"
+              autocomplete="off"
+              autocapitalize="none"
+              spellcheck="false"
+            />
 
-          {#if form?.actionError && form?.userId === user.userId}
-            <p class="action-error" role="alert">{form.actionError}</p>
-          {/if}
+            {#if form?.actionError && form?.userId === user.userId}
+              <p class="action-error" role="alert">{form.actionError}</p>
+            {/if}
 
-          <div class="row">
-            <Button variant="danger" type="submit" disabled={typed !== user.confirmation}>
-              Reset {user.confirmation}'s data
+            <div class="row">
+              <Button variant="danger" type="submit" disabled={typed !== user.confirmation}>
+                Reset {user.confirmation}'s data
+              </Button>
+              <Button variant="quiet" type="button" onclick={close}>Cancel</Button>
+            </div>
+          </form>
+        {:else}
+          <div class="trigger-row">
+            <Button variant="danger" type="button" onclick={() => open(user.userId)}>
+              Reset data…
             </Button>
-            <Button variant="quiet" type="button" onclick={close}>Cancel</Button>
           </div>
-        </form>
-      {:else}
-        <div class="trigger-row">
-          <Button variant="danger" type="button" onclick={() => open(user.userId)}>
-            Reset data…
-          </Button>
-        </div>
-      {/if}
+        {/if}
+      </Card>
     </li>
   {/each}
 </ul>
@@ -153,13 +156,6 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
     gap: var(--s-4);
-  }
-
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--line-soft);
-    border-radius: var(--r-md);
-    padding: var(--pad-card);
   }
 
   .card h2 {

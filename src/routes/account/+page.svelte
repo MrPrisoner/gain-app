@@ -7,6 +7,7 @@
   import { purgeCachedUserData } from "$lib/sync/precache";
   import { clearWorkoutStorage } from "$lib/session/workout-storage";
   import Button from "$lib/components/Button.svelte";
+  import Card from "$lib/components/Card.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import type { ActionData, PageData } from "./$types";
 
@@ -27,17 +28,19 @@
 </p>
 
 {#if !open}
-  <section class="section">
-    <h2>Reset your data</h2>
-    <p>
-      Erases every plan, workout and log in this account permanently. Your account itself survives —
-      signing in afterwards starts from an empty GAIN, the same as a brand-new user. Every other
-      device you are signed in on is signed out; this one stays signed in.
-    </p>
-    <div class="trigger-row">
-      <Button variant="danger" type="button" onclick={() => (open = true)}>Reset my data…</Button>
-    </div>
-  </section>
+  <div class="section">
+    <Card>
+      <h2>Reset your data</h2>
+      <p>
+        Erases every plan, workout and log in this account permanently. Your account itself survives
+        — signing in afterwards starts from an empty GAIN, the same as a brand-new user. Every other
+        device you are signed in on is signed out; this one stays signed in.
+      </p>
+      <div class="trigger-row">
+        <Button variant="danger" type="button" onclick={() => (open = true)}>Reset my data…</Button>
+      </div>
+    </Card>
+  </div>
 {:else}
   <form
     method="POST"
@@ -123,10 +126,6 @@
   }
 
   .section {
-    background: var(--surface);
-    border: 1px solid var(--line-soft);
-    border-radius: var(--r-md);
-    padding: var(--pad-card);
     margin-top: 1.5rem;
   }
 

@@ -1,5 +1,6 @@
 <!-- src/routes/plan/[slug]/progress/exercises/+page.svelte -->
 <script lang="ts">
+  import EmptyState from "$lib/components/EmptyState.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import type { PageData } from "./$types";
   let { data }: { data: PageData } = $props();
@@ -12,7 +13,7 @@
 />
 
 {#if data.rows.length === 0}
-  <p class="muted">Nothing logged yet.</p>
+  <EmptyState title="Nothing logged yet" />
 {:else}
   <ul class="occurrence-list">
     {#each data.rows as row (row.sessionKey + ":" + row.exerciseSlug)}
@@ -28,9 +29,6 @@
 {/if}
 
 <style>
-  .muted {
-    color: var(--muted);
-  }
   .occurrence-list {
     list-style: none;
     margin: 0;

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
+  import Field from "$lib/components/Field.svelte";
   import IconCheck from "~icons/lucide/check";
   import IconUpload from "~icons/lucide/upload";
 
@@ -24,15 +25,18 @@
 </script>
 
 <form method="POST" action="?/check" use:enhance>
-  <!-- A placeholder is a hint, not an accessible name, and it disappears as soon as the
-       box has content — which for this box is the entire time it matters. -->
-  <textarea
-    class="doc"
-    name="source_md"
-    rows="10"
-    aria-label="Plan document"
-    placeholder="Paste the plan document here…"
-    bind:value={pasted}></textarea>
+  <Field label="Plan document" id="plan-document">
+    <!-- A placeholder is a hint, not an accessible name — it disappears as soon as the
+         box has content, which for this box is the entire time it matters. The visible
+         label above is the accessible name now. -->
+    <textarea
+      class="doc"
+      name="source_md"
+      id="plan-document"
+      rows="10"
+      placeholder="Paste the plan document here…"
+      bind:value={pasted}></textarea>
+  </Field>
   <div class="actions">
     <button type="submit" class="primary" disabled={!pasted.trim()}>
       <IconCheck />Check the plan

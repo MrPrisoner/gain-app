@@ -9,6 +9,7 @@
   import { dueNextMorningPrompts } from "$lib/home/next-morning";
   import { startSyncLoop } from "$lib/sync/client.svelte";
   import Button from "$lib/components/Button.svelte";
+  import Card from "$lib/components/Card.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import IconArchive from "~icons/lucide/archive";
   import IconArchiveRestore from "~icons/lucide/archive-restore";
@@ -140,69 +141,83 @@
     </p>
   </section>
 
-  <section class="card">
-    <h2>1 · Give the AI a running start</h2>
-    <p class="muted">
-      Four optional questions, all skippable — anything you leave out is something the AI will ask
-      about. Nothing you write here is stored.
-    </p>
-    <form method="POST" action="?/generatePrompt" class="questions" use:enhance>
-      <label>
-        Equipment you have
-        <input type="text" name="equipment" placeholder="e.g. two adjustable dumbbells to 24 kg" />
-      </label>
-      <div class="row2">
+  <div class="card">
+    <Card>
+      <h2>1 · Give the AI a running start</h2>
+      <p class="muted">
+        Four optional questions, all skippable — anything you leave out is something the AI will ask
+        about. Nothing you write here is stored.
+      </p>
+      <form method="POST" action="?/generatePrompt" class="questions" use:enhance>
         <label>
-          Days per week
-          <input type="text" name="sessions_per_week" placeholder="e.g. 3" />
+          Equipment you have
+          <input
+            type="text"
+            name="equipment"
+            placeholder="e.g. two adjustable dumbbells to 24 kg"
+          />
+        </label>
+        <div class="row2">
+          <label>
+            Days per week
+            <input type="text" name="sessions_per_week" placeholder="e.g. 3" />
+          </label>
+          <label>
+            Minutes per session
+            <input type="text" name="session_minutes" placeholder="e.g. 45" />
+          </label>
+        </div>
+        <label>
+          What you are training for
+          <input
+            type="text"
+            name="goals"
+            placeholder="e.g. general strength, not racing anything"
+          />
         </label>
         <label>
-          Minutes per session
-          <input type="text" name="session_minutes" placeholder="e.g. 45" />
+          Anything to work around
+          <input type="text" name="constraints" placeholder="e.g. a dodgy lower back" />
         </label>
-      </div>
-      <label>
-        What you are training for
-        <input type="text" name="goals" placeholder="e.g. general strength, not racing anything" />
-      </label>
-      <label>
-        Anything to work around
-        <input type="text" name="constraints" placeholder="e.g. a dodgy lower back" />
-      </label>
-      <button type="submit" class="primary"><IconSparkles />Generate the prompt</button>
-    </form>
-  </section>
+        <button type="submit" class="primary"><IconSparkles />Generate the prompt</button>
+      </form>
+    </Card>
+  </div>
 
   {#if form?.prompt}
-    <section class="card">
-      <h2>2 · Paste this into your AI chat</h2>
-      <p class="muted">
-        One document — the AI reads it, interviews you, and returns a plan. Copy the whole thing;
-        download is the fallback.
-      </p>
-      <textarea class="doc" readonly rows="14" aria-label="Bootstrap prompt" value={form.prompt}
-      ></textarea>
-      <div class="actions">
-        <button type="button" class="primary" onclick={copyPrompt}>
-          {#if copied}<IconCheck />{:else}<IconCopy />{/if}
-          {copied ? "Copied" : "Copy prompt"}
-        </button>
-        <button type="button" class="secondary" onclick={downloadPrompt}>
-          <IconDownload />Download .md
-        </button>
-      </div>
-    </section>
+    <div class="card">
+      <Card>
+        <h2>2 · Paste this into your AI chat</h2>
+        <p class="muted">
+          One document — the AI reads it, interviews you, and returns a plan. Copy the whole thing;
+          download is the fallback.
+        </p>
+        <textarea class="doc" readonly rows="14" aria-label="Bootstrap prompt" value={form.prompt}
+        ></textarea>
+        <div class="actions">
+          <button type="button" class="primary" onclick={copyPrompt}>
+            {#if copied}<IconCheck />{:else}<IconCopy />{/if}
+            {copied ? "Copied" : "Copy prompt"}
+          </button>
+          <button type="button" class="secondary" onclick={downloadPrompt}>
+            <IconDownload />Download .md
+          </button>
+        </div>
+      </Card>
+    </div>
   {/if}
 
-  <section class="card">
-    <h2>{form?.prompt ? "3 · Bring back the plan" : "Already have a plan?"}</h2>
-    <p class="muted">
-      {form?.prompt
-        ? "Once your AI hands you a document, bring it here."
-        : "Skip the interview and bring a plan document you already have."}
-    </p>
-    <a class="primary-link" href="/import"><IconUpload />Paste the plan your AI gave you</a>
-  </section>
+  <div class="card">
+    <Card>
+      <h2>{form?.prompt ? "3 · Bring back the plan" : "Already have a plan?"}</h2>
+      <p class="muted">
+        {form?.prompt
+          ? "Once your AI hands you a document, bring it here."
+          : "Skip the interview and bring a plan document you already have."}
+      </p>
+      <a class="primary-link" href="/import"><IconUpload />Paste the plan your AI gave you</a>
+    </Card>
+  </div>
 {:else}
   <PageHeader title="GAIN" />
 
@@ -233,57 +248,61 @@
 
   {#each data.plans as plan (plan.slug)}
     <section class="card plan-admin">
-      <h2>{plan.name}</h2>
-      <p class="muted">
-        version {plan.version_no} · imported {plan.imported_at} ·
-        {plan.counts.sessions} sessions, {plan.counts.exercises} exercises,
-        {plan.counts.prescriptions} prescriptions
-      </p>
-      <nav class="plan-links">
-        <a class="export-link" href={`/plan/${plan.slug}/export`}>
-          <IconExternalLink />Export for review
-        </a>
-        <a class="export-link" href={`/plan/${plan.slug}/progress`}>
-          <IconTrendingUp />Progress
-        </a>
-        <a class="export-link" href={`/plan/${plan.slug}/history`}>
-          <IconHistory />History
-        </a>
-        <a class="export-link" href={`/plan/${plan.slug}/versions`}>
-          <IconFileClock />Plan versions
-        </a>
-        <a class="export-link" href="/import">
-          <IconUpload />Import a revised plan
-        </a>
-      </nav>
-
-      <!--
-        Archiving is reversible and read-only (`$lib/db/archive.ts`), so it gets a plain
-        button and no type-to-confirm: the plan reappears one tap away in the Archived
-        group directly below, and nothing it has logged is at risk. The line above it
-        says so, because "archive" reads as "delete" to most people until told otherwise.
-      -->
-      <form method="POST" action="?/archive" class="archive-form" use:enhance>
-        <input type="hidden" name="slug" value={plan.slug} />
-        <p class="muted archive-hint">
-          Finished with this plan? Archiving hides it here and stops new sessions. History,
-          progress, export and versions all stay open, and you can bring it back any time.
+      <Card>
+        <h2>{plan.name}</h2>
+        <p class="muted">
+          version {plan.version_no} · imported {plan.imported_at} ·
+          {plan.counts.sessions} sessions, {plan.counts.exercises} exercises,
+          {plan.counts.prescriptions} prescriptions
         </p>
-        {#snippet archiveIcon()}<IconArchive />{/snippet}
-        <Button variant="quiet" type="submit" icon={archiveIcon}>Archive plan</Button>
-      </form>
+        <nav class="plan-links">
+          <a class="export-link" href={`/plan/${plan.slug}/export`}>
+            <IconExternalLink />Export for review
+          </a>
+          <a class="export-link" href={`/plan/${plan.slug}/progress`}>
+            <IconTrendingUp />Progress
+          </a>
+          <a class="export-link" href={`/plan/${plan.slug}/history`}>
+            <IconHistory />History
+          </a>
+          <a class="export-link" href={`/plan/${plan.slug}/versions`}>
+            <IconFileClock />Plan versions
+          </a>
+          <a class="export-link" href="/import">
+            <IconUpload />Import a revised plan
+          </a>
+        </nav>
+
+        <!--
+          Archiving is reversible and read-only (`$lib/db/archive.ts`), so it gets a plain
+          button and no type-to-confirm: the plan reappears one tap away in the Archived
+          group directly below, and nothing it has logged is at risk. The line above it
+          says so, because "archive" reads as "delete" to most people until told otherwise.
+        -->
+        <form method="POST" action="?/archive" class="archive-form" use:enhance>
+          <input type="hidden" name="slug" value={plan.slug} />
+          <p class="muted archive-hint">
+            Finished with this plan? Archiving hides it here and stops new sessions. History,
+            progress, export and versions all stay open, and you can bring it back any time.
+          </p>
+          {#snippet archiveIcon()}<IconArchive />{/snippet}
+          <Button variant="quiet" type="submit" icon={archiveIcon}>Archive plan</Button>
+        </form>
+      </Card>
     </section>
   {/each}
 
   {#if data.plans.length === 0}
-    <section class="card">
-      <h2>Everything is archived</h2>
-      <p class="muted">
-        Every plan on this account is put away. Open one below to read its history, bring it back,
-        or start something new.
-      </p>
-      <a class="primary-link" href="/import"><IconUpload />Paste a new plan</a>
-    </section>
+    <div class="card">
+      <Card>
+        <h2>Everything is archived</h2>
+        <p class="muted">
+          Every plan on this account is put away. Open one below to read its history, bring it back,
+          or start something new.
+        </p>
+        <a class="primary-link" href="/import"><IconUpload />Paste a new plan</a>
+      </Card>
+    </div>
   {/if}
 
   {#if form?.planError}
@@ -345,10 +364,6 @@
   }
 
   .card {
-    background: var(--surface);
-    border: 1px solid var(--line-soft);
-    border-radius: var(--r-md);
-    padding: var(--pad-card);
     margin-top: 1.25rem;
   }
 

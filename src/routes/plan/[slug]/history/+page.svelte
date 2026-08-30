@@ -3,6 +3,7 @@
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import ArchivedNote from "$lib/components/ArchivedNote.svelte";
+  import EmptyState from "$lib/components/EmptyState.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import type { PageData } from "./$types";
   let { data }: { data: PageData } = $props();
@@ -15,7 +16,7 @@
 {/if}
 
 {#if data.workouts.length === 0}
-  <p class="muted">No workouts logged yet.</p>
+  <EmptyState title="No workouts logged yet" />
 {:else}
   <ul class="workout-list">
     {#each data.workouts as workout (workout.id)}
@@ -54,9 +55,6 @@
 </div>
 
 <style>
-  .muted {
-    color: var(--muted);
-  }
   .workout-list {
     list-style: none;
     margin: 0;

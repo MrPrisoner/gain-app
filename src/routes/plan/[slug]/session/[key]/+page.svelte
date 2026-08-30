@@ -43,6 +43,7 @@
   import RestTimer from "./RestTimer.svelte";
   import DeviationSheet from "./DeviationSheet.svelte";
   import LogStrip from "./LogStrip.svelte";
+  import Card from "$lib/components/Card.svelte";
   import MetricRow from "$lib/components/MetricRow.svelte";
   import BlockSection from "./BlockSection.svelte";
   import WrapUpSheet from "./WrapUpSheet.svelte";
@@ -592,22 +593,26 @@
        does not render underneath, rather than a dismissible overlay on top of it, so
        nothing here can be tapped before the pre-session prompt is dealt with. -->
   <div class="pre-session">
-    <h2>Before you start</h2>
-    {#each data.startMetrics as metric (metric.key)}
-      <MetricRow
-        {metric}
-        planSlug={data.planSlug}
-        {workoutClientId}
-        selected={sessionMetricValues.get(metric.key)}
-        onSelected={(value) => sessionMetricValues.set(metric.key, value)}
-        onError={setError}
-      />
-    {/each}
-    <div class="sheet-actions">
-      <button type="button" class="primary" onclick={() => (showPreSession = false)}>
-        Continue to session
-      </button>
-    </div>
+    <Card>
+      <div class="pre-session-body">
+        <h2>Before you start</h2>
+        {#each data.startMetrics as metric (metric.key)}
+          <MetricRow
+            {metric}
+            planSlug={data.planSlug}
+            {workoutClientId}
+            selected={sessionMetricValues.get(metric.key)}
+            onSelected={(value) => sessionMetricValues.set(metric.key, value)}
+            onError={setError}
+          />
+        {/each}
+        <div class="sheet-actions">
+          <button type="button" class="primary" onclick={() => (showPreSession = false)}>
+            Continue to session
+          </button>
+        </div>
+      </div>
+    </Card>
   </div>
 {:else}
   <!-- The strip is `position: fixed`, so the scroll area has to reserve its measured
@@ -818,17 +823,16 @@
   /* The pre-session gate (UI-DECISIONS §8): styled like `.sheet` below, but in-flow rather than a
      fixed backdrop overlay — it stands in for the runner entirely until dismissed, the
      same "quiet placeholder" precedent as `.starting`, so nothing underneath it is ever
-     reachable before "Continue to session" is tapped. */
+     reachable before "Continue to session" is tapped. The shell itself is `Card`; this
+     class now only places it below whatever renders above (the error banner, if any). */
   .pre-session {
-    background: var(--surface);
-    border: 1px solid var(--line-soft);
-    border-radius: var(--r-md);
-    padding: var(--pad-card);
     margin-top: 1rem;
+  }
+  .pre-session-body {
     display: grid;
     gap: var(--s-3);
   }
-  .pre-session h2 {
+  .pre-session-body h2 {
     margin: 0;
     font-size: var(--t-md);
   }

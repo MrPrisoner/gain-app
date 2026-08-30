@@ -5,6 +5,8 @@
   import BackLink from "$lib/components/BackLink.svelte";
   import ArchivedNote from "$lib/components/ArchivedNote.svelte";
   import Button from "$lib/components/Button.svelte";
+  import Card from "$lib/components/Card.svelte";
+  import Field from "$lib/components/Field.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import IconCheck from "~icons/lucide/check";
   import IconCopy from "~icons/lucide/copy";
@@ -45,94 +47,95 @@
   <ArchivedNote />
 {/if}
 
-<section class="card">
-  <PageHeader title="Export for review" />
-  <p class="muted">
-    One document for your AI chat: the plan as it stands, what you have logged, and the rules for
-    handing a revision back. Paste the whole thing.
-  </p>
+<div class="card">
+  <Card>
+    <PageHeader title="Export for review" />
+    <p class="muted">
+      One document for your AI chat: the plan as it stands, what you have logged, and the rules for
+      handing a revision back. Paste the whole thing.
+    </p>
 
-  <!--
-    A plain custom callback, `reset: false` only: the default `use:enhance` behaviour
-    calls `form.reset()` on a successful submission, which sets every radio's DOM
-    `checked` property directly and bypasses Svelte's reactivity — the bound `selected`
-    value stays "since_version" internally, but the visible radio reverts to
-    unchecked, right as the user is looking at the bundle it produced. `reset: false`
-    is the documented escape from that, not a workaround for anything else.
-  -->
-  <form
-    method="POST"
-    action="?/generate"
-    use:enhance={() => {
-      return async ({ update }) => {
-        await update({ reset: false });
-      };
-    }}
-  >
-    <fieldset>
-      <legend>How much history to include</legend>
-      {#each data.options as option (option.id)}
-        <label class="window">
-          <input type="radio" name="window" value={option.id} bind:group={selected} />
-          <span class="window-label">{option.label}</span>
-          <span class="window-count">
-            {option.workouts}
-            {option.workouts === 1 ? "workout" : "workouts"}
-          </span>
-        </label>
-      {/each}
-    </fieldset>
+    <!--
+      A plain custom callback, `reset: false` only: the default `use:enhance` behaviour
+      calls `form.reset()` on a successful submission, which sets every radio's DOM
+      `checked` property directly and bypasses Svelte's reactivity — the bound `selected`
+      value stays "since_version" internally, but the visible radio reverts to
+      unchecked, right as the user is looking at the bundle it produced. `reset: false`
+      is the documented escape from that, not a workaround for anything else.
+    -->
+    <form
+      method="POST"
+      action="?/generate"
+      use:enhance={() => {
+        return async ({ update }) => {
+          await update({ reset: false });
+        };
+      }}
+    >
+      <Field label="How much history to include" id="export-window">
+        <fieldset aria-label="How much history to include">
+          {#each data.options as option (option.id)}
+            <label class="window">
+              <input type="radio" name="window" value={option.id} bind:group={selected} />
+              <span class="window-label">{option.label}</span>
+              <span class="window-count">
+                {option.workouts}
+                {option.workouts === 1 ? "workout" : "workouts"}
+              </span>
+            </label>
+          {/each}
+        </fieldset>
+      </Field>
 
-    {#if data.totalWorkouts === 0}
-      <p class="note">
-        Nothing is logged yet, so this exports the plan and an empty summary. That is a fine way to
-        ask for a revision, just not a progress review.
-      </p>
+      {#if data.totalWorkouts === 0}
+        <p class="note">
+          Nothing is logged yet, so this exports the plan and an empty summary. That is a fine way
+          to ask for a revision, just not a progress review.
+        </p>
+      {/if}
+
+      <div class="actions">
+        {#snippet sparklesIcon()}<IconSparkles />{/snippet}
+        <Button variant="primary" type="submit" icon={sparklesIcon}>Generate the export</Button>
+      </div>
+    </form>
+
+    {#if form?.actionError}
+      <p class="action-error">{form.actionError}</p>
     {/if}
-
-    <div class="actions">
-      {#snippet sparklesIcon()}<IconSparkles />{/snippet}
-      <Button variant="primary" type="submit" icon={sparklesIcon}>Generate the export</Button>
-    </div>
-  </form>
-
-  {#if form?.actionError}
-    <p class="action-error">{form.actionError}</p>
-  {/if}
-</section>
+  </Card>
+</div>
 
 {#if form?.bundle}
-  <section class="card">
-    <h2>Paste this into your AI chat</h2>
-    <p class="muted">
-      {form.windowLabel} · {form.bundle.length.toLocaleString()} characters. Copy the whole thing; download
-      is the fallback.
-    </p>
-    <textarea class="doc" readonly rows="14" aria-label="Export bundle" value={form.bundle}
-    ></textarea>
-    <div class="actions">
-      {#snippet copyIcon()}
-        {#if copied}<IconCheck />{:else}<IconCopy />{/if}
-      {/snippet}
-      <Button variant="primary" type="button" onclick={copyBundle} icon={copyIcon}>
-        {copied ? "Copied" : "Copy export"}
-      </Button>
-      {#snippet downloadIcon()}<IconDownload />{/snippet}
-      <Button variant="secondary" type="button" onclick={download} icon={downloadIcon}>
-        Download .md
-      </Button>
-    </div>
-  </section>
+  <div class="card">
+    <Card>
+      <h2>Paste this into your AI chat</h2>
+      <p class="muted">
+        {form.windowLabel} · {form.bundle.length.toLocaleString()} characters. Copy the whole thing; download
+        is the fallback.
+      </p>
+      <textarea class="doc" readonly rows="14" aria-label="Export bundle" value={form.bundle}
+      ></textarea>
+      <div class="actions">
+        {#snippet copyIcon()}
+          {#if copied}<IconCheck />{:else}<IconCopy />{/if}
+        {/snippet}
+        <Button variant="primary" type="button" onclick={copyBundle} icon={copyIcon}>
+          {copied ? "Copied" : "Copy export"}
+        </Button>
+        {#snippet downloadIcon()}<IconDownload />{/snippet}
+        <Button variant="secondary" type="button" onclick={download} icon={downloadIcon}>
+          Download .md
+        </Button>
+      </div>
+    </Card>
+  </div>
 {/if}
 
 <BackLink href="/" label="Back to your plans" />
 
 <style>
   .card {
-    background: var(--surface);
-    border: 1px solid var(--line-soft);
-    border-radius: var(--r-md);
-    padding: var(--pad-card);
     margin-top: 1.25rem;
   }
 
@@ -154,13 +157,6 @@
     display: grid;
     gap: var(--s-2);
     min-width: 0;
-  }
-
-  legend {
-    padding: 0;
-    color: var(--muted);
-    font-size: var(--t-sm);
-    margin-bottom: 0.5rem;
   }
 
   .window {

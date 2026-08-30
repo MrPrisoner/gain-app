@@ -1,5 +1,6 @@
 <!-- src/routes/plan/[slug]/progress/metrics/+page.svelte -->
 <script lang="ts">
+  import EmptyState from "$lib/components/EmptyState.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import type { PageData } from "./$types";
   let { data }: { data: PageData } = $props();
@@ -12,7 +13,7 @@
 />
 
 {#if data.metrics.length === 0}
-  <p class="muted">No numeric metrics logged yet.</p>
+  <EmptyState title="No numeric metrics logged yet" />
 {:else}
   <ul class="metric-list">
     {#each data.metrics as metric (metric.scope + ":" + metric.key)}
@@ -27,9 +28,6 @@
 {/if}
 
 <style>
-  .muted {
-    color: var(--muted);
-  }
   .metric-list {
     list-style: none;
     margin: 0;

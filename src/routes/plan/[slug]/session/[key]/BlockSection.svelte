@@ -10,6 +10,7 @@
   } from "$lib/session/session-view";
   import { blockIsComplete, type SessionLedger } from "$lib/session/ledger";
   import IconCheck from "~icons/lucide/check";
+  import Card from "$lib/components/Card.svelte";
   import ExerciseCard from "./ExerciseCard.svelte";
 
   /**
@@ -66,107 +67,103 @@
 </script>
 
 <section class="block">
-  <div class="block-head">
-    <!-- Same mark, same reserved slot and same `role="img"` reasoning as the exercise
-         row's — see `ExerciseCard`. Consistency is the point: one indicator for
-         "finished", wherever finished is being shown. -->
-    <span
-      class="block-status"
-      role={isComplete ? "img" : undefined}
-      aria-label={isComplete ? "Block complete" : undefined}
-    >
-      {#if isComplete}<IconCheck />{/if}
-    </span>
-    <span class="block-name">{block.name}</span>
-    {#if block.tracking === "checkoff"}<span class="tag">Check off</span>{/if}
-    {#if block.type === "rounds"}
-      <span class="tag">Rounds × {block.rounds}</span>
-      {#if block.rounds}
-        <!-- `role="img"` is what makes the `aria-label` stick: a bare `<span>` maps to
-             the generic role, which most screen readers refuse to name, so the dots
-             would be silently unlabelled. The role is honest here — this is a picture
-             of a count, and its parts carry no meaning on their own. -->
-        <span
-          class="rounds-indicator"
-          role="img"
-          aria-label="{completed} of {block.rounds} rounds complete"
-        >
-          {#each Array.from({ length: block.rounds }).keys() as i (i)}
-            <i class:on={i < completed}></i>
-          {/each}
-        </span>
+  <Card>
+    <div class="block-head">
+      <!-- Same mark, same reserved slot and same `role="img"` reasoning as the exercise
+           row's — see `ExerciseCard`. Consistency is the point: one indicator for
+           "finished", wherever finished is being shown. -->
+      <span
+        class="block-status"
+        role={isComplete ? "img" : undefined}
+        aria-label={isComplete ? "Block complete" : undefined}
+      >
+        {#if isComplete}<IconCheck />{/if}
+      </span>
+      <span class="block-name">{block.name}</span>
+      {#if block.tracking === "checkoff"}<span class="tag">Check off</span>{/if}
+      {#if block.type === "rounds"}
+        <span class="tag">Rounds × {block.rounds}</span>
+        {#if block.rounds}
+          <!-- `role="img"` is what makes the `aria-label` stick: a bare `<span>` maps to
+               the generic role, which most screen readers refuse to name, so the dots
+               would be silently unlabelled. The role is honest here — this is a picture
+               of a count, and its parts carry no meaning on their own. -->
+          <span
+            class="rounds-indicator"
+            role="img"
+            aria-label="{completed} of {block.rounds} rounds complete"
+          >
+            {#each Array.from({ length: block.rounds }).keys() as i (i)}
+              <i class:on={i < completed}></i>
+            {/each}
+          </span>
+        {/if}
+      {/if}
+    </div>
+    {#if block.note}<p class="block-note">{block.note}</p>{/if}
+
+    {#if block.tracking === "checkoff"}
+      <!-- UI-DECISIONS §9: pills, no set rows, excluded from progression. -->
+      <div class="checkoff-pills">
+        {#each block.exercises as exercise (exercise.slug)}
+          {@const key = setLogKey(block.key, exercise.slug, 1)}
+          {@const isDone = loggedSets.has(key)}
+          <!-- `aria-pressed` is what carries the state now that the accent fill is gone:
+               the pill is a toggle, and its check icon is decorative for the same reason
+               the exercise row's is not — here the button itself is announced pressed. -->
+          <button
+            type="button"
+            class="pill"
+            class:done={isDone}
+            aria-pressed={isDone}
+            onclick={() => {
+              if (isDone) loggedSets.delete(key);
+              else loggedSets.set(key, {});
+            }}
+          >
+            <!-- Unlike the exercise row's, this slot is *not* reserved when empty. Pills
+                 are a wrap layout with nothing to align down a column, so an always-present
+                 1.15em bought no tidiness and cost the warm-up two extra rows at 360px —
+                 against UI-DECISIONS §9, which wants these small enough to stay out of the
+                 way. -->
+            {#if isDone}<IconCheck class="pill-check" />{/if}
+            {exercise.name}
+            <span class="pill-target tabular">{formatRepsOrDuration(exercise)}</span>
+          </button>
+        {/each}
+      </div>
+    {:else}
+      <ul class="exercises">
+        {#each block.exercises as prescribed (prescribed.slug)}
+          <ExerciseCard
+            {block}
+            {prescribed}
+            {ledger}
+            {doneExercises}
+            {openSlug}
+            {addedSets}
+            {dismissedConditions}
+            {planSlug}
+            {workoutClientId}
+            {onOpen}
+            {applySubstitute}
+            {onError}
+            {onEditSlot}
+            {nameForSlug}
+          />
+        {/each}
+      </ul>
+
+      {#if block.type === "rounds"}
+        <button type="button" class="add-set" onclick={() => onStartNextRound(block)}>
+          Round {completed + 1} of {block.rounds} done
+        </button>
       {/if}
     {/if}
-  </div>
-  {#if block.note}<p class="block-note">{block.note}</p>{/if}
-
-  {#if block.tracking === "checkoff"}
-    <!-- UI-DECISIONS §9: pills, no set rows, excluded from progression. -->
-    <div class="checkoff-pills">
-      {#each block.exercises as exercise (exercise.slug)}
-        {@const key = setLogKey(block.key, exercise.slug, 1)}
-        {@const isDone = loggedSets.has(key)}
-        <!-- `aria-pressed` is what carries the state now that the accent fill is gone:
-             the pill is a toggle, and its check icon is decorative for the same reason
-             the exercise row's is not — here the button itself is announced pressed. -->
-        <button
-          type="button"
-          class="pill"
-          class:done={isDone}
-          aria-pressed={isDone}
-          onclick={() => {
-            if (isDone) loggedSets.delete(key);
-            else loggedSets.set(key, {});
-          }}
-        >
-          <!-- Unlike the exercise row's, this slot is *not* reserved when empty. Pills
-               are a wrap layout with nothing to align down a column, so an always-present
-               1.15em bought no tidiness and cost the warm-up two extra rows at 360px —
-               against UI-DECISIONS §9, which wants these small enough to stay out of the
-               way. -->
-          {#if isDone}<IconCheck class="pill-check" />{/if}
-          {exercise.name}
-          <span class="pill-target tabular">{formatRepsOrDuration(exercise)}</span>
-        </button>
-      {/each}
-    </div>
-  {:else}
-    <ul class="exercises">
-      {#each block.exercises as prescribed (prescribed.slug)}
-        <ExerciseCard
-          {block}
-          {prescribed}
-          {ledger}
-          {doneExercises}
-          {openSlug}
-          {addedSets}
-          {dismissedConditions}
-          {planSlug}
-          {workoutClientId}
-          {onOpen}
-          {applySubstitute}
-          {onError}
-          {onEditSlot}
-          {nameForSlug}
-        />
-      {/each}
-    </ul>
-
-    {#if block.type === "rounds"}
-      <button type="button" class="add-set" onclick={() => onStartNextRound(block)}>
-        Round {completed + 1} of {block.rounds} done
-      </button>
-    {/if}
-  {/if}
+  </Card>
 </section>
 
 <style>
-  .block {
-    background: var(--surface);
-    border: 1px solid var(--line-soft);
-    border-radius: var(--r-md);
-    padding: var(--s-4);
-  }
   .block-head {
     display: flex;
     align-items: center;
