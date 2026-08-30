@@ -202,8 +202,8 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 1rem;
-    padding: 1.5rem;
+    gap: var(--s-4);
+    padding: var(--s-5);
   }
   .rest-state {
     display: flex;
@@ -211,8 +211,8 @@
     align-items: center;
   }
   .rest-time {
-    font-size: 4rem;
-    font-weight: 800;
+    font-size: var(--t-display);
+    font-weight: var(--w-display);
   }
   .rest-label {
     color: var(--muted);
@@ -251,48 +251,48 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.15rem;
+    gap: var(--s-1);
     text-align: center;
     max-width: 22rem;
   }
   .upnext-kicker {
-    font-size: 0.75rem;
-    font-weight: 700;
+    font-size: var(--t-2xs);
+    font-weight: var(--w-bold);
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: var(--dim);
   }
   .upnext-label {
-    font-weight: 700;
+    font-weight: var(--w-bold);
   }
   .upnext-context {
     color: var(--muted);
-    font-size: 0.9rem;
+    font-size: var(--t-sm);
   }
   .upnext-figures {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 0.9rem;
+    gap: var(--s-4);
     color: var(--muted);
-    font-size: 0.9rem;
+    font-size: var(--t-sm);
   }
   .upnext-figure {
     display: inline-flex;
     align-items: center;
-    gap: 0.3rem;
+    gap: var(--s-1);
   }
 
   .rest-actions {
     display: flex;
-    gap: 0.75rem;
+    gap: var(--s-3);
     margin-top: 1rem;
   }
   .rest-actions button {
     border: none;
     border-radius: var(--r-sm);
-    padding: 0.9rem 1.5rem;
-    font-weight: 700;
+    padding: var(--s-4) var(--s-5);
+    font-weight: var(--w-bold);
   }
   .primary {
     background: var(--accent);

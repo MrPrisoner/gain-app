@@ -614,7 +614,7 @@
        height or the last block sits underneath it forever. -->
   <div
     class="blocks"
-    style:padding-bottom={stripHeight > 0 ? `calc(${stripHeight}px + 1rem)` : undefined}
+    style:padding-bottom={stripHeight > 0 ? `calc(${stripHeight}px + var(--s-4))` : undefined}
   >
     {#each data.session.blocks as block (block.key)}
       <BlockSection
@@ -744,16 +744,16 @@
 
 <style>
   .runner-head {
-    padding: 1rem 0 0.5rem;
+    padding: var(--s-4) 0 var(--s-2);
   }
   .runner-head-row {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--s-2);
   }
   .runner-head h1 {
     margin: 0;
-    font-size: 1.25rem;
+    font-size: var(--t-lg);
   }
   .symptom-guide-trigger {
     display: inline-flex;
@@ -765,16 +765,16 @@
     border: none;
     background: transparent;
     color: var(--muted);
-    font-size: 1.1rem;
+    font-size: var(--t-md);
   }
   .note {
     color: var(--muted);
-    font-size: 0.9rem;
+    font-size: var(--t-sm);
     margin: 0.25rem 0 0;
   }
   .blocks {
     display: grid;
-    gap: 1rem;
+    gap: var(--s-4);
     /* Replaced at runtime by the strip's measured height (see the `style:` binding
        above); this is only what SSR renders before the measurement lands. */
     padding-bottom: 15rem;
@@ -786,13 +786,13 @@
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 0.75rem;
+    gap: var(--s-3);
     background: var(--raised);
     color: var(--text);
-    font-weight: 700;
+    font-weight: var(--w-bold);
     border: 1px solid var(--line);
     border-radius: var(--r-sm);
-    padding: 0.75rem 1rem;
+    padding: var(--s-3) var(--s-4);
     margin: 0.75rem 0;
   }
   .action-error p {
@@ -805,15 +805,15 @@
     border: none;
     background: none;
     color: inherit;
-    font-weight: 700;
-    font-size: 1.2rem;
+    font-weight: var(--w-bold);
+    font-size: var(--t-md);
     line-height: 1;
     padding: 0;
   }
   .starting {
     color: var(--muted);
     text-align: center;
-    padding: 3rem 0;
+    padding: var(--s-7) 0;
   }
   /* The pre-session gate (UI-DECISIONS §8): styled like `.sheet` below, but in-flow rather than a
      fixed backdrop overlay — it stands in for the runner entirely until dismissed, the
@@ -823,27 +823,27 @@
     background: var(--surface);
     border: 1px solid var(--line-soft);
     border-radius: var(--r-md);
-    padding: 1.25rem;
+    padding: var(--s-5);
     margin-top: 1rem;
     display: grid;
-    gap: 0.75rem;
+    gap: var(--s-3);
   }
   .pre-session h2 {
     margin: 0;
-    font-size: 1.1rem;
+    font-size: var(--t-md);
   }
   .end-session {
     justify-self: start;
     min-height: 2.75rem;
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: var(--s-2);
     border: none;
     background: var(--accent);
     color: var(--accent-in);
-    font-weight: 700;
+    font-weight: var(--w-bold);
     border-radius: var(--r-sm);
-    padding: 0.5rem 1rem;
+    padding: var(--s-2) var(--s-4);
   }
   /* Shared visually with `WrapUpSheet`'s own finish/back buttons — scoped styles don't
      cross component boundaries, so this is a deliberate duplicate of that rule rather
@@ -851,13 +851,13 @@
   .sheet-actions {
     display: flex;
     justify-content: flex-end;
-    gap: 0.6rem;
+    gap: var(--s-3);
   }
   .sheet-actions button {
     border: none;
     border-radius: var(--r-sm);
-    padding: 0.7rem 1.25rem;
-    font-weight: 700;
+    padding: var(--s-3) var(--s-5);
+    font-weight: var(--w-bold);
   }
   .primary {
     background: var(--accent);

@@ -126,21 +126,21 @@
     background: var(--surface);
     border-top-left-radius: var(--r-lg);
     border-top-right-radius: var(--r-lg);
-    padding: 1.25rem;
-    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
+    padding: var(--s-5);
+    padding-bottom: calc(var(--s-5) + env(safe-area-inset-bottom));
     display: grid;
-    gap: 0.75rem;
+    gap: var(--s-3);
   }
   .sheet-actions {
     display: flex;
     justify-content: flex-end;
-    gap: 0.6rem;
+    gap: var(--s-3);
   }
   .sheet-actions button {
     border: none;
     border-radius: var(--r-sm);
-    padding: 0.7rem 1.25rem;
-    font-weight: 700;
+    padding: var(--s-3) var(--s-5);
+    font-weight: var(--w-bold);
   }
   .primary {
     background: var(--accent);
@@ -153,7 +153,7 @@
   }
   .next-morning-note {
     color: var(--muted);
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
     margin: 0;
   }
 </style>

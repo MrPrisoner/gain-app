@@ -104,7 +104,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 1.25rem;
+    padding: var(--s-5);
   }
 
   .confetti {
@@ -150,10 +150,10 @@
     max-width: 22rem;
     background: var(--surface);
     border-radius: var(--r-lg);
-    padding: 2rem 1.5rem;
+    padding: var(--s-6) var(--s-5);
     display: grid;
     justify-items: center;
-    gap: 1rem;
+    gap: var(--s-4);
     text-align: center;
     animation: rise 0.35s ease-out both;
   }
@@ -171,13 +171,13 @@
 
   .celebrate-icon {
     display: inline-flex;
-    font-size: 2.5rem;
+    font-size: var(--t-2xl);
     color: var(--accent);
   }
 
   .celebrate-card h2 {
     margin: 0;
-    font-size: 1.25rem;
+    font-size: var(--t-lg);
     line-height: 1.35;
   }
   .celebrate-card h2:focus-visible {
@@ -187,8 +187,8 @@
   .primary {
     border: none;
     border-radius: var(--r-sm);
-    padding: 0.8rem 1.5rem;
-    font-weight: 700;
+    padding: var(--s-3) var(--s-5);
+    font-weight: var(--w-bold);
     background: var(--accent);
     color: var(--accent-in);
     min-height: 2.75rem;

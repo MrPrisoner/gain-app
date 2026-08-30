@@ -165,16 +165,16 @@
     background: var(--surface);
     border: 1px solid var(--line-soft);
     border-radius: var(--r-md);
-    padding: 1rem;
+    padding: var(--s-4);
   }
   .block-head {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--s-2);
     margin-bottom: 0.75rem;
   }
   .block-name {
-    font-weight: 700;
+    font-weight: var(--w-bold);
   }
   .block-status {
     flex: none;
@@ -185,21 +185,21 @@
     color: var(--accent);
   }
   .tag {
-    font-size: 0.75rem;
+    font-size: var(--t-2xs);
     color: var(--muted);
     background: var(--raised);
     border: 1px solid var(--line);
     border-radius: var(--r-xs);
-    padding: 0.1rem 0.5rem;
+    padding: var(--s-1) var(--s-2);
   }
   .block-note {
     color: var(--muted);
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
   }
   .rounds-indicator {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
+    gap: var(--s-1);
   }
   .rounds-indicator i {
     display: block;
@@ -214,7 +214,7 @@
   .checkoff-pills {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
+    gap: var(--s-2);
   }
   /* The check icon is the *only* completion signal in the runner, warm-up pills included.
      The accent fill and accent border a done pill used to carry were a second, unrelated
@@ -229,14 +229,14 @@
     background: var(--raised);
     color: var(--muted);
     border-radius: var(--r-lg);
-    padding: 0.5rem 0.9rem;
+    padding: var(--s-2) var(--s-4);
     display: flex;
-    gap: 0.5rem;
+    gap: var(--s-2);
     align-items: center;
   }
   .pill.done {
     color: var(--text);
-    font-weight: 600;
+    font-weight: var(--w-semi);
   }
   /* `:global` because the check is `~icons/lucide/check`, and Svelte's scoping hash is
      never applied to another component's markup. */
@@ -254,7 +254,7 @@
     margin: 0;
     padding: 0;
     display: grid;
-    gap: 0.5rem;
+    gap: var(--s-2);
   }
   /* Shared visually with `ExerciseCard`'s "Add the optional set" button — scoped styles
      don't cross component boundaries, so this is a deliberate duplicate of that rule
@@ -267,6 +267,6 @@
     background: none;
     color: var(--accent);
     border-radius: var(--r-xs);
-    padding: 0.4rem 0.8rem;
+    padding: var(--s-2) var(--s-3);
   }
 </style>
