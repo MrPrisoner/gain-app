@@ -114,9 +114,21 @@ services:
     image: ghcr.io/<owner>/gain:latest
     restart: unless-stopped
     ports:
-      - "${GAIN_PORT:-8420}:3000"        # reverse proxy terminates TLS and forwards here
+      - "127.0.0.1:${GAIN_PORT:-8420}:3000"  # loopback only — the proxy is the one thing that reaches this
     volumes:
       - gain-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
     environment:
       ORIGIN: https://gain.example.com   # required by SvelteKit for CSRF + OIDC redirect
       OIDC_ISSUER: https://auth.example.com/application/o/gain/
@@ -141,6 +153,14 @@ Notes:
 - Trust `X-Forwarded-*` only from the proxy. Set `ADDRESS_HEADER=X-Forwarded-For`
   and `XFF_DEPTH` to match your proxy depth.
 - Health endpoint at `/healthz` (no auth) for Portainer/uptime checks.
+- The port binds to `127.0.0.1`, the container runs with a read-only root filesystem, all
+  Linux capabilities dropped, `no-new-privileges`, and a fixed CPU/memory ceiling — none of
+  this is load-bearing behind a reverse proxy on a private instance, but it is cheap and it
+  is the difference between "nobody can reach this" and "nobody can reach this, and it
+  would not matter much if they did" (review E12, `docs/ROADMAP.md`). `/tmp` is `tmpfs`
+  because Node and SQLite (temp files during `VACUUM INTO`) both assume a writable scratch
+  directory exists; `/data` — the one path the app actually writes to — is unaffected by
+  `read_only`, since it is its own mounted volume.
 - Everything mutable lives under `/data`, so one volume is the entire backup surface —
   but a naive snapshot of it is not a backup. Both `control.db` and every `gain.db` open
   `journal_mode = WAL`, so a `tar` or `docker cp` taken while the container is writing

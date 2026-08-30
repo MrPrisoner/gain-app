@@ -667,20 +667,49 @@ did". Gathered from the review's E7, E8, E12, E13 and E14. E11 (a release image 
 had ever booted, and a prerelease tag that would move `:latest`) was small enough to fix
 outright and is done.
 
-- [ ] **Pin, drop and bound the container.** `Dockerfile` builds from floating tags
-      (`node:24-bookworm`, `-slim`) rather than digests, installs `tzdata` unpinned and
-      never runs `apt-get upgrade`, so the OS CVE surface is whatever the tag happened to
-      carry that day (E7). Every GitHub Action is pinned by mutable tag rather than SHA
-      while the `image` job holds `packages: write` (E8). `compose.yaml` sets no
-      `read_only`, `cap_drop`, `no-new-privileges`, memory or CPU limit, and publishes on
-      all host interfaces — so the app is reachable in plaintext on `:8420`, going around
-      the TLS proxy rather than through it (E12). There is no `SECURITY.md` and no per-user
-      disk quota, so one user can fill the volume for everyone (E13). 1.9 MB of source maps
-      and the whole of `npm`/`npx`/`yarn` ship in the runtime stage (E14).
-      **Done when:** base images and actions are pinned by digest/SHA, `compose.yaml`
-      publishes on `127.0.0.1` with the standard hardening flags set, and a `SECURITY.md`
-      says where to report something. The disk quota is a separate decision, not part of
-      this.
+- [x] **Pin, drop and bound the container.** `Dockerfile` built from floating tags
+      (`node:24-bookworm`, `-slim`) rather than digests, installed `tzdata` unpinned and
+      never ran `apt-get upgrade`, so the OS CVE surface was whatever the tag happened to
+      carry that day (E7). Every GitHub Action was pinned by mutable tag rather than SHA
+      (E8). `compose.yaml` set no `read_only`, `cap_drop`, `no-new-privileges`, memory or
+      CPU limit, and published on all host interfaces — so the app was reachable in
+      plaintext on `:8420`, going around the TLS proxy rather than through it (E12). There
+      was no `SECURITY.md` (E13's reporting half; the disk quota half is still a separate
+      decision, deferred as before).
+      Both `FROM` lines in the `Dockerfile` now pin `node:24-bookworm`/`-slim` to a digest,
+      with the `docker pull` + `docker inspect` one-liner to refresh it written into the
+      comment above them; `apt-get upgrade` runs before `tzdata` installs, so the pinned
+      digest still picks up whatever OS security patches Debian has shipped by build time.
+      Every `uses:` in `.github/workflows/ci.yml` — `actions/checkout`, `actions/setup-node`,
+      `actions/cache`, `actions/upload-artifact`, `docker/setup-buildx-action`,
+      `docker/login-action`, `docker/build-push-action` — is pinned to its resolved commit
+      SHA with the version tag kept as a trailing comment. `compose.yaml` now publishes on
+      `127.0.0.1` only, and sets `read_only: true` with a `tmpfs` `/tmp` (Node and SQLite's
+      `VACUUM INTO` both assume a writable scratch directory even though `/data` is the only
+      path the app itself writes to), `cap_drop: [ALL]`, `security_opt:
+      [no-new-privileges:true]`, and a `deploy.resources.limits` of 1 CPU / 512M — confirmed
+      those limits are honoured outside Swarm mode by this Docker Compose version before
+      relying on them. `docs/ARCHITECTURE.md` §3's inline compose sample and its "Notes"
+      list were updated to match. `SECURITY.md` points a reporter at GitHub's private
+      vulnerability reporting rather than a public issue; private vulnerability reporting
+      was also switched on for the repository, since a `SECURITY.md` pointing at a disabled
+      feature is worse than no `SECURITY.md` at all.
+      **E14** (1.9 MB of source maps and the whole of `npm`/`npx`/`yarn` shipping in the
+      runtime stage) was gathered into this item's prose but was never in its "Done when",
+      and was not touched here — it needs its own multi-stage trim, not a hardening flag,
+      and stays open rather than being silently dropped.
+      Verified past typecheck/lint/test/build: built the image, then ran it with every flag
+      above (`--read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true
+      --memory 512m --cpus 1.0`) plus the OIDC env the CI smoke test uses, and confirmed
+      `/healthz` answers 200 and the process is uid 1000. That run surfaced a real,
+      previously-unexercised bug: CI's "smoke-test every build, not just non-tags" step
+      (2026-08-30, unreleased until now) used `ORIGIN=http://localhost:3000` and a
+      21-character `SESSION_SECRET`, and the image's own startup checks (`E1`/`E9` fixes,
+      2026-08-28) refuse exactly that — an `http://` `ORIGIN` under `NODE_ENV=production`,
+      and a secret under 32 characters — so the smoke test as written would have failed the
+      next tag or PR to actually exercise it. Fixed alongside this item since it blocked
+      verifying it at all: the smoke test now passes `ORIGIN=https://gain-smoke-test.example.com`
+      and a freshly generated `openssl rand -hex 32` secret.
 
 ### Accepted, or deliberately deferred
 

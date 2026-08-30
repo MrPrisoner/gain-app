@@ -8,7 +8,15 @@
 # Build stage: full dependency tree (dev deps needed for vite build), then
 # prune down to production-only modules for the runtime image.
 # ---------------------------------------------------------------------------
-FROM node:24-bookworm AS build
+#
+# Both FROM lines below are pinned to a digest rather than a floating tag
+# (`node:24-bookworm`/`-slim`) — a tag can move under you and the OS CVE
+# surface then depends on whatever day the build happened to run (review E7).
+# To bump: `docker pull node:24-bookworm[-slim] && docker inspect --format
+# '{{index .RepoDigests 0}}' node:24-bookworm[-slim]`, then paste the new
+# digest in both places it appears (the two FROM lines and the health of the
+# match between them is not checked by anything, so change both together).
+FROM node:24-bookworm@sha256:be23f54a88d34e8824c741b19b91064094f92c1c97b194144bfc8b50d67258e2 AS build
 WORKDIR /app
 
 # Install everything first for layer caching. `prepare` (svelte-kit sync) runs
@@ -26,12 +34,17 @@ RUN npm run build \
 # ---------------------------------------------------------------------------
 # Runtime stage: the built app plus production node_modules, nothing else.
 # ---------------------------------------------------------------------------
-FROM node:24-bookworm-slim AS runtime
+FROM node:24-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e AS runtime
 WORKDIR /app
 
 # The compose file sets TZ (§3); Debian slim does not ship the timezone
-# database, so install it for correct local-time logging.
+# database, so install it for correct local-time logging. `apt-get upgrade`
+# runs first so the OS packages baked into the pinned digest above still pick
+# up whatever security patches Debian has shipped by build time — pinning the
+# base image freezes everything else, so nothing else would ever apply them
+# (review E7).
 RUN apt-get update \
+    && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends tzdata \
     && rm -rf /var/lib/apt/lists/*
 

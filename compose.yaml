@@ -11,9 +11,31 @@ services:
     build: .
     restart: unless-stopped
     ports:
-      - "${GAIN_PORT:-8420}:3000" # reverse proxy terminates TLS and forwards here
+      # Loopback only — the reverse proxy is the one thing that should ever
+      # reach this port. Publishing on all interfaces put the app on the LAN
+      # in plaintext, going around the TLS proxy entirely (review E12).
+      - "127.0.0.1:${GAIN_PORT:-8420}:3000"
     volumes:
       - gain-data:/data
+    # /data (the named volume above) is the only path the app writes to —
+    # control.db, each user's gain.db, staged plan documents (Dockerfile's
+    # VOLUME comment) — so a read-only root filesystem cannot regress that
+    # without every db write failing loudly, which is the point (review E12).
+    # /tmp is tmpfs because Node and SQLite (temp files during VACUUM INTO,
+    # per README's live-backup recipe) assume a writable scratch directory
+    # exists even though nothing under /app persists anything of its own.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
     environment:
       ORIGIN: ${ORIGIN} # public HTTPS URL — required by SvelteKit for CSRF + OIDC redirect
       OIDC_ISSUER: ${OIDC_ISSUER} # e.g. https://auth.example.com/application/o/gain/
