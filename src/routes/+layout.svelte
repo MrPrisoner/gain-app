@@ -9,12 +9,12 @@
   let { data, children }: { data: LayoutData; children: import("svelte").Snippet } = $props();
 
   // Seeds the client's belief about its own generation from the server's authoritative
-  // value on every load (spec §7) — see `client.svelte.ts`'s comment on why this can't
+  // value on every load — see `client.svelte.ts`'s comment on why this can't
   // just default to 0 and wait for a 409 to correct it.
   $effect(() => setGeneration(data.dataGeneration));
 
   /**
-   * The one sync banner for the whole app (design spec §3, §8) — a queue can be pending
+   * The one sync banner for the whole app — a queue can be pending
    * on any screen, and a sync state visible only where it was created is a sync state
    * nobody sees. Nothing renders when there is nothing to say: idle with an empty queue
    * and no quarantined ops.

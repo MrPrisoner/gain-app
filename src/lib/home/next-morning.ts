@@ -1,5 +1,5 @@
 /**
- * The next-morning metric prompt (design spec §6). A `next_morning` metric is
+ * The next-morning metric prompt. A `next_morning` metric is
  * worthless collected three days later, so this is a strict one-day window rather
  * than a generous one — "previous calendar day", computed against the caller's clock.
  *

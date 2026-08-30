@@ -1,8 +1,8 @@
 /**
- * The workout write layer (phase 4, online-only): start/finish a workout, log a set, a
- * metric value, or a deviation. Every write is idempotent on `client_id` — the same
- * shape offline sync (phase 6) will replay, so this layer already behaves as a replay
- * target: writing the same client_id twice is a no-op that returns the original row.
+ * The workout write layer: start/finish a workout, log a set, a metric value, or a
+ * deviation. Every sync op is replayed through here, and every write is idempotent on
+ * `client_id` — writing the same client_id twice is a no-op that returns the original
+ * row, which is what makes replaying an outbox batch safe.
  *
  * `logMetric` and `logSet` carry one extra rule on top of that — a metric answer or a
  * set reopened from the runner's ledger is a correction of the previous write to the

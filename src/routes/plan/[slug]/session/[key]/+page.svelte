@@ -53,7 +53,7 @@
   let { data }: { data: PageData; form: ActionData } = $props();
 
   /**
-   * The workout's local identity (design spec §5, §7), kept in `localStorage` rather than
+   * The workout's local identity, kept in `localStorage` rather than
    * IndexedDB itself. A `start` op carries `planVersionId`, not `planSlug` (ARCHITECTURE
    * §8: a workout stays bound to the plan version it ran under, and that binding must
    * survive a later revision) — so it cannot be looked up by *route* identity once a plan
@@ -99,7 +99,7 @@
 
   /**
    * Ask the server for whatever it already has under this `client_id` (still `?/start`,
-   * now demoted to a fallback per design spec §5). This is the half local-only
+   * now demoted to a fallback). This is the half local-only
    * reconstruction cannot cover: `idb.ts`'s `ack()` deletes an op from the outbox the
    * moment the server confirms it, so once anything has synced — the common case for
    * anyone online through most of a session — `opsForWorkout` alone would reconstruct an

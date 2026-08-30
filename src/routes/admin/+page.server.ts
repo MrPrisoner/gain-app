@@ -1,5 +1,5 @@
 /**
- * The operator screen (spec §8).
+ * The operator screen.
  *
  * A non-admin gets **404, not 403**. A 403 confirms both that the route exists and that
  * this instance has an operator configured; a 404 says nothing at all. The guard runs in

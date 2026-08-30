@@ -1,5 +1,5 @@
 /**
- * Maps the activity sheet's coarse "when" choice to a timestamp (design spec §5). Exact
+ * Maps the activity sheet's coarse "when" choice to a timestamp. Exact
  * clock precision does not matter anywhere downstream — nothing in the export reads
  * activity timestamps more finely than a date — so this only has to land on the right
  * day, at a stable hour.

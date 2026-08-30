@@ -5,7 +5,7 @@
   import IconX from "~icons/lucide/x";
 
   /**
-   * The next_morning metric prompt (ARCHITECTURE §9, "Post-session"; design spec §6).
+   * The next_morning metric prompt (ARCHITECTURE §9, "Post-session").
    * Reuses `MetricRow` verbatim rather than re-implementing metric rendering — every
    * metric here is session-scope, exactly what `MetricRow` already expects.
    */

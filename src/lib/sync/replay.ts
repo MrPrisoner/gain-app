@@ -1,8 +1,8 @@
 /**
- * Server-side replay of a client's outbox batch (design spec §6).
+ * Server-side replay of a client's outbox batch.
  *
- * Thin by design: `$lib/db/workout` has been idempotent on `client_id` since phase 4 and
- * was written as a replay target, so this module resolves an op's slugs and client ids
+ * Thin by design: `$lib/db/workout` is idempotent on `client_id` and was written as a
+ * replay target, so this module resolves an op's slugs and client ids
  * into server ids and calls the write layer. It adds no write of its own.
  *
  * ## Three rules, all about not losing data

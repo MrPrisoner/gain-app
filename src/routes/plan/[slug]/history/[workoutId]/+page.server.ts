@@ -1,5 +1,5 @@
 /**
- * Full detail for one workout (design spec §8): every set rendered with
+ * Full detail for one workout: every set rendered with
  * `renderExerciseSets`, reused verbatim from the export so a workout reads identically
  * here and in a bundle; every deviation; every metric value; and the plan version this
  * workout ran under, linking through to that version's verbatim document

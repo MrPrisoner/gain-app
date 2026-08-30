@@ -24,7 +24,7 @@ declare global {
          */
         displayName: string | null;
         /**
-         * Operator (spec §3). Re-derived from the IdP's groups at login and on
+         * Operator. Re-derived from the IdP's groups at login and on
          * every token refresh, so revoking the group revokes this — there is no
          * separate revocation path to forget.
          */

@@ -26,7 +26,7 @@ import { openUserDb, type UserDb } from "../../src/lib/db/user-db";
 
 const NOW = new Date("2026-09-08T08:00:00Z");
 
-/** Every table the offline outbox replays into (design spec §3). */
+/** Every table the offline outbox replays into. */
 const CLIENT_WRITTEN_TABLES = ["workout", "set_log", "metric_value", "deviation", "activity"];
 
 describe("client-written log tables", () => {

@@ -27,8 +27,8 @@ Where each part lives:
 The Playwright suite is the durable proof of each surface, and reading the relevant spec
 is the fastest way to learn how one actually behaves:
 `e2e/session-runner-walkthrough-a.spec.ts` and `-d.spec.ts` walk two full fixture
-sessions; `e2e/offline-*.spec.ts` run against a real production build, because
-`$service-worker`'s precache manifest is empty under `vite dev`; and `export-`,
+sessions; `e2e/offline-*.spec.ts` run against a real production build (see
+`test:e2e` below); and `export-`,
 `progress-`, `history-`, `revision-`, `admin-`, `archive-`, `versions-`,
 `account-reset-`, `import-failures`, `symptom-guide`, `security-headers` and `quarantine`
 each walk their own end to end.
@@ -44,7 +44,7 @@ Commands (Node 24 LTS — see `.nvmrc` and the `engines` field):
 dev`, so no offline spec can pass there. The build step means this project alone can
   take noticeably longer than the other three. Needs `npx playwright install chromium`
   once first (~150MB), which is exactly why it is deliberately kept out of `npm run
-verify` — a few-second local check must never download a browser. CI runs the suite in
+verify` — a half-minute local check must never turn into a browser download. CI runs the suite in
   its own `e2e` job instead, on the same triggers as `check`, with the browser cached on
   the resolved Playwright version. `e2e/` is still
   typechecked, linted and formatted by `verify`; it is only never _executed_ by it.
@@ -72,7 +72,8 @@ tsconfig.worker.json` pass for `src/service-worker.ts` — SvelteKit's generated
   `templates/` and `design/` are byte-sensitive and excluded from formatting; never
   remove them from `.prettierignore`
 - `npm run check:chars` — rejects literal control characters in tracked text files
-- `npm run verify` — all of the above in CI's order, then `npm run build`. A few seconds.
+- `npm run verify` — all of the above in CI's order, then `npm run build`. Around half a
+  minute; `typecheck` and `svelte-check` are most of it.
   Run this before saying work is done rather than reasoning about whether it would pass.
   It short-circuits, so a lint failure means the tests never ran. The build is in there
   because typecheck and `svelte-check` do not exercise the adapter, the `?raw` asset
@@ -104,9 +105,9 @@ asked — pushing one triggers a public image push to GHCR.
 ### Stack
 
 TypeScript + SvelteKit, single Node container, SQLite via `better-sqlite3`, Zod for
-contract validation, Vitest for tests. One image, one port, one volume. The phase-1/2
-core is plain TypeScript with no framework, and since phase 3 it doubles as the
-SvelteKit app's `$lib` — the app imports the core directly, and the core's tests still
+contract validation, Vitest for tests. One image, one port, one volume. The core —
+contract, parse, diff, export, storage — is plain TypeScript with no framework, and
+doubles as the SvelteKit app's `$lib`: the app imports it directly, and its tests still
 run without the framework.
 
 Node version, package manager, lint/format and CI are settled in ARCHITECTURE §12,
@@ -121,10 +122,10 @@ Two of them bite. Zod: this repo uses `z.strictObject`,
 `z.looseObject` and `error:`, and a model reaching for Zod 3 from memory writes
 `z.object().strict()` and `message:` — then "fixes" correct code into broken code.
 Svelte: every component is runes mode (`$state`, `$derived`, `$props`, `$effect`), and
-there is not one `export let` or `createEventDispatcher` anywhere in `src/` — phase 7 is
-mostly new components, so it is the trap with the most surface area still ahead of it.
-Check `package.json` and the real API before changing schema or component code, rather
-than trusting recall. If a docs lookup is available, use it.
+there is not one `export let` or `createEventDispatcher` anywhere in `src/` — so a new
+component written from memory is the likeliest place this bites. Check `package.json` and
+the real API before changing schema or component code, rather than trusting recall. If a
+docs lookup is available, use it.
 
 **Icons come from `~icons/lucide/*` and are inlined at build time.** `unplugin-icons`
 plus `@iconify-json/lucide`, both devDependencies, wired up in `vite.config.ts` — the
@@ -297,9 +298,10 @@ what `templates/bootstrap-prompt.md` is for — see ARCHITECTURE §7.
 
 ### A plan is two representations, and both round-trip
 
-A plan document is a ~350-line **skeleton** (a catalogue of every movement, then sessions
-→ blocks → prescriptions, inside one fenced ` ```gain-plan ` YAML block) wrapped in ~500
-lines of **prose context** (rationale, form cues, injury rules, progression philosophy).
+A plan document is a **skeleton** (a catalogue of every movement, then sessions → blocks
+→ prescriptions, inside one fenced ` ```gain-plan ` YAML block) wrapped in **prose
+context** (rationale, form cues, injury rules, progression philosophy). The fixture runs
+~460 lines of block to ~320 of prose; the ratio is not a rule.
 
 The split is strict: **prose holds the reasoning, the block holds the prescription.**
 Neither restates the other. Sets, reps, loads and rest appear only in the block; a plan
@@ -340,7 +342,7 @@ wrong number rather than failing.
 Each user gets their own `gain.db` and their own directory under `/data/users/<id>/`.
 There is no cross-user query because there is no cross-user database. Do not introduce a
 shared table keyed by `user_id`. There is exactly one optional operator role
-(`OIDC_ADMIN_GROUP`, phase 9) and exactly one module it may read another user's database
+(`OIDC_ADMIN_GROUP`) and exactly one module it may read another user's database
 from — `src/lib/server/admin-stats.ts`, which returns counts, dates and byte totals and
 never a content row. Outside that module there is no code path by which one user reads
 another's training data.
@@ -380,8 +382,9 @@ never succeed — an `exerciseSlug` a plan revision removed, a payload that fail
 — is retained, marked failed, and surfaced in the UI rather than discarded or retried
 indefinitely against the ops behind it. This is the one place "hold everything" and "never
 lose anything" conflict, and it resolves in favour of keeping the data and telling the
-user (design spec §6). An invisible quarantined op — one the banner does not surface — is
-exactly the data loss this whole phase exists to prevent, just moved one step later.
+user. An invisible quarantined op — one the banner does not surface — is
+exactly the data loss the offline write layer exists to prevent, just moved one step
+later.
 
 The hard case is a rejection that names **no** op — a 413, which the server answers before
 reading the body, or a 400 from a batch that fails `syncBatchSchema` whole. Neither can
@@ -454,8 +457,7 @@ protect:
   not the still-queued one. It self-corrects on any reconnect. This is fine specifically
   because prefill is a suggestion and the ledger stores what was submitted, not what was
   offered — a stale prefill is a one-tap-correctable annoyance, and unlike every other
-  number in this phase it can never reach the export or the reviewing AI (design spec §2,
-  decision 5).
+  number in the offline write path it can never reach the export or the reviewing AI.
 - **`weight_kg` is always the total kilograms being lifted**, everywhere — the log, the
   charts, the export. Settled 2026-08-10: the contract has no field meaning "this movement
   is paired", `per_side` is not that field, and adding one was rejected because
@@ -576,7 +578,7 @@ protect:
 ## The fixture
 
 [`fixtures/plans/home-training-v1.md`](fixtures/plans/home-training-v1.md) is
-the spine of the phase-1 test suite — a fictionalised, current-generation plan (authored
+the spine of the test suite — a fictionalised, current-generation plan (authored
 against this shipped `docs/CONTRACT.md`, the way the loop actually produces one) rather
 than a hand-written spec fixture.
 

@@ -1,5 +1,5 @@
 /**
- * The metric trends list (design spec §7): one row per (scope, key) with logged values.
+ * The metric trends list: one row per (scope, key) with logged values.
  * Non-numeric metrics never appear — numericMetricDefs already filters to number/scale.
  */
 

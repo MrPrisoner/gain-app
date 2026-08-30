@@ -1,5 +1,5 @@
 /**
- * Reverse-chronological, paginated in memory (design spec §8) — a fixed page size
+ * Reverse-chronological, paginated in memory — a fixed page size
  * rather than the full history at once, as a safety margin for a very long history
  * rather than a response to a known problem.
  */
@@ -24,7 +24,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
   const logs = logsForPlan(userDb, plan.id);
   const versions = versionsByWorkout(userDb, plan.id);
 
-  // Session *names*, per spec §8 — a bare key ("A") is an identifier, not a label a
+  // Session *names* — a bare key ("A") is an identifier, not a label a
   // person recognises. Names come from the plan as it stands now; a workout logged
   // under an older version whose names differ falls back to its key rather than
   // reading a second version's contract per row.

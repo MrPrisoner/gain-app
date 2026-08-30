@@ -237,7 +237,7 @@ async function refreshIfDue(
   // Admin-ness is re-derived from the same answer that just re-checked the access
   // gate. `groups === null` means GAIN could not establish membership at all, and the
   // same rule applies as to the gate itself: an unevaluable check is not a failed
-  // check, so the flag is left exactly as it was (spec §3).
+  // check, so the flag is left exactly as it was.
   let isAdmin = session.is_admin === 1;
   if (groups !== null) {
     const nowAdmin = adminGroup !== null && hasRequiredGroup(groups, adminGroup);

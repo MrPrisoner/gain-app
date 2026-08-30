@@ -1,5 +1,5 @@
 /**
- * The count-only cross-user reader (spec §5). These tests are the guarantee that
+ * The count-only cross-user reader. These tests are the guarantee that
  * ARCHITECTURE §4 still holds with an operator screen in the app: what leaves this
  * module is counts, dates and byte totals, and never a row of anyone's training data.
  */

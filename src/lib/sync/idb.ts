@@ -1,13 +1,14 @@
 /**
- * The outbox, on IndexedDB (design spec §5). The `OutboxStore` implementation the flush
+ * The outbox, on IndexedDB. The `OutboxStore` implementation the flush
  * loop actually runs against; `$lib/sync/queue` holds the rules it obeys.
  *
- * This is the store that makes a browser kill survivable — `sessionStorage`, which phase
- * 4 used to hold the workout's client id, dies with the tab.
+ * This is the store that makes a browser kill survivable. The workout's client id sits
+ * in `localStorage` beside it (`$lib/session/workout-storage.ts`) rather than in
+ * `sessionStorage`, which dies with the tab.
  *
  * **Ops leave this store two ways, and only two.** The server acknowledged them, or the
  * server declared the generation they belong to void — a reset wiped the account, and
- * the data they describe no longer exists to be reconciled against (spec §7). A
+ * the data they describe no longer exists to be reconciled against. A
  * quarantined op is neither: it is updated in place and kept, so the user can be told
  * about it, and it leaves only when the user discards it themselves.
  */

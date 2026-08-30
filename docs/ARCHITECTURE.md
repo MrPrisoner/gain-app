@@ -62,12 +62,13 @@ A plan document is two things at once:
 
 | | Purpose | Consumer | Size |
 |---|---|---|---|
-| **Skeleton** | A catalogue of movements, then sessions → blocks → prescriptions, with stable IDs | The session-runner UI | ~350 lines |
-| **Context** | Rationale, form cues, pain rules, progression philosophy, exclusions | The AI, on the next revision | ~500 lines |
+| **Skeleton** | A catalogue of movements, then sessions → blocks → prescriptions, with stable IDs | The session-runner UI | ~460 lines |
+| **Context** | Rationale, form cues, pain rules, progression philosophy, exclusions | The AI, on the next revision | ~320 lines |
 
-The reference plan is ~800 lines. Almost none of the context is needed to render
-"exercise 3 of 8 — log your reps". All of it is needed when you ask an AI to write
-block 2.
+The reference plan is ~780 lines, split roughly 460/320 (the sizes above are that plan's,
+not a rule — a plan with denser reasoning inverts them). Almost none of the context is
+needed to render "exercise 3 of 8 — log your reps". All of it is needed when you ask an AI
+to write block 2.
 
 The two never restate each other. Prescriptions live only in the skeleton, reasoning only
 in the context — otherwise a revision has to update both and one of them will drift.
@@ -557,7 +558,7 @@ The plan is **fictional** — profile, training history and symptom context are
 invented. It is written in the style a real AI-authored plan uses, because its job
 is to behave like one. No real health data belongs in this repository.
 
-It is also the phase-1 test fixture, chosen because it exercises every primitive in one
+It is also the test fixture, chosen because it exercises every primitive in one
 file: a rounds block, checkoff warm-ups, conditionals both with and without substitutes,
 per-side reps and per-side time and a per-side movement carrying an external load, ranged
 sets, catalogue rest defaults overridden per occurrence, a prescription-level load and
@@ -673,8 +674,7 @@ mark is_current, previous version retained read-only
 ```
 
 Both paths share everything except the review step, so the first import is not a special
-case in the pipeline — it is the same pipeline with nothing to compare against. That is
-why it can ship in phase 3 while diff review waits for phase 8.
+case in the pipeline — it is the same pipeline with nothing to compare against.
 
 Old versions stay browsable. Workouts remain attached to the version they were logged
 under, so "what did the plan actually say in week 3" is always answerable —
@@ -714,10 +714,10 @@ before a commit is allowed.
 
 The screen you actually stare at, sweating, between sets. It gets the most design care.
 
-Built in phase 4 at `src/routes/plan/[slug]/session/[key]/`, with the pure logic in
+Built at `src/routes/plan/[slug]/session/[key]/`, with the pure logic in
 `src/lib/session/` (resolution, pre-fill, rest timer, resume reconstruction). **How it
 behaves is settled in [`docs/UI-DECISIONS.md`](./UI-DECISIONS.md)**, not here; this
-section is the architectural half. The Home screen below shipped with phase 7, and is
+section is the architectural half. The Home screen below is
 where a session is reached from.
 
 - **Home:** suggested next session per `scheduling.sequence` and rules, with any
@@ -764,11 +764,15 @@ where a session is reached from.
 
 ### Resuming a workout
 
-A phone locks, a browser tab is discarded, a user pulls to refresh mid-set. Phase 4 is
-online-only, so the guarantee is narrower than phase 6's, but it is not nothing: the
-runner keeps the workout's `client_id` in `sessionStorage`, and `?/start` replayed with
-that same ID resolves the existing row instead of creating a second one — the ordinary
-idempotency every write already has, used as a lookup.
+A phone locks, a browser tab is discarded, a user pulls to refresh mid-set. The runner
+keeps one small pointer — the workout's `client_id` — in `localStorage`, keyed
+`gain:workout:<planSlug>:<sessionKey>` (`$lib/session/workout-storage.ts`); the workout's
+actual data lives in the IndexedDB outbox. The pointer is needed because a `start` op
+carries `planVersionId` rather than `planSlug` (§8: a workout stays bound to the version
+it ran under), so the outbox alone cannot answer "is there already a local workout for
+this route" once a plan has been revised. `localStorage` rather than `sessionStorage`,
+deliberately: the latter dies with the tab, which is one of the failures this has to
+survive.
 
 **Resuming the workout row is the easy half. Resuming the screen is the real one.** A
 reload that restores the row but not the ledger re-arms every set with a fresh ULID, and
@@ -778,6 +782,13 @@ from them (`src/lib/session/resume.ts`, pure and unit-tested): the ledger, the s
 next-unlogged-set cursor, skipped and substituted slots, set-count deltas, the round in
 progress, and which wrap-up metrics are already answered.
 
+Resume merges two sources and needs both: the server's view of the workout (`?/start`,
+strictly read-only — it resolves by `client_id` and never creates, so a read path and a
+write path can never race to create the same row) and whatever ops are still pending
+locally. Neither is sufficient alone, because `ack()` deletes an op from the outbox the
+moment the server confirms it — a reload rebuilt from IndexedDB alone would silently drop
+everything that had already synced.
+
 Reconstruction is inference, because a log row names a movement and not a slot (§5).
 Deviations are replayed in ULID order so the substitution map is rebuilt as it stood at
 the time, and each row is attributed to the occurrence currently performing its slug
@@ -785,9 +796,6 @@ before one that has since been substituted away. Where a slug could belong to tw
 loggable occurrences of one session, the earlier wins. That last rule can put a set in
 the wrong slot of the right session; it can never invent, drop or misattribute a row
 across workouts. Making it exact needs the `block_key` column §5 describes.
-
-Surviving a full browser kill — where `sessionStorage` is gone too — is a phase-6
-guarantee, and IndexedDB is what delivers it.
 
 ### Offline model
 
@@ -897,8 +905,8 @@ This constrains the design, and the constraints are already baked into the above
 
 ### Toolchain, settled
 
-Phase 1 scaffolds these. They are recorded here so an agent implements them rather than
-choosing them, and so two agents do not choose differently.
+Recorded here so an agent implements them rather than choosing them, and so two agents
+do not choose differently.
 
 | | Choice | Why |
 |---|---|---|
@@ -906,7 +914,7 @@ choosing them, and so two agents do not choose differently.
 | Package manager | **npm** | Ships with Node, one lockfile, no corepack step in the image build. This is a single-package repo; a workspace-aware manager would earn nothing |
 | Language | **TypeScript, `strict: true`** | The Zod schema and the SQLite DDL are the specification (above). Loose types would defeat the point |
 | Tests | **Vitest** | Already decision 9's stack. The golden round-trip test is plain Vitest, no harness |
-| Browser tests | **Playwright**, Chromium only, `npm run test:e2e`, added in phase 4; run in CI as its own job, never folded into `verify` | The session runner's worst failures are layout ones — they exist only at a real viewport width, and no amount of unit testing sees them. Kept deliberately *outside* `npm run verify` so a few-second local check never downloads a browser — a separate CI job has no such constraint, and the specs are the durable proof of every phase's "done when" |
+| Browser tests | **Playwright**, Chromium only, `npm run test:e2e`; run in CI as its own job, never folded into `verify` | The session runner's worst failures are layout ones — they exist only at a real viewport width, and no amount of unit testing sees them. Kept deliberately *outside* `npm run verify` so a half-minute local check never turns into a browser download — a separate CI job has no such constraint, and the specs are the durable proof of how each surface actually behaves |
 | Lint / format | **ESLint + Prettier**, plus `svelte-check` | What `sv create` scaffolds. Formatting arguments are not a good use of anyone's attention |
 | CI | **GitHub Actions**: typecheck, lint, test, the full Playwright suite (its own job, browser cached on the resolved Playwright version) and an unpushed image build on every PR; nothing runs on a plain push to `main`; a `v*` tag re-runs the same checks and pushes the image | Minimal, and every commit that reaches `main` was already vetted by its PR — re-running the identical checks again on the merge is cost with no new information. A tag is a distinct, deliberate event: "this commit is a release", not "this commit reached `main`" |
 

@@ -1,6 +1,6 @@
 /**
  * The outbox, projected into the shape `$lib/session/resume` already consumes
- * (design spec §5).
+ *.
  *
  * This is the hinge of the offline design. `workoutHistoryFor` reads the server's rows
  * back joined to their slug and ordered by ULID; an op log holds slugs and ULIDs

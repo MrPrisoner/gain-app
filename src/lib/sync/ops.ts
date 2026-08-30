@@ -1,5 +1,5 @@
 /**
- * The offline sync op format (ARCHITECTURE §9, "Offline model"; design spec §4).
+ * The offline sync op format (ARCHITECTURE §9, "Offline model").
  *
  * An op is one write the client made, addressed entirely by **slug and client ULID**.
  * Nothing here names a server id, because an op is created on a device that may never
@@ -125,7 +125,7 @@ export const syncBatchSchema = z.strictObject({
   /**
    * The `control_user.data_generation` this outbox was filled under. Defaulted so a
    * client cached from before this field existed reads as 0 — correct for anyone never
-   * reset, and correctly rejected for anyone who has been (spec §7).
+   * reset, and correctly rejected for anyone who has been.
    */
   generation: z.number().int().nonnegative().default(0),
 });

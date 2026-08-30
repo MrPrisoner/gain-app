@@ -1,6 +1,6 @@
 // e2e/progress-walkthrough.spec.ts
 /**
- * Phase 7b's own durable proof (spec §11): goblet-squat is prescribed in both session A
+ * Phase 7b's own durable proof: goblet-squat is prescribed in both session A
  * ([8,12]) and session D ([12,15]) of the fixture — logging it in both and finding two
  * separate rows on the exercises list is the one behaviour that would silently regress
  * to a merged row if buildExerciseSeries ever went back to keying on a bare

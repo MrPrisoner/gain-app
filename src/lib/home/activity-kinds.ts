@@ -1,5 +1,5 @@
 /**
- * Activity kind bookkeeping (design spec §5). `activity.kind` is a free-form slug in
+ * Activity kind bookkeeping. `activity.kind` is a free-form slug in
  * the user's own vocabulary — GAIN ships no list of sports (ARCHITECTURE §9), so this
  * module only ever reflects kinds the user has already used, plus `rest`.
  */

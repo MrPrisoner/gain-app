@@ -112,7 +112,7 @@ describe("the Home archive actions", () => {
 
   it("fails rather than throws on a slug that cannot be archived", async () => {
     // A form action that throws is a 500, and a 500 on Home is a wall where a sentence
-    // would do (CLAUDE.md, "What the phase-4 review changed").
+    // would do (CLAUDE.md, "Rules learned the hard way").
     const result = (await archive(formEvent({ slug: "no-such-plan" }))) as { status: number };
     expect(result.status).toBe(404);
     const second = (await unarchive(formEvent({ slug: "home-training" }))) as { status: number };

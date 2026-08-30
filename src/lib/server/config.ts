@@ -38,7 +38,7 @@ export type GainConfig = {
   sessionIdleMs: number;
   auth: AuthConfig;
   /**
-   * The Authentik group whose members are operators (spec §3). `null` means this
+   * The Authentik group whose members are operators. `null` means this
    * instance has no admin at all and `/admin` 404s for everyone — an operator who has
    * not opted in has no admin surface.
    */

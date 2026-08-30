@@ -84,7 +84,7 @@ export async function finishSession(page: Page): Promise<void> {
 }
 
 /** The workout's `client_id` — the page mints it and keeps it in `localStorage` (design
- * spec §7: it must survive a browser kill, which `sessionStorage` cannot), and it is the
+ * it must survive a browser kill, which `sessionStorage` cannot), and it is the
  * only handle a spec has on *its own* workout in the shared database. */
 export async function workoutClientId(page: Page, sessionKey: string): Promise<string> {
   const key = `gain:workout:${E2E_PLAN_SLUG}:${sessionKey}`;
@@ -196,7 +196,7 @@ export async function assertNoHorizontalOverflow(page: Page): Promise<void> {
 }
 
 /**
- * Waits until `url` is sitting in some Cache Storage entry (phase 6, design spec §7) —
+ * Waits until `url` is sitting in some Cache Storage entry —
  * the service worker's own precache is fire-and-forget from the page's side
  * (`precacheSessions` posts a message and returns; there is no response channel telling
  * the caller when `cache.addAll` actually finishes), so an offline test that goes

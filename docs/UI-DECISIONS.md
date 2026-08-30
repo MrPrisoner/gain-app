@@ -254,7 +254,8 @@ level's label, its action as a verb ("Carry on" / "Modify" / "Stop"), its modifi
 `red` level inline, so the runner's one safety-critical control now says what stopping
 means rather than asking blind. `e2e/symptom-guide.spec.ts` opens both from a real session
 and asserts the fixture's own level text is on screen, not merely that a sheet's shell
-rendered — the vacuous-assertion trap phase 7 and U4 both already caught here.
+rendered — the vacuous-assertion trap CLAUDE.md records under "Rules learned the hard
+way".
 
 **What is true now:**
 
@@ -269,7 +270,12 @@ rendered — the vacuous-assertion trap phase 7 and U4 both already caught here.
 - **Outside the runner, `--red` and `--amber` carry their ordinary meanings** — a blocking
   error, a destructive action, a warning — in the import review, the export screen, the
   sync banner, `/admin` and `/account`.
-- **`--green` now has its first call sites**, in the symptom guide's `green` level swatch.
+- **`--green` now has its first call sites**, in the symptom guide's `green` level
+  swatch. Note how they reach CSS: `symptom-guide.ts` maps each level to a token *name*
+  and the components interpolate it (`style:background={`var(${level.token})`}`), so
+  grepping for a literal `var(--green)` finds nothing and reports the token as dead. It
+  is not. Do not "clean up" an apparently-unused colour token without checking
+  `TOKEN_BY_LEVEL` first.
 
 **One vocabulary note, applied.** The contract's middle level is spelled `yellow`; the
 design token is `--amber`. `symptom-guide.ts`'s `TOKEN_BY_LEVEL` is the one place that

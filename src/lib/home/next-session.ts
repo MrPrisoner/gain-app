@@ -1,5 +1,5 @@
 /**
- * The Home screen's suggested next session (ARCHITECTURE §9, "Home"; design spec §4).
+ * The Home screen's suggested next session (ARCHITECTURE §9, "Home").
  *
  * Pure: no clock, no I/O. `recentWorkouts` must already be most-recent-first — the
  * caller (`recentWorkoutsForPlan`, `src/lib/db/home.ts`) orders by `started_at DESC`.

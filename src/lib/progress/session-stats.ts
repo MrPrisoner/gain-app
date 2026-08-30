@@ -1,5 +1,5 @@
 /**
- * Per-session-type stats (spec §6): completion rate, deviation count, duration —
+ * Per-session-type stats: completion rate, deviation count, duration —
  * all scoped to one `session_key` and shown inline on the progress hub (a handful of
  * cards, not the "wall of charts" per-exercise progress deliberately avoids by
  * drilling down instead).

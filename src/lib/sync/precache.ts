@@ -1,6 +1,6 @@
 /**
  * Ask the service worker to cache a plan's session payloads while a network still exists
- * (design spec §7).
+ *.
  *
  * `/plan/<slug>/session/<key>/__data.json` is exactly what SvelteKit fetches on a
  * client-side navigation to that route, so caching it makes the session *startable*

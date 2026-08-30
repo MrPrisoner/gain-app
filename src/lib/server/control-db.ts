@@ -60,18 +60,18 @@ const MIGRATIONS: ControlMigration[] = [
     sql: `
       -- The operator needs a human-readable label to aim a reset at; a list of
       -- ULIDs forces the identification step out into Authentik, unchecked
-      -- (spec §1). This narrows "nothing personal in control.db" to "no training
+      --. This narrows "nothing personal in control.db" to "no training
       -- data in control.db" — see ARCHITECTURE §4.
       ALTER TABLE control_user ADD COLUMN display_label TEXT;
 
       -- Bumped by a reset. The offline outbox carries the generation it was
       -- filled under, so ops from before a wipe are rejected wholesale rather
-      -- than flushing back in and quarantining forever (spec §7).
+      -- than flushing back in and quarantining forever.
       ALTER TABLE control_user ADD COLUMN data_generation INTEGER NOT NULL DEFAULT 0;
 
       -- Admin-ness is a property of the session, not the user: it is recomputed
       -- from the IdP's groups at login and on every token refresh, so there is no
-      -- stored privilege that can disagree with Authentik (spec §3).
+      -- stored privilege that can disagree with Authentik.
       ALTER TABLE session ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0;
     `,
   },
@@ -356,7 +356,7 @@ export function deleteSession(control: ControlDb, sessionId: string): void {
 }
 
 /**
- * Sign this user out everywhere. The first step of a reset (spec §6): nothing
+ * Sign this user out everywhere. The first step of a reset: nothing
  * authenticated can write once their sessions are gone.
  */
 export function deleteSessionsForUser(control: ControlDb, userId: string): number {

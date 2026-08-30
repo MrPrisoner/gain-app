@@ -1,5 +1,5 @@
 /**
- * The client half of sync (design spec §3, §8): append locally, flush when we can, and
+ * The client half of sync: append locally, flush when we can, and
  * never let a failure cost the user a set.
  *
  * `logWrite` deliberately does **not** await the network. A set must land and re-render
@@ -43,7 +43,7 @@ let retryTimer: ReturnType<typeof setTimeout> | undefined;
 let batchLimit = BATCH_LIMIT;
 
 /**
- * The generation this browser tab believes its outbox was filled under (spec §7).
+ * The generation this browser tab believes its outbox was filled under.
  * Seeded from `+layout.server.ts`'s `dataGeneration` on every load via `setGeneration` —
  * a page reload resets this module, so without seeding, the first flush after a reload
  * would default to 0 and either wrongly 409 a legitimate queue (this account was reset
@@ -154,7 +154,7 @@ export async function flushNow(planSlug: string): Promise<void> {
       // The account was reset. These ops describe data that no longer exists, so there
       // is nothing to reconcile — clear them and say so. This is the one place GAIN
       // discards local data, and it is narrow by construction: only the server, only on
-      // an explicit generation mismatch (spec §7).
+      // an explicit generation mismatch.
       const body = (await response.json().catch(() => null)) as {
         dataGeneration?: number;
       } | null;

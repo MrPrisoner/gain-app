@@ -54,7 +54,7 @@
   let choices: Record<string, string> = $state({});
 
   // Every departed slug needs an explicit answer and nothing may be blocking — an
-  // untouched row is never implicit acceptance (spec §5). `choices[d.slug] ?? ""` covers
+  // untouched row is never implicit acceptance. `choices[d.slug] ?? ""` covers
   // a disposition the seeding above never touched (no suggestion, nothing chosen yet).
   let ready = $derived(
     form?.revision !== undefined &&
@@ -62,7 +62,7 @@
       form.revision.dispositions.every((d) => (choices[d.slug] ?? "") !== ""),
   );
 
-  // A rename quarantines any already-queued op that still names the old slug (spec §2).
+  // A rename quarantines any already-queued op that still names the old slug.
   // Only the user can tell whether those particular queued entries matter, so this is a
   // note, never a block on commit.
   let hasRename = $derived(Object.values(choices).some((choice) => choice.startsWith("rename:")));
@@ -317,7 +317,7 @@
     overflow: auto;
   }
 
-  /* Every section of the review is its own block, in the order spec §5 fixes: blocking
+  /* Every section of the review is its own block, in a fixed order: blocking
      problems, dispositions, the AI's changelog, the change groups, then warnings. */
   .block {
     margin-top: 1.25rem;

@@ -103,7 +103,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
     user = createUser(control, claims.sub, now);
   }
   touchUserLogin(control, user.id, now);
-  // The label the operator identifies this user by (spec §1). `preferred_username`
+  // The label the operator identifies this user by. `preferred_username`
   // leads because it is what Authentik's own user list shows, so an operator matching
   // a name across the two screens sees the same string.
   setDisplayLabel(control, user.id, extractDisplayLabel(claims));

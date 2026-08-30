@@ -5,13 +5,13 @@
   import { lastDoneLabel } from "$lib/home/last-done";
 
   /**
-   * The Home screen's secondary picker (design spec §4): every declared session,
-   * collapsed behind one toggle, each further expandable to the block detail the plan
-   * overview used to show above the fold. `scheduling.rules`/`drop_order` render
-   * verbatim underneath as the plan's own words, never automated (design spec §2,
-   * decision 7). Nested inside `NextSessionCard`'s `.next-session` card rather than a
-   * card of its own, so it renders no background or
-   * border of its own — only a divider to separate it from the start button above.
+   * The Home screen's secondary picker: every declared session, collapsed behind one
+   * toggle, each further expandable to the block detail the plan overview used to show
+   * above the fold. `scheduling.rules`/`drop_order` render verbatim underneath as the
+   * plan's own words, never automated — GAIN acts automatically on
+   * `scheduling.sequence` alone. Nested inside `NextSessionCard`'s `.next-session` card
+   * rather than a card of its own, so it renders no background or border of its own —
+   * only a divider to separate it from the start button above.
    */
   let {
     planSlug,

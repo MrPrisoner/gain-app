@@ -1,7 +1,7 @@
 /**
  * The read path from `gain.db` to the plain-data `Logs` shape (`src/lib/logs/types.ts`)
- * that the export generator consumes — phase 5's missing half. `generateExport` has been
- * finished since phase 1; the database has the rows; this module is the join between them.
+ * that the export generator consumes. `generateExport` is pure and takes plain data; the
+ * database has the rows; this module is the join between them.
  *
  * Three properties this has to hold, each of which fails silently rather than loudly:
  *

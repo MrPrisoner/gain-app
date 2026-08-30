@@ -3,7 +3,7 @@
   import { layoutLineChart, type ChartPoint } from "$lib/progress/chart-geometry";
 
   /**
-   * A single-series line chart (spec §9: one accent hue, one axis, touch-first). Callers
+   * A single-series line chart (one accent hue, one axis, touch-first). Callers
    * supply both formatters rather than one raw-value formatter, because different
    * callers plot different quantities through the same shape — the load-x-reps chart
    * labels every point with reps while plotting weight; a metric trend labels only its
@@ -56,7 +56,7 @@
       <path d={layout.path} class="line" />
       {#each layout.plotted as point, i (i)}
         {@const pointLabel = formatPointLabel(points[i]!, i, points)}
-        <!-- Two circles: the visible 8px mark (spec §9) and a transparent 24px hit
+        <!-- Two circles: the visible 8px mark and a transparent 24px hit
              target over it, because a thumb is not 8px wide. -->
         <circle cx={point.cx} cy={point.cy} r="4" class="dot" />
         <circle

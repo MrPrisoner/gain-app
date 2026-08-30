@@ -1,6 +1,6 @@
 /**
  * The sync endpoint, driven through its exported `POST` handler (ARCHITECTURE §4, design
- * spec §6) — same level `tests/server/first-run.test.ts` drives `+page.server.ts`'s
+ * — same level `tests/server/first-run.test.ts` drives `+page.server.ts`'s
  * actions: a minimal `RequestEvent` stand-in over the real `getUserDbFor`/`getConfig`
  * plumbing, not a reimplementation of the handler's logic.
  *

@@ -1,5 +1,5 @@
 /**
- * Form-action failure handling (CLAUDE.md, "What the phase-4 review changed"): an action must
+ * Form-action failure handling (CLAUDE.md, "Rules learned the hard way"): an action must
  * never bare-`throw` on a missing required field — before this task, `requireText`
  * (`+page.server.ts`) threw a plain `Error`, which SvelteKit turns into an unhandled
  * 500 and `+error.svelte` replaces the whole in-progress runner. This test drives the
@@ -8,10 +8,10 @@
  * the *same* route with the action's `fail()` status) and asserts a missing `client_id`
  * degrades to a 400 with a message, not a 500 replacing the page.
  *
- * Phase 6 removed `?/logSet`, `?/logMetric`, `?/logDeviation` and `?/finish` — every real
- * write now goes through the outbox and `/api/sync` instead — so `?/start` (kept as the
- * read-only fallback-hydration path, design spec §5) is the only action left on this
- * route to demonstrate the invariant against.
+ * `?/logSet`, `?/logMetric`, `?/logDeviation` and `?/finish` are gone — every real write
+ * goes through the outbox and `/api/sync` instead — so `?/start`, kept as the read-only
+ * fallback-hydration path, is the only action left on this route to demonstrate the
+ * invariant against.
  *
  * `GAIN_DEV_USER` bypass mode (see `session-runner.spec.ts`) means no auth/cookie setup
  * is needed: every request to the dev server already carries a `locals.user`.

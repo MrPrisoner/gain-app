@@ -5,7 +5,7 @@
  * `start` is the only action left. Every other write — sets, metrics, deviations,
  * finishing the workout — now goes through the outbox (`$lib/sync/client.svelte`) as an
  * op, replayed server-side by `$lib/sync/replay` via `POST /api/sync`, never through a
- * form action (phase 6, design spec §3). `start` survives as the fallback hydration path
+ * form action. `start` survives as the fallback hydration path
  * for a device with no local record — a different browser, or cleared storage — reading
  * the workout's rows back the same way it always has if the idempotent lookup resolves an
  * existing row.
@@ -114,7 +114,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
   return {
     planSlug: plan.slug,
     // The start op carries this: a revision imported while a workout is queued must not
-    // rebind that workout to a version it never ran under (design spec §4).
+    // rebind that workout to a version it never ran under.
     planVersionId: version.id,
     session,
     prefillByExercise,
@@ -139,7 +139,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 
 export const actions: Actions = {
   /**
-   * Read-only fallback hydration (phase 6, design spec §5). Its only remaining caller is
+   * Read-only fallback hydration. Its only remaining caller is
    * the runner's own `fetchServerHydration`, used when local reconstruction alone might
    * be incomplete — `idb.ts`'s `ack()` deletes a synced op from the outbox the moment the
    * server confirms it, so once anything has synced, the local outbox no longer has the
@@ -207,7 +207,7 @@ function formText(form: FormData, name: string): string {
  * Throws a plain `Error` on a missing/malformed field. The `start` action's own
  * `try`/`catch` converts that throw into `fail(400, { actionError })` before it can reach
  * SvelteKit — nothing in `actions` is allowed to throw except `redirect` (ARCHITECTURE §9;
- * CLAUDE.md, "What the phase-4 review changed").
+ * CLAUDE.md, "Rules learned the hard way").
  */
 function requireText(form: FormData, name: string): string {
   const value = formText(form, name).trim();

@@ -101,6 +101,17 @@ OAuth2/OpenID provider, and gate access with the group named by
 checks, and the container logs the effective origin and redirect URI at
 startup so a proxy misconfiguration is easy to spot.
 
+Two startup checks refuse rather than warn, so get them right first time: on a
+deployed instance `ORIGIN` must be `https://` (the session cookie is issued
+`Secure` regardless, so a plaintext origin fails login with no useful
+diagnostic), and `SESSION_SECRET` must be at least 32 characters — generate one
+with `openssl rand -hex 32`.
+
+The container publishes on `127.0.0.1:${GAIN_PORT:-8420}`, not on every
+interface, so the app is reachable only through a reverse proxy on the same
+host. Terminating TLS elsewhere means changing that binding in `compose.yaml`
+deliberately rather than by accident.
+
 For local development without an IdP, `GAIN_DEV_USER=you npm run dev` bypasses
 authentication. It is refused unless `ORIGIN` is a loopback address, so an
 instance anyone else can reach will not start with that variable set — the guard

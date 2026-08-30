@@ -24,7 +24,7 @@
   let { data, form }: { data: PageData; form: ActionData } = $props();
 
   // Ask the service worker to cache every plan's session routes while there is still a
-  // network (design spec §7, Task 8) — what makes a session *startable* offline, not only
+  // network — what makes a session *startable* offline, not only
   // continuable. `data.plans` is `undefined` on the first-run view, so this is a harmless
   // no-op until a plan actually exists, and it deliberately reacts to `data.plans` rather
   // than running once: importing a new plan (or a revision that adds a session) must
@@ -47,7 +47,7 @@
   let copyTimer: ReturnType<typeof setTimeout> | undefined = $state(undefined);
 
   // The next-morning prompt's dismissal is local and permanent for that workout (design
-  // spec §6) — not synced, and not re-derived from server data, so a dismissal survives
+  // not synced, and not re-derived from server data, so a dismissal survives
   // even if the answer op never syncs.
   const DISMISS_KEY = "gain:next-morning-dismissed";
 
@@ -91,7 +91,7 @@
       : dueNextMorningPrompts(data.nextMorningCandidates, nowMs, dismissed),
   );
 
-  // Activities have no owning plan (design spec §5) and this route otherwise never
+  // Activities have no owning plan and this route otherwise never
   // registers the reconnect/visibility listeners `startSyncLoop` provides (only the
   // session runner does today) — without this, an activity op queued while offline
   // would only retry via its own internal backoff timer, never immediately on

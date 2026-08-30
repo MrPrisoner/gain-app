@@ -1,5 +1,5 @@
 /**
- * Reset one user's training data to a clean slate (spec §6).
+ * Reset one user's training data to a clean slate.
  *
  * **The order below is load-bearing, not stylistic.** Each step exists because doing it
  * later breaks something quietly:
@@ -8,7 +8,7 @@
  *    wiped user's browser starts receiving 401s, which the sync layer already handles
  *    by holding its queue rather than dropping it.
  * 2. The generation bump invalidates whatever that held queue contains, so the ops do
- *    not flush back in after the wipe and quarantine forever (spec §7).
+ *    not flush back in after the wipe and quarantine forever.
  * 3. The cached handle is closed *before* the unlink. `better-sqlite3` holds the file
  *    open; unlinking first leaves this process writing to a deleted inode.
  * 4. The directory goes, and is verified gone — `force: true` is best-effort by design,
@@ -18,7 +18,7 @@
  *
  * The account itself survives: the `control_user` row stays, because the user is still
  * in `OIDC_REQUIRED_GROUP` and deleting the row only means their next login mints a new
- * user id and the list entry reappears (spec §2, decision 3).
+ * user id and the list entry reappears.
  */
 
 import fs from "node:fs";

@@ -1,5 +1,5 @@
 /**
- * The `/admin` route (spec §8): a non-admin gets 404, not 403, on both the page and the
+ * The `/admin` route: a non-admin gets 404, not 403, on both the page and the
  * reset action, and the reset action fails with 400 rather than throwing on a bad
  * confirmation or a user id that no longer exists.
  */

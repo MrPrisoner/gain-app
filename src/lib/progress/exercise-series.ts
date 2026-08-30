@@ -124,7 +124,7 @@ export type LoadRepsPoint = {
 };
 
 /** The heaviest set logged that workout, and the effort done at that weight — the single
- * chart in spec §5 that plots both quantities without a second (dual) axis. */
+ * chart that plots both quantities without a second (dual) axis. */
 export function topSetPoints(
   series: readonly ExerciseSeriesPoint[],
   side: "left" | "right" | undefined,
@@ -153,7 +153,7 @@ export type EffortChartSeries = {
 };
 
 /**
- * What the detail page's first chart actually plots (spec §5).
+ * What the detail page's first chart actually plots.
  *
  * When the movement carries a load, that load is the value and the effort done at it is
  * the point's direct label — the single-axis "load × reps" chart, no second axis. When it

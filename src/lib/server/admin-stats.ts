@@ -1,5 +1,5 @@
 /**
- * Per-user aggregates for the operator screen (spec §5) — and the only module in GAIN
+ * Per-user aggregates for the operator screen — and the only module in GAIN
  * that opens a `gain.db` belonging to someone other than the requesting user.
  *
  * That concentration is the design. ARCHITECTURE §4's promise is that no code path

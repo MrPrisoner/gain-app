@@ -1,10 +1,10 @@
 /**
- * Plain-data training logs — the phase-1 shape of the domain model's workout,
+ * Plain-data training logs — the pure-core shape of the domain model's workout,
  * set_log, metric_value, deviation and activity records (ARCHITECTURE §5).
  *
- * Phase 1 is pure functions over plain data: the export generator consumes these
- * structures, and tests build them directly. IDs are caller-generated strings
- * (ULIDs with client-side generation and server-side idempotency arrive in phase 6).
+ * The core is pure functions over plain data: the export generator consumes these
+ * structures, and tests build them directly. IDs are caller-generated strings, which is
+ * what lets the offline client mint them and the server replay them idempotently.
  */
 
 export type Difficulty = "easy" | "medium" | "hard";

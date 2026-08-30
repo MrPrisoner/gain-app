@@ -7,7 +7,7 @@
   import { logWrite } from "$lib/sync/client.svelte";
 
   /**
-   * The activity log sheet (design spec §5, decision 4): asks duration/intensity/note
+   * The activity log sheet: asks duration/intensity/note
    * and *when* before writing, rather than one tap that writes immediately and is
    * edited afterwards — the op carries its full payload at write time, so there is no
    * edit window to explain and no undo to build.

@@ -54,6 +54,12 @@ export default tseslint.config(
       "coverage/**",
       ".svelte-kit/**",
       "static/**",
+      // Playwright's own output. Both are git-ignored, but a *failed* e2e run leaves
+      // trace artifacts behind — hundreds of minified browser bundles — and without
+      // these lines the next `npm run verify` fails on them rather than on the code,
+      // burying the real failure under `no-undef` noise from someone else's JavaScript.
+      "test-results/**",
+      "playwright-report/**",
     ],
   },
   js.configs.recommended,

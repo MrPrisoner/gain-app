@@ -1,5 +1,5 @@
 /**
- * The offline sync endpoint (design spec §3, §6).
+ * The offline sync endpoint.
  *
  * One batch, one transaction, one ack. `src/lib/server/gate.ts` already answers a
  * non-navigation request with 401 rather than a 303, which is what lets a queued POST
@@ -49,7 +49,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
   // A reset bumps the generation, so anything queued before it belongs to data that no
   // longer exists. Reject the batch whole — a partial application would write orphan
-  // rows into the fresh database (spec §7).
+  // rows into the fresh database.
   const generation = getDataGeneration(getControlDb(), locals.user.id);
   if (parsed.data.generation !== generation) {
     return json(

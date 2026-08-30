@@ -3,8 +3,7 @@
  *
  * Every user gets physical isolation: one `gain.db` plus a file directory under
  * `<dataDir>/users/<userId>/`. No cross-user query can exist because there is no
- * cross-user database. Deleting a user is `rm -rf users/<id>` (plus the control.db
- * row, which arrives with phase 3).
+ * cross-user database. Deleting a user is `rm -rf users/<id>`, plus the `control.db` row.
  *
  * ```
  * <dataDir>/

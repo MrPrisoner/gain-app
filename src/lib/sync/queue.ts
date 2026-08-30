@@ -1,5 +1,5 @@
 /**
- * The outbox queue's rules, as pure functions over plain data (design spec §3, §6).
+ * The outbox queue's rules, as pure functions over plain data.
  *
  * Nothing here touches IndexedDB. The storage adapter is an interface (`OutboxStore`,
  * implemented by `$lib/sync/idb`) so the two decisions worth getting right — which ops
@@ -30,7 +30,7 @@ export interface OutboxStore {
   counts(): Promise<{ pending: number; quarantined: number }>;
   /**
    * Drop every record, pending and quarantined. Called only on a generation mismatch —
-   * the server has said this outbox describes data that no longer exists (spec §7).
+   * the server has said this outbox describes data that no longer exists.
    */
   clearAll(): Promise<void>;
   /** Drop only the quarantined records, at the user's explicit request. */
@@ -53,7 +53,7 @@ export type SyncStatus = {
   pending: number;
   quarantined: number;
   state: "idle" | "syncing" | "offline" | "needs-auth" | "error";
-  /** Set once, on a generation mismatch (spec §7). The outbox has already been cleared
+  /** Set once, on a generation mismatch. The outbox has already been cleared
    * by the time this is true; it exists purely so the banner can say why. */
   resetNotice: boolean;
 };

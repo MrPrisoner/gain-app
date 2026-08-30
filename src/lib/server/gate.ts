@@ -7,7 +7,7 @@
 /**
  * Paths that must answer without a session: the health endpoint Portainer
  * polls (§3), the login round trip itself, and the offline fallback page
- * (phase 6, design spec §7) — the service worker's `install` step precaches
+ * — the service worker's `install` step precaches
  * it with `cache.addAll`, which fails the *entire* precache (app shell
  * included) on any single non-OK response, and that install runs on every
  * page load, including `/login` before a session exists. `/offline` names

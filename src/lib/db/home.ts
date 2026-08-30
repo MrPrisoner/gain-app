@@ -1,5 +1,5 @@
 /**
- * Home-screen reads (design spec §7): what `src/lib/home/*` needs beyond what
+ * Home-screen reads: what `src/lib/home/*` needs beyond what
  * `src/lib/db/read.ts` and `src/lib/db/logs.ts` already provide. Read-only, scoped to
  * one user's own database — physical isolation means there is no cross-user row to
  * leak here in the first place (ARCHITECTURE decision 4).
@@ -31,8 +31,8 @@ export function recentWorkoutsForPlan(
 
 export type ActivityKindRef = { kind: string; occurredAt: string };
 
-/** Every activity, not one plan's — `activity` carries no plan reference (design spec
- * §5, mirroring `src/lib/db/logs.ts`'s `activitiesOf`). Most-recent-first, for
+/** Every activity, not one plan's — `activity` carries no plan reference, mirroring
+ * `src/lib/db/logs.ts`'s `activitiesOf`. Most-recent-first, for
  * `suggestActivityKinds` (`src/lib/home/activity-kinds.ts`). */
 export function recentActivities(userDb: UserDb, limit = 20): ActivityKindRef[] {
   return userDb.db

@@ -1,5 +1,5 @@
 /**
- * ARCHITECTURE §4, §9 and design spec §7: a session can be chosen, started, logged and
+ * ARCHITECTURE §4 and §9: a session can be chosen, started, logged and
  * finished with no connection at all, and the data crosses both the offline boundary and
  * the sync boundary intact once reconnected.
  *

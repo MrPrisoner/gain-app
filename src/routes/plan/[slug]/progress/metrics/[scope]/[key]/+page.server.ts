@@ -1,5 +1,5 @@
 /**
- * The metric trend detail (design spec §7): one windowed line chart per (scope, key)
+ * The metric trend detail: one windowed line chart per (scope, key)
  * numeric metric, reached from the metric trends list.
  */
 

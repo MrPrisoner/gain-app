@@ -1,5 +1,5 @@
 /**
- * The progress hub (design spec §6, §10): one compact card per declared session — no
+ * The progress hub: one compact card per declared session — no
  * drill-down, a handful of sessions is not the sprawl per-exercise progress avoids by
  * listing then drilling down instead — plus links out to the exercises and metrics
  * lists (Parts 4–5).

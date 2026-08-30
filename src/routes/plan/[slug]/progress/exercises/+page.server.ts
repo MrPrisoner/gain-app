@@ -1,8 +1,8 @@
 /**
- * The per-exercise list (design spec §5, §2 decision 7): a compact row per
+ * The per-exercise list: a compact row per
  * (session, exercise) occurrence with logs — no charts here, so this screen stays light
  * even at fixture scale (15-25+ occurrences). Readiness reads full unwindowed history,
- * per the general rule (spec §3) — this list is not export's summary.ts, which is the
+ * per the general rule — this list is not export's summary.ts, which is the
  * one documented exception.
  */
 

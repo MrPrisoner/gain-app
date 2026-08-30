@@ -1,5 +1,5 @@
 /**
- * The app-shell cache and the offline read path (design spec §7).
+ * The app-shell cache and the offline read path.
  *
  * Runs in the service worker context, not the app: nothing here can be imported by a
  * page, and `$service-worker` exists only in this file. That is why precaching route
@@ -19,7 +19,7 @@ const sw = self as unknown as ServiceWorkerGlobalScope;
  * SvelteKit's own client-navigation payload, so its shape belongs to the build that
  * emitted it; a cache that outlived its build would serve a new app an old payload and
  * fail quietly. Keying on `version` and dropping every other cache on activate means a
- * deploy invalidates the data entries along with the shell (design spec §2, decision 7).
+ * deploy invalidates the data entries along with the shell.
  */
 const CACHE = `gain-${version}`;
 const PRECACHED = [...build, ...files];

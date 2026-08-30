@@ -1,8 +1,8 @@
 /**
- * The per-exercise detail (design spec §5): a readiness headline (full, unwindowed
+ * The per-exercise detail: a readiness headline (full, unwindowed
  * history) plus three windowed charts — load x reps (one chart, reps direct-labeled on
- * every point per spec §9), volume, difficulty distribution. Rendered twice, under
- * "Left"/"Right", for a per_side exercise (spec §2, decision 9).
+ * every point), volume, difficulty distribution. Rendered twice, under
+ * "Left"/"Right", for a per_side exercise.
  */
 
 import { error, redirect } from "@sveltejs/kit";
@@ -82,7 +82,7 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 
   const charts = sides.map((side) => {
     // Volume is Σ(weight × reps): meaningless without a load, and there are no reps to
-    // multiply on a timed movement (spec §5 skips it for `type: time`).
+    // multiply on a timed movement (skipped for `type: time`).
     const effort = topSetChartPoints(windowedSeries, side, resolved.type);
     const volPoints =
       resolved.type === "reps" && effort.plots === "load"

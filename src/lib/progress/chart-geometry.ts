@@ -1,5 +1,5 @@
 /**
- * Pure SVG layout math for the hand-rolled charts (spec §9 — one accent hue, no charting
+ * Pure SVG layout math for the hand-rolled charts (one accent hue, no charting
  * dependency). Kept separate from any `.svelte` file so it is unit-testable with exact,
  * hand-calculated pixel expectations rather than a DOM snapshot.
  */

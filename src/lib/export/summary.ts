@@ -133,8 +133,8 @@ export function buildProgressSummary(
   // D), so a bare exercise_slug would compare a set against the wrong range. Readiness
   // is computed from this SAME windowed series, not full history — a row whose "latest
   // logged" is the newest workout inside the window must not sit beside a readiness
-  // verdict drawn from a workout outside it (design spec §4, the one documented
-  // exception to double-progression reading full history everywhere else).
+  // verdict drawn from a workout outside it. This is the one documented exception to
+  // double-progression reading full history everywhere else.
   const exerciseRows: string[] = [];
   for (const occurrence of exerciseOccurrences(contract)) {
     const series = buildExerciseSeries(logs, occurrence.sessionKey, occurrence.exerciseSlug);

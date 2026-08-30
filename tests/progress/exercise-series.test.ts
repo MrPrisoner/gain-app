@@ -11,7 +11,7 @@ import {
 } from "../../src/lib/progress/exercise-series";
 
 // Goblet squat prescribed in two sessions with two different rep ranges — the exact
-// scenario that rules out keying on a bare exercise_slug (spec §2, decision 2).
+// scenario that rules out keying on a bare exercise_slug.
 const contract = {
   schema_version: 1,
   plan: { slug: "p", name: "P", version: 1, based_on_version: null },

@@ -1,5 +1,5 @@
 /**
- * The per-user reset (spec §6). The order of its steps is what these tests are
+ * The per-user reset. The order of its steps is what these tests are
  * really about: sessions before the wipe, the cached handle closed before the
  * unlink, and a re-provision afterwards so the user comes back to a working
  * empty instance rather than a broken one.
