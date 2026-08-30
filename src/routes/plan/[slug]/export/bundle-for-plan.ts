@@ -1,15 +1,21 @@
 /**
  * Everything the export route's action does apart from talking to SvelteKit: resolve the
- * window, assemble the bundle, archive a copy. It sits beside the route rather than inside
+ * window and assemble the bundle. It sits beside the route rather than inside
  * `+page.server.ts` so it is directly unit-testable — the same split phase 4 used to keep
  * the session runner's logic in `$lib` and the route thin.
  *
  * Returns a result rather than throwing, because its one caller is a form action and a
  * thrown `Error` there is a 500 that renders `+error.svelte` (CLAUDE.md, phase-4 review).
+ *
+ * This used to also archive a copy of every generated bundle under `users/<id>/exports/`.
+ * Dropped 2026-08-30 (review 2026-08-27, A6/C2): nothing ever read it back — no route
+ * listed, opened or deleted an archived file, only `admin-stats.ts`'s `directorySize`
+ * counting its bytes — and nothing on the export screen ever told the user it existed, so
+ * it was write-only storage against a promise nobody made. The user already has two
+ * copies of their own: the clipboard, and the download fallback when the clipboard API is
+ * unavailable. A lost paste is regenerable from the same plan and window, same as before.
  */
 
-import fs from "node:fs";
-import path from "node:path";
 import { contractMd, defaultInstructionsTemplate } from "$lib/server/assets";
 import { logsForPlan } from "$lib/db/logs";
 import { contractOfVersion, getCurrentVersion, readSourceMd, type PlanRow } from "$lib/db/read";
@@ -79,72 +85,11 @@ export function buildExportBundle(
     };
   }
 
-  archive(userDb, plan, version.version_no, now, bundle);
-
   return {
     ok: true,
     bundle,
-    // The download name is stable and clean; the archived name is unique. Both are built
-    // from a validated slug and an integer, so neither can escape the user directory.
+    // Built from a validated slug and an integer, so it cannot escape the user directory.
     filename: `gain-export-${plan.slug}-v${version.version_no}.md`,
     windowLabel: window.label,
   };
-}
-
-/**
- * No route lists, reads or deletes an archived export (docs/todo.md), so without a cap
- * this directory grows forever — three years of weekly exports at ~1.6 MB each is real
- * disk. Kept per plan, not per user, so one actively-revised plan can't starve the
- * archive of a plan the user touches rarely.
- */
-const MAX_ARCHIVED_EXPORTS_PER_PLAN = 20;
-
-/**
- * Keep a copy under `users/<id>/exports/` (ARCHITECTURE §3's data layout), so a user who
- * loses the paste can find it again. Best-effort by design: failing the export the user is
- * about to paste because an archive write failed would break the crossing to save a
- * convenience.
- */
-function archive(
-  userDb: UserDb,
-  plan: PlanRow,
-  versionNo: number,
-  now: Date,
-  bundle: string,
-): void {
-  try {
-    const stamp = `${now.toISOString().slice(0, 19).replaceAll(":", "")}Z`;
-    const dir = path.join(userDb.userDir, "exports");
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(
-      path.join(dir, `gain-export-${plan.slug}-v${versionNo}-${stamp}.md`),
-      bundle,
-      "utf8",
-    );
-    pruneArchive(dir, plan.slug);
-  } catch {
-    // Deliberately swallowed — see the comment above.
-  }
-}
-
-/**
- * Drop the oldest archived exports for this plan beyond the retention cap. Sorting the
- * filename itself is not safe here — the version number in the middle is unpadded, so
- * `-v10-` sorts before `-v2-` — so this pulls out the trailing instant (which is fixed
- * width and always increasing) and sorts on that instead.
- */
-function pruneArchive(dir: string, slug: string): void {
-  const pattern = new RegExp(`^gain-export-${slug}-v\\d+-(.+)\\.md$`);
-  const files = fs
-    .readdirSync(dir)
-    .flatMap((name) => {
-      const match = pattern.exec(name);
-      const stamp = match?.[1];
-      return stamp !== undefined ? [{ name, stamp }] : [];
-    })
-    .sort((a, b) => a.stamp.localeCompare(b.stamp));
-  const surplus = files.length - MAX_ARCHIVED_EXPORTS_PER_PLAN;
-  for (const { name } of files.slice(0, Math.max(0, surplus))) {
-    fs.unlinkSync(path.join(dir, name));
-  }
 }

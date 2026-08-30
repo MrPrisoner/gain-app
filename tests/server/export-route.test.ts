@@ -93,31 +93,14 @@ describe("buildExportBundle", () => {
     expect(buildExportBundle(userDb, plan, "", NOW).ok).toBe(false);
   });
 
-  it("names the archive file per plan, version and instant", () => {
+  it("names the download file per plan and version, and writes nothing to disk", () => {
     const plan = getPlanBySlug(userDb, "home-training");
     if (!plan) throw new Error("plan missing");
     const result = buildExportBundle(userDb, plan, "full", NOW);
     if (!result.ok) throw new Error(result.message);
     expect(result.filename).toBe("gain-export-home-training-v1.md");
-    const archived = fs.readdirSync(path.join(userDb.userDir, "exports"));
-    expect(archived).toContain("gain-export-home-training-v1-2026-09-08T080000Z.md");
-  });
-
-  it("prunes the archive to the retention cap, oldest first", () => {
-    const plan = getPlanBySlug(userDb, "home-training");
-    if (!plan) throw new Error("plan missing");
-
-    for (let i = 0; i < 22; i++) {
-      const at = new Date(NOW.getTime() + i * 60_000);
-      const result = buildExportBundle(userDb, plan, "full", at);
-      if (!result.ok) throw new Error(result.message);
-    }
-
-    const archived = fs.readdirSync(path.join(userDb.userDir, "exports")).sort();
-    expect(archived).toHaveLength(20);
-    // The first two instants (i = 0, 1) should have been pruned; the last should remain.
-    expect(archived.some((name) => name.includes("2026-09-08T080000Z"))).toBe(false);
-    expect(archived.some((name) => name.includes("2026-09-08T080100Z"))).toBe(false);
-    expect(archived.some((name) => name.includes("2026-09-08T082100Z"))).toBe(true);
+    // No archive copy (review 2026-08-27, A6/C2, dropped 2026-08-30): the bundle is
+    // returned to the caller and nothing is written under the user's directory.
+    expect(fs.existsSync(path.join(userDb.userDir, "exports"))).toBe(false);
   });
 });

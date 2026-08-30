@@ -12,8 +12,11 @@
  *     <userId>/
  *       gain.db                # ALL of this user's training data
  *       plans/<plan.slug>/v<N>.md   # verbatim imports, never modified
- *       exports/               # generated bundles, retained for reference
  * ```
+ *
+ * There used to be an `exports/` directory here too, archiving a copy of every generated
+ * bundle. Dropped 2026-08-30 (review 2026-08-27, A6/C2): nothing ever read it back. See
+ * `src/routes/plan/[slug]/export/bundle-for-plan.ts`'s module comment.
  */
 
 import fs from "node:fs";
@@ -59,7 +62,6 @@ export function openUserDb(dataDir: string, userId: string, options: ProvisionOp
 
   const userDir = path.join(dataDir, "users", userId);
   fs.mkdirSync(path.join(userDir, "plans"), { recursive: true });
-  fs.mkdirSync(path.join(userDir, "exports"), { recursive: true });
 
   const dbPath = path.join(userDir, "gain.db");
   const db = new Database(dbPath);

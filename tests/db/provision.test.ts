@@ -30,7 +30,6 @@ describe("openUserDb", () => {
 
     expect(fs.existsSync(path.join(userDb.userDir, "gain.db"))).toBe(true);
     expect(fs.statSync(path.join(userDb.userDir, "plans")).isDirectory()).toBe(true);
-    expect(fs.statSync(path.join(userDb.userDir, "exports")).isDirectory()).toBe(true);
     expect(userDb.dbPath).toBe(path.join(dataDir, "users", "user-1", "gain.db"));
   });
 
