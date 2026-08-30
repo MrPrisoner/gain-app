@@ -17,16 +17,17 @@
 }
 
 :root {
-  --ground: #0b0d10;
-  --surface: #14171c;
-  --raised: #1b1f26;
-  --hover: #232831;
-  --line: #272d36;
-  --line-soft: #1e232b;
+  --ground: #0a0c0f;
+  --surface: #16191f;
+  --raised: #1e222a;
+  --hover: #272c36;
+  --line: #333a45;
+  --line-soft: #22262f;
+  --line-strong: #727d8b;
   --text: #f2f5f8;
   --muted: #99a3b0;
-  --dim: #6b7480;
-  --accent: #5b8def;
+  --dim: #8d97a5;
+  --accent: #6b98f1;
   --accent-in: #0b0d10;
   --accent-soft: rgba(91, 141, 239, 0.15);
   --green: #3fa96a;
@@ -48,18 +49,19 @@
     --surface: #ffffff;
     --raised: #f8fafb;
     --hover: #eff2f5;
-    --line: #e3e7ec;
+    --line: #dfe4ea;
     --line-soft: #edf0f4;
+    --line-strong: #7f8995;
     --text: #0f1319;
     --muted: #5c6672;
-    --dim: #8b95a1;
-    --accent: #2c6be0;
+    --dim: #646d78;
+    --accent: #2560cd;
     --accent-in: #ffffff;
-    --accent-soft: rgba(44, 107, 224, 0.1);
-    --green: #2e8b52;
-    --amber: #9c7218;
-    --amber-soft: rgba(156, 114, 24, 0.1);
-    --red: #c94a40;
+    --accent-soft: rgba(37, 96, 205, 0.1);
+    --green: #277544;
+    --amber: #876314;
+    --amber-soft: rgba(135, 99, 20, 0.1);
+    --red: #b34038;
   }
 }
 
@@ -68,31 +70,33 @@
   --surface: #ffffff;
   --raised: #f8fafb;
   --hover: #eff2f5;
-  --line: #e3e7ec;
+  --line: #dfe4ea;
   --line-soft: #edf0f4;
+  --line-strong: #7f8995;
   --text: #0f1319;
   --muted: #5c6672;
-  --dim: #8b95a1;
-  --accent: #2c6be0;
+  --dim: #646d78;
+  --accent: #2560cd;
   --accent-in: #ffffff;
-  --accent-soft: rgba(44, 107, 224, 0.1);
-  --green: #2e8b52;
-  --amber: #9c7218;
-  --amber-soft: rgba(156, 114, 24, 0.1);
-  --red: #c94a40;
+  --accent-soft: rgba(37, 96, 205, 0.1);
+  --green: #277544;
+  --amber: #876314;
+  --amber-soft: rgba(135, 99, 20, 0.1);
+  --red: #b34038;
 }
 
 :root[data-theme="dark"] {
-  --ground: #0b0d10;
-  --surface: #14171c;
-  --raised: #1b1f26;
-  --hover: #232831;
-  --line: #272d36;
-  --line-soft: #1e232b;
+  --ground: #0a0c0f;
+  --surface: #16191f;
+  --raised: #1e222a;
+  --hover: #272c36;
+  --line: #333a45;
+  --line-soft: #22262f;
+  --line-strong: #727d8b;
   --text: #f2f5f8;
   --muted: #99a3b0;
-  --dim: #6b7480;
-  --accent: #5b8def;
+  --dim: #8d97a5;
+  --accent: #6b98f1;
   --accent-in: #0b0d10;
   --accent-soft: rgba(91, 141, 239, 0.15);
   --green: #3fa96a;
