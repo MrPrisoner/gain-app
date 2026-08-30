@@ -79,27 +79,27 @@
 <style>
   .muted {
     color: var(--muted);
-    font-size: 0.9rem;
+    font-size: var(--t-sm);
     margin: 0 0 1rem;
   }
 
   .missing {
-    padding: 0.85rem 1rem;
+    padding: var(--s-3) var(--s-4);
     border: 1px solid var(--amber);
     border-radius: var(--r-sm);
     background: var(--amber-soft);
-    font-size: 0.9rem;
+    font-size: var(--t-sm);
     line-height: 1.5;
   }
 
   code {
-    font-size: 0.85em;
+    font-size: var(--t-sm);
     word-break: break-all;
   }
 
   .actions {
     display: flex;
-    gap: 0.6rem;
+    gap: var(--s-3);
     margin-bottom: 0.75rem;
     flex-wrap: wrap;
   }
@@ -107,11 +107,11 @@
   button {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: var(--s-2);
     border: none;
     border-radius: var(--r-sm);
-    padding: 0.7rem 1.25rem;
-    font-weight: 700;
+    padding: var(--s-3) var(--s-5);
+    font-weight: var(--w-bold);
   }
 
   button.primary {
@@ -127,13 +127,13 @@
 
   .doc {
     width: 100%;
-    padding: 0.75rem;
+    padding: var(--s-3);
     border-radius: var(--r-xs);
     border: 1px solid var(--line);
     background: var(--raised);
     color: var(--text);
     font: inherit;
-    font-size: 0.8rem;
+    font-size: var(--t-xs);
     line-height: 1.45;
     resize: vertical;
   }

@@ -80,6 +80,6 @@
     margin: 0;
     padding: 0;
     display: grid;
-    gap: 0.4rem;
+    gap: var(--s-2);
   }
 </style>

@@ -64,36 +64,36 @@
     margin: 0;
     padding: 0;
     display: grid;
-    gap: 0.6rem;
+    gap: var(--s-3);
   }
   .workout-list a {
     display: grid;
-    gap: 0.15rem;
-    padding: 0.85rem 1rem;
+    gap: var(--s-1);
+    padding: var(--s-3) var(--s-4);
     border-radius: var(--r-sm);
     background: var(--surface);
     border: 1px solid var(--line-soft);
     color: var(--text);
   }
   .date {
-    font-weight: 700;
+    font-weight: var(--w-bold);
   }
   .session,
   .detail {
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
     color: var(--muted);
   }
   .pager {
     display: flex;
-    gap: 0.6rem;
+    gap: var(--s-3);
     margin-top: 1rem;
   }
   .pager button {
-    padding: 0.6rem 1.1rem;
+    padding: var(--s-3) var(--s-4);
     border-radius: var(--r-sm);
     background: var(--raised);
     border: 1px solid var(--line);
     color: var(--text);
-    font-weight: 700;
+    font-weight: var(--w-bold);
   }
 </style>

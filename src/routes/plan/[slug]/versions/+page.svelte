@@ -57,7 +57,7 @@
 <style>
   .muted {
     color: var(--muted);
-    font-size: 0.9rem;
+    font-size: var(--t-sm);
     margin: 0 0 1rem;
   }
 
@@ -66,12 +66,12 @@
     margin: 0;
     padding: 0;
     display: grid;
-    gap: 0.75rem;
+    gap: var(--s-3);
   }
 
   .versions a {
     display: block;
-    padding: 0.85rem 1rem;
+    padding: var(--s-3) var(--s-4);
     border: 1px solid var(--line-soft);
     border-radius: var(--r-sm);
     background: var(--surface);
@@ -91,38 +91,38 @@
     display: flex;
     align-items: baseline;
     flex-wrap: wrap;
-    gap: 0.5rem;
+    gap: var(--s-2);
   }
 
   .no {
-    font-weight: 700;
+    font-weight: var(--w-bold);
   }
 
   .date {
     color: var(--muted);
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
   }
 
   .badge {
     display: inline-flex;
     align-items: center;
-    gap: 0.25rem;
+    gap: var(--s-1);
     color: var(--accent);
-    font-size: 0.75rem;
-    font-weight: 700;
+    font-size: var(--t-2xs);
+    font-weight: var(--w-bold);
   }
 
   .changelog {
     margin: 0.5rem 0 0;
-    padding-left: 1.1rem;
+    padding-left: var(--s-4);
     color: var(--muted);
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
     line-height: 1.5;
   }
 
   .changelog-empty {
     margin: 0.5rem 0 0;
     color: var(--dim);
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
   }
 </style>

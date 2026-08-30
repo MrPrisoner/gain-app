@@ -45,14 +45,14 @@
   .window-picker {
     display: block;
     margin-bottom: 1rem;
-    font-size: 0.9rem;
+    font-size: var(--t-sm);
     color: var(--muted);
   }
   .window-picker select {
     display: block;
     margin-top: 0.25rem;
     width: 100%;
-    padding: 0.6rem 0.75rem;
+    padding: var(--s-3) var(--s-3);
     border-radius: var(--r-xs);
     border: 1px solid var(--line);
     background: var(--raised);

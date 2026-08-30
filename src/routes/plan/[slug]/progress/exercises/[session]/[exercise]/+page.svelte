@@ -110,14 +110,14 @@
   .window-picker {
     display: block;
     margin-bottom: 1rem;
-    font-size: 0.9rem;
+    font-size: var(--t-sm);
     color: var(--muted);
   }
   .window-picker select {
     display: block;
     margin-top: 0.25rem;
     width: 100%;
-    padding: 0.6rem 0.75rem;
+    padding: var(--s-3) var(--s-3);
     border-radius: var(--r-xs);
     border: 1px solid var(--line);
     background: var(--raised);
@@ -128,20 +128,20 @@
     background: var(--surface);
     border: 1px solid var(--line-soft);
     border-radius: var(--r-md);
-    padding: 1.25rem;
+    padding: var(--pad-card);
     margin-bottom: 1rem;
   }
   .card h2 {
     margin: 0 0 0.5rem;
-    font-size: 1rem;
+    font-size: var(--t-base);
   }
   .card h3 {
     margin: 1rem 0 0.4rem;
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
     color: var(--muted);
   }
   .readiness {
-    font-weight: 700;
+    font-weight: var(--w-bold);
     margin: 0;
   }
 </style>

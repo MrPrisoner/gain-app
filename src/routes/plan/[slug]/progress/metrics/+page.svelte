@@ -33,22 +33,22 @@
     margin: 0;
     padding: 0;
     display: grid;
-    gap: 0.6rem;
+    gap: var(--s-3);
   }
   .metric-list a {
     display: grid;
-    gap: 0.15rem;
-    padding: 0.85rem 1rem;
+    gap: var(--s-1);
+    padding: var(--s-3) var(--s-4);
     border-radius: var(--r-sm);
     background: var(--surface);
     border: 1px solid var(--line-soft);
     color: var(--text);
   }
   .metric-label {
-    font-weight: 700;
+    font-weight: var(--w-bold);
   }
   .metric-scope {
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
     color: var(--muted);
   }
 </style>
