@@ -41,6 +41,56 @@
   --r-sm: 12px;
   --r-md: 16px;
   --r-lg: 22px;
+
+  /* Type scale. Nine steps, snapped from the 124 `font-size` declarations that preceded
+       them rather than imported from a ratio — `--t-sm` absorbs 74 of those on its own,
+       because `0.85rem` and `0.9rem` were two spellings of one intention. */
+  --t-2xs: 0.75rem;
+  --t-xs: 0.8125rem;
+  --t-sm: 0.875rem;
+  --t-base: 1rem;
+  --t-md: 1.125rem;
+  --t-lg: 1.375rem;
+  --t-xl: 1.75rem;
+  --t-2xl: 2.5rem;
+  /* The two full-screen figures — the rest timer's clock and the error glyph. Fluid so
+       they cannot crowd a 360 px viewport, which fixed 3.5–4rem could. */
+  --t-display: clamp(3rem, 14vw, 4rem);
+
+  /* Weight. Plus Jakarta Sans is loaded as a variable face at 400..800; before this,
+       `700` was 48 of 76 declarations and weight therefore distinguished nothing. */
+  --w-body: 400;
+  --w-medium: 500;
+  --w-semi: 600;
+  --w-bold: 700;
+  --w-display: 800;
+
+  /* Spacing: a 4/8px rhythm on the 16px base. */
+  --s-1: 0.25rem;
+  --s-2: 0.5rem;
+  --s-3: 0.75rem;
+  --s-4: 1rem;
+  --s-5: 1.5rem;
+  --s-6: 2rem;
+  --s-7: 3rem;
+
+  /* Card padding is the most-repeated value in the app and the one that decides how much
+       line length a 360px phone has — the runner nests three deep, so 4px per level is
+       12px of content width. One token, so it is one line to revisit. */
+  --pad-card: var(--s-4);
+
+  /* Motion. Before these there were two transitions in the whole codebase, so every
+       state change snapped. */
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 4px 12px rgba(0, 0, 0, 0.45);
+  --shadow-3: 0 16px 40px rgba(0, 0, 0, 0.6);
+  --edge-top: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 @media (prefers-color-scheme: light) {
@@ -62,6 +112,10 @@
     --amber: #876314;
     --amber-soft: rgba(135, 99, 20, 0.1);
     --red: #b34038;
+    --shadow-1: 0 1px 2px rgba(15, 19, 25, 0.06), 0 1px 3px rgba(15, 19, 25, 0.05);
+    --shadow-2: 0 4px 12px rgba(15, 19, 25, 0.08), 0 1px 3px rgba(15, 19, 25, 0.06);
+    --shadow-3: 0 12px 32px rgba(15, 19, 25, 0.16);
+    --edge-top: none;
   }
 }
 
@@ -83,6 +137,10 @@
   --amber: #876314;
   --amber-soft: rgba(135, 99, 20, 0.1);
   --red: #b34038;
+  --shadow-1: 0 1px 2px rgba(15, 19, 25, 0.06), 0 1px 3px rgba(15, 19, 25, 0.05);
+  --shadow-2: 0 4px 12px rgba(15, 19, 25, 0.08), 0 1px 3px rgba(15, 19, 25, 0.06);
+  --shadow-3: 0 12px 32px rgba(15, 19, 25, 0.16);
+  --edge-top: none;
 }
 
 :root[data-theme="dark"] {
@@ -103,6 +161,28 @@
   --amber: #d9a23f;
   --amber-soft: rgba(217, 162, 63, 0.12);
   --red: #e0655b;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 4px 12px rgba(0, 0, 0, 0.45);
+  --shadow-3: 0 16px 40px rgba(0, 0, 0, 0.6);
+  --edge-top: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* One step of breathing room once there is room to breathe. Phones keep 16px. */
+@media (min-width: 480px) {
+  :root {
+    --pad-card: var(--s-5);
+  }
+}
+
+/* A strict superset of the handling `CelebrationOverlay` already does for itself — that
+   component removes its particle field, which is removing elements rather than
+   shortening a duration, so it keeps its own opt-out as well. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 1ms;
+    --dur-base: 1ms;
+    --dur-slow: 1ms;
+  }
 }
 
 /* ---------------------------------------------------------------------------
