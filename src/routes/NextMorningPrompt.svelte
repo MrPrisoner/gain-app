@@ -62,29 +62,29 @@
     background: var(--surface);
     border: 1px solid var(--line-soft);
     border-radius: var(--r-md);
-    padding: 1.25rem;
+    padding: var(--pad-card);
     margin-top: 1.25rem;
   }
   .head {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 0.75rem;
+    gap: var(--s-3);
     margin-bottom: 0.5rem;
   }
   h2 {
     margin: 0;
-    font-size: 1.05rem;
+    font-size: var(--t-base);
     display: flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: var(--s-2);
   }
   .dismiss-btn {
     flex-shrink: 0;
     border: none;
     background: transparent;
     color: var(--muted);
-    padding: 0.3rem;
+    padding: var(--s-1);
     min-width: 2.75rem;
     min-height: 2.75rem;
     display: inline-flex;
@@ -94,9 +94,9 @@
   .error {
     background: var(--raised);
     color: var(--text);
-    font-weight: 700;
+    font-weight: var(--w-bold);
     border-radius: var(--r-xs);
-    padding: 0.6rem 0.75rem;
+    padding: var(--s-3) var(--s-3);
     margin: 0.5rem 0 0;
   }
 </style>

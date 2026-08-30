@@ -163,36 +163,36 @@
     background: var(--surface);
     border-top-left-radius: var(--r-lg);
     border-top-right-radius: var(--r-lg);
-    padding: 1.25rem;
-    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
+    padding: var(--s-5);
+    padding-bottom: calc(var(--s-5) + env(safe-area-inset-bottom));
     display: grid;
-    gap: 0.75rem;
+    gap: var(--s-3);
   }
   label {
     display: grid;
-    gap: 0.25rem;
-    font-size: 0.9rem;
+    gap: var(--s-1);
+    font-size: var(--t-sm);
     color: var(--muted);
     min-width: 0;
   }
   .kind-label {
     margin: 0;
-    font-weight: 700;
+    font-weight: var(--w-bold);
     color: var(--text);
     text-transform: capitalize;
   }
   .when-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.6rem;
-    font-size: 0.85rem;
+    gap: var(--s-3);
+    font-size: var(--t-sm);
   }
   .when-row label {
     display: inline-flex;
     align-items: center;
-    gap: 0.35rem;
+    gap: var(--s-2);
     min-height: 2.75rem;
-    padding: 0.3rem 0.5rem;
+    padding: var(--s-1) var(--s-2);
     border: 1px solid var(--line);
     border-radius: var(--r-xs);
     background: var(--raised);
@@ -206,14 +206,14 @@
   .row2 {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 0.75rem;
+    gap: var(--s-3);
     min-width: 0;
   }
   input,
   textarea {
     width: 100%;
     min-height: 2.75rem;
-    padding: 0.6rem;
+    padding: var(--s-3);
     border-radius: var(--r-xs);
     border: 1px solid var(--line);
     background: var(--raised);
@@ -223,21 +223,21 @@
   .error {
     background: var(--raised);
     color: var(--text);
-    font-weight: 700;
+    font-weight: var(--w-bold);
     border-radius: var(--r-xs);
-    padding: 0.6rem 0.75rem;
+    padding: var(--s-3) var(--s-3);
     margin: 0;
   }
   .sheet-actions {
     display: flex;
     justify-content: flex-end;
-    gap: 0.6rem;
+    gap: var(--s-3);
   }
   .sheet-actions button {
     border: none;
     border-radius: var(--r-sm);
-    padding: 0.7rem 1.25rem;
-    font-weight: 700;
+    padding: var(--s-3) var(--s-5);
+    font-weight: var(--w-bold);
   }
   .primary {
     background: var(--accent);

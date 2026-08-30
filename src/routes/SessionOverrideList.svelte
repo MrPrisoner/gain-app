@@ -106,7 +106,7 @@
 <style>
   .override {
     margin-top: 1rem;
-    padding-top: 1rem;
+    padding-top: var(--s-4);
     border-top: 1px solid var(--line-soft);
   }
   .list-toggle {
@@ -118,8 +118,8 @@
     border: 1px solid var(--line);
     color: var(--text);
     border-radius: var(--r-sm);
-    padding: 0.7rem 1.25rem;
-    font-weight: 700;
+    padding: var(--s-3) var(--s-5);
+    font-weight: var(--w-bold);
   }
   .list-toggle :global(.chevron) {
     flex-shrink: 0;
@@ -133,10 +133,10 @@
     margin: 0.9rem 0 0.75rem;
     padding: 0;
     display: grid;
-    gap: 0.35rem;
+    gap: var(--s-2);
   }
   .sessions .key {
-    font-weight: 800;
+    font-weight: var(--w-display);
     line-height: 1.2;
   }
   /**
@@ -151,36 +151,36 @@
     display: grid;
     grid-template-columns: auto 1fr auto;
     align-items: center;
-    column-gap: 0.5rem;
-    row-gap: 0.15rem;
+    column-gap: var(--s-2);
+    row-gap: var(--s-1);
     text-align: left;
     background: var(--raised);
     border: 1px solid var(--line);
     color: var(--text);
     border-radius: var(--r-sm);
-    padding: 0.7rem 1.25rem;
+    padding: var(--s-3) var(--s-5);
   }
   .session-name {
     display: flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: var(--s-2);
     flex-wrap: wrap;
     line-height: 1.2;
   }
   .badge {
-    font-size: 0.7rem;
-    font-weight: 700;
+    font-size: var(--t-2xs);
+    font-weight: var(--w-bold);
     text-transform: uppercase;
     letter-spacing: 0.03em;
     color: var(--accent);
     background: var(--accent-soft);
     border-radius: var(--r-xs);
-    padding: 0.1rem 0.35rem;
+    padding: var(--s-1) var(--s-2);
   }
   /* Row 2, under the name — column 2 so it lines up with it rather than with the key. */
   .last {
     grid-column: 2;
-    font-size: 0.8rem;
+    font-size: var(--t-xs);
     color: var(--muted);
   }
   .session-toggle :global(.chevron) {
@@ -192,31 +192,31 @@
   }
   .session-detail {
     display: grid;
-    gap: 0.6rem;
-    padding-bottom: 0.25rem;
+    gap: var(--s-3);
+    padding-bottom: var(--s-1);
   }
   .session-link {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.4rem;
-    padding: 0.7rem 1.25rem;
+    gap: var(--s-2);
+    padding: var(--s-3) var(--s-5);
     border-radius: var(--r-sm);
     background: var(--accent);
     color: var(--accent-in);
-    font-weight: 700;
+    font-weight: var(--w-bold);
   }
   .session-link:hover {
     text-decoration: none;
   }
   .muted {
     color: var(--muted);
-    font-size: 0.9rem;
+    font-size: var(--t-sm);
     margin: 0 0 0.5rem;
   }
   .rule {
     margin: 0.5rem 0 0;
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
     color: var(--muted);
   }
   .rules-label {
@@ -224,10 +224,10 @@
   }
   .rules {
     margin: 0;
-    padding-left: 1.1rem;
-    font-size: 0.85rem;
+    padding-left: var(--s-4);
+    font-size: var(--t-sm);
     color: var(--muted);
     display: grid;
-    gap: 0.3rem;
+    gap: var(--s-1);
   }
 </style>

@@ -47,32 +47,32 @@
     background: var(--surface);
     border: 1px solid var(--line-soft);
     border-radius: var(--r-md);
-    padding: 1.25rem;
+    padding: var(--pad-card);
     margin-top: 1.25rem;
   }
   h2 {
     margin: 0 0 0.75rem;
-    font-size: 1.05rem;
+    font-size: var(--t-base);
     display: flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: var(--s-2);
   }
   .chips {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
+    gap: var(--s-2);
   }
   .chip {
     display: inline-flex;
     align-items: center;
-    gap: 0.3rem;
+    gap: var(--s-1);
     min-height: 2.75rem;
-    padding: 0.5rem 0.9rem;
+    padding: var(--s-2) var(--s-4);
     border-radius: 999px;
     border: 1px solid var(--line);
     background: var(--raised);
     color: var(--text);
-    font-weight: 600;
+    font-weight: var(--w-semi);
     text-transform: capitalize;
   }
   .chip-add {

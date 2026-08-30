@@ -101,18 +101,18 @@
     background: var(--surface);
     border: 1px solid var(--line-soft);
     border-radius: var(--r-md);
-    padding: 1.25rem;
+    padding: var(--pad-card);
     margin-top: 1.25rem;
   }
   .plan-name {
     margin: 0 0 0.2rem;
-    font-size: 1.3rem;
-    font-weight: 800;
+    font-size: var(--t-lg);
+    font-weight: var(--w-display);
   }
   .last {
     margin: 0 0 0.9rem;
     color: var(--muted);
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
   }
   /* Shaped like the picker's own rows below it, so "this is tappable, and it opens" is
      one vocabulary on this card rather than two. */
@@ -121,14 +121,14 @@
     margin: 0 0 0.9rem;
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--s-2);
     background: var(--raised);
     border: 1px solid var(--line);
     border-radius: var(--r-sm);
-    padding: 0.7rem 1.25rem;
+    padding: var(--s-3) var(--s-5);
     color: var(--text);
-    font-size: 1rem;
-    font-weight: 700;
+    font-size: var(--t-base);
+    font-weight: var(--w-bold);
     text-align: left;
   }
   .suggested-name {
@@ -146,12 +146,12 @@
     align-items: center;
     justify-content: center;
     min-width: 1.8rem;
-    padding: 0.1rem 0.4rem;
+    padding: var(--s-1) var(--s-2);
     border-radius: var(--r-xs);
     background: var(--accent-soft);
     color: var(--accent);
-    font-size: 0.9rem;
-    font-weight: 800;
+    font-size: var(--t-sm);
+    font-weight: var(--w-display);
   }
   .card :global(.session-summary) {
     margin: -0.4rem 0 0.9rem;
@@ -160,12 +160,12 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.4rem;
-    padding: 0.8rem 1.25rem;
+    gap: var(--s-2);
+    padding: var(--s-3) var(--s-5);
     border-radius: var(--r-sm);
     background: var(--accent);
     color: var(--accent-in);
-    font-weight: 700;
+    font-weight: var(--w-bold);
   }
   .start-link:hover {
     text-decoration: none;

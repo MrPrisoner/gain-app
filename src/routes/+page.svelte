@@ -320,16 +320,16 @@
   .greeting {
     margin: 0;
     color: var(--muted);
-    font-weight: 700;
+    font-weight: var(--w-bold);
   }
 
   .hero {
-    padding: 1.5rem 0 0.5rem;
+    padding: var(--s-5) 0 var(--s-2);
   }
 
   .hero h1 {
     margin: 0 0 0.75rem;
-    font-size: 1.6rem;
+    font-size: var(--t-xl);
     line-height: 1.25;
   }
 
@@ -342,30 +342,30 @@
     background: var(--surface);
     border: 1px solid var(--line-soft);
     border-radius: var(--r-md);
-    padding: 1.25rem;
+    padding: var(--pad-card);
     margin-top: 1.25rem;
   }
 
   .card h2 {
     margin: 0 0 0.5rem;
-    font-size: 1.05rem;
+    font-size: var(--t-base);
   }
 
   .muted {
     color: var(--muted);
-    font-size: 0.9rem;
+    font-size: var(--t-sm);
     margin: 0 0 0.75rem;
   }
 
   .questions {
     display: grid;
-    gap: 0.75rem;
+    gap: var(--s-3);
   }
 
   .questions label {
     display: grid;
-    gap: 0.25rem;
-    font-size: 0.9rem;
+    gap: var(--s-1);
+    font-size: var(--t-sm);
     color: var(--muted);
     min-width: 0;
   }
@@ -373,14 +373,14 @@
   .row2 {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 0.75rem;
+    gap: var(--s-3);
     min-width: 0;
   }
 
   input {
     width: 100%;
     min-width: 0;
-    padding: 0.65rem 0.75rem;
+    padding: var(--s-3) var(--s-3);
     border-radius: var(--r-xs);
     border: 1px solid var(--line);
     background: var(--raised);
@@ -390,20 +390,20 @@
 
   .doc {
     width: 100%;
-    padding: 0.75rem;
+    padding: var(--s-3);
     border-radius: var(--r-xs);
     border: 1px solid var(--line);
     background: var(--raised);
     color: var(--text);
     font: inherit;
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
     line-height: 1.45;
     resize: vertical;
   }
 
   .actions {
     display: flex;
-    gap: 0.6rem;
+    gap: var(--s-3);
     margin-top: 0.75rem;
     flex-wrap: wrap;
   }
@@ -411,11 +411,11 @@
   button {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: var(--s-2);
     border: none;
     border-radius: var(--r-sm);
-    padding: 0.7rem 1.25rem;
-    font-weight: 700;
+    padding: var(--s-3) var(--s-5);
+    font-weight: var(--w-bold);
   }
 
   button.primary {
@@ -437,10 +437,10 @@
   .primary-link {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: var(--s-2);
     border-radius: var(--r-sm);
-    padding: 0.7rem 1.25rem;
-    font-weight: 700;
+    padding: var(--s-3) var(--s-5);
+    font-weight: var(--w-bold);
     background: var(--accent);
     color: var(--accent-in);
   }
@@ -453,19 +453,19 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.5rem;
+    gap: var(--s-2);
   }
 
   .export-link {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
-    padding: 0.7rem 1.25rem;
+    gap: var(--s-2);
+    padding: var(--s-3) var(--s-5);
     border-radius: var(--r-sm);
     background: var(--raised);
     border: 1px solid var(--line);
     color: var(--text);
-    font-weight: 700;
+    font-weight: var(--w-bold);
   }
 
   .export-link:hover {
@@ -475,7 +475,7 @@
   .archive-form {
     margin-top: 1rem;
     border-top: 1px solid var(--line-soft);
-    padding-top: 1rem;
+    padding-top: var(--s-4);
   }
 
   .archive-hint {
@@ -486,16 +486,16 @@
     background: transparent;
     border: 1px solid var(--line);
     color: var(--muted);
-    padding: 0.55rem 1rem;
-    font-size: 0.9rem;
+    padding: var(--s-2) var(--s-4);
+    font-size: var(--t-sm);
   }
 
   .plan-error {
     margin: 1rem 0 0;
-    padding: 0.65rem 0.8rem;
+    padding: var(--s-3) var(--s-3);
     border: 1px solid var(--red);
     border-radius: var(--r-sm);
-    font-size: 0.9rem;
+    font-size: var(--t-sm);
   }
 
   .archived-group {
@@ -503,35 +503,35 @@
     background: var(--surface);
     border: 1px solid var(--line-soft);
     border-radius: var(--r-md);
-    padding: 0.9rem 1.25rem;
+    padding: var(--s-4) var(--s-5);
   }
 
   .archived-group summary {
-    font-weight: 700;
+    font-weight: var(--w-bold);
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--s-2);
   }
 
   .archived-group .count {
     color: var(--muted);
-    font-weight: 400;
-    font-size: 0.85rem;
+    font-weight: var(--w-body);
+    font-size: var(--t-sm);
   }
 
   .archived-plan {
     margin-top: 1rem;
-    padding-top: 1rem;
+    padding-top: var(--s-4);
     border-top: 1px solid var(--line-soft);
     display: grid;
-    gap: 0.6rem;
+    gap: var(--s-3);
     justify-items: start;
   }
 
   .archived-plan h3 {
     margin: 0;
-    font-size: 1rem;
+    font-size: var(--t-base);
   }
 
   .archived-plan .muted {
