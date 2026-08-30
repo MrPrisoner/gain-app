@@ -31,6 +31,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { importFailureDevUserFor, seededDataDir } from "./env";
+import { assertNoHorizontalOverflow } from "./helpers";
 import { seedFixturePlan } from "./seed";
 
 test.use({ permissions: ["clipboard-read", "clipboard-write"] });
@@ -44,6 +45,9 @@ async function clipboardText(page: import("@playwright/test").Page): Promise<str
 
 test("a document with no contract block gets a pasteable, copyable report", async ({ page }) => {
   await page.goto("/import");
+  // The empty paste box, before anything else happens — `/import` is the app's primary
+  // input and was the largest surface with no overflow check of any kind.
+  await assertNoHorizontalOverflow(page);
   await page
     .getByPlaceholder("Paste the plan document here…")
     .fill("Just some prose, no fenced block anywhere in here.");
@@ -59,6 +63,10 @@ test("a document with no contract block gets a pasteable, copyable report", asyn
   await expect(page.getByPlaceholder("Paste the plan document here…")).toHaveValue(
     "Just some prose, no fenced block anywhere in here.",
   );
+
+  // A report is a wide monospace block of field paths — exactly the shape that pushes a
+  // 360 px screen sideways if it is not allowed to scroll inside its own container.
+  await assertNoHorizontalOverflow(page);
 
   const copyButton = page.getByRole("button", { name: "Copy report for the AI" });
   await copyButton.click();
@@ -93,6 +101,8 @@ test("a pasted export bundle gets the wrong-document explanation, with no report
   // (UI-DECISIONS §11) — the fix is the user pasting the right document, not the AI's.
   await expect(page.locator(".report")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Copy report for the AI" })).toHaveCount(0);
+
+  await assertNoHorizontalOverflow(page);
 });
 
 test("a revision that fails the version-increment rule blocks commit and its report is copyable", async ({
@@ -114,6 +124,11 @@ test("a revision that fails the version-increment rule blocks commit and its rep
 
   // Blocked, so commit can never be reached — `ready` requires zero blocking problems.
   await expect(page.getByRole("button", { name: "Commit revision" })).toBeDisabled();
+
+  // The review screen is the widest shape on the route — full-width `<select>`s, the
+  // `<details>` diff groups and the warnings panel — and UI-DECISIONS §12 named it as the
+  // one most likely to break at 360 px.
+  await assertNoHorizontalOverflow(page);
 
   const copyButton = page.getByRole("button", { name: "Copy for the AI" });
   await copyButton.click();

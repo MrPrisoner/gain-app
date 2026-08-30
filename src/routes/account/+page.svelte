@@ -5,6 +5,7 @@
   import IconTriangleAlert from "~icons/lucide/triangle-alert";
   import { clearAfterReset, setGeneration } from "$lib/sync/client.svelte";
   import { purgeCachedUserData } from "$lib/sync/precache";
+  import { clearWorkoutStorage } from "$lib/session/workout-storage";
   import type { ActionData, PageData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -12,22 +13,6 @@
   let open = $state(false);
   let typed = $state("");
   let resetting = $state(false);
-
-  /**
-   * `gain:workout:<planSlug>:<sessionKey>` (session runner `+page.svelte`) is the one
-   * localStorage prefix the runner writes. A reset erases every plan, so a key surviving
-   * it points at data that no longer exists — and if a later re-import reuses the same
-   * slug and session key, the runner would read it back as "already started" and never
-   * write the new workout's `start` op at all. Clearing the whole prefix here, rather
-   * than leaving it to rot, is what keeps that resumption from misfiring.
-   */
-  function clearWorkoutStorage(): void {
-    if (typeof localStorage === "undefined") return;
-    for (let i = localStorage.length - 1; i >= 0; i -= 1) {
-      const key = localStorage.key(i);
-      if (key?.startsWith("gain:workout:")) localStorage.removeItem(key);
-    }
-  }
 </script>
 
 <svelte:head><title>Account — GAIN</title></svelte:head>

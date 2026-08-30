@@ -15,6 +15,7 @@
    */
 
   import { SvelteMap } from "svelte/reactivity";
+  import { parseNumericField, stepValue } from "$lib/session/stepper";
   import type { LoggedSet, ResolvedExercise, SetSlot } from "$lib/session/session-view";
   import { newOpId } from "$lib/sync/ops";
   import { logWrite } from "$lib/sync/client.svelte";
@@ -100,23 +101,13 @@
   /**
    * UI-DECISIONS §3: the load dial steps 1 kg, with no per-load-configuration increment
    * and no new contract field. Duration steps 5 sec, the granularity a held position is
-   * actually timed at. Nothing goes below zero.
+   * actually timed at. The arithmetic itself is `$lib/session/stepper.ts`, where it is
+   * unit-tested — it produces `weight_kg`, and a stepper that drifts reaches the export.
    */
   function step(field: Field, delta: number): void {
     const current =
       field === "reps" ? repsValue : field === "weightKg" ? weightValue : durationValue;
-    const parsed = Number.parseFloat(current);
-    const base = Number.isFinite(parsed) ? parsed : 0;
-    const next = Math.max(0, base + delta);
-    // Pre-fills can carry halves (an odd total on a paired lift is what 1.25 kg plates
-    // produce), so round the float noise off rather than the value.
-    setField(field, String(Math.round(next * 100) / 100));
-  }
-
-  function parseNumeric(value: string): number | undefined {
-    if (value.trim() === "") return undefined;
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : undefined;
+    setField(field, stepValue(current, delta));
   }
 
   /**
@@ -153,9 +144,10 @@
     const loggedSlot = slot;
 
     const submitted: LoggedSet = {
-      reps: exercise.type === "time" ? undefined : parseNumeric(repsValue),
-      weightKg: exercise.type === "time" || !showLoadDial ? undefined : parseNumeric(weightValue),
-      durationS: exercise.type === "time" ? parseNumeric(durationValue) : undefined,
+      reps: exercise.type === "time" ? undefined : parseNumericField(repsValue),
+      weightKg:
+        exercise.type === "time" || !showLoadDial ? undefined : parseNumericField(weightValue),
+      durationS: exercise.type === "time" ? parseNumericField(durationValue) : undefined,
       difficulty,
     };
 

@@ -2,17 +2,14 @@
 
 Settled in a design pass against
 [`fixtures/plans/home-training-v1.md`](../fixtures/plans/home-training-v1.md),
-before any code existed. **Built in phase 4**, at
-`src/routes/plan/[slug]/session/[key]/` with the pure logic in `src/lib/session/`; the
-architectural half is ARCHITECTURE §9.
+before any code existed. It is built, at `src/routes/plan/[slug]/session/[key]/` with the
+pure logic in `src/lib/session/`; the architectural half is ARCHITECTURE §9.
 
 The build was made to conform to this document rather than the document to the build, and
-that stays the direction of travel. Two parts of it are not built, for different reasons
-and with different standing: §3's `2 × N` sub-line is **deliberately** unbuilt, for the
-reason recorded there, and is settled. §5's symptom triad was never built at all — the
-section described a colour system the app does not have, and was corrected on 2026-08-27
-to say so. Whether that feature gets built is an open product question, tracked in
-[`ROADMAP.md`](ROADMAP.md).
+that stays the direction of travel. **Exactly one clause goes deliberately unbuilt** —
+§3's `2 × N` sub-line, for the reason recorded there. §5's symptom triad was also unbuilt
+for most of this project's life, but through drift rather than decision; it is built now,
+and §5 describes what exists.
 
 These are decisions, not suggestions — implement against them rather than relitigating
 them, the same way ARCHITECTURE §2 works. Where a decision has a *reason* attached, the
@@ -281,12 +278,7 @@ mismatch.
 
 This section's rule from its preamble held: a decision's reason had gone false, so the
 decision was open again, and building the framework closed it. Nothing here is a decision
-still to make — see [`ROADMAP.md`](ROADMAP.md) for where this item was tracked.
-
-**One vocabulary note for whoever builds it.** The contract's middle level is spelled
-`yellow` (`safety.symptom_framework[].level`), while the design token is `--amber`. The
-contract's spelling is the one that cannot change, because `docs/CONTRACT.md` ships
-verbatim in every export and bootstrap prompt; the token is the one to map onto it.
+still to make.
 
 ## 6. The awkward primitives, and how each renders
 
@@ -476,11 +468,11 @@ previously claimed more than the suite delivers and an over-claimed mechanical c
 worse than an acknowledged manual one:
 
 - **Overflow** is asserted at all three viewports on the runner and its four overlays,
-  Home, export, the four progress routes, history, versions, admin and account. It is
-  **not** asserted anywhere on `/import` — the largest unchecked surface, and the one whose
-  shape most invites a 360 px break — nor on `/login`, `/offline`, `+error`, the
-  pre-session metric gate, or the activity sheet and next-morning prompt in their *open*
-  states.
+  Home, export, the four progress routes, history, versions, admin, account and `/import`
+  — the last covering the empty paste box, a parse-failure report, the wrong-document
+  explanation and the revision review screen, which is the widest shape on the route. It
+  is **not** asserted on `/login`, `/offline`, `+error`, the pre-session metric gate, or
+  the activity sheet and next-morning prompt in their *open* states.
 - **Both themes** is delivered on three screens only (the runner, admin, account), and the
   runner's theme spec pins itself to 360 × 800. The light palette is never rendered at 390
   or 768, and never at all on home, import, export, progress, history or versions.
@@ -489,22 +481,31 @@ worse than an acknowledged manual one:
   `/account`, `/export`, `/import` and the layout chrome, which use padding with no floor.
 
 Everything interactive *should* be at least 44 px, and the log strip's controls are
-deliberately larger than that — sweaty hands, a phone on the floor, arm's length. Closing
-the gap between that intent and what is mechanically checked is a roadmap item; a
-touch-target sweep is the same shape of assertion as the overflow one and catches the same
-class of desktop-invisible bug.
+deliberately larger than that — sweaty hands, a phone on the floor, arm's length. The gap
+between that intent and what is mechanically checked is open, and stated here rather than
+tracked elsewhere: a touch-target sweep is the same shape of assertion as the overflow one
+and catches the same class of desktop-invisible bug.
+
+**One accepted keyboard cost, recorded so it is not rediscovered as a bug.** The progress
+window pickers navigate on `change`, so arrow-keying a *closed* `<select>` on a desktop
+keyboard fires one navigation per keypress. Accepted: the target is a phone, where a
+`<select>` commits once on dismiss.
 
 ---
 
 ## What this does not decide
 
-This document covers the session runner. The screens it once listed as "still open" — Home
-with the suggested next session, history, progress, and the offline sync-state indicator —
-all shipped in phases 6 and 7, and their decisions live where they were made: ARCHITECTURE
-§9 and §10 for the architecture, the phase entries in [`ROADMAP.md`](ROADMAP.md) for what
-each one settled, and CLAUDE.md's Invariants for the two that hardened into rules (the sync
-banner's 700 ms / 1.5 s gate, and the celebration being a moment rather than a step).
+This document covers the session runner. Home with its suggested next session, history,
+progress and the offline sync-state indicator are all built, and their decisions live
+where they were made: ARCHITECTURE §9 and §10 for the architecture, and CLAUDE.md's
+Invariants for the two that hardened into rules — the sync banner's 700 ms / 1.5 s gate,
+and the celebration being a moment rather than a step.
 
-What genuinely remains undecided is §5's symptom framework: whether GAIN shows a plan's
-green/yellow/red pain guidance to the person training, having stored it since phase 2 and
-never rendered it.
+§5's symptom framework — whether GAIN shows a plan's green/yellow/red pain guidance to
+the person training — was the last genuinely open question here, and it is settled and
+built: see §5.
+
+What this document still does not cover is anything outside the runner and the screens
+named above. A new surface gets its decisions recorded here when it has any worth
+settling, and not before — an empty section reserving a screen that does not exist is the
+drift this document has already been corrected for once.

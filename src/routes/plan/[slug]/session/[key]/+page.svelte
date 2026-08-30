@@ -30,6 +30,7 @@
     type UpNext,
   } from "$lib/session/ledger";
   import { hydrateSession, type SessionHydration } from "$lib/session/resume";
+  import { workoutStorageKey } from "$lib/session/workout-storage";
   import type { DeviationKind } from "$lib/logs/types";
   import { formatLastPerformance } from "$lib/session/prefill";
   import { goto } from "$app/navigation";
@@ -64,7 +65,7 @@
    * is exactly what phase 4 used and dies with the tab, which is the one failure this
    * phase exists to fix.
    */
-  const storageKey = untrack(() => `gain:workout:${data.planSlug}:${data.session.key}`);
+  const storageKey = untrack(() => workoutStorageKey(data.planSlug, data.session.key));
 
   // `undefined` until the mount effect below resolves the local pointer (and, for a fresh
   // workout, writes its `start` op) — nothing below renders a logging control until then,
@@ -363,8 +364,8 @@
     editingSlot = slot;
   }
 
-  /** A correction to a slot already logged this session (todo.md: no way to undo a
-   * mis-tapped reps/weight/difficulty) — updates the ledger's display value and exits
+  /** A correction to a slot already logged this session — there is otherwise no way to
+   * undo a mis-tapped reps/weight/difficulty. Updates the ledger's display value and exits
    * edit mode, but triggers none of `onSetLogged`'s rest-timer/auto-advance side
    * effects, since nothing about the session's progress actually changed. */
   function onSetCorrected(slot: SetSlot, logged: LoggedSet): void {
