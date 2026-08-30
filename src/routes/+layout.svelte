@@ -1,5 +1,6 @@
 <script lang="ts">
   import "../app.css";
+  import { page } from "$app/state";
   import { REPO_URL } from "$lib/repo";
   import { discardQuarantined, setGeneration, syncStatus } from "$lib/sync/client.svelte";
   import { bannerText } from "$lib/sync/banner";
@@ -7,6 +8,13 @@
   import type { LayoutData } from "./$types";
 
   let { data, children }: { data: LayoutData; children: import("svelte").Snippet } = $props();
+
+  // Read routes — the paste box, the export bundle, a plan version — get the wide
+  // measure (`app.css`'s `--measure-wide`); every other route, including the versions
+  // *list*, keeps the phone measure. Matched on `route.id` rather than the resolved
+  // pathname so it tracks the route pattern, not a particular `slug`/`n`.
+  const wideRoutes = new Set(["/import", "/plan/[slug]/export", "/plan/[slug]/versions/[n]"]);
+  let wide = $derived(page.route.id !== null && wideRoutes.has(page.route.id));
 
   // Seeds the client's belief about its own generation from the server's authoritative
   // value on every load — see `client.svelte.ts`'s comment on why this can't
@@ -76,7 +84,7 @@
     </p>
   {/if}
 
-  <main class="content">
+  <main class="content" class:wide>
     {@render children()}
   </main>
 
@@ -173,9 +181,15 @@
   .content {
     flex: 1;
     width: 100%;
-    max-width: 46rem;
+    max-width: var(--measure);
     margin: 0 auto;
     padding: var(--s-5) var(--s-5) var(--s-7);
+  }
+
+  /* Read routes — the paste box, the export bundle, a plan version — get the wide
+     measure over tapped ones. Still one centred column: wider, not multi-column. */
+  .content.wide {
+    max-width: var(--measure-wide);
   }
 
   .foot {

@@ -58,6 +58,9 @@
 <style>
   .doc {
     width: 100%;
+    /* The paste box is a short wide strip above two-thirds of empty screen on the wide
+       desktop measure otherwise — use the viewport it's given, finite on a phone. */
+    min-height: min(60vh, 40rem);
     padding: var(--s-3);
     border-radius: var(--r-xs);
     border: 1px solid var(--line);
