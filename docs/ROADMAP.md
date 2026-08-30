@@ -575,35 +575,54 @@ that can be done in the tree.
       it was reserved for, `--green` has its first call sites, and the section describes
       the app that exists.
 
-- [ ] **Per-user migration observability.** Migrations run lazily, per user, only when that
-      user's next request opens their database — so a deploy migrates nobody, there is no
-      point at which the fleet is known to be on one schema, a failure for one user is
-      invisible, and a rollback strands whoever already advanced. `appliedSchemaVersion`
-      exists and is exactly the right function; it is called only from
-      `tests/db/provision.test.ts`. `admin-stats.ts` also reads foreign databases without
-      migrating them, so a future migration that restructures `plan`, `plan_version`,
-      `workout` or `set_log` breaks the operator screen for exactly the users who have not
-      logged in since the deploy.
-      **Done when:** `/admin` shows each user's applied schema version, and the rollback
-      policy is written down — "we roll forward" is a fine answer, an unwritten one is not.
+- [x] **Per-user migration observability.** Migrations ran lazily, per user, only when
+      that user's next request opened their database — so a deploy migrated nobody, there
+      was no point at which the fleet was known to be on one schema, a failure for one
+      user was invisible, and nothing recorded what a rollback would do to whoever had
+      already advanced.
+      `admin-stats.ts` now reads `appliedSchemaVersion` off each user's own database
+      (read-only, alongside the counts it already returns — a version number, not
+      content) and exposes `CURRENT_SCHEMA_VERSION`, the same `MIGRATIONS` list
+      `migrate()` walks. `src/lib/admin/user-status.ts`'s `schemaNote` turns the gap into
+      the one-sentence style `/admin` already reads everything else back in: silent when
+      a user is current or unprovisioned, `"schema vN of vM — will migrate on next
+      visit"` otherwise. The rollback policy is written down in ARCHITECTURE §5,
+      "Migration policy": roll forward, never back past a shipped migration — a
+      small-fleet answer, deliberately, not one that would hold for a service with an
+      SLA.
 
-- [ ] **`/import`'s failure screens have no coverage of any kind.** The parser side is
-      excellent — all seven `ParseFailureKind` variants are tested, malformed YAML included.
-      The screen has nothing: no e2e renders a parse failure, the pasted-bundle explanation
-      (a UI-DECISIONS §11 requirement) or the blocking-revision report, and `blockingReport()`
-      lives inside `src/routes/import/+page.svelte` where no unit test can reach it. The
-      user's whole recovery path from the most likely failure in the loop is unverified.
-      **Done when:** `blockingReport` moves to `$lib` with unit tests, and one e2e pastes a
-      broken plan and asserts the report is on screen and copyable.
+- [x] **`/import`'s failure screens have no coverage of any kind.** The parser side was
+      excellent — all seven `ParseFailureKind` variants tested, malformed YAML included —
+      and the screen had nothing: no e2e rendered a parse failure, the pasted-bundle
+      explanation (a UI-DECISIONS §11 requirement) or the blocking-revision report, and
+      `blockingReport()` lived inside `src/routes/import/+page.svelte` where no unit test
+      could reach it.
+      `blockingReport` moved to `src/lib/import/blocking-report.ts`, pure and unit-tested
+      (`tests/import/blocking-report.test.ts`). `e2e/import-failures.spec.ts` covers all
+      three failure screens: a document with no fenced block (the generic report,
+      addressed to the AI, pasted text kept in place, copy button proven against the real
+      clipboard); a pasted export bundle (the wrong-document explanation, with no report
+      and no copy action, per §11); and a revision that fails the round-trip's
+      version-increment rule (`src/lib/diff/diff.ts`) — produced by re-submitting the
+      fixture's own v1 document as a "revision" of the v1 already on the account, so no
+      second fixture was needed. All three pass on all three viewport projects.
 
-- [ ] **Server error reporting.** `src/lib/server/log.ts` is one `console.error` wrapper with
-      a single call site, and there is no custom `handleError` hook — so an unhandled error
-      reaches the operator as a raw stack trace against minified bundle paths, with no
-      timestamp, no request id, no user id and ANSI codes in the stream. "Which user lost a
-      workout" is currently unanswerable. Worth doing before real users rather than after,
-      because the first unreproducible bug report is when you cannot add it retroactively.
-      **Done when:** a `handleError` hook attaches a request id and user id, and there is one
-      log line per request.
+- [x] **Server error reporting.** `src/lib/server/log.ts` was one `console.error` wrapper
+      with a single call site, and there was no custom `handleError` hook — so an unhandled
+      error reached the operator as a raw stack trace with no timestamp, no request
+      context and no user id, and "which user lost a workout" was unanswerable.
+      `hooks.server.ts` now exports `handleError`: it mints an `errorId`
+      (`crypto.randomUUID()`), logs it alongside the method, path and resolved user
+      through `logUnhandledError`, and returns `{ message, errorId }` — `App.Error`
+      (`src/app.d.ts`) carries `errorId` as optional, since the app's own `error(status,
+      "message")` calls are expected refusals with no unhandled-error line behind them.
+      `+error.svelte` shows the id so a user can quote exactly the log line that has the
+      stack trace. Request logging is separate and unconditional: `handle` now wraps the
+      gate (renamed to the internal `route`) and logs one line — method, path, status,
+      duration, resolved user — for every response, refusals included, since a gate
+      refusal that never reached `resolve` is exactly the kind of response an operator
+      wants a record of. Homelab-sized deliberately: one `console.log`/`console.error`
+      line each, not a logging pipeline — `docker logs` is the operator UI here.
 
 - [x] **`/healthz` verified nothing**, so a container whose storage had failed reported
       healthy to both Docker and Portainer and was never restarted. The failure presents as
@@ -620,14 +639,6 @@ that can be done in the tree.
       `SELECT 1` is kept for a corrupted or closed handle, which `access` cannot see.
       Verified end to end against a real `node build`: 200 healthy → 503 on `chmod 000` →
       200 again on restore. A full disk is still not caught, and nothing cheap catches it.
-
-- [ ] **Dependency automation and scanning.** No Dependabot, no Renovate, no `npm audit` in
-      CI, no image scan, no SBOM. The stated "every dependency on a current major" policy has
-      already drifted — TypeScript is a full major behind. Note the audit blind spot when
-      wiring this up: `npm audit --omit=dev` reports zero while `npm audit` reports three,
-      because adapter-node inlines `@sveltejs/kit` — a devDependency — into the shipped
-      server bundle.
-      **Done when:** a dependency bot is configured and CI runs a non-gating `npm audit`.
 
 - [x] **Make the cross-user module boundary real.** CLAUDE.md described `admin-stats.ts` as
       the single cross-user reader and called that "a property of a module boundary rather
@@ -646,3 +657,57 @@ that can be done in the tree.
       op is written through, whereas `replay.ts` issues no SQL of its own — and asserts the
       scan found all five, so it cannot pass vacuously and a sixth log table cannot join the
       replay uncovered. Verified by dropping a `UNIQUE` and watching it fail.
+
+### Container and supply-chain hardening
+
+One item because it is one afternoon in one file each, and because none of it is
+load-bearing for a private instance behind a reverse proxy — it is the difference between
+"nobody can reach this" and "nobody can reach this, and it would not matter much if they
+did". Gathered from the review's E7, E8, E12, E13 and E14. E11 (a release image nothing
+had ever booted, and a prerelease tag that would move `:latest`) was small enough to fix
+outright and is done.
+
+- [ ] **Pin, drop and bound the container.** `Dockerfile` builds from floating tags
+      (`node:24-bookworm`, `-slim`) rather than digests, installs `tzdata` unpinned and
+      never runs `apt-get upgrade`, so the OS CVE surface is whatever the tag happened to
+      carry that day (E7). Every GitHub Action is pinned by mutable tag rather than SHA
+      while the `image` job holds `packages: write` (E8). `compose.yaml` sets no
+      `read_only`, `cap_drop`, `no-new-privileges`, memory or CPU limit, and publishes on
+      all host interfaces — so the app is reachable in plaintext on `:8420`, going around
+      the TLS proxy rather than through it (E12). There is no `SECURITY.md` and no per-user
+      disk quota, so one user can fill the volume for everyone (E13). 1.9 MB of source maps
+      and the whole of `npm`/`npx`/`yarn` ship in the runtime stage (E14).
+      **Done when:** base images and actions are pinned by digest/SHA, `compose.yaml`
+      publishes on `127.0.0.1` with the standard hardening flags set, and a `SECURITY.md`
+      says where to report something. The disk quota is a separate decision, not part of
+      this.
+
+### Accepted, or deliberately deferred
+
+Recorded so the next reader knows these were decided rather than missed. All three are
+review findings that will not be acted on as they stand.
+
+- **Dependency automation and scanning (E5). Deferred 2026-08-30, deliberately.** No
+  Dependabot, no Renovate, no `npm audit` in CI, no image scan, no SBOM. This is a
+  single-operator homelab app with no customers and no compliance surface; updating
+  dependencies when something needs updating is a reasonable policy at this size, and a
+  weekly bot raising PRs nobody has time to read is not an improvement on it. Two things
+  are worth carrying to whoever revisits this: the "every dependency on a current major"
+  claim in CLAUDE.md has already drifted (TypeScript is a full major behind), so it is an
+  aspiration rather than an enforced rule; and `npm audit --omit=dev` has a blind spot
+  that will mislead — it reports zero while plain `npm audit` reports three, because
+  adapter-node inlines `@sveltejs/kit`, a devDependency, into the shipped server bundle.
+  Run the plain form if you run one at all.
+
+- **"Full history" export size is reported in characters (C6).** The window picker offers
+  `full` with no size estimate, and the result is reported as a raw character count, so a
+  user with years of history discovers their bundle is too large for a chat context in the
+  other application, after copying. Accepted because it only bites at a scale this
+  instance is years from — three years of near-daily logging is ~1.6 MB — and because the
+  default window is `since_version`, which is the path anyone actually takes. Closing it
+  means an estimated size per option shown *before* the choice, not a warning after it.
+
+- **The progress window pickers navigate on `change` (U13).** Arrow-keying a closed
+  `<select>` on a desktop keyboard fires one navigation per keypress. Accepted: the app is
+  designed for a phone, where a `<select>` commits once on dismiss, and the finding was
+  derived from the code's shape rather than reproduced in a browser.

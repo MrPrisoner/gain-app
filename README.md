@@ -138,8 +138,8 @@ docker compose start gain
 of a database that is being written to, WAL and all, and writes it as one file with
 no sidecars. Use it when the backup has to be scripted and the app cannot go down for
 it. The runtime image ships no `sqlite3` binary, so the snippet drives the app's own
-`better-sqlite3`; it copies each user's plan documents and exports alongside, so the
-result is a complete `/data` tree rather than loose databases.
+`better-sqlite3`; it copies each user's plan documents alongside, so the result is a
+complete `/data` tree rather than loose databases.
 
 ```bash
 docker compose exec -T gain node -e '
@@ -157,11 +157,9 @@ docker compose exec -T gain node -e '
     db.close();
   }
   for (const user of users) {
-    for (const dir of ["plans", "exports"]) {
-      const from = path.join(usersDir, user, dir);
-      if (fs.existsSync(from))
-        fs.cpSync(from, path.join(out, "users", user, dir), { recursive: true });
-    }
+    const from = path.join(usersDir, user, "plans");
+    if (fs.existsSync(from))
+      fs.cpSync(from, path.join(out, "users", user, "plans"), { recursive: true });
   }
   console.log(out);
 '

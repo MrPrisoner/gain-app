@@ -203,12 +203,17 @@ Two consequences worth stating rather than rediscovering:
         <plan_slug>/             # plan.slug is stable across versions (§5 contract rule 5)
           v1.md                  # verbatim original import, never modified
           v2.md
-      exports/
-        2026-09-01-block-1.md    # generated bundles, retained for reference
 ```
 
 Per-user physical isolation is the point: no cross-user query can exist because there
 is no cross-user database. Deleting a user is `rm -rf users/<id>` plus one row.
+
+Generated exports are not archived to disk. Every export is assembled on demand from the
+stored plan and its logs and handed straight to the browser (clipboard, download
+fallback) — there used to be an `exports/` directory here too, keeping a copy of every
+bundle, and it was dropped 2026-08-30 (review 2026-08-27, A6/C2): nothing ever read it
+back, so it was unbounded write-only storage against a promise the export screen never
+made. Losing a copied bundle costs one more export, not a lost paste.
 
 ---
 
@@ -325,6 +330,29 @@ structure is version-scoped, and logs bind to the version they were recorded und
   occurrences rather than reading the occurrence off the row (§9, "Resuming"). Adding a
   `block_key` column would remove the ambiguity, and is a schema-plus-CONTRACT change
   nobody has yet needed enough.
+
+### Migration policy
+
+Migrations (`src/lib/db/migrate.ts`) run **lazily and per user**: `openUserDb` applies
+whatever a database has not yet seen, on that user's next request. Nothing migrates the
+fleet at deploy time, because there is no fleet-wide database to migrate — decision 5 is
+one SQLite file per user, and startup only opens `control.db` (`src/hooks.server.ts`).
+The consequence, accepted rather than worked around: after a deploy there is no moment at
+which every user is known to be on one schema, only the moment each of them next asks for
+one.
+
+**The policy is roll forward, not roll back.** A released image is never rolled back past
+a migration it shipped. `MIGRATIONS` (`src/lib/db/schema.ts`) has no down-migration and is
+not expected to grow one; recovering from a bad migration means shipping a fix-forward
+migration, not reverting the image. This is a small-fleet, single-operator answer — it
+would not hold for a service with an SLA — and it is the right size for what this is.
+
+The one thing a lazy, invisible model cannot be without help is *observable*: `/admin`
+reads each user's applied schema version straight off their own database
+(`appliedSchemaVersion`, read-only, never migrated by the admin path) and names anyone
+behind the version this build ships (`src/lib/admin/user-status.ts`'s `schemaNote`). That
+is what turns "a user's database will not open" from a mystery into "they have not
+visited since the migration that would have fixed it."
 
 ### Why `exercise_def.slug` is load-bearing
 

@@ -612,14 +612,16 @@ protect:
   outside the hook, so a thrown 401/403/303 ships with none of these headers —
   `$lib/server/gate.ts`'s `refusal` and `seeOther` exist so the gate's own responses go
   out through `withSecurityHeaders` like every other one.
-- **The export archive under `users/<id>/exports/` keeps the last 20 files per plan, not
-  per user.** Settled 2026-08-28: nothing lists, reads or deletes an archived export, so
-  without a cap the directory grows forever. `bundle-for-plan.ts`'s `pruneArchive` deletes
-  the oldest surplus after every write, scoped to files matching that plan's own
-  `gain-export-<slug>-v` prefix — per plan rather than per user so a plan revised weekly
-  can't crowd out the archive of one touched rarely. It sorts on the filename's trailing
-  instant, not the filename itself: the version number in the middle is unpadded, so a
-  plain string sort would put `-v10-` before `-v2-`.
+- **There is no export archive.** `users/<id>/exports/` existed briefly (settled
+  2026-08-28, capped at 20 files per plan) and was removed 2026-08-30 (review
+  2026-08-27, A6/C2): nothing ever listed, read or deleted an archived file — the only
+  reader was `admin-stats.ts`'s `directorySize`, counting its bytes into the operator's
+  disk total — and the export screen never told the user the copy existed. It was
+  write-only storage against a promise nobody made. `buildExportBundle`
+  (`src/routes/plan/[slug]/export/bundle-for-plan.ts`) now only assembles the bundle and
+  returns it; the clipboard and the download fallback are the user's only two copies, and
+  a lost paste is regenerable from the same plan and window rather than recoverable from
+  disk.
 
 ## The fixture
 
