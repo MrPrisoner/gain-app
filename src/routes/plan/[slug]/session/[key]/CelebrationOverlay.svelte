@@ -36,7 +36,7 @@
    * follows a session where those colours meant "stop" is the one thing this animation
    * must not do.
    */
-  const COLOURS = ["#5b8def", "#8fb3f5", "#d9b45f", "#f0d78c", "#c9d1d9", "#ffffff"];
+  const COLOURS = ["#6b98f1", "#8fb3f5", "#d9b45f", "#f0d78c", "#c9d1d9", "#ffffff"];
   const PIECES = Array.from({ length: 42 }, (_, i) => ({
     key: i,
     left: Math.random() * 100,

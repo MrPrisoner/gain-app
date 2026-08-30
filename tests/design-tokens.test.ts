@@ -10,10 +10,11 @@
  * `--red` names a failed import and `--amber` a warning.
  *
  * Scope note: the triad is asserted against `--ground`, `--surface` and `--raised`, the
- * three surfaces an error panel or a swatch actually sits on, and not against `--hover`.
- * `--hover` is a background for a pressed or hovered neutral control; no triad text and
- * no accent text lands on one today. If that changes, add it here — the value that would
- * then be needed is `--accent: #6b98f1` in dark, and a darker triad still.
+ * three surfaces an error panel or a swatch actually sits on. `--hover` is a background
+ * for a pressed or hovered neutral control, and `--accent` (but not the triad) is tested
+ * against it — the dark theme's `#6b98f1` was chosen to meet 4.5:1 on hover, and the
+ * light accent `#2560cd` was already strong enough; the triad is not constrained by
+ * hover and remains darker still.
  */
 
 import fs from "node:fs";
