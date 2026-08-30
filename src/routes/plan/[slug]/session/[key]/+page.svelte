@@ -823,7 +823,7 @@
     background: var(--surface);
     border: 1px solid var(--line-soft);
     border-radius: var(--r-md);
-    padding: var(--s-5);
+    padding: var(--pad-card);
     margin-top: 1rem;
     display: grid;
     gap: var(--s-3);
