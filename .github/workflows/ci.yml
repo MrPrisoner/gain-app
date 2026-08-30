@@ -148,13 +148,27 @@ jobs:
             *)           version="ci" ;;
           esac
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          # `:latest` is what compose.yaml pulls, so only a final release may
+          # move it. The tag glob is `v*`, which matches `v1.0.0-rc1` as
+          # happily as `v1.0.0` — a prerelease that moved `:latest` would ship
+          # itself to every instance on the next `docker compose pull`.
+          case "$version" in
+            *-*) latest=false ;;
+            *)   latest=true  ;;
+          esac
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
 
-      - name: Build${{ startsWith(github.ref, 'refs/tags/v') && ' and push' || '' }}
+      # Always built into the local daemon and never pushed from here: the
+      # smoke test below has to run against the exact image that gets pushed,
+      # and a `push: true` build goes straight to the registry where nothing
+      # has booted it. The push is a separate step against this same loaded
+      # image, so no second build happens and the bytes cannot differ.
+      - name: Build
         uses: docker/build-push-action@v7
         with:
           context: .
-          push: ${{ startsWith(github.ref, 'refs/tags/v') }}
-          load: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+          push: false
+          load: true
           build-args: |
             APP_VERSION=${{ steps.image.outputs.version }}
           cache-from: type=gha
@@ -166,11 +180,11 @@ jobs:
       # The image is only useful if it actually boots. A missing runtime
       # dependency or a broken CMD is invisible to `docker build`.
       #
-      # Non-tag builds only, because those are the ones loaded into the local
-      # daemon rather than pushed straight to the registry. A tag is cut from a
-      # commit that already went through this on its way to main.
+      # Every build, tags included. It used to be skipped on a tag, on the
+      # reasoning that the commit had already passed it on its way to main —
+      # but that left the one image anybody actually runs as the only one never
+      # booted before it shipped.
       - name: Smoke-test the image
-        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         run: |
           docker run -d --name gain-smoke \
             -e ORIGIN=http://localhost:3000 \
@@ -190,3 +204,11 @@ jobs:
           test "$(docker exec gain-smoke id -u)" != "0"
           docker rm -f gain-smoke
           test -n "$healthy"
+
+      - name: Push
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          docker push '${{ steps.image.outputs.name }}:${{ steps.image.outputs.version }}'
+          if [ '${{ steps.image.outputs.latest }}' = 'true' ]; then
+            docker push '${{ steps.image.outputs.name }}:latest'
+          fi
