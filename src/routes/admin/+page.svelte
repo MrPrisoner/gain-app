@@ -138,7 +138,7 @@
     color: var(--text);
     background: var(--accent-soft);
     border-radius: var(--r-sm);
-    padding: 0.6rem 0.85rem;
+    padding: var(--s-3) var(--s-3);
     margin-top: 1rem;
   }
 
@@ -153,37 +153,37 @@
     margin: 1.5rem 0 0;
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
-    gap: 1rem;
+    gap: var(--s-4);
   }
 
   .card {
     background: var(--surface);
     border: 1px solid var(--line-soft);
     border-radius: var(--r-md);
-    padding: 1.25rem;
+    padding: var(--pad-card);
   }
 
   .card h2 {
-    font-size: 1.05rem;
-    font-weight: 600;
+    font-size: var(--t-base);
+    font-weight: var(--w-semi);
     margin: 0;
   }
 
   .status {
     color: var(--text);
-    font-size: 0.95rem;
+    font-size: var(--t-base);
     margin: 0.15rem 0 0.75rem;
   }
 
   .counts {
     color: var(--muted);
-    font-size: 0.875rem;
+    font-size: var(--t-sm);
     margin: 0;
   }
 
   .meta {
     color: var(--dim);
-    font-size: 0.8125rem;
+    font-size: var(--t-xs);
     margin: 0.15rem 0 0;
   }
 
@@ -193,7 +193,7 @@
 
   .schema-note {
     color: var(--amber);
-    font-size: 0.8125rem;
+    font-size: var(--t-xs);
     margin: 0.35rem 0 0;
   }
 
@@ -202,32 +202,32 @@
     border: 1px solid var(--line);
     border-radius: var(--r-sm);
     color: var(--muted);
-    padding: 0.5rem 0.85rem;
+    padding: var(--s-2) var(--s-3);
     margin-top: 1rem;
     width: 100%;
   }
 
   .danger-panel {
     margin-top: 1rem;
-    padding: 1rem;
+    padding: var(--s-4);
     border-radius: var(--r-sm);
     border: 1px solid var(--red);
     background: color-mix(in srgb, var(--red) 10%, transparent);
     display: flex;
     flex-direction: column;
-    gap: 0.6rem;
+    gap: var(--s-3);
   }
 
   .warning {
     display: flex;
-    gap: 0.5rem;
+    gap: var(--s-2);
     align-items: start;
     margin: 0;
     color: var(--text);
   }
 
   .danger-panel label {
-    font-size: 0.875rem;
+    font-size: var(--t-sm);
     color: var(--text);
   }
 
@@ -242,7 +242,7 @@
 
   .row {
     display: flex;
-    gap: 0.5rem;
+    gap: var(--s-2);
     flex-wrap: wrap;
   }
 
@@ -251,7 +251,7 @@
     color: #fff;
     border: 0;
     border-radius: var(--r-sm);
-    padding: 0.5rem 0.85rem;
+    padding: var(--s-2) var(--s-3);
   }
 
   .danger:disabled {
@@ -264,6 +264,6 @@
     border: 1px solid var(--line);
     border-radius: var(--r-sm);
     color: var(--muted);
-    padding: 0.5rem 0.85rem;
+    padding: var(--s-2) var(--s-3);
   }
 </style>
