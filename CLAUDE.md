@@ -51,7 +51,9 @@ verify` — a half-minute local check must never turn into a browser download. C
   Narrow a run with `npx playwright test --project=offline e2e/offline-session.spec.ts`
   rather than paying for the production build four times over. The three viewport
   projects are named `small-android`, `iphone` and `tablet-portrait` (see
-  `playwright.config.ts`) — not `phone` or `mobile`
+  `playwright.config.ts`) — not `phone` or `mobile`. A killed run leaves its server
+  holding port 4319 or 4320, and the next run then dies with "port already in use"
+  rather than a test failure; `ss -ltnp | grep -E '4319|4320'` names the pid
 - **To see a UI change without a display**, write a throwaway spec under `e2e/` (reuse
   `e2e/helpers.ts`'s gestures rather than re-deriving them), run it against a real
   project — `npx playwright test --project=iphone e2e/tmp-*.spec.ts` — and
@@ -810,6 +812,15 @@ in several specs — it would pass on a fully-logged, un-loggable strip.
 could not shrink, and nothing in `verify` could ever have seen it. `npm run test:e2e`
 asserts no horizontal overflow at three viewports; see UI-DECISIONS §12, which states
 precisely what is and is not covered rather than claiming the whole surface.
+
+**A whole-file regex is how a space-significant string gets broken silently.** A tidy-up
+pass that collapsed whitespace before punctuation across whole files turned CSS
+descendant selectors into compound ones (`.log-strip .strip-set` →
+`.log-strip.strip-set`), rewrote Playwright locators the same way, and relabelled a
+button `Download.md`. `npm run verify` passed clean — typecheck, `svelte-check`, ESLint,
+every unit test and the build all read those as identical — and only `test:e2e` failed.
+Scope a bulk edit to the lines it is meant to change rather than to the file, and when
+one has run wide anyway, diff for lost whitespace before trusting a green `verify`.
 
 **A generated tsconfig's exclusions are silent.** SvelteKit's own generated
 `.svelte-kit/tsconfig.json` excludes `src/service-worker.ts` (it needs the WebWorker lib,
