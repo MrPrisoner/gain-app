@@ -24,15 +24,15 @@
     display: grid;
     place-content: center;
     justify-items: center;
-    gap: 1rem;
-    padding: 1.5rem;
+    gap: var(--s-4);
+    padding: var(--s-5);
     text-align: center;
   }
 
   h1 {
     margin: 0;
-    font-size: 2rem;
-    font-weight: 800;
+    font-size: var(--t-xl);
+    font-weight: var(--w-display);
     letter-spacing: 0.02em;
   }
 
@@ -44,11 +44,11 @@
 
   .button {
     display: inline-block;
-    padding: 0.75rem 1.5rem;
+    padding: var(--s-3) var(--s-5);
     border-radius: var(--r-sm);
     background: var(--accent);
     color: var(--accent-in);
-    font-weight: 700;
+    font-weight: var(--w-bold);
     text-decoration: none;
   }
 </style>

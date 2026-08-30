@@ -92,17 +92,17 @@
     cursor: pointer;
   }
   .bar-label {
-    font-size: 10px;
+    font-size: var(--t-2xs);
     fill: var(--muted);
   }
   .empty {
-    font-size: 12px;
+    font-size: var(--t-2xs);
     fill: var(--dim);
   }
   .readout {
     margin-top: 0.35rem;
-    font-size: 0.85rem;
-    font-weight: 700;
+    font-size: var(--t-sm);
+    font-weight: var(--w-bold);
     color: var(--text);
     text-align: center;
   }

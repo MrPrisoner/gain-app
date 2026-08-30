@@ -126,7 +126,7 @@
   .scale-row {
     display: grid;
     grid-template-columns: repeat(var(--cells, 1), minmax(0, 1fr));
-    gap: 0.3rem;
+    gap: var(--s-1);
     margin-top: 0.3rem;
   }
   /* Touch-target sweep (UI-DECISIONS §12), ruled on rather than changed further: `min-height`
@@ -147,7 +147,7 @@
     background: var(--raised);
     color: var(--text);
     border-radius: var(--r-xs);
-    padding: 0.4rem 0.3rem;
+    padding: var(--s-2) var(--s-1);
   }
   .scale-cell.selected {
     background: var(--accent-soft);

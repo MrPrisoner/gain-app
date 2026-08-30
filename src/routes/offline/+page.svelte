@@ -20,14 +20,14 @@
 
   .status {
     margin: 0;
-    font-size: 3.5rem;
-    font-weight: 800;
+    font-size: var(--t-display);
+    font-weight: var(--w-display);
     color: var(--dim);
   }
 
   h1 {
     margin: 0.5rem 0 1rem;
-    font-size: 1.4rem;
+    font-size: var(--t-lg);
   }
 
   .explain {

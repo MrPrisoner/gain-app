@@ -102,14 +102,14 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.9rem 1.25rem;
+    padding: var(--s-4) var(--s-5);
     border-bottom: 1px solid var(--line-soft);
     background: var(--surface);
   }
 
   .wordmark {
-    font-size: 1.15rem;
-    font-weight: 800;
+    font-size: var(--t-md);
+    font-weight: var(--w-display);
     letter-spacing: 0.04em;
     color: var(--text);
     text-decoration: none;
@@ -123,15 +123,15 @@
   .top-right {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: var(--s-3);
   }
 
   .badge {
-    font-size: 0.75rem;
-    font-weight: 700;
+    font-size: var(--t-2xs);
+    font-weight: var(--w-bold);
     color: var(--amber);
     background: var(--amber-soft);
-    padding: 0.2rem 0.55rem;
+    padding: var(--s-1) var(--s-2);
     border-radius: var(--r-xs);
   }
 
@@ -140,7 +140,7 @@
     border: none;
     padding: 0;
     color: var(--muted);
-    font-size: 0.9rem;
+    font-size: var(--t-sm);
   }
 
   .linklike:hover {
@@ -150,17 +150,17 @@
 
   .sync-banner {
     margin: 0;
-    padding: 0.5rem 1.25rem;
+    padding: var(--s-2) var(--s-5);
     background: var(--amber-soft);
     color: var(--amber);
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
     text-align: center;
   }
 
   .sync-banner a {
     color: inherit;
     text-decoration: underline;
-    font-weight: 700;
+    font-weight: var(--w-bold);
   }
 
   .content {
@@ -168,14 +168,14 @@
     width: 100%;
     max-width: 46rem;
     margin: 0 auto;
-    padding: 1.5rem 1.25rem 3rem;
+    padding: var(--s-5) var(--s-5) var(--s-7);
   }
 
   .foot {
-    padding: 1rem 1.25rem 1.5rem;
+    padding: var(--s-4) var(--s-5) var(--s-5);
     border-top: 1px solid var(--line-soft);
     color: var(--dim);
-    font-size: 0.8rem;
+    font-size: var(--t-xs);
     text-align: center;
   }
 </style>
