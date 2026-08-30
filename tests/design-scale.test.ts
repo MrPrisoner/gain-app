@@ -47,8 +47,8 @@ describe("design scale", () => {
     for (const file of FILES) {
       const body = styles(fs.readFileSync(file, "utf8"));
       for (const [, value] of body.matchAll(new RegExp(`${property}:\\s*([^;]+);`, "g"))) {
-        const v = value?.trim() || "";
-        if (!v || v.startsWith("var(--") || v === "inherit" || v === "0") continue;
+        const v = value!.trim();
+        if (v.startsWith("var(--") || v === "inherit" || v === "0") continue;
         offenders.push(`${path.relative(process.cwd(), file)}: ${property}: ${v}`);
       }
     }
