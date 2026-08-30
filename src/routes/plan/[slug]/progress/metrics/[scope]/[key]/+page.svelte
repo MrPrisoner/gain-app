@@ -4,13 +4,17 @@
   import { resolve } from "$app/paths";
   import { page } from "$app/state";
   import Sparkline from "$lib/components/Sparkline.svelte";
-  import BackLink from "$lib/components/BackLink.svelte";
+  import PageHeader from "$lib/components/PageHeader.svelte";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
 </script>
 
-<h1>{data.label}</h1>
+<PageHeader
+  title={data.label}
+  backHref={`/plan/${data.planSlug}/progress/metrics`}
+  backLabel="Back to metrics"
+/>
 
 <label class="window-picker">
   Window
@@ -38,8 +42,6 @@
   formatPointLabel={(p, i, all) => (i === all.length - 1 ? String(p.y) : undefined)}
   formatReadout={(p) => `${p.y} on ${new Date(p.x).toISOString().slice(0, 10)}`}
 />
-
-<BackLink href={`/plan/${data.planSlug}/progress/metrics`} label="Back to metrics" />
 
 <style>
   .window-picker {

@@ -11,8 +11,8 @@
 -->
 <script lang="ts">
   import { copyText, downloadText } from "$lib/copy";
-  import BackLink from "$lib/components/BackLink.svelte";
   import ArchivedNote from "$lib/components/ArchivedNote.svelte";
+  import PageHeader from "$lib/components/PageHeader.svelte";
   import IconCheck from "~icons/lucide/check";
   import IconCopy from "~icons/lucide/copy";
   import IconDownload from "~icons/lucide/download";
@@ -43,7 +43,11 @@
   <title>v{data.versionNo} — {data.planName}</title>
 </svelte:head>
 
-<h1>{data.planName} — v{data.versionNo}</h1>
+<PageHeader
+  title={`${data.planName} — v${data.versionNo}`}
+  backHref={`/plan/${data.planSlug}/versions`}
+  backLabel="← All versions"
+/>
 
 {#if data.planArchived}
   <ArchivedNote />
@@ -73,8 +77,6 @@
   <textarea class="doc" readonly rows="24" aria-label="Plan document" value={data.source}
   ></textarea>
 {/if}
-
-<BackLink href={`/plan/${data.planSlug}/versions`} label="← All versions" />
 
 <style>
   .muted {

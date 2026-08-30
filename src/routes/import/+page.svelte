@@ -5,6 +5,7 @@
   import { blockingReport } from "$lib/import/blocking-report";
   import { refreshCounts, syncStatus } from "$lib/sync/client.svelte";
   import Button from "$lib/components/Button.svelte";
+  import PageHeader from "$lib/components/PageHeader.svelte";
   import IconCheck from "~icons/lucide/check";
   import IconCircleCheck from "~icons/lucide/circle-check";
   import IconCopy from "~icons/lucide/copy";
@@ -93,7 +94,7 @@
   <title>Import a plan — GAIN</title>
 </svelte:head>
 
-<h1>Import a plan</h1>
+<PageHeader title="Import a plan" />
 
 <section class="card">
   <p class="muted">
@@ -248,11 +249,6 @@
 {/if}
 
 <style>
-  h1 {
-    margin: 1.25rem 0 0;
-    font-size: var(--t-lg);
-  }
-
   .card {
     background: var(--surface);
     border: 1px solid var(--line-soft);

@@ -5,7 +5,7 @@
   import { page } from "$app/state";
   import Sparkline from "$lib/components/Sparkline.svelte";
   import BarChart from "$lib/components/BarChart.svelte";
-  import BackLink from "$lib/components/BackLink.svelte";
+  import PageHeader from "$lib/components/PageHeader.svelte";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -30,8 +30,12 @@
   }
 </script>
 
-<h1>{data.exerciseName}</h1>
-<p class="muted">{data.sessionName}</p>
+<PageHeader
+  title={data.exerciseName}
+  subtitle={data.sessionName}
+  backHref={`/plan/${data.planSlug}/progress/exercises`}
+  backLabel="Back to exercises"
+/>
 
 <label class="window-picker">
   Window
@@ -100,13 +104,7 @@
   </section>
 {/each}
 
-<BackLink href={`/plan/${data.planSlug}/progress/exercises`} label="Back to exercises" />
-
 <style>
-  .muted {
-    color: var(--muted);
-    margin: 0 0 1rem;
-  }
   .window-picker {
     display: block;
     margin-bottom: 1rem;

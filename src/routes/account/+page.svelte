@@ -7,6 +7,7 @@
   import { purgeCachedUserData } from "$lib/sync/precache";
   import { clearWorkoutStorage } from "$lib/session/workout-storage";
   import Button from "$lib/components/Button.svelte";
+  import PageHeader from "$lib/components/PageHeader.svelte";
   import type { ActionData, PageData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -18,7 +19,7 @@
 
 <svelte:head><title>Account — GAIN</title></svelte:head>
 
-<h1>Account</h1>
+<PageHeader title="Account" />
 
 <p class="identity">
   Signed in as <strong>{data.displayName ?? "you"}</strong>.

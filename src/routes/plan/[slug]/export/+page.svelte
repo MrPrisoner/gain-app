@@ -5,6 +5,7 @@
   import BackLink from "$lib/components/BackLink.svelte";
   import ArchivedNote from "$lib/components/ArchivedNote.svelte";
   import Button from "$lib/components/Button.svelte";
+  import PageHeader from "$lib/components/PageHeader.svelte";
   import IconCheck from "~icons/lucide/check";
   import IconCopy from "~icons/lucide/copy";
   import IconDownload from "~icons/lucide/download";
@@ -45,7 +46,7 @@
 {/if}
 
 <section class="card">
-  <h1>Export for review</h1>
+  <PageHeader title="Export for review" />
   <p class="muted">
     One document for your AI chat: the plan as it stands, what you have logged, and the rules for
     handing a revision back. Paste the whole thing.
@@ -133,11 +134,6 @@
     border-radius: var(--r-md);
     padding: var(--pad-card);
     margin-top: 1.25rem;
-  }
-
-  h1 {
-    margin: 0 0 0.5rem;
-    font-size: var(--t-lg);
   }
 
   .card h2 {

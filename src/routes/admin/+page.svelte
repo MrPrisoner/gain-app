@@ -2,6 +2,7 @@
   import { enhance } from "$app/forms";
   import IconTriangleAlert from "~icons/lucide/triangle-alert";
   import Button from "$lib/components/Button.svelte";
+  import PageHeader from "$lib/components/PageHeader.svelte";
   import type { ActionData, PageData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -40,10 +41,10 @@
 
 <svelte:head><title>Users — GAIN</title></svelte:head>
 
-<h1>Users</h1>
-<p class="lede">
-  Counts only. Plans, workouts and notes stay private to the person who wrote them.
-</p>
+<PageHeader
+  title="Users"
+  subtitle="Counts only. Plans, workouts and notes stay private to the person who wrote them."
+/>
 
 {#if form?.resetLabel}
   <p class="done" role="status">Reset {form.resetLabel}'s data.</p>
@@ -132,11 +133,6 @@
 </ul>
 
 <style>
-  .lede {
-    color: var(--muted);
-    margin-top: 0.25rem;
-  }
-
   .done {
     color: var(--text);
     background: var(--accent-soft);

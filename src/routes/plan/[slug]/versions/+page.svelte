@@ -1,7 +1,7 @@
 <!-- src/routes/plan/[slug]/versions/+page.svelte -->
 <script lang="ts">
-  import BackLink from "$lib/components/BackLink.svelte";
   import ArchivedNote from "$lib/components/ArchivedNote.svelte";
+  import PageHeader from "$lib/components/PageHeader.svelte";
   import IconCircleDot from "~icons/lucide/circle-dot";
   import type { PageData } from "./$types";
 
@@ -12,7 +12,7 @@
   <title>Versions — {data.planName}</title>
 </svelte:head>
 
-<h1>{data.planName} — versions</h1>
+<PageHeader title={`${data.planName} — versions`} backHref="/" backLabel="← Home" />
 
 {#if data.planArchived}
   <ArchivedNote />
@@ -51,8 +51,6 @@
     </li>
   {/each}
 </ul>
-
-<BackLink href="/" label="← Home" />
 
 <style>
   .muted {

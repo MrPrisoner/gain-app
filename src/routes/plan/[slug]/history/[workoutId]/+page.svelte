@@ -1,7 +1,7 @@
 <!-- src/routes/plan/[slug]/history/[workoutId]/+page.svelte -->
 <script lang="ts">
-  import BackLink from "$lib/components/BackLink.svelte";
   import ArchivedNote from "$lib/components/ArchivedNote.svelte";
+  import PageHeader from "$lib/components/PageHeader.svelte";
   import type { PageData } from "./$types";
   let { data }: { data: PageData } = $props();
 </script>
@@ -10,11 +10,13 @@
   <ArchivedNote />
 {/if}
 
-<h1>
-  Session {data.workout.sessionKey}{data.workout.sessionName
-    ? ` — ${data.workout.sessionName}`
-    : ""}
-</h1>
+<PageHeader
+  title={`Session ${data.workout.sessionKey}${
+    data.workout.sessionName ? ` — ${data.workout.sessionName}` : ""
+  }`}
+  backHref={`/plan/${data.planSlug}/history`}
+  backLabel="Back to history"
+/>
 <p class="muted">
   {new Date(data.workout.startedAt).toISOString().slice(0, 10)} · {data.workout.status}
   {#if data.version}
@@ -63,8 +65,6 @@
     {/each}
   </ul>
 {/if}
-
-<BackLink href={`/plan/${data.planSlug}/history`} label="Back to history" />
 
 <style>
   .muted {

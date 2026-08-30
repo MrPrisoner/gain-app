@@ -2,13 +2,13 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
-  import BackLink from "$lib/components/BackLink.svelte";
   import ArchivedNote from "$lib/components/ArchivedNote.svelte";
+  import PageHeader from "$lib/components/PageHeader.svelte";
   import type { PageData } from "./$types";
   let { data }: { data: PageData } = $props();
 </script>
 
-<h1>{data.planName} — history</h1>
+<PageHeader title={`${data.planName} — history`} backHref="/" backLabel="Back to your plans" />
 
 {#if data.planArchived}
   <ArchivedNote />
@@ -52,8 +52,6 @@
     >
   {/if}
 </div>
-
-<BackLink href="/" label="Back to your plans" />
 
 <style>
   .muted {

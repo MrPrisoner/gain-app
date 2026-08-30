@@ -9,6 +9,7 @@
   import { dueNextMorningPrompts } from "$lib/home/next-morning";
   import { startSyncLoop } from "$lib/sync/client.svelte";
   import Button from "$lib/components/Button.svelte";
+  import PageHeader from "$lib/components/PageHeader.svelte";
   import IconArchive from "~icons/lucide/archive";
   import IconArchiveRestore from "~icons/lucide/archive-restore";
   import IconCheck from "~icons/lucide/check";
@@ -203,6 +204,8 @@
     <a class="primary-link" href="/import"><IconUpload />Paste the plan your AI gave you</a>
   </section>
 {:else}
+  <PageHeader title="GAIN" />
+
   {#each dueNextMorning as candidate (candidate.workoutClientId)}
     <NextMorningPrompt
       planSlug={candidate.planSlug}
