@@ -4,6 +4,7 @@
   import { copyText, downloadText } from "$lib/copy";
   import BackLink from "$lib/components/BackLink.svelte";
   import ArchivedNote from "$lib/components/ArchivedNote.svelte";
+  import Button from "$lib/components/Button.svelte";
   import IconCheck from "~icons/lucide/check";
   import IconCopy from "~icons/lucide/copy";
   import IconDownload from "~icons/lucide/download";
@@ -89,7 +90,8 @@
     {/if}
 
     <div class="actions">
-      <button type="submit" class="primary"><IconSparkles />Generate the export</button>
+      {#snippet sparklesIcon()}<IconSparkles />{/snippet}
+      <Button variant="primary" type="submit" icon={sparklesIcon}>Generate the export</Button>
     </div>
   </form>
 
@@ -108,13 +110,16 @@
     <textarea class="doc" readonly rows="14" aria-label="Export bundle" value={form.bundle}
     ></textarea>
     <div class="actions">
-      <button type="button" class="primary" onclick={copyBundle}>
+      {#snippet copyIcon()}
         {#if copied}<IconCheck />{:else}<IconCopy />{/if}
+      {/snippet}
+      <Button variant="primary" type="button" onclick={copyBundle} icon={copyIcon}>
         {copied ? "Copied" : "Copy export"}
-      </button>
-      <button type="button" class="secondary" onclick={download}>
-        <IconDownload />Download .md
-      </button>
+      </Button>
+      {#snippet downloadIcon()}<IconDownload />{/snippet}
+      <Button variant="secondary" type="button" onclick={download} icon={downloadIcon}>
+        Download .md
+      </Button>
     </div>
   </section>
 {/if}
@@ -164,13 +169,22 @@
 
   .window {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: var(--s-3);
     padding: var(--s-3);
     border: 1px solid var(--line);
     border-radius: var(--r-sm);
     background: var(--raised);
     min-width: 0;
+  }
+
+  /* A native radio's own box is what `e2e/touch-targets.spec.ts` measures, not the label
+     that wraps it — sized to the same 44px floor `Button` holds for its own controls. */
+  .window input[type="radio"] {
+    flex: 0 0 auto;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    accent-color: var(--accent);
   }
 
   .window-label {
@@ -220,26 +234,5 @@
     gap: var(--s-3);
     margin-top: 0.75rem;
     flex-wrap: wrap;
-  }
-
-  button {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--s-2);
-    border: none;
-    border-radius: var(--r-sm);
-    padding: var(--s-3) var(--s-5);
-    font-weight: var(--w-bold);
-  }
-
-  button.primary {
-    background: var(--accent);
-    color: var(--accent-in);
-  }
-
-  button.secondary {
-    background: var(--raised);
-    border: 1px solid var(--line);
-    color: var(--text);
   }
 </style>

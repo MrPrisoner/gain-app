@@ -1,6 +1,7 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
   import IconTriangleAlert from "~icons/lucide/triangle-alert";
+  import Button from "$lib/components/Button.svelte";
   import type { ActionData, PageData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -113,16 +114,18 @@
           {/if}
 
           <div class="row">
-            <button class="danger" type="submit" disabled={typed !== user.confirmation}>
+            <Button variant="danger" type="submit" disabled={typed !== user.confirmation}>
               Reset {user.confirmation}'s data
-            </button>
-            <button class="quiet" type="button" onclick={close}>Cancel</button>
+            </Button>
+            <Button variant="quiet" type="button" onclick={close}>Cancel</Button>
           </div>
         </form>
       {:else}
-        <button class="trigger" type="button" onclick={() => open(user.userId)}>
-          Reset data…
-        </button>
+        <div class="trigger-row">
+          <Button variant="danger" type="button" onclick={() => open(user.userId)}>
+            Reset data…
+          </Button>
+        </div>
       {/if}
     </li>
   {/each}
@@ -197,14 +200,8 @@
     margin: 0.35rem 0 0;
   }
 
-  .trigger {
-    background: transparent;
-    border: 1px solid var(--line);
-    border-radius: var(--r-sm);
-    color: var(--muted);
-    padding: var(--s-2) var(--s-3);
+  .trigger-row {
     margin-top: 1rem;
-    width: 100%;
   }
 
   .danger-panel {
@@ -244,26 +241,5 @@
     display: flex;
     gap: var(--s-2);
     flex-wrap: wrap;
-  }
-
-  .danger {
-    background: var(--red);
-    color: #fff;
-    border: 0;
-    border-radius: var(--r-sm);
-    padding: var(--s-2) var(--s-3);
-  }
-
-  .danger:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .quiet {
-    background: transparent;
-    border: 1px solid var(--line);
-    border-radius: var(--r-sm);
-    color: var(--muted);
-    padding: var(--s-2) var(--s-3);
   }
 </style>

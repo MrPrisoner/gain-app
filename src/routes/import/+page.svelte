@@ -4,6 +4,7 @@
   import { copyText, downloadText } from "$lib/copy";
   import { blockingReport } from "$lib/import/blocking-report";
   import { refreshCounts, syncStatus } from "$lib/sync/client.svelte";
+  import Button from "$lib/components/Button.svelte";
   import IconCheck from "~icons/lucide/check";
   import IconCircleCheck from "~icons/lucide/circle-check";
   import IconCopy from "~icons/lucide/copy";
@@ -132,10 +133,12 @@
       </p>
       <pre class="report">{form.importFailure.report}</pre>
       <div class="actions">
-        <button type="button" class="primary" onclick={copyReport}>
+        {#snippet copyReportIcon()}
           {#if copied}<IconCheck />{:else}<IconCopy />{/if}
+        {/snippet}
+        <Button variant="primary" type="button" onclick={copyReport} icon={copyReportIcon}>
           {copied ? "Copied" : "Copy report for the AI"}
-        </button>
+        </Button>
       </div>
     </section>
   {/if}
@@ -152,7 +155,8 @@
     <form method="POST" action="?/commit" use:enhance>
       <input type="hidden" name="source_md" value={form?.source ?? ""} />
       <div class="actions">
-        <button type="submit" class="primary"><IconCircleCheck />Commit import</button>
+        {#snippet commitImportIcon()}<IconCircleCheck />{/snippet}
+        <Button variant="primary" type="submit" icon={commitImportIcon}>Commit import</Button>
       </div>
     </form>
   </section>
@@ -175,10 +179,12 @@
           {/each}
         </ul>
         <div class="actions">
-          <button type="button" class="secondary" onclick={copyBlocking}>
+          {#snippet copyBlockingIcon()}
             {#if copiedBlocking}<IconCheck />{:else}<IconCopy />{/if}
+          {/snippet}
+          <Button variant="secondary" type="button" onclick={copyBlocking} icon={copyBlockingIcon}>
             {copiedBlocking ? "Copied" : "Copy for the AI"}
-          </button>
+          </Button>
         </div>
       </div>
     {/if}
@@ -232,9 +238,10 @@
       {/if}
 
       <div class="actions">
-        <button type="submit" class="primary" disabled={!ready}>
-          <IconCircleCheck />Commit revision
-        </button>
+        {#snippet commitRevisionIcon()}<IconCircleCheck />{/snippet}
+        <Button variant="primary" type="submit" disabled={!ready} icon={commitRevisionIcon}>
+          Commit revision
+        </Button>
       </div>
     </form>
   </section>
@@ -270,32 +277,6 @@
     gap: var(--s-3);
     margin-top: 0.75rem;
     flex-wrap: wrap;
-  }
-
-  button {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--s-2);
-    border: none;
-    border-radius: var(--r-sm);
-    padding: var(--s-3) var(--s-5);
-    font-weight: var(--w-bold);
-  }
-
-  button.primary {
-    background: var(--accent);
-    color: var(--accent-in);
-  }
-
-  button.primary:disabled {
-    opacity: 0.45;
-    cursor: default;
-  }
-
-  button.secondary {
-    background: var(--raised);
-    border: 1px solid var(--line);
-    color: var(--text);
   }
 
   .report-card {

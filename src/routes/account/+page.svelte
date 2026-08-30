@@ -6,6 +6,7 @@
   import { clearAfterReset, setGeneration } from "$lib/sync/client.svelte";
   import { purgeCachedUserData } from "$lib/sync/precache";
   import { clearWorkoutStorage } from "$lib/session/workout-storage";
+  import Button from "$lib/components/Button.svelte";
   import type { ActionData, PageData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -32,7 +33,9 @@
       signing in afterwards starts from an empty GAIN, the same as a brand-new user. Every other
       device you are signed in on is signed out; this one stays signed in.
     </p>
-    <button class="trigger" type="button" onclick={() => (open = true)}> Reset my data… </button>
+    <div class="trigger-row">
+      <Button variant="danger" type="button" onclick={() => (open = true)}>Reset my data…</Button>
+    </div>
   </section>
 {:else}
   <form
@@ -96,16 +99,18 @@
     {/if}
 
     <div class="row">
-      <button
-        class="danger"
+      <Button
+        variant="danger"
         type="submit"
-        disabled={typed.trim().toUpperCase() !== "RESET" || resetting}
+        disabled={typed.trim().toUpperCase() !== "RESET"}
+        pending={resetting}
+        pendingLabel="Resetting…"
       >
-        {resetting ? "Resetting…" : "Reset my data"}
-      </button>
-      <button class="quiet" type="button" onclick={() => (open = false)} disabled={resetting}>
+        Reset my data
+      </Button>
+      <Button variant="quiet" type="button" onclick={() => (open = false)} disabled={resetting}>
         Cancel
-      </button>
+      </Button>
     </div>
   </form>
 {/if}
@@ -136,14 +141,8 @@
     margin: 0;
   }
 
-  .trigger {
-    background: transparent;
-    border: 1px solid var(--line);
-    border-radius: var(--r-sm);
-    color: var(--muted);
-    padding: var(--s-2) var(--s-3);
+  .trigger-row {
     margin-top: 1rem;
-    width: 100%;
   }
 
   .danger-panel {
@@ -183,26 +182,5 @@
     display: flex;
     gap: var(--s-2);
     flex-wrap: wrap;
-  }
-
-  .danger {
-    background: var(--red);
-    color: #fff;
-    border: 0;
-    border-radius: var(--r-sm);
-    padding: var(--s-2) var(--s-3);
-  }
-
-  .danger:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .quiet {
-    background: transparent;
-    border: 1px solid var(--line);
-    border-radius: var(--r-sm);
-    color: var(--muted);
-    padding: var(--s-2) var(--s-3);
   }
 </style>
