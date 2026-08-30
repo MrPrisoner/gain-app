@@ -52,7 +52,7 @@
   }
 
   li {
-    padding-left: var(--s-4);
+    padding-left: var(--s-3);
     border-left: 2px solid var(--line-soft);
   }
 

@@ -47,7 +47,7 @@
 
 <style>
   .row {
-    padding: var(--s-4) 0;
+    padding: var(--s-3) 0;
     border-top: 1px solid var(--line-soft);
   }
 
