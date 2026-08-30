@@ -22,7 +22,11 @@ async function undersized(page: Page): Promise<string[]> {
       const style = getComputedStyle(el);
       if (style.display === "none" || style.visibility === "hidden") continue;
       const { width, height } = el.getBoundingClientRect();
-      if (width === 0 && height === 0) continue;
+      // Covers true zero-size elements and the standard visually-hidden-input pattern
+      // (`position: absolute; width: 1px; height: 1px; margin: -1px`) used to keep a
+      // native control screen-reader-reachable while a properly-sized sibling button
+      // triggers it — narrow enough that no real, tappable control this small exists.
+      if (width <= 2 && height <= 2) continue;
       // An inline link inside a paragraph is text, not a control, and WCAG exempts it.
       if (el.tagName === "A" && style.display === "inline") continue;
       if (width < 44 || height < 44) {

@@ -8,6 +8,7 @@
   import NextMorningPrompt from "./NextMorningPrompt.svelte";
   import { dueNextMorningPrompts } from "$lib/home/next-morning";
   import { startSyncLoop } from "$lib/sync/client.svelte";
+  import Button from "$lib/components/Button.svelte";
   import IconArchive from "~icons/lucide/archive";
   import IconArchiveRestore from "~icons/lucide/archive-restore";
   import IconCheck from "~icons/lucide/check";
@@ -265,7 +266,8 @@
           Finished with this plan? Archiving hides it here and stops new sessions. History,
           progress, export and versions all stay open, and you can bring it back any time.
         </p>
-        <button type="submit" class="quiet"><IconArchive />Archive plan</button>
+        {#snippet archiveIcon()}<IconArchive />{/snippet}
+        <Button variant="quiet" type="submit" icon={archiveIcon}>Archive plan</Button>
       </form>
     </section>
   {/each}
@@ -308,7 +310,8 @@
           </nav>
           <form method="POST" action="?/unarchive" use:enhance>
             <input type="hidden" name="slug" value={plan.slug} />
-            <button type="submit" class="quiet"><IconArchiveRestore />Unarchive</button>
+            {#snippet unarchiveIcon()}<IconArchiveRestore />{/snippet}
+            <Button variant="quiet" type="submit" icon={unarchiveIcon}>Unarchive</Button>
           </form>
         </div>
       {/each}
@@ -480,14 +483,6 @@
 
   .archive-hint {
     margin-bottom: 0.6rem;
-  }
-
-  button.quiet {
-    background: transparent;
-    border: 1px solid var(--line);
-    color: var(--muted);
-    padding: var(--s-2) var(--s-4);
-    font-size: var(--t-sm);
   }
 
   .plan-error {
