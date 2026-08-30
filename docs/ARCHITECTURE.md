@@ -157,7 +157,7 @@ Notes:
   Linux capabilities dropped, `no-new-privileges`, and a fixed CPU/memory ceiling — none of
   this is load-bearing behind a reverse proxy on a private instance, but it is cheap and it
   is the difference between "nobody can reach this" and "nobody can reach this, and it
-  would not matter much if they did" (review E12, `docs/ROADMAP.md`). `/tmp` is `tmpfs`
+  would not matter much if they did". `/tmp` is `tmpfs`
   because Node and SQLite (temp files during `VACUUM INTO`) both assume a writable scratch
   directory exists; `/data` — the one path the app actually writes to — is unaffected by
   `read_only`, since it is its own mounted volume.
@@ -168,6 +168,12 @@ Notes:
   never existed. Take the copy with the container stopped, or through `VACUUM INTO`,
   which asks SQLite itself for a consistent copy of a database being written to. The
   README's Backups subsection has both recipes in full.
+- The runtime image ships more than it strictly runs — roughly 2 MB of source maps
+  alongside the server bundle, and the `npm`/`npx`/`yarn` binaries that come with the
+  Node base image. Accepted deliberately: trimming them is a multi-stage exercise that
+  buys image size and nothing else, on an image that is pulled by one operator onto one
+  host. The base images are pinned by digest and `apt-get upgrade` runs at build time,
+  which is the half that affects the CVE surface.
 
 ### Security headers
 
@@ -690,6 +696,20 @@ nothing is deleted, so nothing has to be recovered. The write pair lives in
 
 ---
 
+**The two imports are not the same job**, and the split is what keeps each one simple:
+
+| | First import | Revision import |
+|---|---|---|
+| Diff against | Nothing — everything is new | The previous version |
+| Needs | Parse, validate, confirm | Rename detection, per-field diff, mapping UI |
+
+The first import has nothing to compare against, so it needs no diff review — a summary
+of what was parsed is enough. The revision import is where the real work lives: rename
+detection, the per-field diff, and the disposition every departed slug must be given
+before a commit is allowed.
+
+---
+
 ## 9. The session runner
 
 The screen you actually stare at, sweating, between sets. It gets the most design care.
@@ -860,8 +880,9 @@ This constrains the design, and the constraints are already baked into the above
   [`fixtures/plans/home-training-v1.md`](../fixtures/plans/home-training-v1.md)
   is committed as a fixture. The round-trip test is the project's spine:
   `import → log synthetic workouts → export → extract Section 1 → re-import` must
-  preserve every exercise ID, every set, and `context_md` byte-for-byte. Write this test
-  in phase 1, before the UI exists.
+  preserve every exercise ID, every set, and `context_md` byte-for-byte. It predates the
+  UI by design, and it is the first thing to run when anything near parse, storage or
+  export changes.
 
   Note what it does **not** assert: that a real revision comes back unchanged. The AI is
   supposed to rewrite the prose when the reasoning changes. The invariant is that GAIN's
@@ -869,8 +890,8 @@ This constrains the design, and the constraints are already baked into the above
 - **Deterministic core.** Parsing, diffing, progression logic and export generation are
   pure functions over plain data — trivially unit-testable, no I/O, no time
   dependency (inject the clock).
-- **Small modules with checkable acceptance criteria.** Each phase below is scoped so
-  one agent owns it and "done" is a passing test, not a judgement call.
+- **Small modules with checkable acceptance criteria.** Work is scoped so one agent owns
+  it and "done" is a passing test, not a judgement call.
 - **Property tests on the sync layer**, where AI-written code most reliably goes wrong:
   replay any subset of the queue in any order, assert no duplicate sets and no data loss.
 
@@ -899,81 +920,46 @@ human call (feature vs. fix vs. breaking), not a call worth automating until the
 history is large enough that Conventional-Commits-driven auto-bumping would save more than
 it costs to get an edge case wrong.
 
+**Dependencies are updated when something needs updating — there is no bot.** No
+Dependabot, no Renovate, no `npm audit` gate, no image scan, no SBOM. This is a
+single-operator instance with no customers and no compliance surface, and a weekly bot
+raising pull requests nobody has time to read is not an improvement on a human noticing.
+Two consequences are worth stating rather than rediscovering. Currency is an aspiration
+here, not an enforced rule: the tree drifts, and has (TypeScript sat a full major behind
+while this claimed otherwise). And **if you run an audit, run the plain `npm audit`, never
+`--omit=dev`** — adapter-node inlines `@sveltejs/kit`, a devDependency, into the shipped
+server bundle, so the production-only form reports clean while vulnerable code ships.
+
 **No per-file licence headers.** The AGPL does not require them, they are noise, and agents
 apply them inconsistently. `LICENSE` at the root plus the README note is the whole of it.
 
 **AGPL §13 needs one thing from the UI**, though: a running instance must offer its source
-to its users. That is a link to the repository in the app shell — cheap, but it has to
-actually be built. It belongs to phase 3, when a shell exists to put it in.
+to its users. That is the repository link in the app shell (`src/routes/+layout.svelte`) —
+cheap, and load-bearing for the licence rather than decorative.
 
-### Build order
+### The round-trip came before the UI, and that ordering still governs changes
 
-| Phase | Deliverable | Done when |
-|---|---|---|
-| 1 | Contract schema, parser, diff engine, export generator, **both prompt templates** — pure functions, no UI | Round-trip golden test passes on the real plan doc; both templates embed CONTRACT.md byte-for-byte |
-| 2 | SQLite layer, per-user DB provisioning, migrations — **reconcile §5 with the catalogue first** | Import writes a version; second import produces a correct diff |
-| 3 | OIDC auth, group gate, session handling, container + compose, AGPL §13 source link, **first run: empty state → prompt out → paste a plan in** | Deploys to Portainer; unauthorised user gets a clean 403; a user with an empty account copies the bootstrap prompt and pastes a plan back into a working app |
-| 4 | Session runner UI, online only | A full session of the real plan can be logged on a phone |
-| 5 | **Export UI** — route, window picker, copy with download fallback | A logged block leaves GAIN as one pasteable document, in one tap |
-| 6 | Offline PWA: IndexedDB, sync queue, idempotency | Airplane-mode session syncs cleanly on reconnect; property tests pass; a workout survives a full browser kill |
-| 7 | Progress, history, charts, **and the Home screen** — suggested next session, activity logging, the next-morning prompt | Double-progression state matches hand-calculated expectations; Home suggests the right next session; per-exercise, per-session-type and metric-trend charts render from real logs; History drills into full set detail |
-| 8 | Revision diff review | A logged block exports, comes back revised, and the diff is reviewed and committed, with a renamed slug mapped onto its history rather than silently split; `e2e/revision-walkthrough.spec.ts` is the durable proof — the loop closes |
-| 9 | Operations — operator view, per-user reset | An operator signed in as a member of `OIDC_ADMIN_GROUP` sees every registered user with a human-readable label and per-user counts, resets any one of them to a clean slate, and that reset survives the wiped user reconnecting with a full offline outbox — while no code path in the app can read another user's training content |
+The pure core — contract schema, parser, diff engine, export generator, both prompt
+templates — was built and proved lossless before a single screen existed. That was a
+build-order choice once; it is a standing rule now. If the round-trip is not provably
+lossless, everything layered on top of it is built on sand, so a change anywhere near
+parse, storage or export is measured against the golden test before it is measured
+against a screen.
 
-The item-by-item decomposition of phases 5–8, with acceptance criteria, is
-[`docs/ROADMAP.md`](./ROADMAP.md). This table is the map; that file is the itinerary.
-
-**Why the templates land in phase 1.** They are pure content, they need no code, and they
-must embed `docs/CONTRACT.md` verbatim — the same mechanism the export generator already
-implements, so it is one assertion in the golden test rather than a new capability.
-
-The stronger reason is that **writing them tests the contract**. If clear instructions for
+**The prompt templates are pure content, and writing them is how the contract gets
+tested.** They embed `docs/CONTRACT.md` verbatim — the same mechanism the export
+generator implements, so it costs one assertion rather than a new capability. The
+stronger reason to keep them close to the contract is that if clear instructions for
 producing a valid `gain-plan` block cannot be written, the contract is not clear enough,
-and that is far cheaper to discover before a parser hardens the current wording.
+and that is far cheaper to discover than to have a parser harden around the current
+wording first.
 
-**Why first run lands in phase 3, not at the end.** Importing a plan is the front door,
-not a refinement. Every user arrives with an empty account — including the first one — and
-until a plan is in, there is nothing to run, nothing to log and nothing to export. An app
-that can only be populated by running a script against its database is not usable by
-anybody, and seeding one by hand is a development workaround, not a product.
-
-It needs nothing that phases 1 and 2 do not already provide: parse, validate, write a
-version. The screen is a paste box, a validation result and a confirmation.
-
-**Why export is its own phase, ahead of offline and charts.** It began as the tail of the
-revision phase and was pulled forward once the runner shipped, because the two halves of
-that phase turned out to have nothing in common. Reviewing a revision needs a diff UI and
-weeks of logs to have something to revise; *emitting* the bundle needs a route, a window
-picker and a copy button, on top of a generator phase 1 already finished and tested.
-
-Leaving them together meant a user could import a plan, log an entire block, and have no
-way to get any of it out — the loop open at its return crossing, with the code to close it
-sitting complete and unreachable. That is the one gap that makes everything logged so far
-worth less, and it is the cheapest phase in the list to close.
-
-**Why the Home screen belongs with progress.** Three obligations from §9 — the suggested
-next session, one-tap activity logging, and the next-morning metric prompt — were attached
-to no phase at all, which is how they stayed unbuilt while everything around them shipped.
-They are one screen, they need nothing from offline, and each is a promise the app
-currently does not keep: the `activity` table exists with no way to write to it, and a plan
-declaring a `next_morning` metric collects nothing. Progress and history land on the same
-screen, so they land in the same phase.
-
-**The two imports are not the same job**, which is what makes the split clean:
-
-| | First import | Revision import |
-|---|---|---|
-| Diff against | Nothing — everything is new | The previous version |
-| Needs | Parse, validate, confirm | Rename detection, per-field diff, mapping UI |
-| Available | Phase 3 | Phase 8 |
-
-The first import has nothing to compare against, so it needs no diff review — a summary of
-what was parsed is enough. The revision import is where the real work lives, and it cannot
-happen until there are weeks of logs to export in the first place. Deferring it costs
-nothing.
-
-Phase 1 before anything else. If the round-trip is not provably lossless, everything
-built on top of it is built on sand.
+**Importing a plan is the front door, not a refinement.** Every user arrives with an
+empty account, and until a plan is in there is nothing to run, nothing to log and nothing
+to export. An app that can only be populated by running a script against its database is
+not usable by anybody, and seeding one by hand is a development workaround rather than a
+product — which is why the paste box, its validation result and its confirmation are core
+rather than convenience.
 
 ---
 
@@ -997,9 +983,10 @@ Explicitly out of scope, to stop agents inventing work:
 |---|---|
 | AI returns a malformed or missing contract block | Strict validation, clear field-level errors, nothing written on failure; contract spec restated in every export |
 | AI renames exercise IDs, splitting history | Rename detection in the diff review; explicit ID-preservation instructions; slugs never silently auto-created for near-matching names |
-| Export outgrows the chat context window | Windowed by default; pre-computed summary carries the signal |
+| Export outgrows the chat context window | Windowed by default (`since_version`), and the pre-computed summary carries the signal. The `full` option is the unguarded edge: it is offered with no size estimate and its result is reported as a raw character count, so a user with years of history learns the bundle is too large *after* copying it into the other application. Accepted — three years of near-daily logging is ~1.6 MB, and the default window is the path anyone actually takes. Closing it means an estimated size shown per option before the choice, not a warning after it |
 | Offline sync loses or duplicates a workout | Client-generated IDs, idempotent server writes, property-tested replay |
 | `ORIGIN` / proxy misconfiguration breaks login | Documented in compose; startup logs the effective origin and redirect URI |
 | Context prose mangled on round-trip | `context_md` stored and replayed verbatim; byte-equality asserted in the golden test |
 | A resumed workout attributes a set to the wrong slot of the same session | Accepted and bounded (§9, "Resuming"): log rows carry no `block_key`, so reconstruction infers. It can never cross workouts, invent a row or drop one. The exact fix is a schema column, deferred until a real plan needs it |
+| One user fills the shared volume for everyone | Accepted, unbounded by design. Nothing caps per-user disk usage; isolation is physical, but the filesystem underneath is shared. The operator screen surfaces per-user byte totals, so the condition is visible before it is terminal, and on a household instance that is the whole of the answer. A quota is a real feature with a real failure mode of its own — a user who cannot log a set — and is not worth building before someone has come close |
 | A device with a badly wrong clock files its sets into the wrong week | Accepted and bounded. `set_log` carries no timestamp column at all: chronology comes from the ULID primary key, which sorts by its embedded millisecond timestamp and is generated on the phone, because the offline model has no server to stamp it. A few seconds out is harmless — order *within* a session is by `set_no` — but a device days out (a flat battery, a factory reset) interleaves permanently into the wrong week, and the export's progress summary is arithmetic the reviewing AI will trust and not check. Closing it means a server-stamped `received_at` written at replay, as a monotonic fallback that leaves the offline model alone; not worth the schema change until a real device is seen doing it |

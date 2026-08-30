@@ -130,8 +130,8 @@ export const load: PageServerLoad = ({ params, locals }) => {
     // the wrap-up sheet — the runner uses this only to render the honest "we'll ask
     // tomorrow" note, never to prompt for them here.
     nextMorningMetrics: sessionMetrics(contract, "next_morning"),
-    // D2 (`docs/REVIEW-2026-08-27.md`): the plan's own pain-response guidance, rendered
-    // in the runner rather than only exported. `[]` when the plan declares none.
+    // UI-DECISIONS §5: the plan's own pain-response guidance, rendered in the runner
+    // rather than only exported. `[]` when the plan declares none.
     symptomGuide: symptomGuideLevels(contract.safety),
     safetyEscalation: contract.safety?.escalation,
   };

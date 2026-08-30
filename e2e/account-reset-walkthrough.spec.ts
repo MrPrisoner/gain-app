@@ -1,7 +1,7 @@
 /**
- * The self-service reset's "done when" (docs/ROADMAP.md): a user resets themselves and
- * lands on the empty state with the bootstrap prompt. The second half of that "done
- * when" — a second device's queued outbox getting the generation 409 and clearing rather
+ * The self-service reset, end to end: a user resets themselves and lands on the empty
+ * state with the bootstrap prompt. The other half of it — a second device's queued
+ * outbox getting the generation 409 and clearing rather
  * than quarantining forever — is exercised by `tests/server/sync-route.test.ts`'s
  * existing 409 coverage plus `tests/server/account-route.test.ts`'s generation-bump
  * assertion, since reproducing two genuinely separate devices racing a reset needs a

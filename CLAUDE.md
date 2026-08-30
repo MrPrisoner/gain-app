@@ -4,102 +4,34 @@ Guidance for AI agents working in this repository. It is the single source of tr
 there is no separate `AGENTS.md`; this file used to be a symlink to one, but the project
 now only supports Claude Code, so the indirection was dropped.
 
-## Current state
+## What exists
 
-**All nine phases are done.** Phase 1 is the pure round-trip core: contract schema
-(`src/lib/contract/`), parser (`src/lib/parse/`), diff engine (`src/lib/diff/`), export
-generator (`src/lib/export/`) and both prompt templates (`src/lib/templates/`) — pure
-functions over plain data, no I/O. Phase 2 is the storage layer (`src/lib/db/`): the
-reconciled domain model as migration 001, per-user provisioning, the import writer and
-import review — import writes a version, and a second import produces a correct diff.
-Phase 3 is the web app: SvelteKit scaffolded at the repo root, OIDC auth against
-Authentik with the group gate, sessions in `control.db`, the container (`Dockerfile`,
-`compose.yaml`), and first run — empty state → bootstrap prompt out → paste a plan in →
-commit. Phase 4 is the session runner (`src/routes/plan/[slug]/session/[key]/`): it logs a
-full session of the real fixture plan on a phone — warm-up checkoff, the pinned log strip,
-per-side and ranged-set exercises, rest timers, rounds blocks, skip/substitute/add-set/
-drop-set deviations, a reload that resumes ledger and cursor rather than just the workout
-row, the pre-session and wrap-up metric prompts, and a red-flag stop — which is phase 4's
-own "done when" (ARCHITECTURE §12). `e2e/session-runner-walkthrough-a.spec.ts` and
-`e2e/session-runner-walkthrough-d.spec.ts` walk both fixture sessions end-to-end as the
-durable proof of that. Phase 5 is the export UI
-(`src/routes/plan/[slug]/export/`): `src/lib/db/logs.ts` reads the plain-data `Logs`
-shape the phase-1 generator has always consumed out of `gain.db`, keyed on `(scope, key)`
-and spanning every version of the plan; `src/lib/export/windows.ts` derives the window
-picker's options from the plan's own `block_length_weeks` rather than a constant, dropping
-the middle option entirely when a plan declares none; and the route assembles, previews and
-archives the bundle, copy-with-download-fallback exactly as the bootstrap prompt does.
-`e2e/export-walkthrough.spec.ts` logs a session and exports it as the durable proof that
-Section 1 comes back byte-identical to the imported document. Phase 6 is the offline PWA:
-a client write layer (`src/lib/sync/`) appends ops to an IndexedDB outbox and flushes them
-as ordered batches to `POST /api/sync`, which replays them idempotently through
-`src/lib/db/workout.ts`; the session runner (`src/routes/plan/[slug]/session/[key]/`) was
-rewired to write through that layer instead of SvelteKit form actions, so a session can be
-started, logged and finished with no connection at all, including across a full browser
-kill — proven by `e2e/offline-*.spec.ts` on a real production build, since
-`$service-worker`'s precache manifest is empty under `vite dev`. `src/service-worker.ts`
-precaches the app shell and each visited plan's session data. Phase 7 is progress, history
-& the Home screen: `src/lib/progress/double-progression.ts` is the one pure module double
-progression's "one session from a load increase" state is computed in, consumed by both
-`src/lib/export/summary.ts`'s per-exercise table and the exercises list/detail routes
-rather than reimplemented twice; `src/lib/progress/exercise-series.ts`,
-`session-stats.ts` and `metric-series.ts` back the per-exercise, per-session-type and
-metric-trend charts under `src/routes/plan/[slug]/progress/`; and
-`src/lib/db/history.ts` backs the reverse-chronological workout list and detail
-drill-down under `src/routes/plan/[slug]/history/`, both reachable from the Home plan
-card. `e2e/progress-walkthrough.spec.ts` and `e2e/history-walkthrough.spec.ts` walk both
-end to end as the durable proof. Phase 9, Operations, was built out of order ahead of
-phase 8: `OIDC_ADMIN_GROUP` gates an optional operator role, re-derived from the OIDC
-groups on every session refresh rather than stored on the user
-(`src/lib/server/auth.ts`); `src/lib/server/admin-stats.ts` is the one module allowed to
-open another user's `gain.db`, returning only counts, dates and byte totals; the `/admin`
-screen (`src/routes/admin/`) reads each user's aggregates back as one interpretive
-sentence rather than a grid, and its per-user reset (`src/lib/server/admin-reset.ts`)
-bumps `control_user.data_generation` so the wiped user's offline outbox is rejected
-wholesale on reconnect rather than quarantining piecemeal. `e2e/admin-walkthrough.spec.ts`
-is the durable proof. Phase 8, revision diff review, shipped last and closes the loop:
-`src/lib/diff/present.ts`'s `presentDiff` turns the phase-1 `diffContracts` output into
-groups a phone screen can read, rebuilding its warning list from the diff's own
-structured fields — `exercises.unreferenced`, `metrics.removed`, a recomputed
-`based_on_version` check — rather than filtering `diff.warnings` by string prefix; the
-import flow moved to its own route (`src/routes/import/`) so the paste box, parse-error
-report and review all live in one place; and the review screen
-(`src/routes/import/+page.svelte`, `DiffGroups.svelte`, `DispositionList.svelte`)
-requires an explicit disposition — map onto a survivor, or confirm removed — for every
-departed slug before the commit button unlocks, so a revision can never silently split an
-exercise's history. `importPlan` (`src/lib/db/import-plan.ts`) gained a `renames` input
-whose `applyRenames` repoints `exercise_def.slug` and the loose-text
-`deviation.substitute_exercise_slug`. `e2e/revision-walkthrough.spec.ts` is the durable
-proof: it logs a set, revises the plan with a rename, reviews the diff, commits, and
-confirms the set survived under the new slug.
+**GAIN is built, and the loop closes.** An AI writes a plan, GAIN imports it, a session
+runs and logs offline on a phone, an export bundle goes back out, and the revision that
+comes back is diff-reviewed and committed — with renamed exercises mapped onto their
+history rather than silently split.
 
-Four of `docs/ROADMAP.md`'s Loose Ends have since closed. The Playwright suite runs in
-CI as its own job (`.github/workflows/ci.yml`), never folded into `verify`. Plan
-archiving (`src/lib/db/archive.ts`) is reversible and read-only: it takes a plan off the
-active Home list and closes the two inbound write paths — the session runner and a
-revision import — while `export`, `history`, `progress` and version browsing all stay
-open and marked, which is the half that matters, since shipping the button against the
-old `archived_at` 404s would have made archiving a silent loss of the user's own logged
-history. Every version of a plan is browsable at `/plan/[slug]/versions` and
-`/plan/[slug]/versions/[n]`, the latter replaying `source_md` verbatim. And a user can
-now reset their own account from `/account` (reached from the footer), which reuses
-`resetUserData` (`src/lib/server/admin-reset.ts`) exactly as `/admin` does — only the
-caller changes, never the load-bearing ordering — and re-mints the requesting session
-afterward, since `resetUserData` signs out every session for the account including the
-one asking. The last Loose End closed with the backup recipe: README's "Running it" now
-carries a Backups subsection with both safe recipes — stop the container and copy, or
-`VACUUM INTO` each database live — plus restore and verify steps, and the "a single
-volume snapshot is a complete backup" claim is corrected in ARCHITECTURE §3 and in the
-Dockerfile comment that repeated it. The live recipe drives the app's own
-`better-sqlite3` through `docker compose exec … node -e` because the runtime image ships
-no `sqlite3` binary, and writes its snapshot inside the volume before copying it out
-because the container owns `/data` and nothing else. **All nine phases are done and
-`docs/ROADMAP.md`'s Loose ends are all closed; there is no numbered phase left.**
+Where each part lives:
 
-Two files hold the plan: the build-order table in ARCHITECTURE §12 is the map, and
-[`docs/ROADMAP.md`](docs/ROADMAP.md) is the itinerary — the remaining work item by item,
-with acceptance criteria and notes on what groundwork already exists. Read the roadmap
-before picking up work; it will save you rebuilding something phase 1 already wrote.
+| Area                                                                                                 | Code                                                                            |
+| ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Pure round-trip core — contract schema, parser, diff engine, export generator, both prompt templates | `src/lib/contract/`, `parse/`, `diff/`, `export/`, `templates/`                 |
+| Storage — per-user provisioning, migrations, the import writer, reads                                | `src/lib/db/`                                                                   |
+| Server — config, `control.db`, OIDC, the auth gate, admin stats and reset, logging                   | `src/lib/server/`                                                               |
+| Session runner — resolution, pre-fill, rest timer, resume, symptom guide                             | `src/lib/session/`; route at `src/routes/plan/[slug]/session/[key]/`            |
+| Offline write layer — IndexedDB outbox, flush loop, replay, precache                                 | `src/lib/sync/`, `src/service-worker.ts`                                        |
+| Progress, charts & history                                                                           | `src/lib/progress/`, `src/lib/db/history.ts`                                    |
+| Import & revision diff review                                                                        | `src/lib/diff/present.ts`, `src/lib/import/`; route at `src/routes/import/`     |
+| Operator view                                                                                        | `src/lib/server/admin-stats.ts`, `admin-reset.ts`; route at `src/routes/admin/` |
+
+The Playwright suite is the durable proof of each surface, and reading the relevant spec
+is the fastest way to learn how one actually behaves:
+`e2e/session-runner-walkthrough-a.spec.ts` and `-d.spec.ts` walk two full fixture
+sessions; `e2e/offline-*.spec.ts` run against a real production build, because
+`$service-worker`'s precache manifest is empty under `vite dev`; and `export-`,
+`progress-`, `history-`, `revision-`, `admin-`, `archive-`, `versions-`,
+`account-reset-`, `import-failures`, `symptom-guide`, `security-headers` and `quarantine`
+each walk their own end to end.
 
 Commands (Node 24 LTS — see `.nvmrc` and the `engines` field):
 
@@ -149,10 +81,15 @@ tsconfig.worker.json` pass for `src/service-worker.ts` — SvelteKit's generated
 
 Read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) first, then
 [`docs/CONTRACT.md`](docs/CONTRACT.md), before doing anything substantive. The twelve
-design decisions in ARCHITECTURE §2 are settled — implement against them rather than
-relitigating them. The same applies to
+design decisions in ARCHITECTURE §2 are settled, and each carries the reason it exists —
+implement against them rather than relitigating them, and if you think one should change,
+argue with its reason rather than around it. The same applies to
 [`docs/UI-DECISIONS.md`](docs/UI-DECISIONS.md), which settles how the session runner
 behaves; read it before touching anything user-facing.
+
+Those three, plus this file and `README.md`, are the whole of the standing documentation.
+There is no roadmap and no to-do list: see "Tracking work" below for why, and for what to
+do when you create one.
 
 ### Releasing
 
@@ -175,9 +112,12 @@ run without the framework.
 Node version, package manager, lint/format and CI are settled in ARCHITECTURE §12,
 "Toolchain, settled". Implement those choices; do not make them again.
 
-**Every dependency here is on a current major, and probably a newer one than you
-remember.** Zod 4, Svelte 5, TypeScript 6, ESLint 10, Vitest 4, Node 24 and
-better-sqlite3 13. Two of them bite. Zod: this repo uses `z.strictObject`,
+**The dependencies here are on newer majors than you probably remember.** Zod 4, Svelte
+5, TypeScript 6, ESLint 10, Vitest 4, Node 24 and better-sqlite3 13. Check `package.json`
+rather than trusting either recall or this list — there is no update bot (ARCHITECTURE
+§12), so the tree drifts between the day someone bumps it and the day you read this, and
+this paragraph is a warning about the _shape_ of the trap rather than a version manifest.
+Two of them bite. Zod: this repo uses `z.strictObject`,
 `z.looseObject` and `error:`, and a model reaching for Zod 3 from memory writes
 `z.object().strict()` and `message:` — then "fixes" correct code into broken code.
 Svelte: every component is runes mode (`$state`, `$derived`, `$props`, `$effect`), and
@@ -256,36 +196,46 @@ recommendation with the question.
 
 **That is about chat replies, not about files.** `docs/` is a collection of documents with
 different jobs and different shapes: ARCHITECTURE, CONTRACT and UI-DECISIONS argue a case,
-so their prose is deliberate and should not be flattened into bullets when you edit them;
-ROADMAP is a checklist and should read like one. Match the document you are in.
+so their prose is deliberate and should not be flattened into bullets when you edit them.
+A working document you write to track a job in progress is a checklist and should read
+like one. Match the document you are in.
 
-### Keep the status current
+### Tracking work, and folding it back in
 
-Four files state where the build has got to, and a stale one costs the next agent a
-wasted rebuild of something that already exists. When work closes, update them in the same
-commit:
+**Write docs to track work in progress. When the work is done, fold what is durable into
+the standing documents and delete the tracking doc.**
 
-- **`README.md`** — the status banner. It is the first thing a human reads, and it is the
-  one that drifts: it still announced phase 3 with phase 4 shipped and walked-through by
-  two e2e specs.
-- **`docs/ROADMAP.md`** — tick the item, append the commit SHA. Finishing a phase also
-  means moving the "next" marker and the phase table's state column.
-- **`CLAUDE.md`** — the "Current state" paragraph above, when a whole phase closes, and
-  a "What the phase-N review changed" subsection under Build order if the build
-  surfaced rules worth carrying forward rather than one-off fixes.
-- **`docs/ARCHITECTURE.md` §12** — the build-order table's "Done when" column, kept in
-  sync with what ROADMAP says the phase actually shipped.
+A plan, a design spec, a review, a to-do list — each is useful while work is open and
+becomes drag the moment it closes, because the next reader cannot tell a live intention
+from a finished one. This repository has already paid that cost once: a document that
+confidently described four shipped screens as "still open" cost more than it ever saved.
+Git history is the record of how something got built; the standing documents are the
+record of what is true now. Those two jobs do not belong in one file.
 
-A closing phase can also surface a survival or acceptance scenario the automated suite
-structurally cannot cover — phase 6's e2e harness can kill a browser but not the server
-process independently of the client, so a container-restart-while-queued check went into
-`docs/todo.md` as a manual step with exact commands, rather than left implied by a ticked
-roadmap item — carried there until it was performed by hand on 2026-08-23, then deleted
-and its result recorded against phase 6 in the roadmap. `docs/todo.md` is otherwise the inbox for findings from manual testing, not a
-plan. Anything in it bigger than a single commit gets moved into the roadmap under the
-phase it belongs to; anything smaller gets done and deleted rather than struck through. A
-design decision that falls out of a to-do item belongs in the Invariants section below —
-that is where the `weight_kg` ruling went, and it is why it survived.
+While work is open, track it however helps — a scratch file under `docs/`, a plan, a
+checklist. It is expected, not discouraged. Name it so it is obviously temporary.
+
+When the work closes, in the same commit:
+
+- **Fold the durable half in.** A reason that will govern the next change belongs beside
+  the code it governs — a module doc comment is usually the best home, because it is the
+  one place nobody can miss. Otherwise: ARCHITECTURE for a design decision or an accepted
+  risk, UI-DECISIONS for runner behaviour, CONTRACT for the plan format, this file's
+  Invariants for something that breaks quietly, README for what the app does or how it is
+  run. Most findings have no durable half and need no home at all.
+- **Delete the tracking doc.** No strikethrough, no "done" section, no archive directory.
+  `git log` and `git show <sha>:<path>` recover anything that mattered.
+- **Check the standing docs still describe the app**, not the app you started with.
+
+The test for whether something belongs in a standing document: **would a reader who never
+saw this work still need it?** "The `access()` check is the load-bearing half, because
+SQLite reads through a file descriptor opened at startup and a `SELECT 1` therefore
+survives a revoked directory" passes — it will stop someone weakening that check in a
+year. "Item 3 is ticked, SHA `abc1234`" does not.
+
+A finding that is _accepted rather than fixed_ is durable and does need a home, or the
+next reader re-finds it and re-argues it. ARCHITECTURE §14 is where those go, with the
+reason and the condition that would reopen them.
 
 ### Commit messages, settled
 
@@ -528,8 +478,8 @@ protect:
   whatever matters most. Outside the runner, `--red` and `--amber` carry their ordinary
   meanings (a blocking error, a destructive action, a warning) in the admin screen, the
   export screen, the sync banner, `/account` and the import review, and using them there
-  is correct rather than an exception. Settled 2026-08-28 (D2, `docs/REVIEW-2026-08-27.md`):
-  the plan's own pain-response framework (`safety.symptom_framework`) is now rendered —
+  is correct rather than an exception. Settled 2026-08-28: the plan's own pain-response
+  framework (`safety.symptom_framework`) is now rendered —
   `$lib/session/symptom-guide.ts` plus a header-reachable sheet
   (`session/[key]/SymptomGuideSheet.svelte`) and an inline quote on the deviation sheet's
   `stop_red_flag` choice — and it is the one exception to the accent-only rule, because it
@@ -651,70 +601,47 @@ than a hand-written spec fixture.
   three entries — `seated-floor-shoulder-press`, `overhead-triceps-extension`,
   `side-plank-knees` — have none, because each is only ever a substitute.
 
-## Build order
+## How this is built
 
-Phase 1 is the pure round-trip core with **no UI at all**: contract parser, diff engine,
-export generator, plus the golden test that imports the fixture, logs synthetic workouts,
-exports, re-imports, and asserts every ID survives and `context_md` is unchanged.
+**The pure core came first, and everything else is layered on it.** Parsing, diffing,
+progression logic and export generation are pure functions over plain data — no I/O, and
+the clock is injected so they stay deterministic. The database layer keeps the same rule
+where it can: provisioning and import take an injected `now`. The golden round-trip test
+predates the UI and is still the first thing to run when anything near parse, storage or
+export changes: if the round-trip is not provably lossless, everything on top of it is
+built on sand.
 
-Everything else is built on that guarantee, so it comes first. Full phase table in
-ARCHITECTURE §12.
+**SvelteKit is scaffolded at the repo root, not beside it.** `$lib` maps onto the existing
+`src/lib`, so the app imports the pure core unchanged and the core's tests still run
+without the framework. `source_md` lives on disk at `plans/<plan.slug>/v<N>.md`; the
+database stores the path, never a second copy of the document.
 
-Parsing, diffing, progression logic and export generation are pure functions over plain
-data — no I/O, and the clock is injected so they stay deterministic. The database layer
-follows the same rule where it can: provisioning and import take an injected `now`.
+**Routes are thin; the logic they need is a tested `$lib` module.** The session runner is
+the clearest case — resolution, pre-fill, the rest timer and resume reconstruction all
+live in `src/lib/session/` and are unit-tested without SvelteKit. `src/lib/server/` holds
+the same line: config loading, `control.db`, the OIDC module and the cookie signing are
+injectable and unit-tested without a live IdP, with real signed JWTs in the tests. The
+dev bypass (`GAIN_DEV_USER`) exists so the UI can be driven without an Authentik to point
+at, and a deployed instance refuses to start with it set.
 
-Phase 2 reconciled ARCHITECTURE §5 with the exercise catalogue before writing any DDL —
-the five gaps listed there are closed by `src/lib/db/schema.ts`, which is now the
-schema's specification. `source_md` lives on disk at `plans/<plan.slug>/v<N>.md`; the DB
-stores the path, never a second copy of the document.
+There are no component tests and no DOM tooling; `vitest.config.ts` sets
+`environment: "node"`. That is a deliberate consequence of the rule above rather than a
+gap — logic worth testing gets moved into `$lib` instead, which is cheaper than
+introducing jsdom and keeps the pressure on components to stay thin. `focus-trap.ts` is
+the pattern: the pure `nextTrapFocusTarget` is split out and unit-tested, and the action
+around it is the part Playwright covers.
 
-Phase 3 scaffolded SvelteKit at the repo root rather than beside it: SvelteKit's `$lib`
-alias maps onto the existing `src/lib`, so the app imports the pure core unchanged. The
-server layer (`src/lib/server/`) keeps the deterministic rule where it can — config
-loading, `control.db`, the OIDC module and the cookie signing are injectable and
-unit-tested without a live IdP, with real signed JWTs in the tests. The dev bypass
-(`GAIN_DEV_USER`) exists so the UI can be built without Authentik, and a production
-build refuses to start with it set.
+## Rules learned the hard way
 
-### What the phase-3 review changed
+Each of these cost real debugging once. They are here so they cost it once.
 
-Four of these are worth carrying forward as rules rather than as fixes.
+### Framework and UI
 
 **Every form gets `use:enhance`.** Without it a form action is a full navigation, the
 component remounts, and component state is gone. The first-run paste box lost the user's
-pasted plan on every failed import that way — the error was displayed above an empty
-box, which is precisely the wall UI-DECISIONS §11 says a failed import must not be. The
-server action echoes `source` back as well, so the no-JS path also refills.
-
-**An unevaluable check is not a failed check.** The group gate is re-checked on every
-token refresh (§4), and the first implementation treated "GAIN could not establish
-membership" the same as "the IdP says no" — so an IdP that omits `id_token` from a
-refresh response, plus one blip at the userinfo endpoint, evicted a legitimate user
-mid-session. `fetchUserinfoGroups` now returns `null` for "could not tell", distinct
-from `[]`, and the mid-session re-check keeps the session on `null` while a login still
-denies. Same rule for the token endpoint: unreachable keeps the session, an explicit
-rejection ends it. Expect this distinction anywhere a remote answer gates access.
-
-**An expired session must not turn a POST into a GET.** The gate redirects navigations
-to `/login` and answers everything else with 401 (`src/lib/server/gate.ts`). A 303 replays
-a POST as a GET and discards the body — survivable for a form, fatal for the phase-6 sync
-queue, which §4 requires to keep its data across a 401.
-
-**CI builds the image on every change**, and smoke-tests that it boots, answers
-`/healthz` and runs as non-root. It is only pushed on a tag. A Dockerfile that stopped
-working should fail the PR that broke it, not the release that needed it.
-
-Phase 4 kept the same shape: the session runner's logic is pure and lives in
-`src/lib/session/` (resolution, pre-fill, rest timer, resume reconstruction), unit-tested
-without SvelteKit; the route is thin. ARCHITECTURE §9 holds the architecture,
-[`docs/UI-DECISIONS.md`](docs/UI-DECISIONS.md) holds the behaviour, and the build was made
-to conform to the latter rather than the reverse.
-
-### What the phase-4 review changed
-
-Phase 4 shipped, was reviewed against UI-DECISIONS, and was substantially rebuilt. These
-are the rules worth carrying forward rather than the fixes.
+pasted plan on every failed import that way — the error was displayed above an empty box,
+which is precisely the wall UI-DECISIONS §11 says a failed import must not be. Server
+actions echo `source` back as well, so the no-JS path also refills.
 
 **A form action must never throw.** In SvelteKit a thrown `Error` inside an action is a
 500, `applyAction` renders `+error.svelte`, and the entire in-progress session — open
@@ -731,8 +658,29 @@ do not rely on the user being slower than the network.
 
 **An error the user cannot see is worse than a crash.** A failed set log rendered at the
 bottom of the document in `var(--muted)` looks exactly like success from mid-set. Errors
-belong next to the control that failed, legible at arm's length — and never in
-`var(--red)`, which belongs to the plan's symptom framework (UI-DECISIONS §5).
+belong next to the control that failed, legible at arm's length.
+
+**A `$state` initializer at the page level runs once, ever — a component-level one reruns
+every time the component remounts.** `+page.svelte` never remounts across a same-route
+`use:enhance` response; SvelteKit's `applyAction` only updates its `form` prop
+(`$set({form: null})` then `$set({form: result.data})`), so a page-level
+`$state(seedFromForm(form))` initializer only ever sees the `form` that was live on first
+render and silently ignores every response after that. Derive per-response UI state inside
+the component that owns the conditional rendering — one that lives inside an `{#if}`
+genuinely does remount, and its initializer genuinely does rerun.
+
+**A contract range is a tuple, so it must be formatted, not interpolated.** `[8, 12]`
+stringifies to `8,12`. It escaped review once because it is not an exception — it is
+nearly every prescription in the fixture rendering as a typo.
+
+**Everything in the runner keys on `block:slug`**, because one movement can be prescribed
+in two blocks of one session. A lookup that searches `blocks.flatMap(b => b.exercises)`
+finds the wrong block's overrides. Note the consequence in ARCHITECTURE §5 and §9: log
+rows carry no `block_key`, so resuming a workout has to match rows back onto occurrences.
+
+**Client state is what was submitted, never what was pre-filled.** The ledger once
+rendered from the pre-fill map, so it showed the numbers the user was offered rather than
+the ones they logged.
 
 **Recording an intent is not honouring it.** A skip that writes a `deviation` row and
 leaves the exercise loggable, or a swap that keeps posting the original slug, produces an
@@ -740,53 +688,48 @@ export stating the user did the movement the plan told them to avoid. Nothing er
 the wrong claim reaches the next revision. Every state-changing action must change the
 state it names.
 
-**Client state is what was submitted, never what was pre-filled.** The ledger once
-rendered from the pre-fill map, so it showed the numbers the user was offered rather than
-the ones they logged.
+### Server, auth and sync
 
-**Everything in the runner keys on `block:slug`**, because one movement can be prescribed
-in two blocks of one session. A lookup that searches `blocks.flatMap(b => b.exercises)`
-finds the wrong block's overrides. Note the consequence in ARCHITECTURE §5 and §9: log
-rows carry no `block_key`, so resuming a workout has to match rows back onto occurrences.
+**An unevaluable check is not a failed check.** The group gate is re-checked on every
+token refresh (ARCHITECTURE §4), and the first implementation treated "GAIN could not
+establish membership" the same as "the IdP says no" — so an IdP that omits `id_token` from
+a refresh response, plus one blip at the userinfo endpoint, evicted a legitimate user
+mid-session. `fetchUserinfoGroups` returns `null` for "could not tell", distinct from
+`[]`, and the mid-session re-check keeps the session on `null` while a login still denies.
+Same rule at the token endpoint: unreachable keeps the session, an explicit rejection ends
+it. Expect this distinction anywhere a remote answer gates access.
 
-**A contract range is a tuple, so it must be formatted, not interpolated.** `[8, 12]`
-stringifies to `8,12`. It escaped review because it is not an exception — it is nearly
-every prescription in the fixture rendering as a typo.
+**An expired session must not turn a POST into a GET.** The gate redirects navigations to
+`/login` and answers everything else with 401 (`src/lib/server/gate.ts`). A 303 replays a
+POST as a GET and discards the body — survivable for a form, fatal for the sync queue,
+which §4 requires to keep its data across a 401.
 
-**Layout is verified in a browser at 360 px.** The runner's worst bug was a grid that
-could not shrink, and nothing in `verify` could ever have seen it. `npm run test:e2e`
-asserts no horizontal overflow on every screen at three viewports in both themes; see
-UI-DECISIONS §12.
+**`ORIGIN` is the signal that an instance is deployed — never `NODE_ENV`.** `node build`
+does not set `NODE_ENV` and neither does adapter-node, so a guard keyed on it fires only
+inside the container and a production bundle served directly ran with the auth bypass
+active _while logging that production builds refuse it_. `ORIGIN` is the one variable a
+published instance cannot avoid setting correctly, since SvelteKit checks form posts
+against it and it forms the OIDC redirect URI. An unparseable `ORIGIN` counts as
+non-loopback: guessing permissively is how an unauthenticated server ships. Note that "is
+OIDC configured" cannot be the signal either — the bypass is only ever _selected_ when
+OIDC is absent, so keying on it would be vacuous.
 
-Phase 6 rewired the runner from form actions onto the client write layer described above.
-It kept phase 4's shape — pure logic in `$lib`, a thin route — and reused
-`hydrateSession`/`resume.ts` unchanged, projecting the outbox into the same row shape
-rather than writing a second reconstruction path.
+**A health check must exercise the dependency, and the obvious query does not.** A static
+`ok` exercises nothing: `isPublicPath` short-circuits before any database access, so a
+container whose storage had failed answered 200 while every new user's page 500'd. The
+non-obvious half is that `SELECT 1` against `control.db` does not catch it either —
+SQLite reads through a file descriptor opened at startup, so revoking the data
+directory's permissions leaves the query succeeding. `access(R_OK | W_OK)` on the
+directory is the load-bearing check; the query is the second line, for a corrupted or
+closed handle. See `src/routes/healthz/+server.ts`.
 
-### What the phase-6 review changed
-
-**Module-level reactive state needs an explicit way back out of every state it can enter.**
-`client.svelte.ts`'s flush loop set a `needs-auth` state on a 401 and nothing ever cleared
-it — re-authentication is a same-origin SPA navigation, which does not reset module state,
-so a queue that hit one 401 stayed stuck forever even after the user signed back in. The
-fix folded `needs-auth` into the same retry/backoff path as every other failure
-(`scheduleRetry`, guarded on whether a retry is pending rather than on the state value)
-instead of giving it its own terminal branch. Any state a module can enter on its own
-needs a way back out that does not depend on the page reloading.
-
-**A precache lookup must match how the app actually requests the resource, not how it was
-stored.** `precacheSessions` stores a route's `__data.json` at its bare URL; SvelteKit's
-own client router appends `?x-sveltekit-invalidated=...` to every data fetch. An exact
-`cache.match` therefore never hit, and the miss looked like the whole precache had failed
-rather than like a query-string mismatch. Scope `ignoreSearch` narrowly (here, to
-`__data.json` paths) rather than globally, or an unrelated cached route starts serving
-stale content on any query string at all.
-
-**A public-path allowlist must include every asset the install step touches, or the first
-load loops.** `/offline` was left off `isPublicPath`, and `cache.addAll` is all-or-nothing
-— a single 401 from a gated `/offline` fetch failed the entire service-worker install,
-silently, on the very first page load, since installation happens before the user has
-authenticated at all.
+**Module-level reactive state needs an explicit way back out of every state it can
+enter.** `client.svelte.ts`'s flush loop set a `needs-auth` state on a 401 and nothing
+ever cleared it — re-authentication is a same-origin SPA navigation, which does not reset
+module state, so a queue that hit one 401 stayed stuck forever even after the user signed
+back in. The fix folded `needs-auth` into the same retry/backoff path as every other
+failure (`scheduleRetry`, guarded on whether a retry is pending rather than on the state
+value) instead of giving it a terminal branch of its own.
 
 **A read path and a write path must not both be able to create the same row.** `?/start`
 originally called `startWorkout` unconditionally, so a client that had already created the
@@ -801,79 +744,84 @@ rebuilt the ledger from IndexedDB alone would silently drop everything already s
 Resume merges server hydration with whatever local ops remain, rather than trusting either
 source alone.
 
-**A generated tsconfig's exclusions are silent.** SvelteKit's own generated
-`.svelte-kit/tsconfig.json` excludes `src/service-worker.ts` (it needs the WebWorker lib,
-which conflicts with the app's DOM lib), so the file passed `npm run typecheck` while never
-actually being typechecked — confirmed by deliberately injecting a type error and watching
-`tsc` stay green. A file excluded from the project it appears to belong to needs its own
-project (`tsconfig.worker.json`) or it is unverified, not verified-and-clean.
+**A precache lookup must match how the app actually requests the resource, not how it was
+stored.** `precacheSessions` stores a route's `__data.json` at its bare URL; SvelteKit's
+own client router appends `?x-sveltekit-invalidated=...` to every data fetch, so an exact
+`cache.match` never hit — and the miss looked like the whole precache had failed rather
+than like a query-string mismatch. Scope `ignoreSearch` narrowly (here, to `__data.json`
+paths) rather than globally, or an unrelated cached route starts serving stale content on
+any query string at all.
 
-### What the phase-7 review changed
+**A public-path allowlist must include every asset the install step touches, or the first
+load loops.** `/offline` was left off `isPublicPath`, and `cache.addAll` is all-or-nothing
+— a single 401 from a gated `/offline` fetch failed the entire service-worker install,
+silently, on the very first page load, since installation happens before the user has
+authenticated at all.
 
-**A component that always renders its wrapper regardless of data makes an assertion
-against that wrapper pass vacuously.** `Sparkline.svelte` renders its `<svg
-aria-label>` in both the populated and empty-state branches — only the inner content
-swaps — so `e2e/progress-walkthrough.spec.ts`'s original duration-chart assertion passed
-even though the workout it logged was never finished, and `sessionTypeStats`'s
-`completed_at`-gated duration series never got a point to plot. The fix
-(`e2e/progress-walkthrough.spec.ts` now finishes the workout before asserting, `c4a0f4c`)
-is smaller than the rule it surfaces: an e2e assertion on a chart or summary component has
-to prove the underlying data path fired, not just that the component's shell rendered.
-Check what state actually populates the component before asserting on it — every chart in
-this phase renders its container unconditionally, so this is not a one-off.
+### Data and identity
 
-**`exerciseOccurrences` only enumerates directly-prescribed pairs, and a mid-session
-swap is invisible to it.** `src/lib/progress/exercise-series.ts`'s `exerciseOccurrences`
-walks `contract.sessions` and each session's resolved blocks looking for a
-`(session, exercise)` pairing the plan itself prescribes; it never looks at
-`logs.set_logs`, so an exercise a user swapped in mid-session — never prescribed, only
-logged — has no occurrence to attach its sets to. Its sets stay visible in the raw CSV
-export and the Deviations row, but not on the Progress exercises list or the export's
-per-exercise summary table. This surfaced during the `summary.ts` per-exercise refactor
-and was carried forward, deliberately unfixed, into the exercises list built on top of it
-— it is a real, accepted gap rather than a defect in either diff. Fixing it needs its own
-design decision (what resolved prescription or range does a substitute-only occurrence
-carry? nothing today specifies one) and its own tests; anyone extending per-exercise
-progress or summary views on `exerciseOccurrences` should know the gap exists before
-building on it.
-
-### What the phase-8 review changed
-
-**A rename must be applied before the upsert it precedes, never after.**
-`importPlan`'s transaction runs `applyRenames` immediately before `upsertExerciseDefs`,
-and that ordering is load-bearing rather than incidental: `upsertExerciseDefs` inserts a
-fresh `exercise_def` row for every slug the new contract declares, including the
-renamed-to slug, so running it first would mint that row before `applyRenames` had a
-matching old row left to repoint — the rename would find nothing to update, and the
-history would split exactly the way the whole feature exists to prevent. Any future
-write path that both mutates `exercise_def` identity and inserts new rows for the same
-contract needs to reason about this ordering explicitly rather than assuming "runs in
-the same transaction" is sufficient; atomicity guarantees the two happen together, not
-that either order is safe.
+**A rename must be applied before the upsert it precedes, never after.** `importPlan`'s
+transaction runs `applyRenames` immediately before `upsertExerciseDefs`, and that ordering
+is load-bearing rather than incidental: `upsertExerciseDefs` inserts a fresh
+`exercise_def` row for every slug the new contract declares, including the renamed-to
+slug, so running it first would mint that row before `applyRenames` had a matching old row
+left to repoint — the rename would find nothing to update, and the history would split
+exactly the way the feature exists to prevent. Any future write path that both mutates
+`exercise_def` identity and inserts new rows for the same contract needs to reason about
+this ordering explicitly: atomicity guarantees the two happen together, not that either
+order is safe.
 
 **A presented diff should be rebuilt from the engine's structured fields, not filtered
 from its warning strings.** `presentDiff` (`src/lib/diff/present.ts`) derives the review
 screen's warnings from `diff.exercises.unreferenced`, `diff.metrics.removed` and a
 recomputed `based_on_version` check, and deliberately does not pass `diff.warnings`
 through and strip the ones the dispositions already cover by matching a prefix.
-`diff.warnings` is prose meant for a changelog, not a stable API — a future reword of one
-message would silently break a prefix filter with no type error and no failing test
-until a warning either duplicated a disposition or vanished from the screen. Keying
-presentation logic on the same typed fields the diff engine already exposes for this
-purpose keeps a wording change in `diff.ts` from being able to break the UI at all.
+`diff.warnings` is prose meant for a changelog, not a stable API — a future reword would
+silently break a prefix filter with no type error and no failing test, until a warning
+either duplicated a disposition or vanished from the screen.
 
-**A `$state` initializer at the page level runs once, ever — a component-level one reruns
-every time the component remounts.** `+page.svelte` never remounts across a same-route
-`use:enhance` response; SvelteKit's `applyAction` only updates its `form` prop
-(`$set({form: null})` then `$set({form: result.data})`), so a page-level
-`$state(seedFromForm(form))` initializer only ever sees the `form` that was live on first
-render and silently ignores every response after that. The review screen's
-disposition-seeding logic moved from `+page.svelte` into `DispositionList.svelte`'s own
-initializer instead, because a component that lives inside an `{#if}` (or any block that
-tears down and rebuilds) genuinely does remount and its `$state` initializer genuinely
-does rerun. The rule going forward: derive per-response UI state inside the component
-that owns the conditional rendering, never at the page level, whenever an action's result
-needs to seed local `$state` rather than just being read reactively.
+**`exerciseOccurrences` only enumerates directly-prescribed pairs, and a mid-session swap
+is invisible to it.** `src/lib/progress/exercise-series.ts`'s `exerciseOccurrences` walks
+`contract.sessions` and each session's resolved blocks looking for a `(session, exercise)`
+pairing the plan itself prescribes; it never looks at `logs.set_logs`, so an exercise a
+user swapped in mid-session — never prescribed, only logged — has no occurrence to attach
+its sets to. Its sets stay visible in the raw CSV export and the Deviations row, but not
+on the Progress exercises list or the export's per-exercise summary table. This is a real,
+accepted gap rather than a defect. Fixing it needs its own design decision (what resolved
+prescription or range does a substitute-only occurrence carry? nothing today specifies
+one) and its own tests; anyone extending per-exercise progress or summary views on
+`exerciseOccurrences` should know it exists before building on it.
+
+### Tests and tooling
+
+**An assertion on a chart or summary component must prove the data path fired, not that
+the shell rendered.** `Sparkline.svelte` renders its `<svg aria-label>` in both the
+populated and the empty branch — only the inner content swaps — so a progress assertion
+passed even though the workout it logged was never finished and the duration series never
+got a point to plot. Every chart in the app renders its container unconditionally, so
+assert on `.dot`, `rect`, or whatever only exists with data. The same trap has a wider
+form: `.log-strip` and `.exercise-status` also render unconditionally, and
+`expect(page.locator(".log-strip")).toBeVisible()` is used as the "runner is ready" signal
+in several specs — it would pass on a fully-logged, un-loggable strip.
+
+**Layout is verified in a browser at 360 px.** The runner's worst bug was a grid that
+could not shrink, and nothing in `verify` could ever have seen it. `npm run test:e2e`
+asserts no horizontal overflow at three viewports; see UI-DECISIONS §12, which states
+precisely what is and is not covered rather than claiming the whole surface.
+
+**A generated tsconfig's exclusions are silent.** SvelteKit's own generated
+`.svelte-kit/tsconfig.json` excludes `src/service-worker.ts` (it needs the WebWorker lib,
+which conflicts with the app's DOM lib), so the file passed `npm run typecheck` while
+never actually being typechecked — confirmed by deliberately injecting a type error and
+watching `tsc` stay green. A file excluded from the project it appears to belong to needs
+its own project (`tsconfig.worker.json`) or it is unverified, not verified-and-clean.
+
+**CI builds the image on every change**, smoke-tests that it boots, answers `/healthz` and
+runs as non-root, and only pushes it on a tag. A Dockerfile that stopped working should
+fail the PR that broke it, not the release that needed it. The smoke test has to pass the
+same environment a real deployment would — an `http://` `ORIGIN` or a short
+`SESSION_SECRET` is refused by the app's own startup checks, so a smoke test using either
+tests nothing and fails at the worst moment.
 
 ## Non-goals
 

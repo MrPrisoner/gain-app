@@ -54,7 +54,7 @@ export const E2E_VIEWPORT_PROJECTS = ["small-android", "iphone", "tablet-portrai
  * state (a "what session does Home suggest next" read, not scoped to one `client_id`)
  * rather than its own workout. `E2E_DEV_USER` is shared by every other spec that starts
  * or finishes a workout, so a whole-account spec reading through it would see another
- * spec's workouts land in between (`docs/ROADMAP.md`, "Loose ends") — and reading through
+ * spec's workouts land in between — and reading through
  * one fixed second user still wouldn't be enough, since `fullyParallel: true` runs the
  * *same* spec file concurrently across all three viewport projects, which would then
  * collide with each other on that one shared account. `homeDevUserFor` names one user per

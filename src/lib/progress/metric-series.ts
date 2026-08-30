@@ -1,5 +1,5 @@
 /**
- * Any numeric plan-declared metric is chartable (ROADMAP phase 7), keyed on
+ * Any numeric plan-declared metric is chartable, keyed on
  * `(scope, key)` — never the bare key, since a plan may legally declare the same key at
  * two scopes (the fixture's `symptoms_during`, at both set and session scope). One
  * function serves every metric regardless of which plan declared it: no per-metric-name
@@ -12,7 +12,7 @@ import type { Logs } from "../logs/types";
 const SCOPE_ORDER: MetricScope[] = ["set", "exercise", "session"];
 
 /** `number`/`scale` are CONTRACT's numeric metric types — `enum`/`text`/`bool` are
- * excluded, matching ROADMAP's "any *numeric* plan-declared metric is chartable". */
+ * excluded, because only a numeric metric has a trend to plot. */
 export function numericMetricDefs(
   contract: GainContract,
 ): { scope: MetricScope; def: MetricDef }[] {

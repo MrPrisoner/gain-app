@@ -9,8 +9,8 @@
    * The Home screen's primary card (ARCHITECTURE §9, "Home"; design spec §4): the
    * session `suggestNextSession` (`$lib/home/next-session.ts`) picked, with the
    * factual reason for it — never more than GAIN actually knows — plus the "choose a
-   * different session" picker folded in underneath (todo.md, "Home page UI tweaks")
-   * rather than left as its own separate card.
+   * different session" picker folded in underneath rather than left as its own
+   * separate card.
    */
   let {
     planSlug,

@@ -1,5 +1,5 @@
 /**
- * The version-browsing routes (ROADMAP, "Loose ends"; ARCHITECTURE §8).
+ * The version-browsing routes (ARCHITECTURE §8).
  *
  * Two things are worth a test rather than a read-through. The document must come back
  * byte-identical — this route is the plainest statement of the never-paraphrase

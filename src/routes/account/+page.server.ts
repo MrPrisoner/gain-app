@@ -1,5 +1,5 @@
 /**
- * Self-service account reset (ROADMAP "A user can reset their own account.").
+ * Self-service account reset: a user can reset their own account, without an operator.
  *
  * Reuses `resetUserData` (`src/lib/server/admin-reset.ts`) exactly as `/admin` does —
  * the machinery does not change, only the caller: here it is the account's own owner,
@@ -7,8 +7,9 @@
  *
  * `resetUserData` ends every session for the user, including the one making this
  * request — that is correct for an operator resetting someone else, but here it would
- * strand the person who just asked for this on `/login` instead of the empty state the
- * roadmap promises. So this action captures the current session's tokens before the
+ * strand the person who just asked for this on `/login` instead of the empty state a
+ * self-service reset is supposed to land on. So this action captures the current
+ * session's tokens before the
  * wipe and re-mints a fresh session afterwards, in OIDC mode only: bypass mode has no
  * session row at all (`hooks.server.ts` synthesises `locals.user` from `GAIN_DEV_USER`
  * on every request), so there is nothing to capture or re-mint.

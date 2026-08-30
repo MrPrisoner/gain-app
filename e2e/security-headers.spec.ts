@@ -8,7 +8,7 @@
  * is a deliberate *superset* of the shipped one — SvelteKit adds `'unsafe-inline'` to
  * `style-src` in dev for HMR. So the assertions here name the directives that are
  * identical in both, never the whole header. The shipped policy itself was verified by
- * hand against a real `node build` — see the roadmap entry — because the only browser
+ * hand against a real `node build`, because the only browser
  * project that runs against that server is `offline`, and a header assertion has no
  * business being named as an offline spec.
  */

@@ -1,6 +1,5 @@
 /**
- * Plan archiving, at the route boundary (ROADMAP, "Loose ends"; semantics settled
- * 2026-08-23).
+ * Plan archiving, at the route boundary. Semantics settled 2026-08-23.
  *
  * The interesting assertions are all about the *asymmetry*: archiving takes a plan off
  * the active Home list and closes the two inbound write paths — starting a session and

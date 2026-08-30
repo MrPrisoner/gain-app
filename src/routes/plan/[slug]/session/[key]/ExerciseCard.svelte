@@ -230,8 +230,8 @@
               {#if logged}
                 <!-- Tapping a logged row reopens it in the pinned strip, pre-filled with
                      what was actually logged, for a mis-tapped reps/weight/difficulty to
-                     be corrected (todo.md's "no way to undo") — a plain button rather
-                     than a link, since it changes what the strip below shows rather than
+                     be corrected — a plain button rather than a link, since it changes
+                     what the strip below shows rather than
                      navigating anywhere. No pencil hint: a captured set is the obvious
                      thing to tap. -->
                 <button

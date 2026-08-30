@@ -1,7 +1,6 @@
 /**
- * The operator screen's "done when" (docs/superpowers/specs/2026-08-17-admin-section-design.md):
- * an operator sees every registered user with counts, resets one, and no user's training
- * content is on the screen at any point.
+ * The operator screen, end to end: an operator sees every registered user with counts,
+ * resets one, and no user's training content is on the screen at any point.
  *
  * One admin account shared across projects, one disposable subject per project — see
  * `adminSubjectFor`. `GAIN_DEV_ADMIN` (playwright.config.ts) is what makes the first of

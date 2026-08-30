@@ -1,5 +1,5 @@
 /**
- * Archiving a plan (ROADMAP, "Loose ends"; semantics settled 2026-08-23).
+ * Archiving a plan. Semantics settled 2026-08-23.
  *
  * Archiving is **reversible and read-only, not deletion**. An archived plan drops off
  * the active Home list and refuses to start new sessions or accept a revision; its

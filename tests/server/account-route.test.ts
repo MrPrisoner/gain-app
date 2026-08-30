@@ -1,6 +1,7 @@
 /**
- * The `/account` route: the self-service half of `resetUserData` (ROADMAP "A user can
- * reset their own account."). Driven through the exported `actions.reset`, same level as
+ * The `/account` route: the self-service half of `resetUserData`, letting a user reset
+ * their own account without an operator. Driven through the exported `actions.reset`,
+ * same level as
  * `tests/server/admin-route.test.ts` drives `/admin`'s.
  *
  * Three things must hold: a wrong (or case-differing) confirmation writes nothing and

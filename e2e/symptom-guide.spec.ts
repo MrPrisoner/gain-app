@@ -1,10 +1,10 @@
 /**
- * The symptom guide (D2, `docs/REVIEW-2026-08-27.md`, UI-DECISIONS §5): the plan's own
+ * The symptom guide (UI-DECISIONS §5): the plan's own
  * `safety.symptom_framework` rendered in the runner, reachable from the header at any
  * point in the session and quoted inline on the deviation sheet's `stop_red_flag`
  * choice. What matters is that the real level text from the fixture is on screen — not
- * that the sheet's shell rendered, which is the vacuous-assertion trap phase 7 and U4
- * both already caught here (`CLAUDE.md`, "What the phase-7 review changed").
+ * that the sheet's shell rendered, which is the vacuous-assertion trap recorded in
+ * `CLAUDE.md` under "Rules learned the hard way".
  *
  * `GAIN_DEV_USER` bypass mode (see `session-runner.spec.ts`) means no auth setup here.
  */

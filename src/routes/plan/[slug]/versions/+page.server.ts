@@ -1,5 +1,5 @@
 /**
- * Every version of a plan, newest first (ROADMAP, "Loose ends"; ARCHITECTURE §8).
+ * Every version of a plan, newest first (ARCHITECTURE §8).
  *
  * Workouts have always been bound to the version they were logged under, so "what did
  * the plan say in week 3" was answerable in the data and unanswerable in the UI. All the

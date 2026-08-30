@@ -4,8 +4,8 @@
   import IconUpload from "~icons/lucide/upload";
 
   /**
-   * The paste-or-upload half of every `?/check` submission (todo.md, "Home page UI
-   * tweaks" — Export offers copy and download, so Import offers paste and upload). A
+   * The paste-or-upload half of every `?/check` submission — Export offers copy and
+   * download, so Import offers paste and upload. A
    * chosen file only fills the same textarea a paste would: both paths go through the
    * identical "Check the plan" review step (UI-DECISIONS §11) rather than one bypassing
    * it, and `use:enhance` is what keeps the pasted text in place across a failed import.

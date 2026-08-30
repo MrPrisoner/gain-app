@@ -1,8 +1,7 @@
 /**
- * Phase 7a's "done when" (docs/superpowers/specs/2026-08-15-phase-7a-home-design.md):
- * Home suggests the right next session, an activity can be logged, and a finished
- * workout gets exactly one next-morning prompt, the following day, never again once
- * answered.
+ * The Home screen, end to end: it suggests the right next session, an activity can be
+ * logged, and a finished workout gets exactly one next-morning prompt, the following
+ * day, never again once answered.
  *
  * `test.use({ timezoneId: "UTC" })` makes the fake-clock arithmetic below exact: both
  * the workout's `completed_at` and the "yesterday" it is compared against are pinned to
@@ -14,8 +13,8 @@
  * and the full activity list have no `client_id` to scope by) rather than its own
  * workout, so it runs as its own dedicated bypass user (`homeDevUserFor`) instead of the
  * one every other spec shares — otherwise a concurrently-run spec finishing an unrelated
- * session would land in between and change what "next" means here (`docs/ROADMAP.md`,
- * "Loose ends"). `x-gain-e2e-user` (`src/hooks.server.ts`) is how a single running dev
+ * session would land in between and change what "next" means here.
+ * `x-gain-e2e-user` (`src/hooks.server.ts`) is how a single running dev
  * server tells this browser context apart from every other.
  *
  * One user per *project*, not one shared across all three: `test.use()` cannot vary by

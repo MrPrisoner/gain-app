@@ -1,8 +1,7 @@
 /**
- * Task 0 (docs/superpowers/plans/2026-08-10-phase-4-remediation.md): the
- * browser harness every later phase-4 UI task is verified against. Kept
- * entirely out of `npm run verify` — see the `test:e2e` script in
- * `package.json` — so CI's few-seconds check never needs a browser download.
+ * The browser harness every UI change is verified against. Kept entirely out
+ * of `npm run verify` — see the `test:e2e` script in `package.json` — so CI's
+ * few-seconds check never needs a browser download.
  *
  * `webServer` boots the real Vite dev server (not `vite preview`: the
  * adapter-node production build isn't preview-servable, and dev mode starts

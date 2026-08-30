@@ -21,7 +21,7 @@ import { replayOps } from "$lib/sync/replay";
  * `syncBatchSchema` caps op *count* at 500 but not the size of any one op's free-text
  * fields (a deviation's `note`, a metric's `valueText`, ...), so op count alone does not
  * bound request size. This is an app-level bound rather than a proxy setting because
- * only the app knows what a plausible batch looks like (docs/todo.md) — 500 ops of
+ * only the app knows what a plausible batch looks like — 500 ops of
  * realistic field sizes lands nowhere near this, so it only ever rejects something
  * pathological.
  */

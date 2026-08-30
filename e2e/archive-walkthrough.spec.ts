@@ -1,5 +1,5 @@
 /**
- * Plan archiving, end to end (ROADMAP, "Loose ends"; semantics settled 2026-08-23).
+ * Plan archiving, end to end. Semantics settled 2026-08-23.
  *
  * The point of the walkthrough is the asymmetry, and it is only convincing in a
  * browser: the plan leaves the active list into a collapsed Archived group, its history

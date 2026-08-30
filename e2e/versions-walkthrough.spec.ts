@@ -1,5 +1,5 @@
 /**
- * Old plan versions stay browsable (ROADMAP, "Loose ends"; ARCHITECTURE §8).
+ * Old plan versions stay browsable (ARCHITECTURE §8).
  *
  * The "done when" is byte-identity: the v1 document opens from the UI and reads exactly
  * as it was imported, after a v2 has replaced it as current. That is the same

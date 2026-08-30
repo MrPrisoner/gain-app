@@ -4,26 +4,18 @@ Self-hosted training tracker for AI-authored exercise plans. Import a plan as
 Markdown, run and log sessions from an offline-capable PWA, then export your full
 plan and progress for an AI to review and revise.
 
-> **Status: the loop closes.** All nine build phases are done: the round-trip core
-> (contract parser, diff engine, export generator, prompt templates), the per-user
-> storage layer, the web app, the session runner, the export UI, offline sync, progress &
-> history, revision diff review and an operator view are all built. OIDC sign-in against
-> Authentik, the container, first run — copy a bootstrap prompt into any AI chat, paste
-> the plan back, and it imports — a full session of a real plan logged on a phone, rest
-> timers and deviations included, a session that can be started, run and finished with no
-> connection at all — surviving a dropped connection, a locked phone, or the browser
-> itself being killed — syncing cleanly once reconnected, a Home screen that suggests the
-> next session and charts double progression, per-exercise and per-session-type trends,
-> metric history and a full workout drill-down, a logged block leaving GAIN as one
-> pasteable document for the next AI review, and that revision — renamed exercises
-> included — coming back in for a plain-language review before it is committed, with
-> history mapped onto the new slug rather than silently split. Plans archive and unarchive
-> without ever putting logged history at risk, every version of a plan stays browsable as
-> the document that was imported, the full browser suite runs in CI on every pull request,
-> a user can reset their own account from the footer without needing an operator, and the
-> operator running it has a backup recipe that survives a live database rather than a
-> naive archive of the volume. The roadmap's loose ends are closed — see
-> [`docs/ROADMAP.md`](docs/ROADMAP.md).
+> **Status: the loop closes, end to end.** Copy a bootstrap prompt into any AI chat,
+> paste the plan back, and it imports. Run a full session on a phone in a garage with no
+> signal — warm-ups, rest timers, per-side and ranged sets, skips, substitutions and a
+> red-flag stop — and it survives a dropped connection, a locked phone or the browser
+> being killed, syncing cleanly when it reconnects. Home suggests the next session;
+> progress charts double progression, per-exercise and per-session-type trends and metric
+> history; History drills into any past workout. A logged block leaves as one pasteable
+> document, and the revision that comes back is reviewed in plain language before it is
+> committed — with renamed exercises mapped onto their history rather than silently split.
+> Plans archive reversibly, every version stays browsable as the document that was
+> imported, a user can reset their own account, and an optional operator role sees per-user
+> counts without ever reading anyone's training content.
 
 ---
 
@@ -198,10 +190,11 @@ docker compose exec -T gain node -e 'const D = require("better-sqlite3");
 
 |                                                |                                                                    |
 | ---------------------------------------------- | ------------------------------------------------------------------ |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Design, decisions, data model, build order                         |
-| [`docs/ROADMAP.md`](docs/ROADMAP.md)           | What is left to build, and what proves each piece done             |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Design, decisions, data model, deployment                          |
 | [`docs/CONTRACT.md`](docs/CONTRACT.md)         | The plan format an AI must produce                                 |
 | [`docs/UI-DECISIONS.md`](docs/UI-DECISIONS.md) | How the session runner behaves, and why                            |
+| [`CLAUDE.md`](CLAUDE.md)                       | Guidance for AI agents working in this repository                  |
+| [`SECURITY.md`](SECURITY.md)                   | Supported versions, and how to report a vulnerability              |
 | [`design/`](design/)                           | A clickable mockup of the session runner — open it in a browser    |
 | [`fixtures/plans/`](fixtures/plans/)           | A complete reference plan                                          |
 | [`templates/`](templates/)                     | The two prompts GAIN hands to an AI — author a plan, revise a plan |

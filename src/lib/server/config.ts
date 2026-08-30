@@ -111,7 +111,7 @@ export function loadConfig(
   if (looksDeployed && !origin.startsWith("https://")) {
     // The session cookie is always issued Secure (§3), so an http:// ORIGIN and the
     // cookie silently disagree: the browser never sends the cookie back, and login
-    // fails with no diagnostic pointing at why (docs/todo.md). Checked after the two
+    // fails with no diagnostic pointing at why. Checked after the two
     // guards above deliberately — when a deployment has both problems, "you shipped an
     // auth bypass" is the one to say first.
     throw new Error(

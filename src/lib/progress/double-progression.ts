@@ -1,5 +1,5 @@
 /**
- * "12/11/11 — one session from a load increase" (ROADMAP phase 7). Purely mechanical:
+ * "12/11/11 — one session from a load increase". Purely mechanical:
  * ready means the most recent workout carried at least as many sets as the prescription
  * asks for, and every one of them met or exceeded the range's top. Never weighs a metric
  * value (rir, symptoms_during, …) — ARCHITECTURE restricts GAIN to acting automatically

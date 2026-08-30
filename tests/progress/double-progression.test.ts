@@ -55,7 +55,7 @@ describe("doubleProgressionState", () => {
     expect(state?.none).toEqual({ status: "ready", latest: [15, 15] });
   });
 
-  it("is in_progress when the ROADMAP's own example (12/11/11) falls short of the top", () => {
+  it("is in_progress when the worked example (12/11/11) falls short of the top", () => {
     const series = [point("2026-08-01", [setOf(1, 12), setOf(2, 11), setOf(3, 11)])];
     const state = doubleProgressionState(series, [8, 12], 3, "reps", false);
     expect(state?.none).toEqual({ status: "in_progress", latest: [12, 11, 11] });

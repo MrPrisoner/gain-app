@@ -1,5 +1,5 @@
 /**
- * The symptom guide (D2, `docs/REVIEW-2026-08-27.md`, UI-DECISIONS §5): the plan's own
+ * The symptom guide (UI-DECISIONS §5): the plan's own
  * `safety.symptom_framework` (`docs/CONTRACT.md`), rendered rather than only exported.
  * Pure — takes the contract's `safety` block and returns a display-ready, canonically
  * ordered list, or `[]` when the plan declares none.

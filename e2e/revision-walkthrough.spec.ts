@@ -26,7 +26,7 @@
  * the account's current plan version, and `fullyParallel: true` runs this file
  * concurrently across all three viewport projects, so a shared account would let one
  * project's import land mid-assertion of another (the same hazard `homeDevUserFor`
- * exists for — see its doc comment and `docs/ROADMAP.md`'s "Loose ends"). The seed
+ * exists for — see its doc comment). The seed
  * itself happens here, in the spec, via `seedFixturePlan` directly — not in
  * `global-setup.ts` — since nothing else needs this user provisioned ahead of time.
  */

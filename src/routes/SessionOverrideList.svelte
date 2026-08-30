@@ -9,8 +9,8 @@
    * collapsed behind one toggle, each further expandable to the block detail the plan
    * overview used to show above the fold. `scheduling.rules`/`drop_order` render
    * verbatim underneath as the plan's own words, never automated (design spec §2,
-   * decision 7). Nested inside `NextSessionCard`'s `.next-session` card (todo.md, "Home
-   * page UI tweaks") rather than a card of its own, so it renders no background or
+   * decision 7). Nested inside `NextSessionCard`'s `.next-session` card rather than a
+   * card of its own, so it renders no background or
    * border of its own — only a divider to separate it from the start button above.
    */
   let {

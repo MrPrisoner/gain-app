@@ -1,9 +1,9 @@
 # Security Policy
 
 GAIN is a self-hosted, single-operator app (`docs/ARCHITECTURE.md` §3), not a
-service with customers or a compliance surface — see `docs/ROADMAP.md`'s
-"Accepted, or deliberately deferred" section for what that does and does not
-mean for dependency scanning. It still handles OIDC tokens and personal
+service with customers or a compliance surface — `docs/ARCHITECTURE.md` §12,
+"Toolchain, settled", records what that does and does not mean for dependency
+scanning. It still handles OIDC tokens and personal
 training data, so a real vulnerability is worth reporting properly rather than
 filed as a public issue.
 
