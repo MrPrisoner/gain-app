@@ -12,9 +12,9 @@ import type { Actions, PageServerLoad } from "./$types";
 import { getControlDb } from "$lib/server/app-state";
 import { getConfig } from "$lib/server/config";
 import { listUsers } from "$lib/server/control-db";
-import { statsForUsers } from "$lib/server/admin-stats";
+import { CURRENT_SCHEMA_VERSION, statsForUsers } from "$lib/server/admin-stats";
 import { resetUserData } from "$lib/server/admin-reset";
-import { confirmationFor, describeActivity } from "$lib/admin/user-status";
+import { confirmationFor, describeActivity, schemaNote } from "$lib/admin/user-status";
 
 function requireAdmin(locals: App.Locals): void {
   if (!locals.user?.isAdmin) throw error(404, "Not found");
@@ -40,6 +40,7 @@ export const load: PageServerLoad = ({ locals }) => {
       ...user,
       status: describeActivity(user, now),
       confirmation: confirmationFor(user.displayLabel, user.userId),
+      schemaNote: schemaNote(user.schemaVersion, CURRENT_SCHEMA_VERSION),
     })),
   };
 };

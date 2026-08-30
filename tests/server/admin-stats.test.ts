@@ -11,7 +11,7 @@ import path from "node:path";
 import { openUserDb, type UserDb } from "../../src/lib/db/user-db";
 import { importPlan } from "../../src/lib/db/import-plan";
 import { parsePlanDocument } from "../../src/lib/parse/parser";
-import { statsForUsers } from "../../src/lib/server/admin-stats";
+import { CURRENT_SCHEMA_VERSION, statsForUsers } from "../../src/lib/server/admin-stats";
 import type { ControlUser } from "../../src/lib/server/control-db";
 
 const fixtureMd = fs.readFileSync("fixtures/plans/home-training-v1.md", "utf8");
@@ -97,5 +97,16 @@ describe("statsForUsers", () => {
     const stats = statsForUsers(dataDir, [user("alice"), user("bob")]);
     expect(stats.find((s) => s.userId === "alice")?.plans).toBe(1);
     expect(stats.find((s) => s.userId === "bob")?.plans).toBe(0);
+  });
+
+  it("reports null schemaVersion for an unprovisioned user and the applied version for a real one", () => {
+    openUserDb(dataDir, "fresh", { now: NOW }).close();
+
+    const stats = statsForUsers(dataDir, [user("ghost"), user("fresh")]);
+    expect(stats.find((s) => s.userId === "ghost")?.schemaVersion).toBeNull();
+    // A freshly provisioned database has run every migration this build knows about —
+    // that is what `openUserDb` guarantees, and it is the fact CURRENT_SCHEMA_VERSION
+    // exists to name.
+    expect(stats.find((s) => s.userId === "fresh")?.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
   });
 });

@@ -22,7 +22,17 @@
 import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
+import { appliedSchemaVersion } from "../db/migrate";
+import { MIGRATIONS } from "../db/schema";
 import type { ControlUser } from "./control-db";
+
+/**
+ * The version this build's code expects. Not a query — `MIGRATIONS` is the same list
+ * `migrate()` walks, so this can never drift from what a fresh `openUserDb` would leave
+ * a database at (review C1: migrations are lazy and per-user, so nothing else establishes
+ * "current" for the fleet at all).
+ */
+export const CURRENT_SCHEMA_VERSION = MIGRATIONS.at(-1)?.version ?? 0;
 
 export type UserStats = {
   userId: string;
@@ -40,6 +50,14 @@ export type UserStats = {
   lastWorkoutAt: string | null;
   /** Recursive size of `users/<id>/`, so plan documents and archived exports count. */
   diskBytes: number;
+  /**
+   * The highest migration this user's own database has applied — read, never written:
+   * this module must never migrate a database it does not own. `null` when unprovisioned,
+   * since there is no database to have a version. Migrations run lazily on that user's
+   * next request (ARCHITECTURE §5), so this is the only place the fleet's schema drift is
+   * visible at all.
+   */
+  schemaVersion: number | null;
 };
 
 type Counts = Omit<
@@ -55,6 +73,7 @@ const EMPTY: Counts = {
   workoutsFinished: 0,
   setLogs: 0,
   lastWorkoutAt: null,
+  schemaVersion: null,
 };
 
 export function statsForUsers(dataDir: string, users: readonly ControlUser[]): UserStats[] {
@@ -97,6 +116,7 @@ function countsFor(dbPath: string): Counts {
       lastWorkoutAt:
         (db.prepare("SELECT MAX(started_at) AS t FROM workout").get() as { t: string | null }).t ??
         null,
+      schemaVersion: appliedSchemaVersion(db),
     };
   } finally {
     db.close();

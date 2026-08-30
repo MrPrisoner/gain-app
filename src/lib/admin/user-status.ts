@@ -57,3 +57,15 @@ function startOfDay(date: Date): number {
 export function confirmationFor(displayLabel: string | null, userId: string): string {
   return displayLabel ?? userId.slice(-6);
 }
+
+/**
+ * The operator's only view of migration drift (review C1): migrations run lazily, one
+ * user at a time, on that user's next request — so a deploy migrates nobody, and without
+ * this there is no point at which anyone can see who is still on an old schema. `null`
+ * for "nothing to say", covering both an unprovisioned user (no database to be behind on)
+ * and one already current, so the component can treat "no note" as the common case.
+ */
+export function schemaNote(schemaVersion: number | null, current: number): string | null {
+  if (schemaVersion === null || schemaVersion >= current) return null;
+  return `schema v${schemaVersion} of v${current} — will migrate on next visit`;
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { confirmationFor, describeActivity } from "../../src/lib/admin/user-status";
+import { confirmationFor, describeActivity, schemaNote } from "../../src/lib/admin/user-status";
 import type { UserStats } from "../../src/lib/server/admin-stats";
 
 const NOW = new Date("2026-08-17T09:00:00Z");
@@ -19,6 +19,7 @@ function stats(overrides: Partial<UserStats> = {}): UserStats {
     setLogs: 88,
     lastWorkoutAt: "2026-08-14T07:00:00.000Z",
     diskBytes: 1024,
+    schemaVersion: 2,
     ...overrides,
   };
 }
@@ -70,5 +71,19 @@ describe("confirmationFor", () => {
 
   it("falls back to the tail of the user id", () => {
     expect(confirmationFor(null, "01KZKQ4GB22EEQBF20YDKD1BYE")).toBe("KD1BYE");
+  });
+});
+
+describe("schemaNote", () => {
+  it("says nothing for an unprovisioned user", () => {
+    expect(schemaNote(null, 2)).toBeNull();
+  });
+
+  it("says nothing once a user is on the current version", () => {
+    expect(schemaNote(2, 2)).toBeNull();
+  });
+
+  it("names the gap for a user behind the current version", () => {
+    expect(schemaNote(1, 2)).toBe("schema v1 of v2 — will migrate on next visit");
   });
 });

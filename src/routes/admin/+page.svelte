@@ -70,6 +70,9 @@
         {formatBytes(user.diskBytes)}
       </p>
       <p class="meta identity">{user.oidcSub}</p>
+      {#if user.schemaNote}
+        <p class="schema-note">{user.schemaNote}</p>
+      {/if}
 
       {#if openFor === user.userId}
         <form
@@ -186,6 +189,12 @@
 
   .identity {
     overflow-wrap: anywhere;
+  }
+
+  .schema-note {
+    color: var(--amber);
+    font-size: 0.8125rem;
+    margin: 0.35rem 0 0;
   }
 
   .trigger {
