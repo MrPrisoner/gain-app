@@ -54,20 +54,20 @@
 <style>
   .doc {
     width: 100%;
-    padding: 0.75rem;
+    padding: var(--s-3);
     border-radius: var(--r-xs);
     border: 1px solid var(--line);
     background: var(--raised);
     color: var(--text);
     font: inherit;
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
     line-height: 1.45;
     resize: vertical;
   }
 
   .actions {
     display: flex;
-    gap: 0.6rem;
+    gap: var(--s-3);
     margin-top: 0.75rem;
     flex-wrap: wrap;
   }
@@ -75,11 +75,11 @@
   button {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: var(--s-2);
     border: none;
     border-radius: var(--r-sm);
-    padding: 0.7rem 1.25rem;
-    font-weight: 700;
+    padding: var(--s-3) var(--s-5);
+    font-weight: var(--w-bold);
   }
 
   button.primary {

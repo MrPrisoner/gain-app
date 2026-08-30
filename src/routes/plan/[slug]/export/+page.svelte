@@ -126,23 +126,23 @@
     background: var(--surface);
     border: 1px solid var(--line-soft);
     border-radius: var(--r-md);
-    padding: 1.25rem;
+    padding: var(--pad-card);
     margin-top: 1.25rem;
   }
 
   h1 {
     margin: 0 0 0.5rem;
-    font-size: 1.3rem;
+    font-size: var(--t-lg);
   }
 
   .card h2 {
     margin: 0 0 0.5rem;
-    font-size: 1.05rem;
+    font-size: var(--t-base);
   }
 
   .muted {
     color: var(--muted);
-    font-size: 0.9rem;
+    font-size: var(--t-sm);
     margin: 0 0 0.75rem;
   }
 
@@ -151,22 +151,22 @@
     margin: 0;
     padding: 0;
     display: grid;
-    gap: 0.5rem;
+    gap: var(--s-2);
     min-width: 0;
   }
 
   legend {
     padding: 0;
     color: var(--muted);
-    font-size: 0.9rem;
+    font-size: var(--t-sm);
     margin-bottom: 0.5rem;
   }
 
   .window {
     display: flex;
     align-items: baseline;
-    gap: 0.6rem;
-    padding: 0.7rem 0.75rem;
+    gap: var(--s-3);
+    padding: var(--s-3);
     border: 1px solid var(--line);
     border-radius: var(--r-sm);
     background: var(--raised);
@@ -176,48 +176,48 @@
   .window-label {
     flex: 1 1 auto;
     min-width: 0;
-    font-weight: 700;
+    font-weight: var(--w-bold);
     overflow-wrap: anywhere;
   }
 
   .window-count {
     flex: 0 0 auto;
     color: var(--muted);
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
   }
 
   .note {
     margin: 0.75rem 0 0;
     color: var(--muted);
-    font-size: 0.9rem;
+    font-size: var(--t-sm);
   }
 
   /* Next to the control that failed, legible at arm's length — never in var(--red),
      which belongs to the plan's symptom framework (UI-DECISIONS §5). */
   .action-error {
     margin: 0.75rem 0 0;
-    padding: 0.7rem 0.75rem;
+    padding: var(--s-3);
     border: 1px solid var(--amber);
     border-radius: var(--r-sm);
-    font-weight: 700;
+    font-weight: var(--w-bold);
   }
 
   .doc {
     width: 100%;
-    padding: 0.75rem;
+    padding: var(--s-3);
     border-radius: var(--r-xs);
     border: 1px solid var(--line);
     background: var(--raised);
     color: var(--text);
     font: inherit;
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
     line-height: 1.45;
     resize: vertical;
   }
 
   .actions {
     display: flex;
-    gap: 0.6rem;
+    gap: var(--s-3);
     margin-top: 0.75rem;
     flex-wrap: wrap;
   }
@@ -225,11 +225,11 @@
   button {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: var(--s-2);
     border: none;
     border-radius: var(--r-sm);
-    padding: 0.7rem 1.25rem;
-    font-weight: 700;
+    padding: var(--s-3) var(--s-5);
+    font-weight: var(--w-bold);
   }
 
   button.primary {

@@ -243,31 +243,31 @@
 <style>
   h1 {
     margin: 1.25rem 0 0;
-    font-size: 1.3rem;
+    font-size: var(--t-lg);
   }
 
   .card {
     background: var(--surface);
     border: 1px solid var(--line-soft);
     border-radius: var(--r-md);
-    padding: 1.25rem;
+    padding: var(--pad-card);
     margin-top: 1.25rem;
   }
 
   .card h2 {
     margin: 0 0 0.5rem;
-    font-size: 1.05rem;
+    font-size: var(--t-base);
   }
 
   .muted {
     color: var(--muted);
-    font-size: 0.9rem;
+    font-size: var(--t-sm);
     margin: 0 0 0.75rem;
   }
 
   .actions {
     display: flex;
-    gap: 0.6rem;
+    gap: var(--s-3);
     margin-top: 0.75rem;
     flex-wrap: wrap;
   }
@@ -275,11 +275,11 @@
   button {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: var(--s-2);
     border: none;
     border-radius: var(--r-sm);
-    padding: 0.7rem 1.25rem;
-    font-weight: 700;
+    padding: var(--s-3) var(--s-5);
+    font-weight: var(--w-bold);
   }
 
   button.primary {
@@ -304,14 +304,14 @@
 
   .report {
     font-family: inherit;
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
     line-height: 1.45;
     white-space: pre-wrap;
     word-break: break-word;
     background: var(--raised);
     border: 1px solid var(--line);
     border-radius: var(--r-xs);
-    padding: 0.75rem;
+    padding: var(--s-3);
     margin: 0;
     max-height: 24rem;
     overflow: auto;
@@ -326,17 +326,17 @@
   .section-label {
     display: flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: var(--s-2);
     margin: 0 0 0.5rem;
-    font-weight: 700;
-    font-size: 0.95rem;
+    font-weight: var(--w-bold);
+    font-size: var(--t-base);
   }
 
   /* `--red` here is ordinary error colour, not the runner's symptom triad — this screen
      is outside the session runner (CLAUDE.md, "Correct CLAUDE.md's colour rule"). */
   .blocking {
     margin-top: 1rem;
-    padding: 1rem;
+    padding: var(--s-4);
     border-radius: var(--r-sm);
     border: 1px solid var(--red);
     background: color-mix(in srgb, var(--red) 10%, transparent);
@@ -349,10 +349,10 @@
   .block ul,
   .blocking ul {
     margin: 0;
-    padding: 0 0 0 1.1rem;
+    padding: 0 0 0 var(--s-4);
     display: grid;
-    gap: 0.4rem;
-    font-size: 0.9rem;
+    gap: var(--s-2);
+    font-size: var(--t-sm);
   }
 
   .warnings .section-label {
@@ -361,10 +361,10 @@
 
   .outbox-note {
     margin: 1.25rem 0 0;
-    padding: 0.75rem 1rem;
+    padding: var(--s-3) var(--s-4);
     border-radius: var(--r-sm);
     background: var(--amber-soft);
     color: var(--text);
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
   }
 </style>
