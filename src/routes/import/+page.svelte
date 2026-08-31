@@ -97,14 +97,12 @@
 
 <PageHeader title="Import a plan" />
 
-<div class="card">
-  <Card>
-    <p class="muted">
-      The whole document — prose and contract block. GAIN checks it before writing anything.
-    </p>
-    <ImportPlanForm bind:pasted />
-  </Card>
-</div>
+<Card>
+  <p class="muted">
+    The whole document — prose and contract block. GAIN checks it before writing anything.
+  </p>
+  <ImportPlanForm bind:pasted />
+</Card>
 
 {#if form?.importError}
   <section class="report-card">
@@ -149,123 +147,112 @@
 {/if}
 
 {#if form?.firstImport}
-  <div class="card">
-    <Card>
-      <h2>Ready to import</h2>
-      <p>
-        <strong>{form.firstImport.plan_name}</strong> — version {form.firstImport.version_no}:
-        {form.firstImport.counts.sessions} sessions, {form.firstImport.counts.exercises} exercises,
-        {form.firstImport.counts.prescriptions} prescriptions.
-      </p>
-      <form method="POST" action="?/commit" use:enhance>
-        <input type="hidden" name="source_md" value={form?.source ?? ""} />
-        <div class="actions">
-          {#snippet commitImportIcon()}<IconCircleCheck />{/snippet}
-          <Button variant="primary" type="submit" icon={commitImportIcon}>Commit import</Button>
-        </div>
-      </form>
-    </Card>
-  </div>
+  <Card spaced>
+    <h2>Ready to import</h2>
+    <p>
+      <strong>{form.firstImport.plan_name}</strong> — version {form.firstImport.version_no}:
+      {form.firstImport.counts.sessions} sessions, {form.firstImport.counts.exercises} exercises,
+      {form.firstImport.counts.prescriptions} prescriptions.
+    </p>
+    <form method="POST" action="?/commit" use:enhance>
+      <input type="hidden" name="source_md" value={form?.source ?? ""} />
+      <div class="actions">
+        {#snippet commitImportIcon()}<IconCircleCheck />{/snippet}
+        <Button variant="primary" type="submit" icon={commitImportIcon}>Commit import</Button>
+      </div>
+    </form>
+  </Card>
 {/if}
 
 {#if form?.revision}
-  <div class="card">
-    <Card>
-      <h2>Review the revision</h2>
-      <p class="muted">
-        Version {form.revision.fromVersion} → {form.revision.toVersion} of {form.revision.planSlug}.
-        Nothing is written until you commit.
-      </p>
+  <Card spaced>
+    <h2>Review the revision</h2>
+    <p class="muted">
+      Version {form.revision.fromVersion} → {form.revision.toVersion} of {form.revision.planSlug}.
+      Nothing is written until you commit.
+    </p>
 
-      {#if form.revision.blocking.length > 0}
-        <div class="blocking">
-          <p class="section-label"><IconTriangleAlert />This revision cannot be imported yet</p>
-          <ul>
-            {#each form.revision.blocking as problem (problem)}
-              <li>{problem}</li>
-            {/each}
-          </ul>
-          <div class="actions">
-            {#snippet copyBlockingIcon()}
-              {#if copiedBlocking}<IconCheck />{:else}<IconCopy />{/if}
-            {/snippet}
-            <Button
-              variant="secondary"
-              type="button"
-              onclick={copyBlocking}
-              icon={copyBlockingIcon}
-            >
-              {copiedBlocking ? "Copied" : "Copy for the AI"}
-            </Button>
-          </div>
+    {#if form.revision.blocking.length > 0}
+      <div class="blocking">
+        <p class="section-label"><IconTriangleAlert />This revision cannot be imported yet</p>
+        <ul>
+          {#each form.revision.blocking as problem (problem)}
+            <li>{problem}</li>
+          {/each}
+        </ul>
+        <div class="actions">
+          {#snippet copyBlockingIcon()}
+            {#if copiedBlocking}<IconCheck />{:else}<IconCopy />{/if}
+          {/snippet}
+          <Button variant="secondary" type="button" onclick={copyBlocking} icon={copyBlockingIcon}>
+            {copiedBlocking ? "Copied" : "Copy for the AI"}
+          </Button>
+        </div>
+      </div>
+    {/if}
+
+    <form method="POST" action="?/commit" use:enhance>
+      <input type="hidden" name="source_md" value={form?.source ?? ""} />
+
+      {#if form.revision.dispositions.length > 0}
+        <div class="block">
+          <p class="section-label">What happened to these exercises?</p>
+          <DispositionList dispositions={form.revision.dispositions} bind:choices />
         </div>
       {/if}
 
-      <form method="POST" action="?/commit" use:enhance>
-        <input type="hidden" name="source_md" value={form?.source ?? ""} />
-
-        {#if form.revision.dispositions.length > 0}
-          <div class="block">
-            <p class="section-label">What happened to these exercises?</p>
-            <DispositionList dispositions={form.revision.dispositions} bind:choices />
-          </div>
-        {/if}
-
-        {#if form.revision.changelog.length > 0}
-          <div class="block">
-            <p class="section-label">What the AI says changed</p>
-            <ul>
-              {#each form.revision.changelog as line, i (i)}
-                <li>{line}</li>
-              {/each}
-            </ul>
-          </div>
-        {/if}
-
-        {#if form.revision.groups.length > 0}
-          <div class="block">
-            <p class="section-label">Everything that changed</p>
-            <DiffGroups groups={form.revision.groups} />
-          </div>
-        {/if}
-
-        {#if form.revision.warnings.length > 0}
-          <div class="block warnings">
-            <p class="section-label"><IconTriangleAlert />Worth a look</p>
-            <ul>
-              {#each form.revision.warnings as warning, i (i)}
-                <li>{warning}</li>
-              {/each}
-            </ul>
-          </div>
-        {/if}
-
-        {#if outboxNote}
-          <p class="outbox-note">
-            {syncStatus.pending}
-            {syncStatus.pending === 1 ? "entry is" : "entries are"} still waiting to sync. A rename can
-            leave one naming the old exercise — check the sync banner once this commits, and discard it
-            there if it no longer applies.
-          </p>
-        {/if}
-
-        <div class="actions">
-          {#snippet commitRevisionIcon()}<IconCircleCheck />{/snippet}
-          <Button variant="primary" type="submit" disabled={!ready} icon={commitRevisionIcon}>
-            Commit revision
-          </Button>
+      {#if form.revision.changelog.length > 0}
+        <div class="block">
+          <p class="section-label">What the AI says changed</p>
+          <ul>
+            {#each form.revision.changelog as line, i (i)}
+              <li>{line}</li>
+            {/each}
+          </ul>
         </div>
-      </form>
-    </Card>
-  </div>
+      {/if}
+
+      {#if form.revision.groups.length > 0}
+        <div class="block">
+          <p class="section-label">Everything that changed</p>
+          <DiffGroups groups={form.revision.groups} />
+        </div>
+      {/if}
+
+      {#if form.revision.warnings.length > 0}
+        <div class="block warnings">
+          <p class="section-label"><IconTriangleAlert />Worth a look</p>
+          <ul>
+            {#each form.revision.warnings as warning, i (i)}
+              <li>{warning}</li>
+            {/each}
+          </ul>
+        </div>
+      {/if}
+
+      {#if outboxNote}
+        <p class="outbox-note">
+          {syncStatus.pending}
+          {syncStatus.pending === 1 ? "entry is" : "entries are"} still waiting to sync. A rename can
+          leave one naming the old exercise — check the sync banner once this commits, and discard it
+          there if it no longer applies.
+        </p>
+      {/if}
+
+      <div class="actions">
+        {#snippet commitRevisionIcon()}<IconCircleCheck />{/snippet}
+        <Button variant="primary" type="submit" disabled={!ready} icon={commitRevisionIcon}>
+          Commit revision
+        </Button>
+      </div>
+    </form>
+  </Card>
 {/if}
 
 <style>
-  .card {
-    margin-top: 1.25rem;
-  }
-
-  .card h2 {
+  /* Every h2 on this route — Card's own or .report-card's — wants the same treatment,
+     so it is one rule rather than two selectors chasing each section's own wrapper. */
+  h2 {
     margin: 0 0 0.5rem;
     font-size: var(--t-base);
   }
@@ -292,11 +279,6 @@
     border-radius: var(--r-md);
     padding: var(--pad-card);
     margin-top: 1.25rem;
-  }
-
-  .report-card h2 {
-    margin: 0 0 0.5rem;
-    font-size: var(--t-base);
   }
 
   .report {

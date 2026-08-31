@@ -19,10 +19,12 @@ pass surfaced it.
   `/plan/.../versions/[n]` and first-run home. `.primary-link` (home's two "Paste the plan"
   navigation links, styled as a button) is left as a plain anchor — `Button` has no `href`
   and adding one back for two call sites isn't worth reopening the gap that prop closed.
-- [ ] **`Card` has no spacing story.** Three files (`import/+page.svelte`, home's
-  `+page.svelte`, `export/+page.svelte`) each wrap `<Card>` in their own
-  `<div class="card">` just to get `margin-top: 1.25rem` — a sixth adopting route would
-  likely copy this pattern rather than find a clean built-in way to space a `Card`.
+- [x] **`Card` now has a spacing story: a `spaced` prop.** `import/+page.svelte`, home's
+  `+page.svelte` and `export/+page.svelte` no longer wrap `<Card>` in a `<div class="card">`
+  just for `margin-top: 1.25rem` — `<Card spaced>` carries the same margin itself. Each
+  route's now-dead `.card { margin-top }` rule is removed; `.card h2` (or `.report-card
+  h2`, where one coexisted) is merged into a plain `h2` rule per file, since every `<h2>`
+  on these routes lives inside a `Card` and the two were byte-identical.
 - [ ] **`/admin` and `/account` hand-roll the exact shape `Field` exists for.** Both have a
   `<label for>` + `<input>` + separate error `<p>` pattern in files that already adopted
   `Button` and `Card` — a natural next `Field` adoption site.
@@ -33,18 +35,25 @@ pass surfaced it.
   the record while here: `pending`/`pendingLabel` were never actually unused — this bullet
   previously missed `account/+page.svelte`'s reset flow, which uses both for its own
   `?/reset` race — so they stay.
-- [ ] **`Card`'s `elevation`/`padded`, `EmptyState`'s `body`/`children`, and `Field`'s
-  `hint`/`error` are still unused everywhere.** `Card`: unused across all 14 call sites.
-  `EmptyState`: `body` and `children` unused across all 3. `Field`: `hint` and `error`
-  unused across both call sites, and their `{id}-hint`/`{id}-error` generated ids have no
-  `aria-describedby` consumer anywhere, so that wiring is currently inert. Resolve each
-  against whether the primitive-adoption items below end up giving it a real call site
-  (Field's `hint`/`error` on `/admin` and `/account`, say) rather than deleting on sight.
-- [ ] **`--shadow-2` is effectively dead.** Only two `box-shadow` declarations exist in
-  the whole app, both in `Card.svelte`, and nothing currently passes `elevation={2}` — so
-  `--shadow-2` (documented as being for "sheets, the log strip, sticky chrome") has no
-  actual consumer yet. `docs/UI.md` §10 already discloses `--shadow-3` has zero
-  consumers; this is the same situation one level up.
+- [x] **`Card`'s `elevation`/`padded` resolved: deleted, not adopted.** The Card-adoption
+  sweep (spacing-story item below) confirmed neither prop had a real use waiting on it —
+  every call site wanted the default shadow and padding — so both are gone; `Card` now
+  applies `--shadow-1` and `--pad-card` unconditionally, and `spaced` is its one prop.
+- [ ] **`EmptyState`'s `body`/`children`, and `Field`'s `hint`/`error`, are still unused
+  everywhere.** `EmptyState`: `body` and `children` unused across all 3 call sites.
+  `Field`: `hint` and `error` unused across both call sites, and their
+  `{id}-hint`/`{id}-error` generated ids have no `aria-describedby` consumer anywhere, so
+  that wiring is currently inert. Resolve each against whether the primitive-adoption
+  items below end up giving it a real call site (Field's `hint`/`error` on `/admin` and
+  `/account`, say) rather than deleting on sight.
+- [x] **`--shadow-2` removed rather than left aspirational.** It had exactly one
+  consumer — `Card`'s `elevation` prop — which nothing ever set away from its default, and
+  the Card-adoption sweep resolved `elevation` by deleting it (see the primitive-props
+  bullet above). Rather than leave a documented-but-unreached token sitting next to
+  `--shadow-3` (still zero consumers, still disclosed in `docs/UI.md` §10 — that one is
+  untouched, since nothing in this pass gave it or took away its reason to exist),
+  `--shadow-2` itself is gone from `app.css`; add it back the day something genuinely
+  wants a level between a card and a full-screen overlay.
 - [ ] **Motion tokens mostly unused, and some transitions bypass them entirely.**
   `--dur-base`, `--dur-slow`, and `--ease-out` have zero consumers (the one `ease-out` in
   the tree, `CelebrationOverlay.svelte`'s `rise` animation, is a literal, not the token).

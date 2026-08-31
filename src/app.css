@@ -17,7 +17,7 @@
  *   borders         two tokens, two jobs: --line is a quiet card/divider hairline;
  *                   --line-strong is for anything tappable, held to WCAG's 3:1
  *                   non-text floor.
- *   elevation       three --shadow- steps; light casts a true shadow, dark lightens
+ *   elevation       two --shadow- steps; light casts a true shadow, dark lightens
  *                   the surface and adds an --edge-top highlight, because a shadow
  *                   on a near-black ground reads as nothing.
  *   motion          --dur- durations and --ease easings, collapsed to 1ms under
@@ -111,7 +111,6 @@
   --ease-out: cubic-bezier(0, 0, 0.2, 1);
 
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-2: 0 4px 12px rgba(0, 0, 0, 0.45);
   --shadow-3: 0 16px 40px rgba(0, 0, 0, 0.6);
   --edge-top: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 
@@ -143,7 +142,6 @@
     --red: #b34038;
     --wordmark: #5c6f84;
     --shadow-1: 0 1px 2px rgba(15, 19, 25, 0.06), 0 1px 3px rgba(15, 19, 25, 0.05);
-    --shadow-2: 0 4px 12px rgba(15, 19, 25, 0.08), 0 1px 3px rgba(15, 19, 25, 0.06);
     --shadow-3: 0 12px 32px rgba(15, 19, 25, 0.16);
     --edge-top: none;
   }
@@ -169,7 +167,6 @@
   --red: #b34038;
   --wordmark: #5c6f84;
   --shadow-1: 0 1px 2px rgba(15, 19, 25, 0.06), 0 1px 3px rgba(15, 19, 25, 0.05);
-  --shadow-2: 0 4px 12px rgba(15, 19, 25, 0.08), 0 1px 3px rgba(15, 19, 25, 0.06);
   --shadow-3: 0 12px 32px rgba(15, 19, 25, 0.16);
   --edge-top: none;
 }
@@ -194,7 +191,6 @@
   --red: #e0655b;
   --wordmark: #7e98b4;
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-2: 0 4px 12px rgba(0, 0, 0, 0.45);
   --shadow-3: 0 16px 40px rgba(0, 0, 0, 0.6);
   --edge-top: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }

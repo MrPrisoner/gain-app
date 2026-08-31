@@ -141,87 +141,73 @@
     </p>
   </section>
 
-  <div class="card">
-    <Card>
-      <h2>1 · Give the AI a running start</h2>
-      <p class="muted">
-        Four optional questions, all skippable — anything you leave out is something the AI will ask
-        about. Nothing you write here is stored.
-      </p>
-      <form method="POST" action="?/generatePrompt" class="questions" use:enhance>
+  <Card spaced>
+    <h2>1 · Give the AI a running start</h2>
+    <p class="muted">
+      Four optional questions, all skippable — anything you leave out is something the AI will ask
+      about. Nothing you write here is stored.
+    </p>
+    <form method="POST" action="?/generatePrompt" class="questions" use:enhance>
+      <label>
+        Equipment you have
+        <input type="text" name="equipment" placeholder="e.g. two adjustable dumbbells to 24 kg" />
+      </label>
+      <div class="row2">
         <label>
-          Equipment you have
-          <input
-            type="text"
-            name="equipment"
-            placeholder="e.g. two adjustable dumbbells to 24 kg"
-          />
-        </label>
-        <div class="row2">
-          <label>
-            Days per week
-            <input type="text" name="sessions_per_week" placeholder="e.g. 3" />
-          </label>
-          <label>
-            Minutes per session
-            <input type="text" name="session_minutes" placeholder="e.g. 45" />
-          </label>
-        </div>
-        <label>
-          What you are training for
-          <input
-            type="text"
-            name="goals"
-            placeholder="e.g. general strength, not racing anything"
-          />
+          Days per week
+          <input type="text" name="sessions_per_week" placeholder="e.g. 3" />
         </label>
         <label>
-          Anything to work around
-          <input type="text" name="constraints" placeholder="e.g. a dodgy lower back" />
+          Minutes per session
+          <input type="text" name="session_minutes" placeholder="e.g. 45" />
         </label>
-        {#snippet sparklesIcon()}<IconSparkles />{/snippet}
-        <Button variant="primary" type="submit" icon={sparklesIcon}>Generate the prompt</Button>
-      </form>
-    </Card>
-  </div>
+      </div>
+      <label>
+        What you are training for
+        <input type="text" name="goals" placeholder="e.g. general strength, not racing anything" />
+      </label>
+      <label>
+        Anything to work around
+        <input type="text" name="constraints" placeholder="e.g. a dodgy lower back" />
+      </label>
+      {#snippet sparklesIcon()}<IconSparkles />{/snippet}
+      <Button variant="primary" type="submit" icon={sparklesIcon}>Generate the prompt</Button>
+    </form>
+  </Card>
 
   {#if form?.prompt}
-    <div class="card">
-      <Card>
-        <h2>2 · Paste this into your AI chat</h2>
-        <p class="muted">
-          One document — the AI reads it, interviews you, and returns a plan. Copy the whole thing;
-          download is the fallback.
-        </p>
-        <textarea class="doc" readonly rows="14" aria-label="Bootstrap prompt" value={form.prompt}
-        ></textarea>
-        <div class="actions">
-          {#snippet copyIcon()}
-            {#if copied}<IconCheck />{:else}<IconCopy />{/if}
-          {/snippet}
-          <Button variant="primary" type="button" onclick={copyPrompt} icon={copyIcon}>
-            {copied ? "Copied" : "Copy prompt"}
-          </Button>
-          {#snippet downloadIcon()}<IconDownload />{/snippet}
-          <Button variant="secondary" type="button" onclick={downloadPrompt} icon={downloadIcon}>
-            Download .md
-          </Button>
-        </div>
-      </Card>
-    </div>
+    <Card spaced>
+      <h2>2 · Paste this into your AI chat</h2>
+      <p class="muted">
+        One document — the AI reads it, interviews you, and returns a plan. Copy the whole thing;
+        download is the fallback.
+      </p>
+      <textarea class="doc" readonly rows="14" aria-label="Bootstrap prompt" value={form.prompt}
+      ></textarea>
+      <div class="actions">
+        {#snippet copyIcon()}
+          {#if copied}<IconCheck />{:else}<IconCopy />{/if}
+        {/snippet}
+        <Button variant="primary" type="button" onclick={copyPrompt} icon={copyIcon}>
+          {copied ? "Copied" : "Copy prompt"}
+        </Button>
+        {#snippet downloadIcon()}<IconDownload />{/snippet}
+        <Button variant="secondary" type="button" onclick={downloadPrompt} icon={downloadIcon}>
+          Download .md
+        </Button>
+      </div>
+    </Card>
   {/if}
 
-  <div class="card">
-    <Card>
-      <h2>{form?.prompt ? "3 · Bring back the plan" : "Already have a plan?"}</h2>
-      <p class="muted">
-        {form?.prompt
-          ? "Once your AI hands you a document, bring it here."
-          : "Skip the interview and bring a plan document you already have."}
-      </p>
-      <a class="primary-link" href="/import"><IconUpload />Paste the plan your AI gave you</a>
-    </Card>
-  </div>
+  <Card spaced>
+    <h2>{form?.prompt ? "3 · Bring back the plan" : "Already have a plan?"}</h2>
+    <p class="muted">
+      {form?.prompt
+        ? "Once your AI hands you a document, bring it here."
+        : "Skip the interview and bring a plan document you already have."}
+    </p>
+    <a class="primary-link" href="/import"><IconUpload />Paste the plan your AI gave you</a>
+  </Card>
 {:else}
   <PageHeader title="GAIN" />
 
@@ -251,8 +237,8 @@
   <ActivityStrip kinds={data.activityKinds} />
 
   {#each data.plans as plan (plan.slug)}
-    <section class="card plan-admin">
-      <Card>
+    <section class="plan-admin">
+      <Card spaced>
         <h2>{plan.name}</h2>
         <p class="muted">
           version {plan.version_no} · imported {plan.imported_at} ·
@@ -297,16 +283,14 @@
   {/each}
 
   {#if data.plans.length === 0}
-    <div class="card">
-      <Card>
-        <h2>Everything is archived</h2>
-        <p class="muted">
-          Every plan on this account is put away. Open one below to read its history, bring it back,
-          or start something new.
-        </p>
-        <a class="primary-link" href="/import"><IconUpload />Paste a new plan</a>
-      </Card>
-    </div>
+    <Card spaced>
+      <h2>Everything is archived</h2>
+      <p class="muted">
+        Every plan on this account is put away. Open one below to read its history, bring it back,
+        or start something new.
+      </p>
+      <a class="primary-link" href="/import"><IconUpload />Paste a new plan</a>
+    </Card>
   {/if}
 
   {#if form?.planError}
@@ -367,11 +351,7 @@
     color: var(--muted);
   }
 
-  .card {
-    margin-top: 1.25rem;
-  }
-
-  .card h2 {
+  h2 {
     margin: 0 0 0.5rem;
     font-size: var(--t-base);
   }

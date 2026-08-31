@@ -47,99 +47,91 @@
   <ArchivedNote />
 {/if}
 
-<div class="card">
-  <Card>
-    <PageHeader title="Export for review" />
-    <p class="muted">
-      One document for your AI chat: the plan as it stands, what you have logged, and the rules for
-      handing a revision back. Paste the whole thing.
-    </p>
+<Card spaced>
+  <PageHeader title="Export for review" />
+  <p class="muted">
+    One document for your AI chat: the plan as it stands, what you have logged, and the rules for
+    handing a revision back. Paste the whole thing.
+  </p>
 
-    <!--
-      A plain custom callback, `reset: false` only: the default `use:enhance` behaviour
-      calls `form.reset()` on a successful submission, which sets every radio's DOM
-      `checked` property directly and bypasses Svelte's reactivity — the bound `selected`
-      value stays "since_version" internally, but the visible radio reverts to
-      unchecked, right as the user is looking at the bundle it produced. `reset: false`
-      is the documented escape from that, not a workaround for anything else.
-    -->
-    <form
-      method="POST"
-      action="?/generate"
-      use:enhance={() => {
-        return async ({ update }) => {
-          await update({ reset: false });
-        };
-      }}
-    >
-      <Field label="How much history to include" id="export-window" asGroup>
-        <fieldset aria-labelledby="export-window-label">
-          {#each data.options as option (option.id)}
-            <label class="window">
-              <input type="radio" name="window" value={option.id} bind:group={selected} />
-              <span class="window-label">{option.label}</span>
-              <span class="window-count">
-                {option.workouts}
-                {option.workouts === 1 ? "workout" : "workouts"}
-              </span>
-            </label>
-          {/each}
-        </fieldset>
-      </Field>
+  <!--
+    A plain custom callback, `reset: false` only: the default `use:enhance` behaviour
+    calls `form.reset()` on a successful submission, which sets every radio's DOM
+    `checked` property directly and bypasses Svelte's reactivity — the bound `selected`
+    value stays "since_version" internally, but the visible radio reverts to
+    unchecked, right as the user is looking at the bundle it produced. `reset: false`
+    is the documented escape from that, not a workaround for anything else.
+  -->
+  <form
+    method="POST"
+    action="?/generate"
+    use:enhance={() => {
+      return async ({ update }) => {
+        await update({ reset: false });
+      };
+    }}
+  >
+    <Field label="How much history to include" id="export-window" asGroup>
+      <fieldset aria-labelledby="export-window-label">
+        {#each data.options as option (option.id)}
+          <label class="window">
+            <input type="radio" name="window" value={option.id} bind:group={selected} />
+            <span class="window-label">{option.label}</span>
+            <span class="window-count">
+              {option.workouts}
+              {option.workouts === 1 ? "workout" : "workouts"}
+            </span>
+          </label>
+        {/each}
+      </fieldset>
+    </Field>
 
-      {#if data.totalWorkouts === 0}
-        <p class="note">
-          Nothing is logged yet, so this exports the plan and an empty summary. That is a fine way
-          to ask for a revision, just not a progress review.
-        </p>
-      {/if}
-
-      <div class="actions">
-        {#snippet sparklesIcon()}<IconSparkles />{/snippet}
-        <Button variant="primary" type="submit" icon={sparklesIcon}>Generate the export</Button>
-      </div>
-    </form>
-
-    {#if form?.actionError}
-      <p class="action-error">{form.actionError}</p>
+    {#if data.totalWorkouts === 0}
+      <p class="note">
+        Nothing is logged yet, so this exports the plan and an empty summary. That is a fine way to
+        ask for a revision, just not a progress review.
+      </p>
     {/if}
-  </Card>
-</div>
+
+    <div class="actions">
+      {#snippet sparklesIcon()}<IconSparkles />{/snippet}
+      <Button variant="primary" type="submit" icon={sparklesIcon}>Generate the export</Button>
+    </div>
+  </form>
+
+  {#if form?.actionError}
+    <p class="action-error">{form.actionError}</p>
+  {/if}
+</Card>
 
 {#if form?.bundle}
-  <div class="card">
-    <Card>
-      <h2>Paste this into your AI chat</h2>
-      <p class="muted">
-        {form.windowLabel} · {form.bundle.length.toLocaleString()} characters. Copy the whole thing; download
-        is the fallback.
-      </p>
-      <textarea class="doc" readonly rows="14" aria-label="Export bundle" value={form.bundle}
-      ></textarea>
-      <div class="actions">
-        {#snippet copyIcon()}
-          {#if copied}<IconCheck />{:else}<IconCopy />{/if}
-        {/snippet}
-        <Button variant="primary" type="button" onclick={copyBundle} icon={copyIcon}>
-          {copied ? "Copied" : "Copy export"}
-        </Button>
-        {#snippet downloadIcon()}<IconDownload />{/snippet}
-        <Button variant="secondary" type="button" onclick={download} icon={downloadIcon}>
-          Download .md
-        </Button>
-      </div>
-    </Card>
-  </div>
+  <Card spaced>
+    <h2>Paste this into your AI chat</h2>
+    <p class="muted">
+      {form.windowLabel} · {form.bundle.length.toLocaleString()} characters. Copy the whole thing; download
+      is the fallback.
+    </p>
+    <textarea class="doc" readonly rows="14" aria-label="Export bundle" value={form.bundle}
+    ></textarea>
+    <div class="actions">
+      {#snippet copyIcon()}
+        {#if copied}<IconCheck />{:else}<IconCopy />{/if}
+      {/snippet}
+      <Button variant="primary" type="button" onclick={copyBundle} icon={copyIcon}>
+        {copied ? "Copied" : "Copy export"}
+      </Button>
+      {#snippet downloadIcon()}<IconDownload />{/snippet}
+      <Button variant="secondary" type="button" onclick={download} icon={downloadIcon}>
+        Download .md
+      </Button>
+    </div>
+  </Card>
 {/if}
 
 <BackLink href="/" label="Back to your plans" />
 
 <style>
-  .card {
-    margin-top: 1.25rem;
-  }
-
-  .card h2 {
+  h2 {
     margin: 0 0 0.5rem;
     font-size: var(--t-base);
   }

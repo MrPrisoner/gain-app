@@ -489,10 +489,13 @@ control's boundary, not about a card's. Reach for `--line` on a card edge and
 `--line-strong` on anything tappable in anything you write — using the quiet one on a
 control is how a button's outline goes invisible against its own background.
 
-**Elevation** is three steps — `--shadow-1` (cards, list rows), `--shadow-2` (sheets, the
-log strip, sticky chrome) and `--shadow-3` (reserved for full-screen overlays and modals;
-nothing consumes it yet — `Card.svelte` is currently the only component with a `box-shadow`
-at all, via its `elevation: 1 | 2` prop, mapped to `--shadow-1`/`--shadow-2`). The two
+**Elevation** is two steps — `--shadow-1` (cards, list rows) and `--shadow-3` (reserved
+for full-screen overlays and modals; nothing consumes it yet). `--shadow-2` existed
+between them for "sheets, the log strip, sticky chrome" but was removed 2026-08-31: `Card`
+was its only consumer, via an `elevation: 1 | 2` prop nothing ever set away from its
+default, and a documented-but-unreached step invites exactly the confusion `--dim` caused
+before it was resolved. Add it back the day something genuinely wants a level between a
+card and a full-screen overlay, rather than carrying it as aspirational API. The two
 themes earn depth by opposite means, per `Card.svelte`'s own header comment: light gets a
 true shadow, because it has ground to cast one against; dark gets a much weaker shadow plus
 a 1px inset top highlight (`--edge-top`), because a shadow on a near-black ground reads as
@@ -535,16 +538,17 @@ small and its own header comment or props carry the detail; this is the pointer,
 full account.
 
 - **`Button`** is the one place the 44px touch-target floor, press feedback and disabled
-  state live — a `variant` of `primary | secondary | quiet | danger`, a `size` of `md`
-  (default) or `lg`, an optional `href` to render as a styled anchor instead of a
-  `<button>`, and `pending`/`pendingLabel` to disable a control and swap its label while an
-  in-flight request has not yet satisfied its precondition (see "A control that can post
-  before its precondition exists must be disabled" earlier in this file). Called from, for
-  example, the generate/copy/download actions on `plan/[slug]/export/+page.svelte`.
-- **`Card`** is the only component with a `box-shadow` — `elevation: 1 | 2`, mapped to
-  `--shadow-1`/`--shadow-2` per the "Elevation" note above — plus a `padded` prop (default
-  `true`) applying `--pad-card`. Reach for it for any raised content well; called from, for
-  example, `plan/[slug]/export/+page.svelte`.
+  state live — a `variant` of `primary | secondary | quiet | danger`, and
+  `pending`/`pendingLabel` to disable a control and swap its label while an in-flight
+  request has not yet satisfied its precondition (see "A control that can post before its
+  precondition exists must be disabled" earlier in this file). Called from, for example,
+  the generate/copy/download actions on `plan/[slug]/export/+page.svelte`.
+- **`Card`** applies `--shadow-1`, `--pad-card` and the card border unconditionally, plus a
+  `spaced` prop (default `false`) applying the site's `1.25rem` section-separator margin
+  — the card's own answer to "how far below the previous section", so a route stacking
+  more than one no longer wraps each in its own `<div>` just to get a top margin. Reach
+  for it for any raised content well; called from, for example,
+  `plan/[slug]/export/+page.svelte`.
 - **`Field`** pairs a label with one form control, plus optional `hint`/`error` paragraphs
   rendered as `{id}-hint`/`{id}-error`. `asGroup` swaps the default `<label for={id}>` for a
   `<span id="{id}-label">` when the wrapped control is a `<fieldset>` — a fieldset has
@@ -570,9 +574,12 @@ Enter/Space on a real anchor) that nothing depended on and nothing would have ca
 the first call site shipped it. `pending`/`pendingLabel` stay — `account/+page.svelte`'s
 reset flow uses them for its own `?/reset` race, the same "a control that can post before
 its precondition exists must be disabled" concern the runner has. `Card`'s `elevation` and
-`padded`, and `Field`'s `hint` and `error`, still have no call site; each is tracked in
-`docs/todo-ui-followups.md` rather than removed on sight, pending an adoption site that
-would actually exercise it.
+`padded` went the same way as `Button`'s `href`/`size`: no call site ever set either away
+from its default, so both were removed and their defaults (shadow-1, `--pad-card`) made
+unconditional — `spaced` replaces them as the one prop `Card` now carries, since the
+Card-adoption sweep gave it a real job. `Field`'s `hint` and `error` still have no call
+site; tracked in `docs/todo-ui-followups.md` rather than removed on sight, pending an
+adoption site that would actually exercise it.
 
 ---
 
