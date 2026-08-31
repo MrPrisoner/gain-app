@@ -112,10 +112,12 @@ copied forward blind.
   `<h2>{plan.name}</h2>` — the same string twice on one screen.
 - [ ] **Effort keys' undersized fill segments.** `LogStrip.svelte`'s Easy/Medium/Hard fill
   indicator (`.effort-fill`) is a row of small `i` segments — still small.
-- [ ] **Native `<select>`/`<radio>` beside custom pills.** Plain `<select>` elements
-  remain in `DeviationSheet.svelte` (the substitute picker), the three progress window
-  pickers, and `DispositionList.svelte`, all alongside the app's custom pill/chip pattern
-  used elsewhere for the same kind of choice.
+- [x] **Native `<select>`/`<radio>` beside custom pills — kept native, deliberately.**
+  Converting `DeviationSheet.svelte`'s substitute picker, the three progress window
+  pickers, or `DispositionList.svelte` to the app's pill/chip pattern would trade a free
+  OS picker sheet and free ARIA listbox semantics for a hand-rolled roving-tabindex
+  widget, for no accessibility gain — worse, for the substitute picker, whose option list
+  runs to the whole exercise catalogue. Reasoning folded into `docs/UI.md` §12.
 - [ ] **History's "1 sets" plural bug.** `src/routes/plan/[slug]/history/+page.svelte`
   still interpolates `{workout.setCount} sets` with no singular form.
 - [ ] **The sync banner's Discard control still reads as a neutral link, not a

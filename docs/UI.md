@@ -688,6 +688,20 @@ window pickers navigate on `change`, so arrow-keying a *closed* `<select>` on a 
 keyboard fires one navigation per keypress. Accepted: the target is a phone, where a
 `<select>` commits once on dismiss.
 
+**Native `<select>` and radio inputs stay native, deliberately, next to a custom pill
+pattern used everywhere else for the same kind of choice.** `DeviationSheet`'s substitute
+picker, the three progress window pickers, and `DispositionList` all use a plain
+`<select>`; the export screen's history-window choice uses plain radios. Converting any of
+these to the app's pill/chip visual pattern would mean hand-rolling roving-tabindex and
+ARIA listbox semantics the platform gives a `<select>` for free, and would trade away the
+one thing a native control does that a custom one cannot: on a phone, it opens the OS's own
+picker sheet — full-height, thumb-scrollable, and already accessible to whatever assistive
+tech the user has configured system-wide. The substitute picker's option list in particular
+can run long (every exercise in the catalogue), which a native control handles for free and
+a row of pills does not. This is not an oversight the rest of the pill sweep missed; it is
+the correct choice for a control whose job is picking one of several values by name rather
+than toggling a small, fixed set of states.
+
 ---
 
 ## What this does not decide
