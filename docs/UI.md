@@ -554,10 +554,14 @@ full account.
   `<span id="{id}-label">` when the wrapped control is a `<fieldset>` — a fieldset has
   nothing for a `for` attribute to point at. The span carries no accessible-name
   relationship on its own; the caller's `<fieldset>` must reference it with
-  `aria-labelledby="{id}-label"` or the group has no accessible name at all. Called
-  plainly from `import/ImportPlanForm.svelte`'s paste textarea, and with `asGroup` (plus
-  the matching `aria-labelledby`) from `plan/[slug]/export/+page.svelte`'s history-window
-  radio group.
+  `aria-labelledby="{id}-label"` or the group has no accessible name at all. Field itself
+  cannot reach into its own `children` snippet to add `aria-describedby` — the caller's
+  control has to reference `{id}-error`/`{id}-hint` itself, or the ids it renders describe
+  nothing. Called plainly from `import/ImportPlanForm.svelte`'s paste textarea, with
+  `asGroup` (plus the matching `aria-labelledby`) from
+  `plan/[slug]/export/+page.svelte`'s history-window radio group, and with `error` (plus
+  that `aria-describedby` wiring) from `/admin`'s and `/account`'s reset-confirmation
+  input.
 - **`PageHeader`** is the `<h1>` treatment (`--t-lg` / `--w-display`, see "Type" above) plus
   an optional `subtitle` and an optional `backHref`/`backLabel` rendering a `BackLink`
   beneath the title. Reach for it at the top of any read route; called from, for example,

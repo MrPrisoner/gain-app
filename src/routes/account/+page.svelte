@@ -8,6 +8,7 @@
   import { clearWorkoutStorage } from "$lib/session/workout-storage";
   import Button from "$lib/components/Button.svelte";
   import Card from "$lib/components/Card.svelte";
+  import Field from "$lib/components/Field.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import type { ActionData, PageData } from "./$types";
 
@@ -87,20 +88,17 @@
       </span>
     </p>
 
-    <label for="confirm">Type RESET to confirm</label>
-    <input
-      id="confirm"
-      name="confirm"
-      bind:value={typed}
-      aria-describedby="reset-warning"
-      autocomplete="off"
-      autocapitalize="none"
-      spellcheck="false"
-    />
-
-    {#if form?.actionError}
-      <p class="action-error" role="alert">{form.actionError}</p>
-    {/if}
+    <Field label="Type RESET to confirm" id="confirm" error={form?.actionError}>
+      <input
+        id="confirm"
+        name="confirm"
+        bind:value={typed}
+        aria-describedby="reset-warning confirm-error"
+        autocomplete="off"
+        autocapitalize="none"
+        spellcheck="false"
+      />
+    </Field>
 
     <div class="row">
       <Button
@@ -164,18 +162,8 @@
     color: var(--text);
   }
 
-  .danger-panel label {
-    font-size: var(--t-sm);
-    color: var(--text);
-  }
-
   .danger-panel input {
     width: 100%;
-  }
-
-  .action-error {
-    color: var(--text);
-    margin: 0;
   }
 
   .row {

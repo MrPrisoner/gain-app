@@ -3,6 +3,7 @@
   import IconTriangleAlert from "~icons/lucide/triangle-alert";
   import Button from "$lib/components/Button.svelte";
   import Card from "$lib/components/Card.svelte";
+  import Field from "$lib/components/Field.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import type { ActionData, PageData } from "./$types";
 
@@ -101,20 +102,21 @@
               </span>
             </p>
 
-            <label for="confirm-{user.userId}">Type {user.confirmation} to confirm</label>
-            <input
+            <Field
+              label={`Type ${user.confirmation} to confirm`}
               id="confirm-{user.userId}"
-              name="confirmLabel"
-              bind:value={typed}
-              aria-describedby="warn-{user.userId}"
-              autocomplete="off"
-              autocapitalize="none"
-              spellcheck="false"
-            />
-
-            {#if form?.actionError && form?.userId === user.userId}
-              <p class="action-error" role="alert">{form.actionError}</p>
-            {/if}
+              error={form?.userId === user.userId ? form.actionError : undefined}
+            >
+              <input
+                id="confirm-{user.userId}"
+                name="confirmLabel"
+                bind:value={typed}
+                aria-describedby="warn-{user.userId} confirm-{user.userId}-error"
+                autocomplete="off"
+                autocapitalize="none"
+                spellcheck="false"
+              />
+            </Field>
 
             <div class="row">
               <Button variant="danger" type="submit" disabled={typed !== user.confirmation}>
@@ -215,18 +217,8 @@
     color: var(--text);
   }
 
-  .danger-panel label {
-    font-size: var(--t-sm);
-    color: var(--text);
-  }
-
   .danger-panel input {
     width: 100%;
-  }
-
-  .action-error {
-    color: var(--text);
-    margin: 0;
   }
 
   .row {

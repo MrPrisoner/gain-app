@@ -25,9 +25,14 @@ pass surfaced it.
   route's now-dead `.card { margin-top }` rule is removed; `.card h2` (or `.report-card
   h2`, where one coexisted) is merged into a plain `h2` rule per file, since every `<h2>`
   on these routes lives inside a `Card` and the two were byte-identical.
-- [ ] **`/admin` and `/account` hand-roll the exact shape `Field` exists for.** Both have a
-  `<label for>` + `<input>` + separate error `<p>` pattern in files that already adopted
-  `Button` and `Card` — a natural next `Field` adoption site.
+- [x] **`/admin` and `/account` now use `Field` for their reset-confirmation input.** Both
+  wrapped a `<label for>` + `<input>` + separate error `<p>` pattern; both now wrap the
+  input in `<Field label=... id=... error=...>`, wiring `aria-describedby` on the input to
+  reference both the existing warning paragraph and Field's new `{id}-error` — the first
+  real consumer of that generated id (see the `EmptyState`/`Field` props bullet above). One
+  visible side effect, and a correct one per CLAUDE.md's colour rule: the error text was
+  `color: var(--text)` by hand-rolled accident; `Field`'s own `.error` rule uses `--red`,
+  which is `/account`'s and `/admin`'s sanctioned meaning for a blocking error.
 - [x] **`Button`'s `href` and `size` had zero call sites** (plus dead `.btn.lg` CSS) and
   `href` combined with `disabled`/`pending` into a real accessibility gap (an `<a>` with
   `pointer-events: none` + `aria-disabled`, neither of which blocks keyboard Enter/Space
@@ -39,13 +44,12 @@ pass surfaced it.
   sweep (spacing-story item below) confirmed neither prop had a real use waiting on it —
   every call site wanted the default shadow and padding — so both are gone; `Card` now
   applies `--shadow-1` and `--pad-card` unconditionally, and `spaced` is its one prop.
-- [ ] **`EmptyState`'s `body`/`children`, and `Field`'s `hint`/`error`, are still unused
-  everywhere.** `EmptyState`: `body` and `children` unused across all 3 call sites.
-  `Field`: `hint` and `error` unused across both call sites, and their
-  `{id}-hint`/`{id}-error` generated ids have no `aria-describedby` consumer anywhere, so
-  that wiring is currently inert. Resolve each against whether the primitive-adoption
-  items below end up giving it a real call site (Field's `hint`/`error` on `/admin` and
-  `/account`, say) rather than deleting on sight.
+- [ ] **`EmptyState`'s `body`/`children` are still unused everywhere**, across all 3 call
+  sites. `Field`'s `error` found its first real call site in the `/admin`/`/account`
+  adoption above (with `aria-describedby` now actually wired to `{id}-error`); `hint`
+  remains unused and its `{id}-hint` id remains unreferenced. Resolve `EmptyState` and
+  `hint` against whether a later change gives either a real call site, rather than
+  deleting on sight.
 - [x] **`--shadow-2` removed rather than left aspirational.** It had exactly one
   consumer — `Card`'s `elevation` prop — which nothing ever set away from its default, and
   the Card-adoption sweep resolved `elevation` by deleting it (see the primitive-props
