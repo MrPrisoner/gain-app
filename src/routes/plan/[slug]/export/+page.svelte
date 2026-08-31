@@ -72,8 +72,8 @@
         };
       }}
     >
-      <Field label="How much history to include" id="export-window">
-        <fieldset aria-label="How much history to include">
+      <Field label="How much history to include" id="export-window" asGroup>
+        <fieldset>
           {#each data.options as option (option.id)}
             <label class="window">
               <input type="radio" name="window" value={option.id} bind:group={selected} />

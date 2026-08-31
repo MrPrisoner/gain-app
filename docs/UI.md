@@ -417,9 +417,11 @@ the way; visible enough that it does not quietly stop happening.
 
 ## 10. The token system
 
-Everything below lives in `src/app.css`. No screen invents its own type size, spacing
-value or shadow — that is what "inconsistent and unpolished" meant from the outside, before
-these tokens existed and thirty-nine `.svelte` files each arrived at their own units by eye.
+Everything below lives in `src/app.css`. Before these tokens existed, thirty-nine
+`.svelte` files each arrived at their own type size, spacing value and shadow by eye — that
+is what "inconsistent and unpolished" meant from the outside. The tokens are the standard
+new code is expected to reach for; they are not yet a claim that every screen already does,
+and the gaps that remain are named precisely below rather than smoothed over.
 
 **Type** is a single family — **Plus Jakarta Sans**, self-hosted, no CDN — with
 `font-variant-numeric: tabular-nums` on every figure that can be compared vertically, and a
@@ -453,12 +455,24 @@ nothing:
 | `--w-bold` | 700 | section headings, figures |
 | `--w-display` | 800 | page titles, the rest timer |
 
-**Spacing** is a 4/8px rhythm on the 16px base, `--s-1` through `--s-7` (4px to 48px), used
-for every gap and padding rather than a fresh value per site. `--pad-card` is the one
-derived token — `var(--s-4)` (16px) on a phone, stepping to `var(--s-5)` (24px) at 480px
-and up. Card padding was the single most-repeated value in the app before this existed, and
-it is the one that decides how much line length a 360px phone has: the runner nests three
-deep (block, exercise, set row), so 4px per level back is 12px of content width.
+**Spacing** is a 4/8px rhythm on the 16px base, `--s-1` through `--s-7` (4px to 48px). It is
+the standard for every gap and padding, and for `gap` specifically it is mechanically
+guarded: `tests/design-scale.test.ts` asserts every flex/grid `gap` declaration in the app
+resolves to a step on the scale. Padding and margin were never swept the same way — the
+test's own header comment says why: a multi-value shorthand (`padding: 0.75rem 1rem`) can't
+be checked against a single-value scale without an exemption list nobody has built. So a
+residual set of literal values remains: 109 literal `margin`/`padding` declarations across
+33 files, of which most (79) already happen to equal a token's value but are written
+longhand rather than as `var(--s-N)`, and 37 are genuinely off-scale. The largest single
+pattern is `1.25rem` (12 sites across 9 files), used as a de-facto, uncatalogued spacing
+step for section-separator rhythm — sweeping this residue is tracked
+(`docs/todo-design-system-followups.md`), not done.
+
+`--pad-card` is the one derived spacing token — `var(--s-4)` (16px) on a phone, stepping to
+`var(--s-5)` (24px) at 480px and up. Card padding was the single most-repeated value in the
+app before this existed, and it is the one that decides how much line length a 360px phone
+has: the runner nests three deep (block, exercise, set row), so 4px per level back is 12px
+of content width.
 
 **Two border tokens, two jobs.** `--line` is a hairline for dividers and card edges — quiet
 by design, because a card boundary is decorative, not a control the user has to locate.
@@ -466,8 +480,16 @@ by design, because a card boundary is decorative, not a control the user has to 
 unfilled button's border — because WCAG's non-text contrast rule applies to a control's
 boundary and not to a card's. Against `--surface`, the background most controls sit on, it
 holds 4.21:1 in dark and 3.55:1 in light — comfortably past the 3:1 floor that rule sets.
-Reach for `--line` on a card edge and `--line-strong` on anything tappable; using the quiet
-one on a control is how a button's outline goes invisible against its own background.
+
+**This is the standard for new code, not a description of what shipped.** `--line-strong`
+has exactly one consumer today — `Button.svelte`'s unfilled variants. Roughly two dozen
+other tappable controls — textareas, `<select>`s, tappable pills and rows, scale cells —
+still carry `--line` from before this rule existed, measuring 1.2–1.7:1 against their
+surfaces, well under the 3:1 floor the token exists to satisfy. Reach for `--line` on a
+card edge and `--line-strong` on anything tappable in anything you write; sweeping the
+existing controls onto it is tracked (`docs/todo-design-system-followups.md`), not done —
+using the quiet one on a control is how a button's outline goes invisible against its own
+background, and today most controls other than `Button` still do.
 
 **Elevation** is three steps — `--shadow-1` (cards, list rows), `--shadow-2` (sheets, the
 log strip, sticky chrome) and `--shadow-3` (reserved for full-screen overlays and modals;
@@ -505,6 +527,47 @@ Both light and dark themes are first-class: every token above is defined as a cu
 property in both palettes, components read the tokens and never a literal colour or pixel
 value, and the app honours both `prefers-color-scheme` and an explicit `data-theme`
 override.
+
+### The five primitives
+
+`src/lib/components/Button.svelte`, `Card.svelte`, `Field.svelte`, `PageHeader.svelte` and
+`EmptyState.svelte` are what turn the tokens above into shared building blocks, rather than
+leaving every screen to reassemble the same button or card border from raw CSS. Each is
+small and its own header comment or props carry the detail; this is the pointer, not the
+full account.
+
+- **`Button`** is the one place the 44px touch-target floor, press feedback and disabled
+  state live — a `variant` of `primary | secondary | quiet | danger`, a `size` of `md`
+  (default) or `lg`, an optional `href` to render as a styled anchor instead of a
+  `<button>`, and `pending`/`pendingLabel` to disable a control and swap its label while an
+  in-flight request has not yet satisfied its precondition (see "A control that can post
+  before its precondition exists must be disabled" earlier in this file). Called from, for
+  example, the generate/copy/download actions on `plan/[slug]/export/+page.svelte`.
+- **`Card`** is the only component with a `box-shadow` — `elevation: 1 | 2`, mapped to
+  `--shadow-1`/`--shadow-2` per the "Elevation" note above — plus a `padded` prop (default
+  `true`) applying `--pad-card`. Reach for it for any raised content well; called from, for
+  example, `plan/[slug]/export/+page.svelte`.
+- **`Field`** pairs a label with one form control, plus optional `hint`/`error` paragraphs
+  rendered as `{id}-hint`/`{id}-error`. `asGroup` swaps the default `<label for={id}>` for a
+  plain `<span>` label when the wrapped control is a `<fieldset>` whose own legend or
+  `aria-label` already carries its accessible name — a fieldset has nothing for a `for`
+  attribute to point at. Called plainly from `import/ImportPlanForm.svelte`'s paste
+  textarea, and with `asGroup` from `plan/[slug]/export/+page.svelte`'s history-window radio
+  group.
+- **`PageHeader`** is the `<h1>` treatment (`--t-lg` / `--w-display`, see "Type" above) plus
+  an optional `subtitle` and an optional `backHref`/`backLabel` rendering a `BackLink`
+  beneath the title. Reach for it at the top of any read route; called from, for example,
+  `plan/[slug]/history/+page.svelte`.
+- **`EmptyState`** is a compact "nothing here yet" block — a `title`, an optional `body`
+  paragraph, and an optional `children` snippet for a call-to-action beneath it — so an
+  empty chart says so in a few lines rather than drawing its full well with nothing in it.
+  Called from, for example, `plan/[slug]/history/+page.svelte`.
+
+Several props exist with no call site yet — `Button`'s `href`, `size`, `pending` and
+`pendingLabel`; `Card`'s `elevation` and `padded`; `Field`'s `hint` and `error`;
+`EmptyState`'s `body` and `children` — each added for a reason even though nothing has
+needed it yet. They are tracked in `docs/todo-design-system-followups.md` rather than
+removed on sight.
 
 ---
 
@@ -583,10 +646,37 @@ over-claimed mechanical check is worse than an acknowledged manual one:
   the selector itself cannot close: `Sparkline` and `BarChart` give each plotted point a
   real `role="button"` hit circle (24 viewBox units, scaled by the chart's own
   `width: 100%` SVG), which renders under 44 CSS px on a narrow phone whenever a chart
-  actually has data to plot — but progress's charts render their empty `emptyLabel` state,
-  with no circles at all, unless another spec has already seeded duration data into the
-  shared test database first. The check is correct and does query these elements; whether
-  it catches this one is an accident of run order and test data, not of route coverage.
+  actually has data to plot. This is a pre-existing sizing bug in both files, and this pass
+  did not touch it — the layout-chrome remap task (Task 3) edited the same two files, but
+  only to move their label font sizes onto scale tokens (`10px` → `var(--t-2xs)`, and
+  similarly for the rest); it never touched the hit-circle/hit-rect geometry, which is the
+  part that is actually broken. The token remap is also why "12px" is not literally true at
+  this call site: the label text lives inside the same viewBox that the chart's own
+  `width: 100%` scales, so a CSS-px-valued token renders at a size that scales with the
+  container's width there, the same mechanism behind the hit-target bug — not at the
+  fixed CSS pixel size the token implies everywhere else. Separately, progress's charts
+  render their empty `emptyLabel` state, with no circles at all, unless another spec has
+  already seeded duration data into the shared test database first, so a narrow run of just
+  this one spec file can appear to pass. Running the full suite — the way `npm run test:e2e`
+  and CI do — seeds that data, and the touch-targets check on the progress route then fails
+  on this. That failure is a known, already-understood assertion, not an intermittent one:
+  the next person who sees it red should not spend time debugging it as new.
+
+**Every sweep also runs under one fixed state, not several — a gap in kind, not just in
+route.** All three viewport projects authenticate through `GAIN_DEV_USER`'s auth bypass
+against a database with a plan already seeded, so every route above is checked in exactly
+one condition: an ordinary, non-admin user, mid-plan, signed in. A control that only
+renders in a *different* state is exercised by no sweep at all, regardless of whether its
+route is in scope — this is distinct from the route gaps named above. Known instances: the
+header's "Sign out" button (`+layout.svelte`'s `.linklike` styling, no `min-height`, ~21px
+tall in production — rendered only when the app is *not* running under the dev bypass); the
+admin-only "Users" link (rendered only for an actual admin session); the sync banner's
+"Discard" button for a quarantined offline write (a genuinely destructive control by this
+repo's own quarantine invariant — see CLAUDE.md's "Offline is a hard requirement" section);
+and first-run home's three buttons (rendered only when a user has zero plans, and the e2e
+fixture always seeds one). None of these are believed compliant by inference from a sibling
+control that *is* swept — they are simply unchecked, and are recorded here so that is known
+rather than assumed.
 
 **One accepted keyboard cost, recorded so it is not rediscovered as a bug.** The progress
 window pickers navigate on `change`, so arrow-keying a *closed* `<select>` on a desktop

@@ -5,12 +5,28 @@
     id,
     hint,
     error,
+    asGroup = false,
     children,
-  }: { label: string; id: string; hint?: string; error?: string; children: Snippet } = $props();
+  }: {
+    label: string;
+    id: string;
+    hint?: string;
+    error?: string;
+    asGroup?: boolean;
+    children: Snippet;
+  } = $props();
 </script>
 
 <div class="field">
-  <label for={id}>{label}</label>
+  <!-- `asGroup` is for a wrapped `<fieldset>`: its own legend/`aria-label` already gives
+       it an accessible name, so a `<label for>` here would point at no element (a
+       fieldset has no value of its own to associate with) and double-announce the name.
+       Field's job for a group is the same visual label, not the for/id association. -->
+  {#if asGroup}
+    <span class="label">{label}</span>
+  {:else}
+    <label for={id}>{label}</label>
+  {/if}
   {#if hint}<p class="hint" id="{id}-hint">{hint}</p>{/if}
   {@render children()}
   <!-- An error the user cannot see is worse than a crash: it belongs next to the control
@@ -24,7 +40,8 @@
     gap: var(--s-2);
   }
 
-  label {
+  label,
+  .label {
     font-size: var(--t-sm);
     font-weight: var(--w-semi);
   }

@@ -233,7 +233,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Every figure that can be compared vertically (UI-DECISIONS §10). */
+/* Every figure that can be compared vertically (UI §10). */
 input,
 button,
 textarea,
