@@ -10,7 +10,7 @@
  */
 
 import { expect, test, type Page } from "@playwright/test";
-import { E2E_PLAN_SLUG } from "./env";
+import { E2E_ADMIN_USER, E2E_PLAN_SLUG } from "./env";
 
 const INTERACTIVE =
   'button, a[href], input:not([type="hidden"]), select, textarea, [role="button"]';
@@ -57,3 +57,13 @@ for (const [name, url] of ROUTES) {
     expect(await undersized(page), "every control is at least 44x44 CSS px").toEqual([]);
   });
 }
+
+// `/admin` only renders its "Users" link (and the rest of the operator chrome) for
+// `GAIN_DEV_ADMIN` — every other route above authenticates as an ordinary bypass user,
+// so this is the one place that header-derived control gets a floor check at all.
+test("admin has no undersized touch target", async ({ page }) => {
+  await page.setExtraHTTPHeaders({ "x-gain-e2e-user": E2E_ADMIN_USER });
+  await page.goto("/admin");
+  await page.waitForLoadState("networkidle");
+  expect(await undersized(page), "every control is at least 44x44 CSS px").toEqual([]);
+});

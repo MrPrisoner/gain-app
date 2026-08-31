@@ -72,6 +72,61 @@ export function contrastRatio(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
+/**
+ * Dark is the default and light follows `prefers-color-scheme`, so the bare `:root`
+ * block and the `@media (prefers-color-scheme: light)` block are the palette most users
+ * actually see — the `[data-theme="..."]` blocks only apply once someone has touched the
+ * theme toggle. `app.css` duplicates each palette deliberately (so an explicit toggle
+ * wins in both directions over the media query), which means nothing but hand-editing
+ * discipline keeps the two copies of each theme in agreement. This asserts that
+ * agreement directly rather than trusting it.
+ */
+function readBareRootTokens(): Record<string, string> {
+  const body = blockAfter(":root");
+  const tokens: Record<string, string> = {};
+  for (const match of body.matchAll(/--([\w-]+):\s*([^;]+);/g)) {
+    const [, name, value] = match;
+    if (name && value) tokens[name] = value.trim();
+  }
+  return tokens;
+}
+
+function readMediaLightTokens(): Record<string, string> {
+  // The media query wraps its tokens in a nested `:root { ... }`, so the first `{` after
+  // the `@media` selector opens the media block itself, not the token list — walk in one
+  // more level to reach the actual declarations.
+  const outer = blockAfter("@media (prefers-color-scheme: light)");
+  const body = outer.slice(outer.indexOf("{") + 1, outer.lastIndexOf("}"));
+  const tokens: Record<string, string> = {};
+  for (const match of body.matchAll(/--([\w-]+):\s*([^;]+);/g)) {
+    const [, name, value] = match;
+    if (name && value) tokens[name] = value.trim();
+  }
+  return tokens;
+}
+
+describe("default palette (no data-theme attribute)", () => {
+  it('the bare :root block matches [data-theme="dark"] token for token', () => {
+    const bare = readBareRootTokens();
+    const dark = readThemeTokens("dark");
+    // The bare block also carries non-colour tokens (type, spacing, motion...) that
+    // dark/light don't redeclare — only compare the keys both sides actually define.
+    const shared = Object.keys(bare).filter((k) => k in dark);
+    for (const key of shared) {
+      expect(bare[key], `--${key}`).toBe(dark[key]);
+    }
+  });
+
+  it('the light media query matches [data-theme="light"] token for token', () => {
+    const media = readMediaLightTokens();
+    const light = readThemeTokens("light");
+    expect(Object.keys(media).sort()).toEqual(Object.keys(light).sort());
+    for (const key of Object.keys(media)) {
+      expect(media[key], `--${key}`).toBe(light[key]);
+    }
+  });
+});
+
 const SURFACES = ["ground", "surface", "raised", "hover"] as const;
 const TEXT_ON_EVERY_SURFACE = ["text", "muted", "dim", "accent"] as const;
 const SEMANTIC_TEXT = ["green", "amber", "red"] as const;
