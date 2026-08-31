@@ -457,7 +457,7 @@
     justify-content: center;
     gap: var(--s-2);
     min-height: 3.5rem;
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-strong);
     background: var(--raised);
     border-radius: var(--r-md);
     padding: var(--s-2) var(--s-1);

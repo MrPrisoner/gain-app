@@ -466,7 +466,7 @@ residual set of literal values remains: 109 literal `margin`/`padding` declarati
 longhand rather than as `var(--s-N)`, and 37 are genuinely off-scale. The largest single
 pattern is `1.25rem` (12 sites across 9 files), used as a de-facto, uncatalogued spacing
 step for section-separator rhythm — sweeping this residue is tracked
-(`docs/todo-design-system-followups.md`), not done.
+(`docs/todo-ui-followups.md`), not done.
 
 `--pad-card` is the one derived spacing token — `var(--s-4)` (16px) on a phone, stepping to
 `var(--s-5)` (24px) at 480px and up. Card padding was the single most-repeated value in the
@@ -481,15 +481,13 @@ unfilled button's border — because WCAG's non-text contrast rule applies to a 
 boundary and not to a card's. Against `--surface`, the background most controls sit on, it
 holds 4.21:1 in dark and 3.55:1 in light — comfortably past the 3:1 floor that rule sets.
 
-**This is the standard for new code, not a description of what shipped.** `--line-strong`
-has exactly one consumer today — `Button.svelte`'s unfilled variants. Roughly two dozen
-other tappable controls — textareas, `<select>`s, tappable pills and rows, scale cells —
-still carry `--line` from before this rule existed, measuring 1.2–1.7:1 against their
-surfaces, well under the 3:1 floor the token exists to satisfy. Reach for `--line` on a
-card edge and `--line-strong` on anything tappable in anything you write; sweeping the
-existing controls onto it is tracked (`docs/todo-design-system-followups.md`), not done —
-using the quiet one on a control is how a button's outline goes invisible against its own
-background, and today most controls other than `Button` still do.
+Every tappable control's border in the app now carries `--line-strong` — `Button`'s
+unfilled variants, every textarea and `<select>`, and every tappable pill, chip, row and
+scale cell. A container's own edge (a `Card`, a static alert panel, a decorative fill
+indicator) stays on `--line`, because WCAG's non-text contrast rule is about locating a
+control's boundary, not about a card's. Reach for `--line` on a card edge and
+`--line-strong` on anything tappable in anything you write — using the quiet one on a
+control is how a button's outline goes invisible against its own background.
 
 **Elevation** is three steps — `--shadow-1` (cards, list rows), `--shadow-2` (sheets, the
 log strip, sticky chrome) and `--shadow-3` (reserved for full-screen overlays and modals;
@@ -565,11 +563,16 @@ full account.
   empty chart says so in a few lines rather than drawing its full well with nothing in it.
   Called from, for example, `plan/[slug]/history/+page.svelte`.
 
-Several props exist with no call site yet — `Button`'s `href`, `size`, `pending` and
-`pendingLabel`; `Card`'s `elevation` and `padded`; `Field`'s `hint` and `error`;
-`EmptyState`'s `body` and `children` — each added for a reason even though nothing has
-needed it yet. They are tracked in `docs/todo-design-system-followups.md` rather than
-removed on sight.
+`Button`'s `href` and `size` were removed rather than kept ahead of use: neither ever had a
+call site, and `href` combined with `disabled`/`pending` to leave a real gap (an `<a>`
+rendered `pointer-events: none` + `aria-disabled`, neither of which blocks keyboard
+Enter/Space on a real anchor) that nothing depended on and nothing would have caught until
+the first call site shipped it. `pending`/`pendingLabel` stay — `account/+page.svelte`'s
+reset flow uses them for its own `?/reset` race, the same "a control that can post before
+its precondition exists must be disabled" concern the runner has. `Card`'s `elevation` and
+`padded`, and `Field`'s `hint` and `error`, still have no call site; each is tracked in
+`docs/todo-ui-followups.md` rather than removed on sight, pending an adoption site that
+would actually exercise it.
 
 ---
 

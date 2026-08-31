@@ -115,7 +115,7 @@
     align-items: center;
     justify-content: space-between;
     background: var(--raised);
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-strong);
     color: var(--text);
     border-radius: var(--r-sm);
     padding: var(--s-3) var(--s-5);
@@ -155,7 +155,7 @@
     row-gap: var(--s-1);
     text-align: left;
     background: var(--raised);
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-strong);
     color: var(--text);
     border-radius: var(--r-sm);
     padding: var(--s-3) var(--s-5);

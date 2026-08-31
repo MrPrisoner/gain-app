@@ -123,7 +123,7 @@
 
   button.secondary {
     background: var(--raised);
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-strong);
     color: var(--text);
   }
 
@@ -131,7 +131,7 @@
     width: 100%;
     padding: var(--s-3);
     border-radius: var(--r-xs);
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-strong);
     background: var(--raised);
     color: var(--text);
     font: inherit;

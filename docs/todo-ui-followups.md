@@ -27,13 +27,20 @@ pass surfaced it.
 - [ ] **`/admin` and `/account` hand-roll the exact shape `Field` exists for.** Both have a
   `<label for>` + `<input>` + separate error `<p>` pattern in files that already adopted
   `Button` and `Card` — a natural next `Field` adoption site.
-- [ ] **Several primitive props are unused everywhere.** `Button`: `href`, `size`,
-  `pending`, `pendingLabel` have zero call sites (plus dead `.btn.lg` CSS); the runner
-  doesn't use `Button` at all despite it existing partly for the runner's own
-  `?/start`-race concern. `Card`: `elevation` and `padded` unused across all 14 call
-  sites. `EmptyState`: `body` and `children` unused across all 3. `Field`: `hint` and
-  `error` unused across both call sites, and their `{id}-hint`/`{id}-error` generated ids
-  have no `aria-describedby` consumer anywhere, so that wiring is currently inert.
+- [x] **`Button`'s `href` and `size` had zero call sites** (plus dead `.btn.lg` CSS) and
+  `href` combined with `disabled`/`pending` into a real accessibility gap (an `<a>` with
+  `pointer-events: none` + `aria-disabled`, neither of which blocks keyboard Enter/Space
+  activation). Removed rather than hardened, since nothing depended on either. Correcting
+  the record while here: `pending`/`pendingLabel` were never actually unused — this bullet
+  previously missed `account/+page.svelte`'s reset flow, which uses both for its own
+  `?/reset` race — so they stay.
+- [ ] **`Card`'s `elevation`/`padded`, `EmptyState`'s `body`/`children`, and `Field`'s
+  `hint`/`error` are still unused everywhere.** `Card`: unused across all 14 call sites.
+  `EmptyState`: `body` and `children` unused across all 3. `Field`: `hint` and `error`
+  unused across both call sites, and their `{id}-hint`/`{id}-error` generated ids have no
+  `aria-describedby` consumer anywhere, so that wiring is currently inert. Resolve each
+  against whether the primitive-adoption items below end up giving it a real call site
+  (Field's `hint`/`error` on `/admin` and `/account`, say) rather than deleting on sight.
 - [ ] **`--shadow-2` is effectively dead.** Only two `box-shadow` declarations exist in
   the whole app, both in `Card.svelte`, and nothing currently passes `elevation={2}` — so
   `--shadow-2` (documented as being for "sheets, the log strip, sticky chrome") has no
@@ -47,48 +54,47 @@ pass surfaced it.
   ease`, two sites), and `RestTimer.svelte`'s `width 0.2s linear` — meaning
   `prefers-reduced-motion: reduce` (which works by collapsing `--dur-*` at `:root`) does
   not reach them, contradicting §10's framing that it does.
+- [ ] **Literal `margin`/`padding` residue never got the `--s-N` sweep `gap` got.**
+  `docs/UI.md` §10 already discloses this (its own reference to a tracking doc had gone
+  stale — a leftover from before the two backlog lists were merged into this one, now
+  fixed to point here instead): 109 literal `margin`/`padding` declarations across 33
+  files, 79 of which already equal a token's value but are spelled out longhand rather
+  than as `var(--s-N)`, and 37 genuinely off-scale — the largest single pattern being
+  `1.25rem` (12 sites across 9 files) as a de-facto, uncatalogued section-separator step.
+  `tests/design-scale.test.ts`'s own header comment explains why `gap` got a mechanical
+  guard and padding/margin didn't: a multi-value shorthand (`padding: 0.75rem 1rem`) can't
+  be checked against a single-value scale without an exemption list nobody has built yet.
 
 ## Accessibility
 
-- [ ] **`--line-strong` sweep outstanding.** ~26 tappable controls (textareas, `<select>`s,
-  tappable pills/rows — e.g. `ImportPlanForm.svelte`'s paste textarea,
-  `versions/[n]/+page.svelte`'s `.doc` textarea, both progress window `<select>`s,
-  `DeviationSheet.svelte`'s substitute select and reason chips, `MetricRow.svelte`'s scale
-  cells, `BlockSection.svelte`'s warm-up pills, `RestTimer.svelte`'s buttons) still use
-  `--line` instead of `--line-strong`, measuring 1.2–1.7:1 against their surfaces — below
-  the WCAG 3:1 non-text contrast floor the token exists to satisfy. `docs/UI.md` §10 now
-  states the rule as the standard for new code rather than as something already applied;
-  this item is the sweep that would make it true everywhere.
-- [ ] **The wordmark's literal colour fails contrast in most combinations.**
-  `src/routes/+layout.svelte`'s wordmark "AI" span uses a literal `#6a8098` (not a token),
-  measuring 4.07:1 / 3.76:1 on light surfaces and 4.32:1 on dark `--surface` — below the
-  4.5:1 AA floor in 3 of 4 combinations. Likely defensible as a logotype (WCAG 1.4.3
-  exempts brand marks) but sits outside every contrast guard this pass added, since the
-  guard test only inspects tokens.
-- [ ] **`Button`'s `href` + `inert` combination has a latent accessibility gap.** When
-  `href` is set and the button is disabled/pending, it renders `pointer-events: none` +
-  `aria-disabled` on an `<a>` — neither of which actually prevents keyboard (Enter/Space)
-  activation of a real anchor element. Currently unreachable in practice (no call site
-  uses `href` at all yet), but will be wrong the first time someone does.
+- [x] **`--line-strong` sweep, done.** Every tappable control across ~21 files (textareas,
+  `<select>`s, tappable pills/rows/chips, scale cells, buttons hand-rolling their own
+  border) now carries `--line-strong` instead of `--line`. Left on `--line` deliberately:
+  a container's own edge (`Card`, static alert/report panels, decorative fill indicators
+  like `.rounds-indicator i`/`.effort-fill i`/`.led-effort i`, and static labels like
+  `BlockSection`'s `.tag`) — none of those are themselves a control. `docs/UI.md` §10
+  updated to describe this as done rather than outstanding.
+- [x] **Wordmark contrast, fixed.** `+layout.svelte`'s "AI" span now reads `var(--wordmark)`,
+  a new per-theme token (`#7e98b4` dark, `#5c6f84` light) clearing 4.5:1 on every surface
+  in both themes, added to the design-tokens guard test's `TEXT_ON_EVERY_SURFACE` list so
+  it can't silently regress.
+- [x] **`Button`'s `href`/`inert` gap, closed by removing `href`.** `href` and `size` had
+  zero call sites anywhere, so the branch was hardened against nothing — removed instead,
+  which closes the gap outright rather than patching code nothing exercises.
+  `pending`/`pendingLabel` stay (`account/+page.svelte`'s reset flow uses them).
 
 ## Test coverage
 
-- [ ] **Palette-copy guard-test gap.** `tests/design-tokens.test.ts` only asserts the two
-  `[data-theme="..."]` palette blocks in `app.css`; the bare `:root` / `@media
-  (prefers-color-scheme)` pair — the actual default path for a user who has never touched
-  the theme toggle — is unasserted. They currently agree on all 21 colour tokens, but
-  nothing keeps them agreeing. Cheap fix: assert `bare :root ≡ [data-theme="dark"]` and
-  `media light ≡ [data-theme="light"]`.
-- [ ] **`.linklike`'s 44px floor is untested under real conditions.** The header's Sign
-  out / admin "Users" / sync-banner Discard controls were given the same `min-height` +
-  `min-width` floor `Button` holds (fixed alongside this doc's merge), but
-  `e2e/touch-targets.spec.ts` can't see any of them today: every e2e run goes through the
-  `GAIN_DEV_USER` bypass, which always sets `data.user.bypass`, so Sign out never renders
-  in any spec; "Users" only renders for `GAIN_DEV_ADMIN`, which no touch-target route
-  currently authenticates as; and Discard only renders once an op is quarantined, which
-  no touch-target route triggers. Extending the spec to cover at least the admin-header
-  case (`x-gain-e2e-user: e2e-admin`) is a reasonable next step; Sign out is likely
-  untestable without a real OIDC session, which the e2e harness deliberately doesn't run.
+- [x] **Palette-copy guard-test gap, closed.** `design-tokens.test.ts` now also asserts
+  the bare `:root` block token-for-token against `[data-theme="dark"]`, and the
+  `@media (prefers-color-scheme: light)` block against `[data-theme="light"]` — the two
+  pairs a user who never touches the theme toggle actually sees.
+- [x] **`.linklike`'s 44px floor, the reasonable next step taken.** Added an
+  admin-authenticated pass (`x-gain-e2e-user: e2e-admin`) to `touch-targets.spec.ts`
+  covering "Users" — the case this item called out as reasonable to close. Sign out and
+  the sync banner's Discard remain untested for the reasons already given above (no real
+  OIDC session in the e2e harness; no touch-target route currently quarantines an op) —
+  those are gaps in what can be tested here, not gaps left undone.
 
 ## Screen-level polish
 

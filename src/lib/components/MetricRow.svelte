@@ -143,7 +143,7 @@
   .scale-cell {
     width: 100%;
     min-height: 2.75rem;
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-strong);
     background: var(--raised);
     color: var(--text);
     border-radius: var(--r-xs);

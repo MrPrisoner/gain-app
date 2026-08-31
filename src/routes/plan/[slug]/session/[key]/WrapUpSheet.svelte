@@ -148,7 +148,7 @@
   }
   .secondary {
     background: var(--raised);
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-strong);
     color: var(--text);
   }
   .next-morning-note {

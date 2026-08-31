@@ -193,7 +193,7 @@
     gap: var(--s-2);
     min-height: 2.75rem;
     padding: var(--s-1) var(--s-2);
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-strong);
     border-radius: var(--r-xs);
     background: var(--raised);
     color: var(--text);
@@ -215,7 +215,7 @@
     min-height: 2.75rem;
     padding: var(--s-3);
     border-radius: var(--r-xs);
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-strong);
     background: var(--raised);
     color: var(--text);
     font: inherit;
@@ -248,7 +248,7 @@
   }
   .secondary {
     background: var(--raised);
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-strong);
     color: var(--text);
   }
 </style>

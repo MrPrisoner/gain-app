@@ -164,7 +164,7 @@
     align-items: center;
     gap: var(--s-3);
     padding: var(--s-3);
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-strong);
     border-radius: var(--r-sm);
     background: var(--raised);
     min-width: 0;
@@ -212,7 +212,7 @@
     width: 100%;
     padding: var(--s-3);
     border-radius: var(--r-xs);
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-strong);
     background: var(--raised);
     color: var(--text);
     font: inherit;
