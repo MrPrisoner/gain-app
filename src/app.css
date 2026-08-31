@@ -52,6 +52,11 @@
   --amber: #d9a23f;
   --amber-soft: rgba(217, 162, 63, 0.12);
   --red: #e0655b;
+  /* The wordmark's "AI" highlight. Its own token because it answers to the app icon's
+       hue, not to --accent — kept separate so a future accent change can't silently pull
+       the logotype's colour with it. Picked to clear 4.5:1 on every surface, same floor
+       as --accent and --dim. */
+  --wordmark: #7e98b4;
 
   --font: "Jakarta", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 
@@ -136,6 +141,7 @@
     --amber: #876314;
     --amber-soft: rgba(135, 99, 20, 0.1);
     --red: #b34038;
+    --wordmark: #5c6f84;
     --shadow-1: 0 1px 2px rgba(15, 19, 25, 0.06), 0 1px 3px rgba(15, 19, 25, 0.05);
     --shadow-2: 0 4px 12px rgba(15, 19, 25, 0.08), 0 1px 3px rgba(15, 19, 25, 0.06);
     --shadow-3: 0 12px 32px rgba(15, 19, 25, 0.16);
@@ -161,6 +167,7 @@
   --amber: #876314;
   --amber-soft: rgba(135, 99, 20, 0.1);
   --red: #b34038;
+  --wordmark: #5c6f84;
   --shadow-1: 0 1px 2px rgba(15, 19, 25, 0.06), 0 1px 3px rgba(15, 19, 25, 0.05);
   --shadow-2: 0 4px 12px rgba(15, 19, 25, 0.08), 0 1px 3px rgba(15, 19, 25, 0.06);
   --shadow-3: 0 12px 32px rgba(15, 19, 25, 0.16);
@@ -185,6 +192,7 @@
   --amber: #d9a23f;
   --amber-soft: rgba(217, 162, 63, 0.12);
   --red: #e0655b;
+  --wordmark: #7e98b4;
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-2: 0 4px 12px rgba(0, 0, 0, 0.45);
   --shadow-3: 0 16px 40px rgba(0, 0, 0, 0.6);

@@ -131,8 +131,10 @@
   }
 
   .wordmark .ai {
-    /* matches the "AI" highlight in the app icon (static/gain-blue-steel.svg) */
-    color: #6a8098;
+    /* Echoes the "AI" highlight in the app icon (static/gain-blue-steel.svg), tuned per
+       theme by the --wordmark token so it clears 4.5:1 on every surface rather than
+       carrying one literal hue that fails most of them. */
+    color: var(--wordmark);
   }
 
   .top-right {

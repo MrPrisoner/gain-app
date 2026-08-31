@@ -3,8 +3,6 @@
 
   type Props = {
     variant?: "primary" | "secondary" | "quiet" | "danger";
-    size?: "md" | "lg";
-    href?: string;
     type?: "button" | "submit";
     disabled?: boolean;
     pending?: boolean;
@@ -16,8 +14,6 @@
 
   let {
     variant = "secondary",
-    size = "md",
-    href,
     type = "button",
     disabled = false,
     pending = false,
@@ -27,23 +23,15 @@
     icon,
   }: Props = $props();
 
-  // A control that can post before its precondition exists must be disabled — the runner
-  // once rendered every logging control while `?/start` was still in flight, and a fast
-  // tap posted an empty workout id straight into a 500.
+  // A control that can post before its precondition exists must be disabled — the
+  // account reset flow's own `?/reset` round-trip is exactly this concern.
   const inert = $derived(disabled || pending);
 </script>
 
-{#if href}
-  <a class="btn {variant} {size}" class:inert {href} aria-disabled={inert || undefined}>
-    {#if icon}{@render icon()}{/if}
-    {@render children()}
-  </a>
-{:else}
-  <button class="btn {variant} {size}" {type} disabled={inert} {onclick}>
-    {#if icon}{@render icon()}{/if}
-    {#if pending && pendingLabel}{pendingLabel}{:else}{@render children()}{/if}
-  </button>
-{/if}
+<button class="btn {variant}" {type} disabled={inert} {onclick}>
+  {#if icon}{@render icon()}{/if}
+  {#if pending && pendingLabel}{pendingLabel}{:else}{@render children()}{/if}
+</button>
 
 <style>
   /* The 44px floor lives here and nowhere else. Before this it was applied in eleven
@@ -67,12 +55,6 @@
       background-color var(--dur-fast) var(--ease),
       border-color var(--dur-fast) var(--ease),
       opacity var(--dur-fast) var(--ease);
-  }
-
-  .btn.lg {
-    min-height: 3.25rem;
-    padding: var(--s-3) var(--s-5);
-    font-size: var(--t-base);
   }
 
   .btn:hover {
@@ -113,8 +95,7 @@
     opacity: 0.85;
   }
 
-  .btn:disabled,
-  .btn.inert {
+  .btn:disabled {
     opacity: 0.5;
     cursor: default;
     pointer-events: none;

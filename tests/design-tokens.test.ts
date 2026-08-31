@@ -128,7 +128,7 @@ describe("default palette (no data-theme attribute)", () => {
 });
 
 const SURFACES = ["ground", "surface", "raised", "hover"] as const;
-const TEXT_ON_EVERY_SURFACE = ["text", "muted", "dim", "accent"] as const;
+const TEXT_ON_EVERY_SURFACE = ["text", "muted", "dim", "accent", "wordmark"] as const;
 const SEMANTIC_TEXT = ["green", "amber", "red"] as const;
 
 describe.each(["light", "dark"] as const)("%s theme", (theme) => {
