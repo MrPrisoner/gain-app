@@ -92,11 +92,13 @@
     cursor: pointer;
   }
   .bar-label {
-    font-size: var(--t-2xs);
+    /* Fixed px, not a token — see Sparkline's `.point-label` for why SVG `viewBox` text
+       can't follow the rem-based type scale. design-scale.test.ts exempts this file. */
+    font-size: 10px;
     fill: var(--muted);
   }
   .empty {
-    font-size: var(--t-2xs);
+    font-size: 12px;
     fill: var(--dim);
   }
   .readout {

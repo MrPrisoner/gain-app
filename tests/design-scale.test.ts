@@ -37,6 +37,19 @@ function styles(source: string): string {
 
 const PROPERTIES = ["font-size", "gap", "row-gap", "column-gap"] as const;
 
+/**
+ * `font-size` inside an SVG chart's `viewBox` is plotted in fixed coordinate units, not
+ * the rem-based type scale — a token there grows past the plotted geometry under a
+ * larger root font size and clips against the chart edge instead of just re-flowing
+ * (Sparkline's `.point-label` sits 10 user-units above its point; a token pushed its
+ * ascent past the chart's top edge). Two files, one property each, named explicitly
+ * rather than matched by a pattern so a third file can't silently join the exemption.
+ */
+const EXEMPT: ReadonlySet<string> = new Set([
+  "src/lib/components/Sparkline.svelte:font-size",
+  "src/lib/components/BarChart.svelte:font-size",
+]);
+
 describe("design scale", () => {
   it("has files to check", () => {
     expect(FILES.length).toBeGreaterThan(30);
@@ -45,11 +58,17 @@ describe("design scale", () => {
   it.each(PROPERTIES)("every `%s` is a token", (property) => {
     const offenders: string[] = [];
     for (const file of FILES) {
+      const relative = path.relative(process.cwd(), file);
+      if (EXEMPT.has(`${relative}:${property}`)) continue;
       const body = styles(fs.readFileSync(file, "utf8"));
-      for (const [, value] of body.matchAll(new RegExp(`${property}:\\s*([^;]+);`, "g"))) {
+      // A negative lookbehind on the property name keeps `gap` from substring-matching
+      // `row-gap`/`column-gap`, and `[;}]` (rather than requiring `;`) still catches a
+      // block's last declaration when it has no trailing semicolon before the `}`.
+      const pattern = new RegExp(`(?<![a-zA-Z-])${property}:\\s*([^;}]+)[;}]`, "g");
+      for (const [, value] of body.matchAll(pattern)) {
         const v = value!.trim();
         if (v.startsWith("var(--") || v === "inherit" || v === "0") continue;
-        offenders.push(`${path.relative(process.cwd(), file)}: ${property}: ${v}`);
+        offenders.push(`${relative}: ${property}: ${v}`);
       }
     }
     expect(offenders, `use a token from app.css:\n${offenders.join("\n")}`).toEqual([]);

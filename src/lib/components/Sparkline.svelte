@@ -116,11 +116,15 @@
     cursor: pointer;
   }
   .point-label {
-    font-size: var(--t-2xs);
+    /* Fixed px, not a token: this text lives inside the SVG's `viewBox`, a coordinate
+       space that does not scale with the root font size the way `rem`-based tokens do —
+       a token here grows past the plotted geometry under a larger root and clips against
+       the chart edge instead of just re-flowing. design-scale.test.ts exempts this file. */
+    font-size: 10px;
     fill: var(--muted);
   }
   .empty {
-    font-size: var(--t-2xs);
+    font-size: 12px;
     fill: var(--dim);
   }
   .readout {
