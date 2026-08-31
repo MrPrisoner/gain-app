@@ -90,7 +90,7 @@ Read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) first, then
 design decisions in ARCHITECTURE §2 are settled, and each carries the reason it exists —
 implement against them rather than relitigating them, and if you think one should change,
 argue with its reason rather than around it. The same applies to
-[`docs/UI-DECISIONS.md`](docs/UI-DECISIONS.md), which settles how the session runner
+[`docs/UI.md`](docs/UI.md), which settles how the session runner
 behaves; read it before touching anything user-facing.
 
 Those three, plus this file and `README.md`, are the whole of the standing documentation.
@@ -201,7 +201,7 @@ user needs to decide under its own heading at the end, numbered so they can repl
 recommendation with the question.
 
 **That is about chat replies, not about files.** `docs/` is a collection of documents with
-different jobs and different shapes: ARCHITECTURE, CONTRACT and UI-DECISIONS argue a case,
+different jobs and different shapes: ARCHITECTURE, CONTRACT and UI argue a case,
 so their prose is deliberate and should not be flattened into bullets when you edit them.
 A working document you write to track a job in progress is a checklist and should read
 like one. Match the document you are in.
@@ -226,7 +226,7 @@ When the work closes, in the same commit:
 - **Fold the durable half in.** A reason that will govern the next change belongs beside
   the code it governs — a module doc comment is usually the best home, because it is the
   one place nobody can miss. Otherwise: ARCHITECTURE for a design decision or an accepted
-  risk, UI-DECISIONS for runner behaviour, CONTRACT for the plan format, this file's
+  risk, UI for runner behaviour, CONTRACT for the plan format, this file's
   Invariants for something that breaks quietly, README for what the app does or how it is
   run. Most findings have no durable half and need no home at all.
 - **Delete the tracking doc.** No strikethrough, no "done" section, no archive directory.
@@ -466,19 +466,19 @@ protect:
 - **`weight_kg` is always the total kilograms being lifted**, everywhere — the log, the
   charts, the export. Settled 2026-08-10: the contract has no field meaning "this movement
   is paired", `per_side` is not that field, and adding one was rejected because
-  `docs/CONTRACT.md` ships verbatim in every export and bootstrap prompt. So UI-DECISIONS
+  `docs/CONTRACT.md` ships verbatim in every export and bootstrap prompt. So UI
   §3's `2 × N` sub-line is the one clause of that document _deliberately_ left unbuilt —
   §5's symptom triad, once also unbuilt through drift rather than decision, is now built
   (see below).
   Do not implement it, do not add a `paired` field, and do not infer pairing from a slug
   or a load label. The full reasoning, including the one honest consequence it leaves
-  behind, is in UI-DECISIONS §3.
+  behind, is in UI §3.
 - **There is one completion mark in the runner, and it is not a colour.** A tick in the
   accent hue beside a finished exercise, a checked-off warm-up pill and a completed block
   heading — the same mark in all three, because a screen that says "done" two different
   ways makes the user learn two vocabularies for one idea. Settled 2026-08-15; the
   reasoning, including why the pills do not reserve space and why a rounds block asks its
-  round counter rather than its exercises, is in UI-DECISIONS §1. **Inside the ordinary
+  round counter rather than its exercises, is in UI §1. **Inside the ordinary
   flow of the runner — logging sets, resting, the ledger — there is no colour but the
   accent** — do not add a green success state there, and do not traffic-light progress;
   the runner is read one-handed at arm's length, and every extra hue competes with
@@ -491,7 +491,7 @@ protect:
   (`session/[key]/SymptomGuideSheet.svelte`) and an inline quote on the deviation sheet's
   `stop_red_flag` choice — and it is the one exception to the accent-only rule, because it
   _is_ the framework the rule was reserving colour for, not a second system competing with
-  it. `--green` has its first call sites there. UI-DECISIONS §5 has the full account.
+  it. `--green` has its first call sites there. UI §5 has the full account.
 - **The post-session celebration is a moment, never a step, and is the one full-screen
   exception to the runner's accent-only rule.** It renders after the finish op is already written and the
   workout's local key already cleared, so dismissing it — or never dismissing it — cannot
@@ -503,7 +503,7 @@ protect:
   page from bfcache with the celebration still showing, and a client-side navigation
   keeps `$lib/sync/client.svelte.ts`'s in-flight flush alive across the trip rather than
   tearing it down at the one moment the queue is fullest. Full reasoning in
-  UI-DECISIONS §8, "Settled 2026-08-15".
+  UI §8, "Settled 2026-08-15".
 - **The contract key is `plan`, and synonyms are not accepted.** `plan.slug`,
   `plan_version`, `plan_id`. The word was chosen partly because it is spelled
   identically in every variety of English, unlike `programme`/`program` — but a revising
@@ -657,7 +657,7 @@ Each of these cost real debugging once. They are here so they cost it once.
 **Every form gets `use:enhance`.** Without it a form action is a full navigation, the
 component remounts, and component state is gone. The first-run paste box lost the user's
 pasted plan on every failed import that way — the error was displayed above an empty box,
-which is precisely the wall UI-DECISIONS §11 says a failed import must not be. Server
+which is precisely the wall UI §11 says a failed import must not be. Server
 actions echo `source` back as well, so the no-JS path also refills.
 
 **A form action must never throw.** In SvelteKit a thrown `Error` inside an action is a
@@ -823,7 +823,7 @@ in several specs — it would pass on a fully-logged, un-loggable strip.
 
 **Layout is verified in a browser at 360 px.** The runner's worst bug was a grid that
 could not shrink, and nothing in `verify` could ever have seen it. `npm run test:e2e`
-asserts no horizontal overflow at three viewports; see UI-DECISIONS §12, which states
+asserts no horizontal overflow at three viewports; see UI §12, which states
 precisely what is and is not covered rather than claiming the whole surface.
 
 **A whole-file regex is how a space-significant string gets broken silently.** A tidy-up

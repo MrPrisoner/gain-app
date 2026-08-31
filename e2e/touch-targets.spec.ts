@@ -1,5 +1,5 @@
 /**
- * UI-DECISIONS §12's open gap, closed. Everything interactive is at least 44 CSS px in
+ * UI §12's open gap, closed. Everything interactive is at least 44 CSS px in
  * both directions — the same shape of assertion as the overflow sweep, catching the same
  * class of bug: one that is invisible on a desktop browser and decides whether a control
  * can be hit at arm's length with sweaty hands.

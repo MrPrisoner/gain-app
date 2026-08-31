@@ -4,7 +4,7 @@
   import IconPartyPopper from "~icons/lucide/party-popper";
 
   /**
-   * The screen a completed session lands on before the home screen (UI-DECISIONS §5,
+   * The screen a completed session lands on before the home screen (UI §5,
    * "Settled 2026-08-15"). It is shown *after* the finish op is already written and the
    * workout's local key cleared, so it is purely a moment — dismissing it, backgrounding
    * the phone or killing the browser here all leave exactly the same finished workout
@@ -31,7 +31,7 @@
    *
    * Colours are fixed literals rather than theme tokens because the scrim behind them is
    * dark in both themes, exactly as the runner's sheets already are. They are accent
-   * blues, gold and silver: UI-DECISIONS §5 reserves green, amber and red for the plan's
+   * blues, gold and silver: UI §5 reserves green, amber and red for the plan's
    * symptom framework, and a burst of red and green on the screen that immediately
    * follows a session where those colours meant "stop" is the one thing this animation
    * must not do.
@@ -74,7 +74,7 @@
     {/each}
   </div>
 
-  <!-- A real dialog for the same reasons the wrap-up sheet is one (UI-DECISIONS §8). -->
+  <!-- A real dialog for the same reasons the wrap-up sheet is one (UI §8). -->
   <div
     class="celebrate-card"
     role="dialog"

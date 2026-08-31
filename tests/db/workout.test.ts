@@ -387,7 +387,7 @@ describe("workout write layer", () => {
       now: NOW,
     });
 
-    // Each scale cell submits its own form with its own `client_id` (UI-DECISIONS §8), so
+    // Each scale cell submits its own form with its own `client_id` (UI §8), so
     // a mis-tap and its correction are two distinct writes — the `client_id` check alone
     // cannot collapse them, and before the upsert both rows survived and both counted in
     // the export's metric trends.

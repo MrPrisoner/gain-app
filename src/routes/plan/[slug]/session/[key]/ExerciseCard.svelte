@@ -20,7 +20,7 @@
   import IconMinus from "~icons/lucide/minus";
 
   /**
-   * One exercise row of the runner (UI-DECISIONS §1): collapsed to name, target and
+   * One exercise row of the runner (UI §1): collapsed to name, target and
    * completion state, or expanded to its condition/substitute chips, cues and read-only
    * set ledger. The pinned strip that actually logs a set lives at the page level, driven
    * by `openSlug` — this component only ever renders the *read-only* trail of what has
@@ -118,7 +118,7 @@
   );
   const slots = $derived(slotsFor(ledger, block, prescribed));
   const nextSlot = $derived(nextUnloggedSlot(slots, ledger.loggedSets));
-  // UI-DECISIONS §1: the collapsed row carries name, target *and completion state*. Done
+  // UI §1: the collapsed row carries name, target *and completion state*. Done
   // collapses to what it actually was, skipped says so, and what has not been reached
   // yet recedes.
   const headline = $derived(
@@ -184,7 +184,7 @@
                      `condition` text these chips render beside is what makes them appear
                      at all, and in this plan it reads "if it reproduces familiar back
                      symptoms, replace it". `other` said nothing, and the reason is
-                     exported as signal for the revising AI (UI-DECISIONS §7), so saying
+                     exported as signal for the revising AI (UI §7), so saying
                      nothing is a real loss. `pain` is the code behind DeviationSheet's own
                      "Symptoms" chip (`submitConditionSwap`, above). Anything more precise
                      needs a reason picker in this inline row, which §7 already puts in the
@@ -269,7 +269,7 @@
           {/each}
         </ul>
 
-        <!-- UI-DECISIONS §6's optional set, and *only* that: this offers sets the
+        <!-- UI §6's optional set, and *only* that: this offers sets the
              ranged prescription already declared, so it is not a deviation and logs
              none. The deviation sheet's add_set/drop_set is a separate mechanism
              against a separate counter — see `$lib/session/ledger`'s `shownSetsFor`. -->
@@ -328,7 +328,7 @@
   .exercise.skipped .exercise-status {
     color: var(--dim);
   }
-  /* UI-DECISIONS §1/§5: the three states of a row are carried entirely by weight and
+  /* UI §1/§5: the three states of a row are carried entirely by weight and
      luminance — no colour anywhere below, because colour in this app means symptoms and
      effort, and a list that traffic-lights "done" competes with the one scale that has
      to stay readable. The open exercise is heaviest and brightest; a finished one stays
@@ -428,7 +428,7 @@
     font-weight: var(--w-semi);
     color: var(--muted);
   }
-  /* Three states, by luminance and the one accent hue only (UI-DECISIONS §5): a logged
+  /* Three states, by luminance and the one accent hue only (UI §5): a logged
      row reads at full strength, the row the strip is about to write is accented, and a
      set still to come stays quiet. The "next" row bleeds into `.exercise-body`'s side
      padding so the highlight reaches the card edges rather than sitting as an inset

@@ -78,7 +78,7 @@ describe("pickPrefill", () => {
   });
 });
 
-describe("pickPrefill — default_kg fallback (UI-DECISIONS §3)", () => {
+describe("pickPrefill — default_kg fallback (UI §3)", () => {
   it("falls back to default_kg for weight when nothing has ever been logged", () => {
     expect(pickPrefill([], undefined, 6)).toEqual({
       reps: undefined,
@@ -241,7 +241,7 @@ describe("carryForwardFromPreviousSet (todo: set 2 starts from what set 1 was ac
   });
 });
 
-describe("formatLastPerformance — the log strip's last-performance line (UI-DECISIONS §2)", () => {
+describe("formatLastPerformance — the log strip's last-performance line (UI §2)", () => {
   it("names reps and total load", () => {
     expect(formatLastPerformance(pickPrefill(rows, undefined), "reps")).toBe(
       "Last time 11 at 12 kg",

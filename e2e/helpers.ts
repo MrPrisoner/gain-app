@@ -8,7 +8,7 @@
  * real one: the `setLogsOf` copies had already drifted into two different return types.
  * A helper with two shapes is two helpers, and the second one is the bug.
  *
- * Pre-session metrics (ARCHITECTURE §9, UI-DECISIONS §8): a
+ * Pre-session metrics (ARCHITECTURE §9, UI §8): a
  * genuinely fresh workout opens on the pre-session metrics prompt before the runner
  * itself (`.log-strip`, `.exercise-head`, …) becomes visible at all — a *resumed* workout
  * (`page.reload()` within a test, which lands back on the same `client_id`) skips this
@@ -25,7 +25,7 @@ export async function dismissPreSessionPrompt(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Continue to session" }).click();
 }
 
-/** The exercise row currently expanded — there is exactly one (UI-DECISIONS §1). */
+/** The exercise row currently expanded — there is exactly one (UI §1). */
 export function openExercise(page: Page) {
   return page.locator(".exercise.open");
 }

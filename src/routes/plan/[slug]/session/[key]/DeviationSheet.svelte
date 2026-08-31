@@ -53,7 +53,7 @@
     onRedFlagStop: (note: string | undefined) => void;
     /** Reports a failed write (or clears a prior one on success) into the parent page's
      * single shared error surface — this sheet has no error UI of its own — the runner
-     * has one error surface, not two (UI-DECISIONS §2). */
+     * has one error surface, not two (UI §2). */
     onError: (message: string | undefined) => void;
   } = $props();
 
@@ -120,7 +120,7 @@
     if (e.target === e.currentTarget) onClose();
   }}
 >
-  <!-- UI-DECISIONS §8: `role="dialog"`/`aria-modal="true"` plus
+  <!-- UI §8: `role="dialog"`/`aria-modal="true"` plus
        `aria-labelledby` announce this as a real modal, and `use:trapFocus` (see
        `$lib/actions/focus-trap`) moves focus to the heading below on open, cycles Tab
        within the sheet, restores focus on close, and treats Escape the same as
@@ -136,7 +136,7 @@
 
     <!-- `role="radiogroup"` with an `aria-label` rather than a `fieldset`/`legend`: both
          name the group, but a legend adds visible chrome to a sheet whose whole point is
-         that deviating is never slower than lying (UI-DECISIONS §7). Without a name the
+         that deviating is never slower than lying (UI §7). Without a name the
          radios announce individually and a screen-reader user hears "Skip, radio button"
          with no indication of what is being chosen. -->
     <div class="kind-row" role="radiogroup" aria-label="What changed">

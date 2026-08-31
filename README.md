@@ -203,10 +203,9 @@ docker compose exec -T gain node -e 'const D = require("better-sqlite3");
 | ---------------------------------------------- | ------------------------------------------------------------------ |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Design, decisions, data model, deployment                          |
 | [`docs/CONTRACT.md`](docs/CONTRACT.md)         | The plan format an AI must produce                                 |
-| [`docs/UI-DECISIONS.md`](docs/UI-DECISIONS.md) | How the session runner behaves, and why                            |
+| [`docs/UI.md`](docs/UI.md)                     | How the session runner behaves, and the app-wide design system     |
 | [`CLAUDE.md`](CLAUDE.md)                       | Guidance for AI agents working in this repository                  |
 | [`SECURITY.md`](SECURITY.md)                   | Supported versions, and how to report a vulnerability              |
-| [`design/`](design/)                           | A clickable mockup of the session runner — open it in a browser    |
 | [`fixtures/plans/`](fixtures/plans/)           | A complete reference plan                                          |
 | [`templates/`](templates/)                     | The two prompts GAIN hands to an AI — author a plan, revise a plan |
 

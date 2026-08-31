@@ -1,5 +1,5 @@
 /**
- * One-tap copy with a download fallback (UI-DECISIONS §11). Assume a phone
+ * One-tap copy with a download fallback (UI §11). Assume a phone
  * with a chat open in another tab: copy is the primary action, and where the
  * clipboard API is unavailable (permissions, insecure context) the download
  * is the escape hatch.

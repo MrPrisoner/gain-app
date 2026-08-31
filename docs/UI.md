@@ -1,9 +1,17 @@
-# GAIN UI decisions — the session runner
+# GAIN UI
 
 Settled in a design pass against
 [`fixtures/plans/home-training-v1.md`](../fixtures/plans/home-training-v1.md),
 before any code existed. It is built, at `src/routes/plan/[slug]/session/[key]/` with the
 pure logic in `src/lib/session/`; the architectural half is ARCHITECTURE §9.
+
+**§1–§9 are the session runner's decisions** — settled first, against one screen used
+one-handed, mid-set, on a phone, in a garage. **§10–§12 are the app-wide system** — the
+token layer, the shared component primitives (`Button`, `Card`, `PageHeader`, `Field`,
+`EmptyState`), and the two mechanical checks that hold every screen to the same floor.
+That half exists because rules like the 44px touch-target minimum and the page-title
+treatment belong to no single screen, and by the time `Button` and `PageHeader` existed
+this document's "session runner" title no longer covered what it decided.
 
 The build was made to conform to this document rather than the document to the build, and
 that stays the direction of travel. **Exactly one clause goes deliberately unbuilt** —
@@ -16,19 +24,8 @@ them, the same way ARCHITECTURE §2 works. Where a decision has a *reason* attac
 reason is the part that matters; if a future change makes the reason false, the decision
 is open again.
 
-The screen this describes is used **one-handed, mid-set, on a phone, in a garage**. Every
+The screen §1–§9 describe is used **one-handed, mid-set, on a phone, in a garage**. Every
 decision below falls out of that.
-
-**There is a mockup**, at
-[`design/session-runner-mockup.html`](../design/session-runner-mockup.html) — open it in a
-browser, no build step and no network. It shows every decision here rendered with real
-fixture data, including the awkward primitives in §6.
-
-It is **illustrative, not authoritative.** This document is the specification; the mockup
-is a snapshot of what it looked like on 2026-08-08. Where they disagree, this document
-wins. Do not reverse-engineer behaviour from the markup, and do not treat its CSS as a
-component library — the real implementation is SvelteKit. Now that the runner is built,
-the mockup is useful for **proportion and density only**.
 
 ---
 
@@ -46,7 +43,12 @@ if it has any, is done — the next exercise opens. Tapping any collapsed row st
 it, so nothing is taken away; but the default path is never "hunt one-handed for the row
 you are now on".
 
-Hierarchy is carried by **weight and luminance**, not by colour — see §5.
+Hierarchy is carried by **weight, size and position**, with luminance as reinforcement and
+the accent tick (below) as the explicit mark — not by colour, see §5. Luminance alone
+cannot do the job: at the WCAG 4.5:1 contrast floor §10 holds every text tier to, a third
+tier cannot sit far enough below `--muted` to read as a distinct step by darkness alone, so
+a design that leaned on luminance to carry hierarchy would be leaning on a gap too narrow
+to see.
 
 ### Settled 2026-08-15: one completion mark, everywhere
 
@@ -413,18 +415,96 @@ open, and close on Escape.
 Six pills sit above the first working exercise every session. Small enough not to be in
 the way; visible enough that it does not quietly stop happening.
 
-## 10. Type and colour tokens
+## 10. The token system
 
-Typography is a single family — **Plus Jakarta Sans**, self-hosted, no CDN — with
-`font-variant-numeric: tabular-nums` on every figure that can be compared vertically.
+Everything below lives in `src/app.css`. No screen invents its own type size, spacing
+value or shadow — that is what "inconsistent and unpolished" meant from the outside, before
+these tokens existed and thirty-nine `.svelte` files each arrived at their own units by eye.
+
+**Type** is a single family — **Plus Jakarta Sans**, self-hosted, no CDN — with
+`font-variant-numeric: tabular-nums` on every figure that can be compared vertically, and a
+nine-step scale rather than a bare `rem` at each call site:
+
+| Token | Value | Typical use |
+| --- | --- | --- |
+| `--t-2xs` | 0.75rem / 12px | chart labels — the smallest text in the app |
+| `--t-xs` | 0.8125rem / 13px | secondary meta |
+| `--t-sm` | 0.875rem / 14px | the default — most of the app's text reads at this step |
+| `--t-base` | 1rem / 16px | body copy, form values |
+| `--t-md` | 1.125rem / 18px | sub-headings |
+| `--t-lg` | 1.375rem / 22px | `PageHeader`'s `<h1>` |
+| `--t-xl` | 1.75rem / 28px | prominent standalone figures |
+| `--t-2xl` | 2.5rem / 40px | the largest static figure |
+| `--t-display` | `clamp(3rem, 14vw, 4rem)` | the rest timer's clock and the error glyph — fluid so a fixed size cannot crowd a 360px viewport |
 
 **No monospace anywhere.** Alignment is what monospace was doing, and tabular numerals do
 it without the instrument-panel connotation. The app should read modern and clean, not
 technical.
 
-Both light and dark themes are first-class: define the palette as custom properties, style
-components through the tokens only, and honour both `prefers-color-scheme` and an explicit
-theme override.
+**Weight** is a five-step ladder, each with exactly one job — before it existed, `700` was
+roughly half of every `font-weight` declaration in the app, so weight distinguished
+nothing:
+
+| Token | Weight | Job |
+| --- | --- | --- |
+| `--w-body` | 400 | body copy, prose, notes |
+| `--w-medium` | 500 | meta lines, captions, units |
+| `--w-semi` | 600 | card titles, buttons, labels |
+| `--w-bold` | 700 | section headings, figures |
+| `--w-display` | 800 | page titles, the rest timer |
+
+**Spacing** is a 4/8px rhythm on the 16px base, `--s-1` through `--s-7` (4px to 48px), used
+for every gap and padding rather than a fresh value per site. `--pad-card` is the one
+derived token — `var(--s-4)` (16px) on a phone, stepping to `var(--s-5)` (24px) at 480px
+and up. Card padding was the single most-repeated value in the app before this existed, and
+it is the one that decides how much line length a 360px phone has: the runner nests three
+deep (block, exercise, set row), so 4px per level back is 12px of content width.
+
+**Two border tokens, two jobs.** `--line` is a hairline for dividers and card edges — quiet
+by design, because a card boundary is decorative, not a control the user has to locate.
+`--line-strong` is for anything the user can tap or type into — an input, a stepper, an
+unfilled button's border — because WCAG's non-text contrast rule applies to a control's
+boundary and not to a card's. Against `--surface`, the background most controls sit on, it
+holds 4.21:1 in dark and 3.55:1 in light — comfortably past the 3:1 floor that rule sets.
+Reach for `--line` on a card edge and `--line-strong` on anything tappable; using the quiet
+one on a control is how a button's outline goes invisible against its own background.
+
+**Elevation** is three steps — `--shadow-1` (cards, list rows), `--shadow-2` (sheets, the
+log strip, sticky chrome) and `--shadow-3` (reserved for full-screen overlays and modals;
+nothing consumes it yet — `Card.svelte` is currently the only component with a `box-shadow`
+at all, via its `elevation: 1 | 2` prop, mapped to `--shadow-1`/`--shadow-2`). The two
+themes earn depth by opposite means, per `Card.svelte`'s own header comment: light gets a
+true shadow, because it has ground to cast one against; dark gets a much weaker shadow plus
+a 1px inset top highlight (`--edge-top`), because a shadow on a near-black ground reads as
+nothing, and a lighter surface plus a visible edge is what actually separates a raised
+surface from the one behind it there.
+
+**Motion** is three durations and two easings — `--dur-fast` (120ms: press feedback,
+focus), `--dur-base` (200ms: hover, colour, opacity) and `--dur-slow` (320ms: sheets,
+overlays), with `--ease` for a standard transition and `--ease-out` for anything entering.
+`prefers-reduced-motion: reduce` collapses all three durations to 1ms at `:root` — a strict
+superset of the opt-out `CelebrationOverlay` already carried for its own particle field,
+which removes elements rather than shortening a duration and so keeps that handling on top
+of this one. `Button`'s press feedback — an opacity dip on `:active`, never a
+`transform: scale`, which would shift a control's neighbours in a flex row — is the first
+consumer.
+
+**`--dim` is a size-and-weight distinction now, not a third luminance step.** It used to be
+the darkest of three text tiers and failed WCAG AA outright — 2.80:1 on light ground,
+3.79:1 on dark surface, against a 4.5:1 requirement. Raised to pass (`#8d97a5` dark /
+`#646d78` light — 4.67:1 to 6.62:1 across the app's actual surfaces in each theme, worst
+case against `--hover`), it necessarily now sits close to `--muted`: there is no room for a
+third tier to sit legibly further down the luminance scale and still clear 4.5:1. So a call
+site that wants a step below `--muted` pairs `--dim` with a lighter weight and the app's
+default size (`--t-sm` + `--w-medium`, against `--t-base` + `--w-semi` for the tier above)
+rather than relying on darkness alone to carry the distinction — the same lesson §1's
+2026-08-15 completion-mark note already drew one level up (weight and luminance alone were
+"too quiet"), applied here one level down, to text.
+
+Both light and dark themes are first-class: every token above is defined as a custom
+property in both palettes, components read the tokens and never a literal colour or pixel
+value, and the app honours both `prefers-color-scheme` and an explicit `data-theme`
+override.
 
 ---
 
@@ -469,9 +549,9 @@ fixed-width track that silently pushes a control off the edge, which looks like 
 all on a desktop browser. `npm run test:e2e` (Playwright, kept out of `npm run verify` —
 ARCHITECTURE §12) is where it lives, via `assertNoHorizontalOverflow` in `e2e/helpers.ts`.
 
-**What is actually enforced, as of 2026-08-27** — stated precisely, because this section
-previously claimed more than the suite delivers and an over-claimed mechanical check is
-worse than an acknowledged manual one:
+**What is actually enforced, as of 2026-08-30** — stated precisely, because this section
+has already been corrected once for claiming more than the suite delivers, and an
+over-claimed mechanical check is worse than an acknowledged manual one:
 
 - **Overflow** is asserted at all three viewports on the runner and its four overlays,
   Home, export, the four progress routes, history, versions, admin, account and `/import`
@@ -479,18 +559,34 @@ worse than an acknowledged manual one:
   explanation and the revision review screen, which is the widest shape on the route. It
   is **not** asserted on `/login`, `/offline`, `+error`, the pre-session metric gate, or
   the activity sheet and next-morning prompt in their *open* states.
-- **Both themes** is delivered on three screens only (the runner, admin, account), and the
-  runner's theme spec pins itself to 360 × 800. The light palette is never rendered at 390
-  or 768, and never at all on home, import, export, progress, history or versions.
-- **44 px touch targets** are asserted **nowhere**. `min-height: 2.75rem` is applied across
-  the runner, the metric rows and the activity strip, and is absent on `/admin`,
-  `/account`, `/export`, `/import` and the layout chrome, which use padding with no floor.
-
-Everything interactive *should* be at least 44 px, and the log strip's controls are
-deliberately larger than that — sweaty hands, a phone on the floor, arm's length. The gap
-between that intent and what is mechanically checked is open, and stated here rather than
-tracked elsewhere: a touch-target sweep is the same shape of assertion as the overflow one
-and catches the same class of desktop-invisible bug.
+- **Both themes** now extends past the three screens that had it (the runner, pinned to
+  360 × 800; admin and account, across all three viewport projects). `e2e/theme-coverage.spec.ts`
+  adds Home, `/import`, export, progress, history and versions, at all three viewport
+  projects, in both `colorScheme`s — the path a real user actually arrives on, rather than
+  the `data-theme` override the runner's own spec exercises. Each check asserts more than
+  that the page rendered: `getComputedStyle(document.body).backgroundColor` must equal the
+  theme's `--ground` (`rgb(10, 12, 15)` dark, `rgb(244, 246, 248)` light), so a theme that
+  silently failed to apply cannot pass by rendering the wrong one. **What this still does
+  not reach:** `/login`, `/offline`, `+error`, and the runner's own overlays and sheets
+  beyond what its dedicated spec covers.
+- **44 px touch targets** are now asserted by `e2e/touch-targets.spec.ts`, on Home,
+  `/import`, `/account`, export, progress, history and versions, at all three viewport
+  projects. It checks every `button`, `a[href]`, non-hidden `input`, `select`, `textarea`
+  and `[role="button"]`, skipping elements hidden by CSS, the visually-hidden-input
+  pattern (≤2×2 CSS px), and an inline text link. `Button`'s `min-height`/`min-width:
+  2.75rem` (§10) is what makes the swept routes pass — before it existed the floor was
+  applied on eleven files and absent on five. **What this does not reach: `/admin` and the
+  session runner itself are not in its route list**, so the log strip's controls —
+  deliberately larger than 44 px, for sweaty hands and a phone on the floor — are believed
+  compliant rather than mechanically checked, and `/admin` is likewise unverified by this
+  sweep specifically, though its overflow coverage above still applies. One further gap
+  the selector itself cannot close: `Sparkline` and `BarChart` give each plotted point a
+  real `role="button"` hit circle (24 viewBox units, scaled by the chart's own
+  `width: 100%` SVG), which renders under 44 CSS px on a narrow phone whenever a chart
+  actually has data to plot — but progress's charts render their empty `emptyLabel` state,
+  with no circles at all, unless another spec has already seeded duration data into the
+  shared test database first. The check is correct and does query these elements; whether
+  it catches this one is an accident of run order and test data, not of route coverage.
 
 **One accepted keyboard cost, recorded so it is not rediscovered as a bug.** The progress
 window pickers navigate on `change`, so arrow-keying a *closed* `<select>` on a desktop
@@ -501,17 +597,20 @@ keyboard fires one navigation per keypress. Accepted: the target is a phone, whe
 
 ## What this does not decide
 
-This document covers the session runner. Home with its suggested next session, history,
-progress and the offline sync-state indicator are all built, and their decisions live
-where they were made: ARCHITECTURE §9 and §10 for the architecture, and CLAUDE.md's
-Invariants for the two that hardened into rules — the sync banner's 700 ms / 1.5 s gate,
-and the celebration being a moment rather than a step.
+§1–§9 cover the session runner specifically; §10–§12 cover the tokens, primitives and
+mechanical checks every screen shares. Neither half settles a given screen's own
+information architecture or interaction model outside those two remits. Home's suggested
+next session, history, progress and the offline sync-state indicator are all built, and
+their decisions live where they were made: ARCHITECTURE §9 and §10 for the architecture,
+and CLAUDE.md's Invariants for the two that hardened into rules — the sync banner's
+700 ms / 1.5 s gate, and the celebration being a moment rather than a step.
 
 §5's symptom framework — whether GAIN shows a plan's green/yellow/red pain guidance to
 the person training — was the last genuinely open question here, and it is settled and
 built: see §5.
 
-What this document still does not cover is anything outside the runner and the screens
-named above. A new surface gets its decisions recorded here when it has any worth
+What this document still does not cover is a given screen's own layout judgement calls —
+navigation structure, which actions get visual weight, and the like — outside what §10–§12
+hold every screen to. A new surface gets its decisions recorded here when it has any worth
 settling, and not before — an empty section reserving a screen that does not exist is the
 drift this document has already been corrected for once.

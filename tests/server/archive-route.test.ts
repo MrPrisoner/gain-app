@@ -150,7 +150,7 @@ describe("what an archived plan still opens", () => {
     };
     expect(checked.status).toBe(409);
     expect(checked.data.importError).toMatch(/archived/i);
-    // The pasted document survives the refusal — UI-DECISIONS §11: a failed import must
+    // The pasted document survives the refusal — UI §11: a failed import must
     // never be a wall with an empty box behind it.
     expect(checked.data.source).toBe(v2Md);
 

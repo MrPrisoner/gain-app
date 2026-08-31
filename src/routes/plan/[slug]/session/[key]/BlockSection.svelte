@@ -14,7 +14,7 @@
   import ExerciseCard from "./ExerciseCard.svelte";
 
   /**
-   * One session block: checkoff (pills, no set rows, UI-DECISIONS §9), sequence (a list
+   * One session block: checkoff (pills, no set rows, UI §9), sequence (a list
    * of `ExerciseCard`s) or rounds (the same list plus the round-advance button and its
    * indicator). `ledger` is passed straight through to every `ExerciseCard` — see that
    * component's own doc comment for why it and `addedSets`/`dismissedConditions` are
@@ -103,7 +103,7 @@
     {#if block.note}<p class="block-note">{block.note}</p>{/if}
 
     {#if block.tracking === "checkoff"}
-      <!-- UI-DECISIONS §9: pills, no set rows, excluded from progression. -->
+      <!-- UI §9: pills, no set rows, excluded from progression. -->
       <div class="checkoff-pills">
         {#each block.exercises as exercise (exercise.slug)}
           {@const key = setLogKey(block.key, exercise.slug, 1)}
@@ -124,7 +124,7 @@
             <!-- Unlike the exercise row's, this slot is *not* reserved when empty. Pills
                  are a wrap layout with nothing to align down a column, so an always-present
                  1.15em bought no tidiness and cost the warm-up two extra rows at 360px —
-                 against UI-DECISIONS §9, which wants these small enough to stay out of the
+                 against UI §9, which wants these small enough to stay out of the
                  way. -->
             {#if isDone}<IconCheck class="pill-check" />{/if}
             {exercise.name}

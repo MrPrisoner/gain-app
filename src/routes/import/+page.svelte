@@ -117,7 +117,7 @@
   {#if form.importFailure.kind === "export_bundle"}
     <!--
       A pasted bundle is a wrong-document error, not a parse failure
-      (UI-DECISIONS §11). The fix belongs to the user, not to the AI, so this
+      (UI §11). The fix belongs to the user, not to the AI, so this
       case gets no field paths and no copy-for-the-AI action — sending a
       bundle back to the chat would only confuse it.
     -->

@@ -1,5 +1,5 @@
 /**
- * The symptom guide (UI-DECISIONS §5): the plan's own
+ * The symptom guide (UI §5): the plan's own
  * `safety.symptom_framework` rendered in the runner, reachable from the header at any
  * point in the session and quoted inline on the deviation sheet's `stop_red_flag`
  * choice. What matters is that the real level text from the fixture is on screen — not

@@ -4,7 +4,7 @@
   import { logWrite } from "$lib/sync/client.svelte";
 
   /**
-   * One metric prompt (UI-DECISIONS §8), shared by the pre-session gate and the wrap-up
+   * One metric prompt (UI §8), shared by the pre-session gate and the wrap-up
    * sheet — a scale renders as one row of tappable cells (no slider), an enum the same
    * way over its declared options. One tap both selects and submits — there is no
    * separate "save" step and no per-metric skip control, since an untapped metric simply
@@ -21,7 +21,7 @@
    * That is not acceptable for the 0-10 symptom scale this component exists to collect.
    * The row is sized to its own cell count
    * (`--cells`) rather than a fixed column count, so an 11-cell 0–10 scale and a 3-option
-   * enum each get a grid fit to what they actually render — UI-DECISIONS §8: "a row of
+   * enum each get a grid fit to what they actually render — UI §8: "a row of
    * tappable cells", not a wrap.
    *
    * Every metric this component ever renders is session-scope (the pre-session gate and
@@ -115,7 +115,7 @@
     font: inherit;
     color: var(--text);
   }
-  /* UI-DECISIONS §8: "a row of tappable cells — one tap, no slider." A grid sized to
+  /* UI §8: "a row of tappable cells — one tap, no slider." A grid sized to
      `--cells` (this instance's own cell count) rather than a fixed column count or
      `flex-wrap`, so an 11-cell 0–10 scale renders as one clean row at 320–360px instead
      of wrapping into ragged rows, and a metric with fewer cells (an enum, a narrower
@@ -129,13 +129,13 @@
     gap: var(--s-1);
     margin-top: 0.3rem;
   }
-  /* Touch-target sweep (UI-DECISIONS §12), ruled on rather than changed further: `min-height`
+  /* Touch-target sweep (UI §12), ruled on rather than changed further: `min-height`
      alone (not `min-width`) is deliberate here. CONTRACT places no bound on a metric's
      `min`/`max`, and 0-10 scales are standard clinical convention for pain/symptom
      tracking, not test-fixture noise — real plans will keep declaring them. At 360px an
      11-cell row (`--cells: 11`) leaves ~29px per cell, under the 44px square a lone tap
      target would want. Forcing every cell to a true 44×44 square would either force the
-     row to wrap across lines (reopening the ragged-wrap bug UI-DECISIONS §8 fixed) or
+     row to wrap across lines (reopening the ragged-wrap bug UI §8 fixed) or
      need horizontal scroll inside an already-scrolling sheet — both worse than a row of
      adjacent cells sized to the scale's own width. Height is the tap dimension that
      matters for a row of buttons — width is intentionally left to shrink to fit whatever

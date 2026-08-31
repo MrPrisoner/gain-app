@@ -1,5 +1,5 @@
 /**
- * UI-DECISIONS §12: "Check both
+ * UI §12: "Check both
  * themes: `prefers-color-scheme` and an explicit `data-theme` override, at 360px.
  * Screenshot both." `src/app.css` makes dark the default, light follow
  * `prefers-color-scheme: light`, and an explicit `data-theme="light"`/`"dark"` on

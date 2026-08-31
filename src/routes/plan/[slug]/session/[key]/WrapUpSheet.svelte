@@ -7,7 +7,7 @@
   import MetricRow from "$lib/components/MetricRow.svelte";
 
   /**
-   * The end-of-session sheet (UI-DECISIONS §8): end metrics, a note about which metrics
+   * The end-of-session sheet (UI §8): end metrics, a note about which metrics
    * are deliberately not asked here, and the finish op that ends the workout. Only ever
    * rendered while `workoutClientId` is set (the caller's `{#if showWrapUp &&
    * workoutClientId}`), so it is required here rather than optional — `DeviationSheet`
@@ -65,7 +65,7 @@
 </script>
 
 <div class="sheet-backdrop" role="presentation">
-  <!-- UI-DECISIONS §8: a real modal dialog, not just a visually bottom-sheeted div —
+  <!-- UI §8: a real modal dialog, not just a visually bottom-sheeted div —
        `role="dialog"`/`aria-modal="true"` plus `aria-labelledby` pointing at the heading
        below announce it as such, and `use:trapFocus` (see `$lib/actions/focus-trap`)
        moves focus to that heading on open, cycles Tab within the sheet, restores focus
@@ -91,7 +91,7 @@
     {/each}
 
     {#if nextMorningMetrics.length > 0}
-      <!-- UI-DECISIONS §8: `next_morning` metrics are deliberately not asked here — they
+      <!-- UI §8: `next_morning` metrics are deliberately not asked here — they
            surface the following day. Say so explicitly rather than the user wondering
            whether the question was silently dropped (the nudge itself, on a future Today
            screen, is out of scope for this plan). -->

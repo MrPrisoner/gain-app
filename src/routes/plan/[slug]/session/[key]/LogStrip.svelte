@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * The log strip (UI-DECISIONS §2): pinned to the bottom of the viewport, in the thumb
+   * The log strip (UI §2): pinned to the bottom of the viewport, in the thumb
    * zone, logging exactly one set — the next unlogged slot of the open exercise. A reps
    * (or duration) stepper, a load stepper unless the resolved load is bodyweight, and
    * three effort keys. **Tapping an effort key logs the set**; there is no save button,
@@ -99,7 +99,7 @@
   }
 
   /**
-   * UI-DECISIONS §3: the load dial steps 1 kg, with no per-load-configuration increment
+   * UI §3: the load dial steps 1 kg, with no per-load-configuration increment
    * and no new contract field. Duration steps 5 sec, the granularity a held position is
    * actually timed at. The arithmetic itself is `$lib/session/stepper.ts`, where it is
    * unit-tested — it produces `weight_kg`, and a stepper that drifts reaches the export.
@@ -111,7 +111,7 @@
   }
 
   /**
-   * UI-DECISIONS §2: tapping an effort key logs the set — and *only* tapping an effort
+   * UI §2: tapping an effort key logs the set — and *only* tapping an effort
    * key does. Kept for the same reason it existed under a `<form>`: Enter dismisses the
    * keyboard rather than doing anything else, which is what it should do regardless of
    * how the tap is wired up.
@@ -206,7 +206,7 @@
     {#if onCancel}
       <button type="button" class="strip-change" onclick={cancel}>Cancel</button>
     {:else}
-      <!-- UI-DECISIONS §7: deviating must never be slower than lying, so skip/swap/add
+      <!-- UI §7: deviating must never be slower than lying, so skip/swap/add
            live one tap away here, not at the bottom of the exercise body. -->
       <button type="button" class="strip-change" onclick={onDeviate}>Change</button>
     {/if}
@@ -305,7 +305,7 @@
         {/if}
       </div>
 
-      <!-- UI-DECISIONS §5: one, two or three filled segments in the accent. Never a
+      <!-- UI §5: one, two or three filled segments in the accent. Never a
            traffic light — colouring "Hard" red would say *stop* about the outcome the
            plan is usually trying to produce. -->
       <div class="efforts">

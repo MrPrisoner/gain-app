@@ -71,11 +71,11 @@
   // `undefined` until the mount effect below resolves the local pointer (and, for a fresh
   // workout, writes its `start` op) — nothing below renders a logging control until then,
   // the same "quiet placeholder over a live-looking strip that would 400 on every tap"
-  // rule phase 4 established (UI-DECISIONS §2), now guarding against a tap racing
+  // rule phase 4 established (UI §2), now guarding against a tap racing
   // IndexedDB instead of a network round trip.
   let workoutClientId = $state<string | undefined>(undefined);
 
-  // Pre-session metrics (ARCHITECTURE §9, UI-DECISIONS §8): a genuinely fresh start gates
+  // Pre-session metrics (ARCHITECTURE §9, UI §8): a genuinely fresh start gates
   // the runner behind `data.startMetrics` until "Continue to session" is tapped — asking
   // "how do you feel before you start" makes no sense on a workout already in progress, so
   // a workout resumed from an existing local pointer skips this gate entirely and never
@@ -85,7 +85,7 @@
   // surfacing an empty sheet with only a Continue button.
   let showPreSession = $state(false);
 
-  // The one error surface for the whole runner (UI-DECISIONS §2) — every write below, and
+  // The one error surface for the whole runner (UI §2) — every write below, and
   // `DeviationSheet` via its `onError` prop, funnels into this single piece of state so
   // there is exactly one place an error renders, one visual treatment, one dismiss
   // control. Unlike phase 4, a write here can only fail *locally* now (IndexedDB itself
@@ -224,7 +224,7 @@
     await leaveForHome();
   }
 
-  // Which exercise is expanded — UI-DECISIONS §1: exactly one, the others collapse.
+  // Which exercise is expanded — UI §1: exactly one, the others collapse.
   // Keyed by `${block.key}:${slug}` since the same exercise slug can appear in more
   // than one block within a session (e.g. a warm-up checkoff and a working block) and
   // expanding one must not affect the other. Always the *prescribed* slug, never a
@@ -253,7 +253,7 @@
   // Rounds completed so far for a `type: rounds` block, keyed by block key.
   const completedRounds = new SvelteMap<string, number>();
 
-  // The substitute actually swapped in for a prescribed exercise (UI-DECISIONS §6),
+  // The substitute actually swapped in for a prescribed exercise (UI §6),
   // keyed `${block.key}:${slug}` by the *prescribed* slug, holding the substitute
   // resolved through the plan's catalogue (`resolveSubstitute`) rather than its bare
   // slug: everything downstream — the strip's `exercise_slug`, the ledger's target, the
@@ -304,11 +304,11 @@
   // because something hurt is not an occasion.
   let celebrating = $state(false);
   // Tap-to-select values for session-scope metrics, keyed by metric key — held here for
-  // display only; each tap fires its own `?/logMetric` submission (UI-DECISIONS §8).
+  // display only; each tap fires its own `?/logMetric` submission (UI §8).
   const sessionMetricValues = new SvelteMap<string, number | string>();
 
   /**
-   * Everything the pinned strip needs about the one open exercise (UI-DECISIONS §1: one
+   * Everything the pinned strip needs about the one open exercise (UI §1: one
    * exercise open, §2: the strip logs exactly one set). `next` is `undefined` once every
    * offered set is logged — the strip then shows its finished state rather than
    * vanishing, so the ledger's reserved bottom padding stays honest. See
@@ -319,7 +319,7 @@
   /**
    * Every exercise that needs nothing more from the user — each offered slot logged, or
    * the whole exercise skipped. Drives both the collapsed row's completion state
-   * (UI-DECISIONS §1) and where auto-advance goes next. See `$lib/session/ledger`'s
+   * (UI §1) and where auto-advance goes next. See `$lib/session/ledger`'s
    * `computeDoneExercises` for the resolution itself.
    */
   const doneExercises = $derived.by(() => computeDoneExercises(data.session, ledger));
@@ -332,11 +332,11 @@
    * Set when an exercise finished while its rest was still counting down: advancing then
    * would swap the strip's context out from under a timer the user is still watching, so
    * the move waits until the rest is dismissed — always by the user tapping "start next
-   * set early" (`onSkip`/`onRestDismissed`; UI-DECISIONS §4's rest has no auto-dismiss).
+   * set early" (`onSkip`/`onRestDismissed`; UI §4's rest has no auto-dismiss).
    */
   let advanceAfterRest = $state(false);
 
-  /** Auto-advance (UI-DECISIONS §1): open the next exercise that still needs something.
+  /** Auto-advance (UI §1): open the next exercise that still needs something.
    * Nothing left means nothing moves — the finished exercise stays open showing its
    * finished strip rather than the list snapping somewhere arbitrary. */
   function advance(): void {
@@ -421,7 +421,7 @@
    *
    * Without this, round 2 would start at position 4 of 4, and a rounds block followed by
    * another block would advance straight *out* of the circuit after round 1, abandoning
-   * the remaining rounds with no prompt (UI-DECISIONS §6 — rounds are a primitive the
+   * the remaining rounds with no prompt (UI §6 — rounds are a primitive the
    * design commits to handling).
    */
   function startNextRound(block: ResolvedBlock): void {
@@ -583,7 +583,7 @@
 {/if}
 
 {#if !workoutClientId}
-  <!-- UI-DECISIONS §2: nothing below renders until the mount effect resolves a local
+  <!-- UI §2: nothing below renders until the mount effect resolves a local
        workout client id — a quiet "starting" state beats a live-looking strip that
        writes against an id that does not exist yet. -->
   <p class="starting">Starting your session…</p>
@@ -690,7 +690,7 @@
 
 {#if activeRest}
   {@const rest = activeRest}
-  <!-- UI-DECISIONS §4: both escapes stay user-initiated — +30s and "start the next set
+  <!-- UI §4: both escapes stay user-initiated — +30s and "start the next set
        early" (`onSkip`, wired to the same dismissal `advanceAfterRest` reads). There is
        no auto-dismiss: rest never ends on its own, only on a deliberate tap, so
        `onRestDismissed` has exactly one caller. -->
@@ -820,7 +820,7 @@
     text-align: center;
     padding: var(--s-7) 0;
   }
-  /* The pre-session gate (UI-DECISIONS §8): styled like `.sheet` below, but in-flow rather than a
+  /* The pre-session gate (UI §8): styled like `.sheet` below, but in-flow rather than a
      fixed backdrop overlay — it stands in for the runner entirely until dismissed, the
      same "quiet placeholder" precedent as `.starting`, so nothing underneath it is ever
      reachable before "Continue to session" is tapped. The shell itself is `Card`; this

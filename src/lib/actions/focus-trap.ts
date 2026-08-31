@@ -1,5 +1,5 @@
 /**
- * Focus trap for the runner's modal sheets (UI-DECISIONS §8) — the wrap-up
+ * Focus trap for the runner's modal sheets (UI §8) — the wrap-up
  * sheet in `+page.svelte` and `DeviationSheet.svelte` both need identical dialog
  * behaviour (focus moves in on open, Tab/Shift+Tab cycle without escaping, Escape
  * closes, focus is restored on close), so it lives once here rather than being

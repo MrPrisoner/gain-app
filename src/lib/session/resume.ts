@@ -193,7 +193,7 @@ function toLoggedSet(row: WorkoutSetRow): LoggedSet {
  * Rebuild the runner's client state for a resumed workout.
  *
  * `stop_red_flag` deviations are ignored: that path finishes the workout outright, so
- * there is nothing for a resumed runner to re-apply. `addedSets` (UI-DECISIONS §6's
+ * there is nothing for a resumed runner to re-apply. `addedSets` (UI §6's
  * optional ranged set) is deliberately not rebuilt either — it is a *this-session* tap
  * count within the declared maximum, and `shownSetsFor`'s `highestLoggedSetNo` floor
  * already guarantees no logged set can be hidden by it resetting to zero.

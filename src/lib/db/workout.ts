@@ -202,7 +202,7 @@ export function logMetric(userDb: UserDb, input: LogMetricInput): { id: string }
   if (existing) return { id: existing };
 
   // A metric answer is a *correction*, not a new observation. The UI (the pre-session
-  // prompt and the wrap-up sheet, UI-DECISIONS §8) submits one form per scale cell, each
+  // prompt and the wrap-up sheet, UI §8) submits one form per scale cell, each
   // carrying its own `client_id` — so tapping "2" and then correcting to "8" is two
   // distinct writes as far as the `client_id` check above is concerned, and used to leave
   // both rows behind. `metric_value` has no uniqueness on the metric's own identity, so

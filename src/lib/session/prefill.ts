@@ -1,10 +1,10 @@
 /**
- * Pre-fill logic (UI-DECISIONS §2): the reps/load stepper starts from the last
+ * Pre-fill logic (UI §2): the reps/load stepper starts from the last
  * performance of the same exercise (and, for a per-side exercise, the same side), so
  * the common case is one tap. Pure — takes rows already fetched by
  * `../db/recent-sets.ts`, most-recent-first.
  *
- * UI-DECISIONS §3: weight has a second-tier fallback — last matching performance, else
+ * UI §3: weight has a second-tier fallback — last matching performance, else
  * the load configuration's `default_kg`, else blank — so a user's *first* session isn't
  * blank on every weight field. Reps and duration get the same second tier: the
  * prescription's own `reps`/`duration_sec` target, collapsed to its lower bound when it
@@ -84,7 +84,7 @@ export function pickPrefill(
     if (defaultKg === undefined && defaultReps === undefined && defaultDuration === undefined) {
       return undefined;
     }
-    // Known consequence of UI-DECISIONS §3's settled "no `paired` contract field"
+    // Known consequence of UI §3's settled "no `paired` contract field"
     // decision: weight is logged as a total (the strip's dial is labelled "kg total"),
     // but `default_kg` is written per-dumbbell in the fixture's prose — "Approximately
     // 6 kg per dumbbell" — and there is no contract field that says a movement is paired,
@@ -132,7 +132,7 @@ export function carryForwardFromPreviousSet(
 }
 
 /**
- * The log strip's last-performance line (UI-DECISIONS §2) — "Last time 11 at 12 kg".
+ * The log strip's last-performance line (UI §2) — "Last time 11 at 12 kg".
  * It renders the same data the steppers pre-fill from, so the number the user is about
  * to commit and the number it came from are never in disagreement.
  *

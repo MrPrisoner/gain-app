@@ -3,7 +3,7 @@
   import type { SymptomGuideLevel } from "$lib/session/symptom-guide";
 
   /**
-   * The symptom guide (UI-DECISIONS §5): the plan's own
+   * The symptom guide (UI §5): the plan's own
    * `safety.symptom_framework`, rendered rather than only exported. Read-only — there is
    * nothing here to submit, unlike every other sheet in the runner, so it carries no
    * `onApplied`/`onError` and no write path.

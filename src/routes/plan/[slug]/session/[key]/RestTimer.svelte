@@ -26,7 +26,7 @@
     onSkip,
   }: {
     spec: RestSpec;
-    /** What is coming next (UI-DECISIONS §4), pre-formatted by the caller the same way
+    /** What is coming next (UI §4), pre-formatted by the caller the same way
      * `LogStrip`'s `context`/`lastPerformance` are — this component does no formatting
      * of its own, only rendering. The `UpNext` type itself rather than a structural
      * restatement of its fields: the two branches that build the card already have to
@@ -53,7 +53,7 @@
 
   const phase = $derived(restPhaseAt(timerState, nowMs));
 
-  // "Ranged rest is drawn honestly" (UI-DECISIONS §4): the track always spans 0..maxS,
+  // "Ranged rest is drawn honestly" (UI §4): the track always spans 0..maxS,
   // shaded from minS..maxS only when the rest is genuinely ranged — a fixed rest has no
   // band to shade. `elapsedS` is derived uniformly across all three phases so the fill
   // position never has to special-case `counting_down`, whose `RestPhase` only carries a
@@ -67,7 +67,7 @@
   const fillPct = $derived(Math.min(100, Math.max(0, (elapsedS / bandMaxS) * 100)));
   const bandStartPct = $derived((bandMinS / bandMaxS) * 100);
 
-  // Wake lock (screen must stay on through rest, UI-DECISIONS §4 — you are reading this
+  // Wake lock (screen must stay on through rest, UI §4 — you are reading this
   // from a mat at arm's length, not touching the screen to keep it awake). The request is
   // async and can resolve after the component has already been torn down (the user tapped
   // "start next set" before the promise settled); without the `cancelled` guard, a
@@ -115,13 +115,13 @@
      dialog whether or not it was announced as one — and it was not. The exercise list and
      the log strip stay mounted underneath it, so before the trap a keyboard user could Tab
      straight past the overlay into effort keys they could not see and log a set during
-     rest. Same treatment the wrap-up sheet and `DeviationSheet` got (UI-DECISIONS §8):
+     rest. Same treatment the wrap-up sheet and `DeviationSheet` got (UI §8):
      `role="dialog"`/`aria-modal="true"`, `use:trapFocus` (see `$lib/actions/focus-trap`)
      to move focus in, cycle Tab within the overlay and restore focus on close, and Escape
      wired to the same deliberate escape the primary button already offers — dismiss rest
      early (`onSkip`), worded as "start the next set" or "finish up" depending on whether
      `upNext` says anything is actually coming. There is still no auto-dismiss
-     (UI-DECISIONS §4): Escape is a tap, not a timeout.
+     (UI §4): Escape is a tap, not a timeout.
 
      `role="timer"` moves down onto the readout it actually describes. It cannot stay on
      this element — one element has one role, and `dialog` is the one that matters for
@@ -218,7 +218,7 @@
     color: var(--muted);
   }
 
-  /* The band track (UI-DECISIONS §4): a plain progress bar for a fixed rest, or — for a
+  /* The band track (UI §4): a plain progress bar for a fixed rest, or — for a
      ranged one — a shaded region from `minS` to `maxS` behind it, so "ready" reads as a
      window rather than a finish line. The fill is the one moving, meaningful thing here
      and is always `--accent` (§5: colour is reserved for meaning, never a status light). */

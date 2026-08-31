@@ -1,5 +1,5 @@
 /**
- * The rest-timer state machine (UI-DECISIONS §4). Pure and clock-injected: the caller
+ * The rest-timer state machine (UI §4). Pure and clock-injected: the caller
  * (a Svelte component ticking on `requestAnimationFrame` or `setInterval`) supplies
  * `nowMs`, and this module only ever derives a phase from elapsed time — it owns no
  * timer itself, so it is fully unit-testable without touching a real clock.
@@ -45,7 +45,7 @@ export function restPhaseAt(state: RestTimerState, nowMs: number): RestPhase {
   return { phase: "in_band", elapsedS, bandMinS: minS, bandMaxS: maxS };
 }
 
-/** UI-DECISIONS §4's "add 30 seconds" escape: push both targets back, keep the start
+/** UI §4's "add 30 seconds" escape: push both targets back, keep the start
  * time — so a rest already in progress simply has more runway before it counts as met. */
 export function extendRest(state: RestTimerState, extraSeconds: number): RestTimerState {
   return {

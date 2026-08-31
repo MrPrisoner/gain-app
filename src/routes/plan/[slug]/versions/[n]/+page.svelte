@@ -2,7 +2,7 @@
   src/routes/plan/[slug]/versions/[n]/+page.svelte
 
   The document, verbatim, with the same copy-then-download-fallback the bootstrap prompt
-  and the export use (UI-DECISIONS §11) — assume a phone with a chat open in another tab.
+  and the export use (UI §11) — assume a phone with a chat open in another tab.
 
   The textarea carries the text as a `value` expression rather than as element content,
   which is what keeps it byte-identical: HTML eats a newline immediately after the

@@ -1,5 +1,5 @@
 /**
- * The celebration screen a completed session lands on (UI-DECISIONS §8, "Settled
+ * The celebration screen a completed session lands on (UI §8, "Settled
  * 2026-08-15"). What is worth asserting here is not that confetti appears — it is that a
  * decorative screen was inserted into the one flow in the app that ends a workout, without
  * becoming load-bearing in it:
@@ -11,7 +11,7 @@
  *    not an occasion, and confetti over it is the app cheering at the wrong moment.
  * 3. **`prefers-reduced-motion` drops the animation, not the way out.** The message and the
  *    button survive; only the particle field goes.
- * 4. **No horizontal overflow at 360px** with it open — UI-DECISIONS §12 asks this of
+ * 4. **No horizontal overflow at 360px** with it open — UI §12 asks this of
  *    every screen, and a full-viewport element whose children are positioned by percentage
  *    is exactly the shape that gets it wrong.
  * 5. **Neither ending leaves the session on the history stack.** The user is done with the

@@ -12,7 +12,7 @@
  * Step a field's current text value by `delta`, returning the text to put back in the
  * input.
  *
- * UI-DECISIONS §3: the load dial steps 1 kg, with no per-load-configuration increment and
+ * UI §3: the load dial steps 1 kg, with no per-load-configuration increment and
  * no new contract field; duration steps 5 sec, the granularity a held position is
  * actually timed at. Those increments are the caller's; what is fixed here is that
  * nothing goes below zero, and that an empty or unparseable field steps from zero rather

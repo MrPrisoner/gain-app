@@ -199,7 +199,7 @@
   }
 
   /* Next to the control that failed, legible at arm's length — never in var(--red),
-     which belongs to the plan's symptom framework (UI-DECISIONS §5). */
+     which belongs to the plan's symptom framework (UI §5). */
   .action-error {
     margin: 0.75rem 0 0;
     padding: var(--s-3);

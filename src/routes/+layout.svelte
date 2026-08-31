@@ -120,7 +120,7 @@
     align-items: center;
     /* Blockified by `.top`'s flex layout, so this is a real control per
        `e2e/touch-targets.spec.ts` — the same 44px floor `Button` holds for its own
-       controls (UI-DECISIONS §12 names the layout chrome alongside the four routes
+       controls (UI §12 names the layout chrome alongside the four routes
        that gap was closed on). */
     min-height: 2.75rem;
     font-size: var(--t-md);

@@ -2,7 +2,7 @@
  * The import screen — every crossing back from an AI lands here.
  *
  * Paste box, parse-error report and diff review are one route because
- * UI-DECISIONS §11 requires a failed import to keep the pasted text in place with
+ * UI §11 requires a failed import to keep the pasted text in place with
  * the copy-the-error action beside it, so the textarea has to live wherever errors
  * render. And ARCHITECTURE §8 insists the first import is not a special case in
  * the pipeline; routing revisions to their own screen would have made it one.

@@ -716,7 +716,7 @@ The screen you actually stare at, sweating, between sets. It gets the most desig
 
 Built at `src/routes/plan/[slug]/session/[key]/`, with the pure logic in
 `src/lib/session/` (resolution, pre-fill, rest timer, resume reconstruction). **How it
-behaves is settled in [`docs/UI-DECISIONS.md`](./UI-DECISIONS.md)**, not here; this
+behaves is settled in [`docs/UI.md`](./UI.md)**, not here; this
 section is the architectural half. The Home screen below is
 where a session is reached from.
 
@@ -733,7 +733,7 @@ where a session is reached from.
   pre-filled from the last time you did this exercise, so the common case is one tap.
   Large touch targets — assume sweaty hands and a phone propped on the floor.
 - **Set entry:** reps (stepper, pre-filled), weight (stepper, 1 kg, total kilograms —
-  UI-DECISIONS §3), difficulty (Easy / Medium / Hard). Per-side exercises log left and
+  UI §3), difficulty (Easy / Medium / Hard). Per-side exercises log left and
   right separately. Time-based exercises get a countdown. Pre-fill falls back down a
   chain: the last matching performance, else the load configuration's `default_kg`, else
   blank — so a user's *first* session is still one tap, which is the only reason

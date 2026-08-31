@@ -85,7 +85,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
         const def = contract.exercises.find((e) => e.id === substituteSlug);
         if (!def || prefillSlugs.has(substituteSlug)) continue;
         // Reps/duration targets come from the occasion being replaced, same as
-        // `resolveSubstitute` (UI-DECISIONS §6): a substitute has no prescription of its
+        // `resolveSubstitute` (UI §6): a substitute has no prescription of its
         // own, only the slot it stands in for — and only the target matching its own
         // type, so a reps substitute for a timed original (or vice versa) gets neither.
         const substituteType = def.type ?? "reps";
@@ -126,11 +126,11 @@ export const load: PageServerLoad = ({ params, locals }) => {
     loads: contract.loads,
     startMetrics: sessionMetrics(contract, "start"),
     endMetrics: sessionMetrics(contract, "end"),
-    // UI-DECISIONS §8: `next_morning` metrics are declared but deliberately not asked in
+    // UI §8: `next_morning` metrics are declared but deliberately not asked in
     // the wrap-up sheet — the runner uses this only to render the honest "we'll ask
     // tomorrow" note, never to prompt for them here.
     nextMorningMetrics: sessionMetrics(contract, "next_morning"),
-    // UI-DECISIONS §5: the plan's own pain-response guidance, rendered in the runner
+    // UI §5: the plan's own pain-response guidance, rendered in the runner
     // rather than only exported. `[]` when the plan declares none.
     symptomGuide: symptomGuideLevels(contract.safety),
     safetyEscalation: contract.safety?.escalation,

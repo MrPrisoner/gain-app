@@ -4,7 +4,7 @@
  * parser side of that was already thoroughly tested (`tests/parse.test.ts`'s seven
  * `ParseFailureKind` variants) while the *screen* that renders those reports had no
  * coverage of any kind — no e2e ever rendered a parse failure, the pasted-bundle
- * explanation (UI-DECISIONS §11), or the blocking-revision report, and `blockingReport`
+ * explanation (UI §11), or the blocking-revision report, and `blockingReport`
  * (now `$lib/import/blocking-report.ts`, `tests/import/blocking-report.test.ts`) lived
  * where no unit test could reach it.
  *
@@ -14,7 +14,7 @@
  *
  * 1. A document with no fenced ```gain-plan block at all (`missing_block`) — the generic
  *    "Nothing was imported" report, addressed to the AI, copyable.
- * 2. A pasted export bundle — UI-DECISIONS §11's specific wrong-document explanation,
+ * 2. A pasted export bundle — UI §11's specific wrong-document explanation,
  *    which gets no field paths and no copy action, since sending a bundle back to the
  *    chat would only confuse it.
  * 3. A blocking revision: re-submitting the fixture's own v1 document as a "revision" of
@@ -58,7 +58,7 @@ test("a document with no contract block gets a pasteable, copyable report", asyn
   await expect(report).toContainText("GAIN could not import this plan document");
   await expect(report).toContainText("No fenced ```gain-plan block was found");
 
-  // The pasted text stays in the box (UI-DECISIONS §11: a failed import must not feel
+  // The pasted text stays in the box (UI §11: a failed import must not feel
   // like a wall) rather than being cleared out from under the user.
   await expect(page.getByPlaceholder("Paste the plan document here…")).toHaveValue(
     "Just some prose, no fenced block anywhere in here.",
@@ -98,7 +98,7 @@ test("a pasted export bundle gets the wrong-document explanation, with no report
   await expect(page.getByText("Export bundles are what GAIN hands")).toBeVisible();
 
   // Never a field-path report and never a copy-back-to-the-AI action for this case
-  // (UI-DECISIONS §11) — the fix is the user pasting the right document, not the AI's.
+  // (UI §11) — the fix is the user pasting the right document, not the AI's.
   await expect(page.locator(".report")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Copy report for the AI" })).toHaveCount(0);
 
@@ -126,7 +126,7 @@ test("a revision that fails the version-increment rule blocks commit and its rep
   await expect(page.getByRole("button", { name: "Commit revision" })).toBeDisabled();
 
   // The review screen is the widest shape on the route — full-width `<select>`s, the
-  // `<details>` diff groups and the warnings panel — and UI-DECISIONS §12 named it as the
+  // `<details>` diff groups and the warnings panel — and UI §12 named it as the
   // one most likely to break at 360 px.
   await assertNoHorizontalOverflow(page);
 
