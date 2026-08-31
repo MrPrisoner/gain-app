@@ -73,9 +73,9 @@ tsconfig.worker.json` pass for `src/service-worker.ts` — SvelteKit's generated
   which ones are allowed there. `GAIN_DEV_HOSTS=my-phone.home.arpa` also binds the dev
   server beyond localhost, which is how a session gets driven on a real phone
 - `npm run lint` — ESLint
-- `npm run format` / `npm run format:check` — Prettier. `docs/`, `fixtures/`,
-  `templates/` and `design/` are byte-sensitive and excluded from formatting; never
-  remove them from `.prettierignore`
+- `npm run format` / `npm run format:check` — Prettier. `docs/`, `fixtures/` and
+  `templates/` are byte-sensitive and excluded from formatting; never remove them from
+  `.prettierignore`
 - `npm run check:chars` — rejects literal control characters in tracked text files
 - `npm run verify` — all of the above in CI's order, then `npm run build`. Around half a
   minute; `typecheck` and `svelte-check` are most of it.
