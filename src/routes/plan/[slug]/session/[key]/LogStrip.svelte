@@ -475,9 +475,9 @@
   }
   .effort-fill i {
     display: block;
-    width: 12px;
-    height: 4px;
-    border-radius: 2px;
+    width: 18px;
+    height: 6px;
+    border-radius: 3px;
     background: var(--line);
   }
   .effort-fill i.on {

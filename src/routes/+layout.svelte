@@ -77,7 +77,10 @@
         <a href="/login">Sign in</a>
       {/if}
       {#if syncStatus.quarantined > 0}
-        <button class="linklike" type="button" onclick={() => discardQuarantined()}>
+        <!-- Permanently discards queued offline writes — genuinely destructive and
+             irreversible, unlike "Sign out"/"Users" beside it elsewhere in this
+             header, so it gets --red rather than the neutral .linklike treatment. -->
+        <button class="linklike danger" type="button" onclick={() => discardQuarantined()}>
           Discard
         </button>
       {/if}
@@ -170,6 +173,15 @@
 
   .linklike:hover {
     color: var(--text);
+    text-decoration: underline;
+  }
+
+  .linklike.danger {
+    color: var(--red);
+  }
+
+  .linklike.danger:hover {
+    color: var(--red);
     text-decoration: underline;
   }
 

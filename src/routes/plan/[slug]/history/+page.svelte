@@ -25,7 +25,8 @@
           <span class="date">{new Date(workout.startedAt).toISOString().slice(0, 10)}</span>
           <span class="session">{workout.sessionKey} · {workout.sessionName}</span>
           <span class="detail"
-            >{workout.status} · {workout.setCount} sets{workout.versionNo
+            >{workout.status} · {workout.setCount}
+            {workout.setCount === 1 ? "set" : "sets"}{workout.versionNo
               ? ` · v${workout.versionNo}`
               : ""}</span
           >

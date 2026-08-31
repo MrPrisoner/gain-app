@@ -120,31 +120,36 @@ original scope-out (that path no longer exists in the tree; recorded here so a f
 reader doesn't go looking for it). Re-checked against the code as of this merge, not
 copied forward blind.
 
-- [ ] **Home's five-identical-pills nav.** `src/routes/+page.svelte`'s `.plan-links` nav
-  renders "Export for review", "Progress", "History", "Plan versions" and "Import a
-  revised plan" as five visually identical `.export-link` pills, with no weight given to
-  the ones used more often.
-- [ ] **Home's duplicated plan name.** A plan's name renders once in `NextSessionCard`
-  (via its `planName` prop) and again immediately below, in the `plan-admin` card's own
-  `<h2>{plan.name}</h2>` — the same string twice on one screen.
-- [ ] **Effort keys' undersized fill segments.** `LogStrip.svelte`'s Easy/Medium/Hard fill
-  indicator (`.effort-fill`) is a row of small `i` segments — still small.
+- [x] **Home's five pills now weight the loop's two crossings.** "Export for review" and
+  "Import a revised plan" — the two crossings of the round-trip loop ARCHITECTURE §1
+  frames as the whole product — get a `.loop-crossing` modifier (accent border and text)
+  on `src/routes/+page.svelte`'s `.plan-links` nav; "Progress", "History" and "Plan
+  versions" stay on the quieter default, since they're read-only reference rather than
+  the loop itself. The archived-plans nav (no "Import" link there — archived plans don't
+  revise through Home) is left untouched; it's a different, quieter context.
+- [x] **Home's duplicated plan name resolved by giving the repeat a reason.** The
+  `plan-admin` card's `<h2>` still needs to name which plan it manages — with more than
+  one plan, `ActivityStrip` sits between the `NextSessionCard`s and the `plan-admin`
+  cards, so they aren't always adjacent — but it no longer repeats the bare name
+  verbatim: `<h2>{plan.name}</h2>` is now `<h2>Manage {plan.name}</h2>`.
+- [x] **Effort keys' fill segments enlarged.** `LogStrip.svelte`'s `.effort-fill i`
+  segments go from 12×4px to 18×6px (radius 2px→3px to match) — still a row of ticks, not
+  a redesign, just no longer easy to miss at arm's length.
 - [x] **Native `<select>`/`<radio>` beside custom pills — kept native, deliberately.**
   Converting `DeviationSheet.svelte`'s substitute picker, the three progress window
   pickers, or `DispositionList.svelte` to the app's pill/chip pattern would trade a free
   OS picker sheet and free ARIA listbox semantics for a hand-rolled roving-tabindex
   widget, for no accessibility gain — worse, for the substitute picker, whose option list
   runs to the whole exercise catalogue. Reasoning folded into `docs/UI.md` §12.
-- [ ] **History's "1 sets" plural bug.** `src/routes/plan/[slug]/history/+page.svelte`
-  still interpolates `{workout.setCount} sets` with no singular form.
-- [ ] **The sync banner's Discard control still reads as a neutral link, not a
-  destructive one.** Task 10 (design-system pass) gave `variant="danger"` to `/account`'s
-  and `/admin`'s reset buttons, covering the two call sites that review had in mind. The
-  sync banner's "Discard" (`src/routes/+layout.svelte`, inside the quarantined-ops
-  banner) permanently discards queued offline writes — genuinely destructive and
-  irreversible — and is still styled as a plain `.linklike` button (`color:
-  var(--muted)`), the same treatment as "Sign out" beside it. Worth a `Button
-  variant="danger"` (or at least `--red`) pass.
+- [x] **History's "1 sets" plural bug, fixed.** Now reads `{workout.setCount === 1 ?
+  "set" : "sets"}`, matching the ternary pattern already used elsewhere (`/admin`'s
+  plan/plans count, for one).
+- [x] **The sync banner's Discard control now reads as destructive.** Kept the `.linklike`
+  treatment rather than the full `Button` primitive — a boxed button would clash inside
+  the compact inline banner text next to "Sign in" — but added a `.linklike.danger`
+  modifier reading `var(--red)` (and staying red on hover, unlike the neutral
+  `.linklike`'s hover-to-`--text`), which is what the `--red`-or-`Button variant="danger"`
+  fallback this item named actually asked for.
 
 ## New: let a user discard a session they only opened to look at
 

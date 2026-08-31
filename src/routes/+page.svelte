@@ -239,14 +239,22 @@
   {#each data.plans as plan (plan.slug)}
     <section class="plan-admin">
       <Card spaced>
-        <h2>{plan.name}</h2>
+        <!-- Not a bare repeat of NextSessionCard's own plan-name heading above: that
+             card names the plan once at the top of the screen, and multiple plans mean
+             this section isn't always adjacent to it (ActivityStrip sits between them) —
+             so this still has to say which plan it manages, just not as a second
+             identical headline. -->
+        <h2>Manage {plan.name}</h2>
         <p class="muted">
           version {plan.version_no} · imported {plan.imported_at} ·
           {plan.counts.sessions} sessions, {plan.counts.exercises} exercises,
           {plan.counts.prescriptions} prescriptions
         </p>
         <nav class="plan-links">
-          <a class="export-link" href={`/plan/${plan.slug}/export`}>
+          <!-- The two crossings of the round-trip loop (ARCHITECTURE §1) get the
+               accent treatment; Progress/History/Plan versions are read-only reference
+               and stay on the quieter default. -->
+          <a class="export-link loop-crossing" href={`/plan/${plan.slug}/export`}>
             <IconExternalLink />Export for review
           </a>
           <a class="export-link" href={`/plan/${plan.slug}/progress`}>
@@ -258,7 +266,7 @@
           <a class="export-link" href={`/plan/${plan.slug}/versions`}>
             <IconFileClock />Plan versions
           </a>
-          <a class="export-link" href="/import">
+          <a class="export-link loop-crossing" href="/import">
             <IconUpload />Import a revised plan
           </a>
         </nav>
@@ -449,6 +457,11 @@
 
   .export-link:hover {
     text-decoration: none;
+  }
+
+  .loop-crossing {
+    border-color: var(--accent);
+    color: var(--accent);
   }
 
   .archive-form {
