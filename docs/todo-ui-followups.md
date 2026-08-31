@@ -12,14 +12,13 @@ pass surfaced it.
 
 ## Primitive adoption
 
-- [ ] **Third button vocabulary still exists.** `src/routes/import/ImportPlanForm.svelte`,
-  `src/routes/plan/[slug]/versions/[n]/+page.svelte`, and `src/routes/+page.svelte`
-  (first-run/no-plans view) each hand-roll their own `button`/`.primary`/`.secondary` CSS
-  instead of using the `Button` primitive — disagreeing with it on background (`--raised`
-  vs `--surface`), border (`--line` vs `--line-strong`), weight (`--w-bold` vs `--w-semi`),
-  and missing the 44px `min-height` floor (currently passes only because padding happens
-  to clear it). The same copy/download button pair renders three visually different ways
-  across `/export`, `/plan/.../versions/[n]`, and first-run home.
+- [x] **Third button vocabulary, gone.** `ImportPlanForm.svelte`, `versions/[n]/+page.svelte`
+  and home's first-run view now use `Button` for every action they render, matching the
+  `variant="primary"`/`variant="secondary"` + icon-snippet pattern already established on
+  `/export`. The same copy/download button pair now renders identically across `/export`,
+  `/plan/.../versions/[n]` and first-run home. `.primary-link` (home's two "Paste the plan"
+  navigation links, styled as a button) is left as a plain anchor — `Button` has no `href`
+  and adding one back for two call sites isn't worth reopening the gap that prop closed.
 - [ ] **`Card` has no spacing story.** Three files (`import/+page.svelte`, home's
   `+page.svelte`, `export/+page.svelte`) each wrap `<Card>` in their own
   `<div class="card">` just to get `margin-top: 1.25rem` — a sixth adopting route would

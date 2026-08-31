@@ -12,6 +12,7 @@
 <script lang="ts">
   import { copyText, downloadText } from "$lib/copy";
   import ArchivedNote from "$lib/components/ArchivedNote.svelte";
+  import Button from "$lib/components/Button.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
   import IconCheck from "~icons/lucide/check";
   import IconCopy from "~icons/lucide/copy";
@@ -65,13 +66,16 @@
   </p>
 {:else}
   <div class="actions">
-    <button type="button" class="primary" onclick={copy}>
+    {#snippet copyIcon()}
       {#if copied}<IconCheck />{:else}<IconCopy />{/if}
+    {/snippet}
+    <Button variant="primary" type="button" onclick={copy} icon={copyIcon}>
       {copied ? "Copied" : "Copy document"}
-    </button>
-    <button type="button" class="secondary" onclick={download}>
-      <IconDownload />Download .md
-    </button>
+    </Button>
+    {#snippet downloadIcon()}<IconDownload />{/snippet}
+    <Button variant="secondary" type="button" onclick={download} icon={downloadIcon}>
+      Download .md
+    </Button>
   </div>
 
   <textarea class="doc" readonly rows="24" aria-label="Plan document" value={data.source}
@@ -104,27 +108,6 @@
     gap: var(--s-3);
     margin-bottom: 0.75rem;
     flex-wrap: wrap;
-  }
-
-  button {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--s-2);
-    border: none;
-    border-radius: var(--r-sm);
-    padding: var(--s-3) var(--s-5);
-    font-weight: var(--w-bold);
-  }
-
-  button.primary {
-    background: var(--accent);
-    color: var(--accent-in);
-  }
-
-  button.secondary {
-    background: var(--raised);
-    border: 1px solid var(--line-strong);
-    color: var(--text);
   }
 
   .doc {

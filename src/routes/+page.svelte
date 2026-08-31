@@ -179,7 +179,8 @@
           Anything to work around
           <input type="text" name="constraints" placeholder="e.g. a dodgy lower back" />
         </label>
-        <button type="submit" class="primary"><IconSparkles />Generate the prompt</button>
+        {#snippet sparklesIcon()}<IconSparkles />{/snippet}
+        <Button variant="primary" type="submit" icon={sparklesIcon}>Generate the prompt</Button>
       </form>
     </Card>
   </div>
@@ -195,13 +196,16 @@
         <textarea class="doc" readonly rows="14" aria-label="Bootstrap prompt" value={form.prompt}
         ></textarea>
         <div class="actions">
-          <button type="button" class="primary" onclick={copyPrompt}>
+          {#snippet copyIcon()}
             {#if copied}<IconCheck />{:else}<IconCopy />{/if}
+          {/snippet}
+          <Button variant="primary" type="button" onclick={copyPrompt} icon={copyIcon}>
             {copied ? "Copied" : "Copy prompt"}
-          </button>
-          <button type="button" class="secondary" onclick={downloadPrompt}>
-            <IconDownload />Download .md
-          </button>
+          </Button>
+          {#snippet downloadIcon()}<IconDownload />{/snippet}
+          <Button variant="secondary" type="button" onclick={downloadPrompt} icon={downloadIcon}>
+            Download .md
+          </Button>
         </div>
       </Card>
     </div>
@@ -427,32 +431,6 @@
     gap: var(--s-3);
     margin-top: 0.75rem;
     flex-wrap: wrap;
-  }
-
-  button {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--s-2);
-    border: none;
-    border-radius: var(--r-sm);
-    padding: var(--s-3) var(--s-5);
-    font-weight: var(--w-bold);
-  }
-
-  button.primary {
-    background: var(--accent);
-    color: var(--accent-in);
-  }
-
-  button.primary:disabled {
-    opacity: 0.45;
-    cursor: default;
-  }
-
-  button.secondary {
-    background: var(--raised);
-    border: 1px solid var(--line-strong);
-    color: var(--text);
   }
 
   .primary-link {

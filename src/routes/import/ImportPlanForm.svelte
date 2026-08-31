@@ -1,5 +1,6 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
+  import Button from "$lib/components/Button.svelte";
   import Field from "$lib/components/Field.svelte";
   import IconCheck from "~icons/lucide/check";
   import IconUpload from "~icons/lucide/upload";
@@ -38,12 +39,14 @@
       bind:value={pasted}></textarea>
   </Field>
   <div class="actions">
-    <button type="submit" class="primary" disabled={!pasted.trim()}>
-      <IconCheck />Check the plan
-    </button>
-    <button type="button" class="secondary" onclick={() => fileInput?.click()}>
-      <IconUpload />Import file
-    </button>
+    {#snippet checkIcon()}<IconCheck />{/snippet}
+    <Button variant="primary" type="submit" disabled={!pasted.trim()} icon={checkIcon}>
+      Check the plan
+    </Button>
+    {#snippet uploadIcon()}<IconUpload />{/snippet}
+    <Button variant="secondary" type="button" onclick={() => fileInput?.click()} icon={uploadIcon}>
+      Import file
+    </Button>
     <input
       bind:this={fileInput}
       type="file"
@@ -77,32 +80,6 @@
     gap: var(--s-3);
     margin-top: 0.75rem;
     flex-wrap: wrap;
-  }
-
-  button {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--s-2);
-    border: none;
-    border-radius: var(--r-sm);
-    padding: var(--s-3) var(--s-5);
-    font-weight: var(--w-bold);
-  }
-
-  button.primary {
-    background: var(--accent);
-    color: var(--accent-in);
-  }
-
-  button.primary:disabled {
-    opacity: 0.45;
-    cursor: default;
-  }
-
-  button.secondary {
-    background: var(--raised);
-    border: 1px solid var(--line-strong);
-    color: var(--text);
   }
 
   .file-input {
