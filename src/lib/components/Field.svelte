@@ -18,12 +18,14 @@
 </script>
 
 <div class="field">
-  <!-- `asGroup` is for a wrapped `<fieldset>`: its own legend/`aria-label` already gives
-       it an accessible name, so a `<label for>` here would point at no element (a
-       fieldset has no value of its own to associate with) and double-announce the name.
-       Field's job for a group is the same visual label, not the for/id association. -->
+  <!-- `asGroup` is for a wrapped `<fieldset>`: a fieldset has no value of its own for a
+       `<label for>` to point at, so the visible label is a `<span>` instead. That span
+       carries no accessible-name relationship on its own — being a DOM sibling of the
+       fieldset does not associate it the way `for`/`id` does for an input. The caller's
+       `<fieldset>` MUST reference this span's id via `aria-labelledby="{id}-label"`, or
+       the group has no accessible name at all. -->
   {#if asGroup}
-    <span class="label">{label}</span>
+    <span class="label" id="{id}-label">{label}</span>
   {:else}
     <label for={id}>{label}</label>
   {/if}
