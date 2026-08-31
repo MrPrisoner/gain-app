@@ -123,7 +123,7 @@
   }
   .list-toggle :global(.chevron) {
     flex-shrink: 0;
-    transition: transform 0.15s ease;
+    transition: transform var(--dur-base) var(--ease);
   }
   .list-toggle :global(.chevron.open) {
     transform: rotate(180deg);
@@ -185,7 +185,7 @@
   }
   .session-toggle :global(.chevron) {
     flex-shrink: 0;
-    transition: transform 0.15s ease;
+    transition: transform var(--dur-base) var(--ease);
   }
   .session-toggle :global(.chevron.open) {
     transform: rotate(180deg);

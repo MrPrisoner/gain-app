@@ -136,7 +136,7 @@
   }
   .suggested :global(.chevron) {
     flex-shrink: 0;
-    transition: transform 0.15s ease;
+    transition: transform var(--dur-base) var(--ease);
   }
   .suggested :global(.chevron.open) {
     transform: rotate(180deg);

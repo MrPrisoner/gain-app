@@ -509,8 +509,15 @@ overlays), with `--ease` for a standard transition and `--ease-out` for anything
 superset of the opt-out `CelebrationOverlay` already carried for its own particle field,
 which removes elements rather than shortening a duration and so keeps that handling on top
 of this one. `Button`'s press feedback — an opacity dip on `:active`, never a
-`transform: scale`, which would shift a control's neighbours in a flex row — is the first
-consumer.
+`transform: scale`, which would shift a control's neighbours in a flex row — was the first
+consumer of `--dur-fast`. `--dur-base` and `--ease-out` sat undeclared until 2026-08-31:
+four hand-written transitions (`NextSessionCard`'s and `SessionOverrideList`'s two chevron
+rotations, `RestTimer`'s rest-fill width) now read `var(--dur-base)`, so the reduced-motion
+collapse actually reaches them, and `CelebrationOverlay`'s `rise` animation reads
+`var(--ease-out)` instead of the bare CSS keyword. `--dur-slow` remains genuinely
+unconsumed — nothing in the app currently animates a sheet's entrance, so giving it a first
+consumer would mean inventing that entrance rather than wiring an existing one onto the
+token, which is its own design decision and not one to make in passing here.
 
 **`--dim` is a size-and-weight distinction now, not a third luminance step.** It used to be
 the darkest of three text tiers and failed WCAG AA outright — 2.80:1 on light ground,

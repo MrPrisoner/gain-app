@@ -58,14 +58,19 @@ pass surfaced it.
   untouched, since nothing in this pass gave it or took away its reason to exist),
   `--shadow-2` itself is gone from `app.css`; add it back the day something genuinely
   wants a level between a card and a full-screen overlay.
-- [ ] **Motion tokens mostly unused, and some transitions bypass them entirely.**
-  `--dur-base`, `--dur-slow`, and `--ease-out` have zero consumers (the one `ease-out` in
-  the tree, `CelebrationOverlay.svelte`'s `rise` animation, is a literal, not the token).
-  Four hand-written transitions bypass the token system — the chevron rotations in
-  `NextSessionCard.svelte` and `SessionOverrideList.svelte` (`transition: transform 0.15s
-  ease`, two sites), and `RestTimer.svelte`'s `width 0.2s linear` — meaning
-  `prefers-reduced-motion: reduce` (which works by collapsing `--dur-*` at `:root`) does
-  not reach them, contradicting §10's framing that it does.
+- [x] **Motion tokens: the four bypassing transitions now use them; `--dur-slow` stays
+  genuinely unused.** The chevron rotations in `NextSessionCard.svelte` and
+  `SessionOverrideList.svelte` (two sites) and `RestTimer.svelte`'s rest-fill width all
+  read `var(--dur-base)` now (with `var(--ease)` on the chevrons, `linear` kept explicit
+  on the fill since it has to track elapsed time proportionally, not ease), so
+  `prefers-reduced-motion: reduce` actually reaches them.
+  `CelebrationOverlay.svelte`'s `rise` animation reads `var(--ease-out)` instead of the
+  bare CSS keyword (a close but not identical curve — `cubic-bezier(0, 0, 0.2, 1)` vs the
+  browser's `cubic-bezier(0, 0, 0.58, 1)` — accepted as the point of having one token
+  rather than each transition picking its own "ease-out"). `--dur-slow` is left alone:
+  nothing in the app currently animates a sheet's entrance, so giving it a first consumer
+  would mean inventing that entrance rather than wiring an existing one onto the token —
+  its own design decision, not one to fold into a token cleanup.
 - [ ] **Literal `margin`/`padding` residue never got the `--s-N` sweep `gap` got.**
   `docs/UI.md` §10 already discloses this (its own reference to a tracking doc had gone
   stale — a leftover from before the two backlog lists were merged into this one, now

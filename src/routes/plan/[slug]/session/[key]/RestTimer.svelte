@@ -244,7 +244,7 @@
     height: 100%;
     background: var(--accent);
     border-radius: inherit;
-    transition: width 0.2s linear;
+    transition: width var(--dur-base) linear;
   }
 
   .rest-upnext {

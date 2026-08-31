@@ -155,7 +155,7 @@
     justify-items: center;
     gap: var(--s-4);
     text-align: center;
-    animation: rise 0.35s ease-out both;
+    animation: rise 0.35s var(--ease-out) both;
   }
 
   @keyframes rise {
