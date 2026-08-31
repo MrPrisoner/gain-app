@@ -151,6 +151,14 @@
   }
 
   .linklike {
+    display: inline-flex;
+    align-items: center;
+    /* Same 44px floor `Button` holds (`Button.svelte`) — `.top`'s flex layout and the
+       sync banner's own flow both blockify these into real tap targets, and "Users" text
+       alone falls short of 44px wide, not just tall. */
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+    justify-content: center;
     background: none;
     border: none;
     padding: 0;
