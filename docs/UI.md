@@ -482,20 +482,31 @@ app before this existed, and it is the one that decides how much line length a 3
 has: the runner nests three deep (block, exercise, set row), so 4px per level back is 12px
 of content width.
 
-**Two border tokens, two jobs.** `--line` is a hairline for dividers and card edges — quiet
-by design, because a card boundary is decorative, not a control the user has to locate.
-`--line-strong` is for anything the user can tap or type into — an input, a stepper, an
-unfilled button's border — because WCAG's non-text contrast rule applies to a control's
-boundary and not to a card's. Against `--surface`, the background most controls sit on, it
-holds 4.21:1 in dark and 3.55:1 in light — comfortably past the 3:1 floor that rule sets.
+**Two border tokens, two jobs — and the split is text entry, not tappability.** `--line`
+is the app's ordinary hairline. It carries dividers and card edges, and it also carries
+every button-like control: `Button`'s unfilled variants, pills, chips, radio-label chips,
+list toggles, scale cells, pagers and the two dashed add-set buttons. `--line-strong` is
+reserved for the controls the user types or picks into — `<input>`, `<textarea>`,
+`<select>`. Against `--surface` it holds 4.21:1 in dark and 3.55:1 in light, comfortably
+past WCAG's 3:1 non-text floor; `--line` sits at 1.54:1 in dark and 1.28:1 in light, and
+is not trying to clear it.
 
-Every tappable control's border in the app now carries `--line-strong` — `Button`'s
-unfilled variants, every textarea and `<select>`, and every tappable pill, chip, row and
-scale cell. A container's own edge (a `Card`, a static alert panel, a decorative fill
-indicator) stays on `--line`, because WCAG's non-text contrast rule is about locating a
-control's boundary, not about a card's. Reach for `--line` on a card edge and
-`--line-strong` on anything tappable in anything you write — using the quiet one on a
-control is how a button's outline goes invisible against its own background.
+Settled 2026-09-01, reversing the 2026-08-31 pass that put every tappable control on
+`--line-strong`. That pass read WCAG 1.4.11 as "a control's boundary must clear 3:1" and
+applied it uniformly, which is the right rule read too literally: on a screen of stacked
+cards and rows it drew a bright rectangle around everything, and the accent-filled primary
+button — the one control the eye is meant to land on — stopped being the loudest thing on
+the page. The distinction that actually matters is whether the border **is** the control.
+A text field is an empty rectangle; erase its edge and there is nothing left to find, and
+1.4.11 is squarely about that case. A button is a filled surface carrying a label at
+`--w-bold` on `--raised`, sitting on `--surface`, inside a `Card` on `--ground` — its
+boundary is one of four signals, not the only one, so a quiet edge costs the user nothing
+and buys back the visual hierarchy.
+
+So: reach for `--line` by default, including on anything tappable, and `--line-strong`
+only on a field the user enters a value into. The failure this replaces is the opposite
+of the one the old rule guarded against — not an invisible button, but a screen where
+every element shouts at the same volume.
 
 **Elevation** is two steps — `--shadow-1` (cards, list rows) and `--shadow-3` (reserved
 for full-screen overlays and modals; nothing consumes it yet). `--shadow-2` existed

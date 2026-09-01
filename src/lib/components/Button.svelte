@@ -69,7 +69,7 @@
   .secondary {
     background: var(--surface);
     color: var(--text);
-    border-color: var(--line-strong);
+    border-color: var(--line);
   }
 
   .quiet {

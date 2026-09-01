@@ -222,7 +222,7 @@
      strength. */
   .pill {
     min-height: 2.75rem;
-    border: 1px solid var(--line-strong);
+    border: 1px solid var(--line);
     background: var(--raised);
     color: var(--muted);
     border-radius: var(--r-lg);
@@ -260,7 +260,7 @@
     justify-self: start;
     margin-top: 0.75rem;
     min-height: 2.75rem;
-    border: 1px dashed var(--line-strong);
+    border: 1px dashed var(--line);
     background: none;
     color: var(--accent);
     border-radius: var(--r-xs);

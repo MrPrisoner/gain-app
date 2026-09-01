@@ -123,7 +123,7 @@
     align-items: center;
     gap: var(--s-2);
     background: var(--raised);
-    border: 1px solid var(--line-strong);
+    border: 1px solid var(--line);
     border-radius: var(--r-sm);
     padding: var(--s-3) var(--s-5);
     color: var(--text);

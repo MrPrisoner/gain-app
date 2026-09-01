@@ -300,7 +300,7 @@
   }
   .secondary {
     background: var(--raised);
-    border: 1px solid var(--line-strong);
+    border: 1px solid var(--line);
     color: var(--text);
   }
 </style>

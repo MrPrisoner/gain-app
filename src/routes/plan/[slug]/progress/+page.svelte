@@ -110,7 +110,7 @@
     padding: var(--s-3) var(--s-5);
     border-radius: var(--r-sm);
     background: var(--raised);
-    border: 1px solid var(--line-strong);
+    border: 1px solid var(--line);
     color: var(--text);
     font-weight: var(--w-bold);
   }

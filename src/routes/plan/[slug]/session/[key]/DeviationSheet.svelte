@@ -254,7 +254,7 @@
     gap: var(--s-2);
     min-height: 2.75rem;
     padding: var(--s-1) var(--s-2);
-    border: 1px solid var(--line-strong);
+    border: 1px solid var(--line);
     border-radius: var(--r-xs);
     background: var(--raised);
   }
@@ -286,7 +286,7 @@
   }
   .secondary {
     background: var(--raised);
-    border: 1px solid var(--line-strong);
+    border: 1px solid var(--line);
     color: var(--text);
   }
 </style>

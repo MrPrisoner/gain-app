@@ -14,9 +14,11 @@
  *   weight (--w-)   five steps, 400 to 800, each with exactly one job.
  *   spacing (--s-)  4/8px rhythm, --s-1 (4px) to --s-7 (48px). --pad-card is the one
  *                   derived token: 16px on a phone, 24px from 480px up.
- *   borders         two tokens, two jobs: --line is a quiet card/divider hairline;
- *                   --line-strong is for anything tappable, held to WCAG's 3:1
- *                   non-text floor.
+ *   borders         two tokens, two jobs: --line is the ordinary hairline, and it
+ *                   carries card edges, dividers and every button-like control;
+ *                   --line-strong is reserved for the fields a value is typed or
+ *                   picked into (input/textarea/select), where the border *is* the
+ *                   control, and is held to WCAG's 3:1 non-text floor.
  *   elevation       two --shadow- steps; light casts a true shadow, dark lightens
  *                   the surface and adds an --edge-top highlight, because a shadow
  *                   on a near-black ground reads as nothing.
