@@ -3,12 +3,14 @@
  * need to agree on it.
  *
  * The runner stores a workout's client id under `gain:workout:<planSlug>:<sessionKey>`
- * so a reload resumes the workout it already created rather than starting a second one.
+ * so a reload resumes the workout it already wrote to rather than starting a second one.
  * That makes the key a small piece of shared state between the runner and anything that
  * wipes an account, and getting the two out of step is not a cosmetic problem: after a
  * reset, a surviving key points at a workout that no longer exists, and if a later
  * re-import reuses the same plan slug and session key, the runner reads it back as
- * "already started" and never writes the new workout's `start` op at all.
+ * "already started" and never writes the new workout's `start` op at all. Under lazy
+ * start this failure mode is sharper still: a stale key means no start is even armed, so
+ * the first set logged against it strands rather than merely resuming the wrong workout.
  *
  * Both functions no-op where `localStorage` is unavailable (SSR, and a browser with
  * storage disabled) rather than throwing, because the callers are render paths.

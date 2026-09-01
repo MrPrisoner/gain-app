@@ -808,7 +808,9 @@ across workouts. Making it exact needs the `block_key` column §5 describes.
   **Every** workout-scoped op commits it, a `finish` included — not as a judgement about
   which ops are real effort, but because an op reaching the server with no workout behind
   it resolves nothing, throws `NotYetError`, and is retried forever with no start op left
-  in the outbox to rescue it.
+  in the outbox to rescue it. This includes a pre-session metric answered on the "Before
+  you start" gate, before "Continue to session" is tapped: the peek is only free if the
+  user touches nothing on that screen.
 
   The start op is minted **whole at mount**, not at commit. Its ULID has to sort below
   every op it precedes or `planBatch` sends the set first and replay pays a wasted round

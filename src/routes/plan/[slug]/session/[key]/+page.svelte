@@ -75,7 +75,7 @@
   const storageKey = untrack(() => workoutStorageKey(data.planSlug, data.session.key));
 
   // `undefined` until the mount effect below resolves the local pointer (and, for a fresh
-  // workout, writes its `start` op) — nothing below renders a logging control until then,
+  // workout, arms its deferred `start` op) — nothing below renders a logging control until then,
   // the same "quiet placeholder over a live-looking strip that would 400 on every tap"
   // rule phase 4 established (UI §2), now guarding against a tap racing
   // IndexedDB instead of a network round trip.
@@ -157,6 +157,9 @@
          * part of a session, and stamping it at the first set would silently narrow
          * every future duration and break comparison with everything already logged.
          */
+        // Narrows `clientId` (declared `string | undefined` above) to a definite `string`
+        // for the `onCommit` closure below — capturing the outer binding instead would
+        // read whatever it holds when the closure runs, not what it held here.
         const freshId = clientId;
         armDeferredStart(
           {

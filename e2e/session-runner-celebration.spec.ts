@@ -36,12 +36,16 @@ test("the workout is already complete before the celebration is dismissed", asyn
   await page.goto(`/plan/${E2E_PLAN_SLUG}/session/A`);
   await dismissPreSessionPrompt(page);
 
-  // Lazy start (ARCHITECTURE, "the resume key"): the `gain:workout:...` localStorage key
+  // Lazy start (ARCHITECTURE §9, "Offline model"): the `gain:workout:...` localStorage key
   // is only written on the *first* workout-scoped write, not on mount. Finish and the
   // red-flag stop below both write-then-clear that key within one async call, so there is
   // no window after either to read it from. Logging one set first commits the deferred
   // start and writes the key via `onCommit` — and nothing clears it again until the
   // terminating action runs — so it is the earliest point this spec can read it safely.
+  //
+  // This spec used to also assert that a zero-set finish still creates a workout; under
+  // lazy start that assertion moved to `home-walkthrough.spec.ts`, which is now the only
+  // e2e proof of it.
   await logSetThroughRest(page);
   const clientId = await workoutClientId(page, "A");
 
