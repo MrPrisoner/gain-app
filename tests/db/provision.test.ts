@@ -36,7 +36,7 @@ describe("openUserDb", () => {
   it("applies migrations and records them", () => {
     userDb = openUserDb(dataDir, "user-1", { now: NOW });
 
-    expect(appliedSchemaVersion(userDb.db)).toBe(2);
+    expect(appliedSchemaVersion(userDb.db)).toBe(3);
 
     const rows = userDb.db
       .prepare("SELECT version, name, applied_at FROM _gain_migration")
@@ -44,6 +44,7 @@ describe("openUserDb", () => {
     expect(rows).toEqual([
       { version: 1, name: "domain-model-v1", applied_at: NOW.toISOString() },
       { version: 2, name: "drop-ai-template", applied_at: NOW.toISOString() },
+      { version: 3, name: "delete-peeked-workouts", applied_at: NOW.toISOString() },
     ]);
   });
 
@@ -52,12 +53,12 @@ describe("openUserDb", () => {
     userDb.close();
 
     userDb = openUserDb(dataDir, "user-1", { now: new Date("2026-09-09T08:00:00Z") });
-    expect(appliedSchemaVersion(userDb.db)).toBe(2);
+    expect(appliedSchemaVersion(userDb.db)).toBe(3);
 
     const count = userDb.db.prepare("SELECT COUNT(*) AS n FROM _gain_migration").get() as {
       n: number;
     };
-    expect(count.n).toBe(2);
+    expect(count.n).toBe(3);
   });
 
   it("no longer provisions an ai_template table", () => {
