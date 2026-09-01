@@ -108,6 +108,11 @@ test("back from the celebration cannot re-enter the finished session", async ({ 
   await page.goto(`/plan/${E2E_PLAN_SLUG}/session/A`);
   await dismissPreSessionPrompt(page);
 
+  // There has to be a workout for there to be a celebration: End session on a session
+  // nothing was written for leaves for Home without finishing anything (UI §2), because
+  // the finish would otherwise create the very workout it claimed to complete.
+  await logSetThroughRest(page);
+
   await page.getByRole("button", { name: "End session" }).click();
   await page.getByRole("button", { name: "Finish session" }).click();
   await page.locator(".celebrate-card").getByRole("button", { name: "Back to home" }).click();
@@ -142,6 +147,9 @@ test("reduced motion drops the confetti but keeps the message and the way out", 
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(`/plan/${E2E_PLAN_SLUG}/session/A`);
   await dismissPreSessionPrompt(page);
+
+  // Same as above: no write, no workout, no celebration to reduce the motion of.
+  await logSetThroughRest(page);
 
   await page.getByRole("button", { name: "End session" }).click();
   await page.getByRole("button", { name: "Finish session" }).click();

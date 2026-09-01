@@ -138,6 +138,13 @@ curiosity became a wrong claim in the next revision. A session that was only loo
 must not be able to say it happened. The architectural half — what is held, and why the
 op is minted at mount rather than at commit — is ARCHITECTURE §9.
 
+**End session** on a session nothing was written for is therefore leaving, not finishing:
+no finish op, no row, and no celebration. Left to write its op like any other ending it
+would have created the workout it claimed to be completing — the same false Adherence row,
+now reading *Completed* rather than *Partial*, which is the louder of the two lies. The
+sheet's own end metrics are ordinary writes, so answering one and then finishing does end
+a real workout; the check is what has been written, not which screen it was written from.
+
 ## 3. Load is total kilograms
 
 A paired lift shows **12 kg**, not "6 kg each", with `2 × 6` beneath it as a quiet check.

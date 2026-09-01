@@ -3,7 +3,7 @@
   import type { MetricDef } from "$lib/contract/schema";
   import { trapFocus } from "$lib/actions/focus-trap";
   import { newOpId } from "$lib/sync/ops";
-  import { logWrite } from "$lib/sync/client.svelte";
+  import { isStartDeferred, logWrite } from "$lib/sync/client.svelte";
   import MetricRow from "$lib/components/MetricRow.svelte";
 
   /**
@@ -22,6 +22,7 @@
     storageKey,
     onClose,
     onFinished,
+    onLeftWithoutStarting,
     onError,
   }: {
     planSlug: string;
@@ -34,6 +35,9 @@
     /** The workout is finished and its local key cleared. The caller decides what
      * happens next — today, the celebration screen, and the navigation home after it. */
     onFinished: () => void;
+    /** Nothing was ever written for this workout, so there was nothing to finish — the
+     * user opened a session and left. No op, no row, and nothing to celebrate. */
+    onLeftWithoutStarting: () => void;
     onError: (message: string | undefined) => void;
   } = $props();
 
@@ -43,6 +47,18 @@
     if (finishing) return;
     finishing = true;
     try {
+      if (isStartDeferred(workoutClientId)) {
+        // Nothing has been written for this workout — no set, no deviation, and no end
+        // metric answered on the sheet above, since any of those would have committed the
+        // deferred start already. There is therefore no workout to finish: writing the
+        // op here would *create* one, `completed` and empty, which is the wrong claim in
+        // the export's Adherence table lazy start exists to prevent (ARCHITECTURE §9).
+        // Opening a session and tapping End session is leaving, not training. No key to
+        // clear either — `onCommit` never ran, so none was ever written.
+        onLeftWithoutStarting();
+        return;
+      }
+
       await logWrite(planSlug, {
         kind: "finish",
         id: newOpId(),

@@ -97,6 +97,21 @@ export function disarmDeferredStart(workoutClientId: string): void {
   if (deferredStart?.op.workoutClientId === workoutClientId) deferredStart = undefined;
 }
 
+/**
+ * Whether this workout's `start` op is *still* armed — nothing has been written for it,
+ * on this device or any other, so no `workout` row exists and none is queued to.
+ *
+ * The wrap-up sheet asks before writing its `finish`. Finishing a workout nobody started
+ * would commit the armed start and mint the row whole, `completed` and empty — the same
+ * wrong claim in the export's Adherence table that lazy start exists to prevent, only
+ * louder than the `partial` it replaced. Read at the moment Finish is tapped rather than
+ * when the sheet opens, because the sheet's own end metrics commit the workout like any
+ * other write, and a session with an answered metric does have a row to finish.
+ */
+export function isStartDeferred(workoutClientId: string): boolean {
+  return deferredStart?.op.workoutClientId === workoutClientId;
+}
+
 export async function logWrite(planSlug: string, op: SyncOp): Promise<void> {
   const armed = deferredStart;
   const { ops, consumed } = resolveWrite(armed?.op, op);

@@ -1,5 +1,6 @@
 /**
- * Opening a session to look at it must leave nothing behind.
+ * Opening a session to look at it must leave nothing behind — by either way out, closing
+ * the tab or tapping End session.
  *
  * The runner used to write a `start` op on mount, so a session someone opened and never
  * trained became a `workout` row with `status = 'partial'`. The History row was the least
@@ -49,6 +50,26 @@ test("opening a session and logging nothing leaves no workout and does not advan
   expect(await outboxRecords(page), "a session that was only looked at must queue no ops").toEqual(
     [],
   );
+
+  // -- The other way out of an untouched session: past the gate, down to End session, and
+  // through the wrap-up sheet. Left to write its op like any other ending, the finish
+  // would *create* the workout it claimed to be completing — the same false Adherence
+  // row, reading Completed rather than Partial (UI §2). Nothing was written, so there is
+  // nothing to finish: it leaves for Home, with no celebration in the way.
+  await page.getByRole("button", { name: "Continue to session" }).click();
+  await page.getByRole("button", { name: "End session" }).click();
+  await page.getByRole("button", { name: "Finish session" }).click();
+
+  await page.waitForURL(/\/$/);
+  await expect(page.locator(".celebrate-card")).toHaveCount(0);
+  expect(
+    await outboxRecords(page),
+    "ending a session nothing was written for must queue no ops",
+  ).toEqual([]);
+  expect(
+    await page.evaluate((k) => localStorage.getItem(k), `gain:workout:${E2E_PLAN_SLUG}:A`),
+    "ending a session nothing was written for must store no workout key",
+  ).toBeNull();
 
   // -- Home is where it was: same suggestion, and no history row to show for it.
   await page.goto("/");

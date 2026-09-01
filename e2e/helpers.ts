@@ -74,6 +74,11 @@ export async function logSetThroughRest(page: Page): Promise<void> {
  * Note what this proves incidentally: the finish op is written *before* the celebration is
  * shown, so a spec that never dismissed it would still find the workout complete in the
  * database. The celebration is a moment, never a step.
+ *
+ * **Something must have been written for the session first** — a set, a deviation, a
+ * metric. Under lazy start there is no workout until then, so End session on an untouched
+ * one leaves for Home without finishing anything and no celebration ever appears (UI §2).
+ * A spec that wants a completed workout has to earn one.
  */
 export async function finishSession(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Finish session" }).click();
