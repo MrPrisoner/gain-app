@@ -129,6 +129,15 @@ at the bottom of the document is an error nobody sees, and a set that silently f
 log looks exactly like one that succeeded. Errors surface adjacent to the strip, legible
 at arm's length, dismissible — and **not in `var(--red)`**, which §5 has spoken for.
 
+**Effort commits the workout, not only the set.** Opening the runner writes nothing —
+no `start` op, no resume key — until the first real write against that workout. Before
+that, a session someone opened to see what was in it created a `workout` row on mount,
+which advanced Home's rotation cursor and counted as a Partial in the export's Adherence
+table; the reviewing AI reads a Partial as a session that was abandoned, so a moment of
+curiosity became a wrong claim in the next revision. A session that was only looked at
+must not be able to say it happened. The architectural half — what is held, and why the
+op is minted at mount rather than at commit — is ARCHITECTURE §9.
+
 ## 3. Load is total kilograms
 
 A paired lift shows **12 kg**, not "6 kg each", with `2 × 6` beneath it as a quiet check.

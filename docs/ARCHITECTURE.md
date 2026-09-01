@@ -345,11 +345,11 @@ structure is version-scoped, and logs bind to the version they were recorded und
   surfaces them but does not act on them, except `scheduling.sequence`, which drives
   the suggested next session.
 - **`workout` has no "in progress" state.** `status` is `completed | partial | stopped`.
-  A workout row is created the moment a session starts, as `partial` with a NULL
-  `completed_at` — true until proven otherwise — and updated when the user finishes or
-  red-flag-stops. In-progress is the absence of `completed_at`, not a fourth status, so a
-  session abandoned mid-way is already recorded honestly without anything having to
-  reconcile it later.
+  A workout row is created the moment it is first written to, never merely opened (§9,
+  "Offline model"), as `partial` with a NULL `completed_at` — true until proven otherwise
+  — and updated when the user finishes or red-flag-stops. In-progress is the absence of
+  `completed_at`, not a fourth status, so a session abandoned mid-way after real effort is
+  already recorded honestly without anything having to reconcile it later.
 - **A log row records what was performed, not where in the session.** `set_log` and
   `deviation` key on `exercise_def_id` and carry no `block_key`. The runner, which must
   distinguish two occurrences of one movement in one session, keys its own state on
@@ -801,6 +801,20 @@ across workouts. Making it exact needs the `block_key` column §5 describes.
 
 - The client owns workout state. Everything is written to IndexedDB first, then queued
   for sync.
+- **A workout is not created until it is written to.** Opening the runner mints the
+  workout's `client_id`, its `start` op and its `startedAt` in memory and persists none of
+  them; the first op carrying that `workoutClientId` drags the start into the outbox ahead
+  of itself and writes the `localStorage` resume key (`$lib/sync/deferred-start.ts`).
+  **Every** workout-scoped op commits it, a `finish` included — not as a judgement about
+  which ops are real effort, but because an op reaching the server with no workout behind
+  it resolves nothing, throws `NotYetError`, and is retried forever with no start op left
+  in the outbox to rescue it.
+
+  The start op is minted **whole at mount**, not at commit. Its ULID has to sort below
+  every op it precedes or `planBatch` sends the set first and replay pays a wasted round
+  trip; ULIDs are monotonic, so minting it at mount makes that ordering free. It also
+  fixes `startedAt` at the moment the session opened, which keeps warm-up and setup inside
+  the session's duration and keeps that figure comparable with everything already logged.
 - All writes carry a client-generated ULID and are **idempotent** on the server —
   replaying the queue can never duplicate a set.
 - Sync is append-only per workout; there is no multi-device concurrent-edit case worth
