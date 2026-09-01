@@ -36,7 +36,13 @@
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import { newOpId } from "$lib/sync/ops";
-  import { logWrite, opsForWorkout, startSyncLoop } from "$lib/sync/client.svelte";
+  import {
+    armDeferredStart,
+    disarmDeferredStart,
+    logWrite,
+    opsForWorkout,
+    startSyncLoop,
+  } from "$lib/sync/client.svelte";
   import { historyFromOps } from "$lib/sync/history";
   import IconFlag from "~icons/lucide/flag";
   import IconInfo from "~icons/lucide/info";
@@ -126,23 +132,45 @@
 
   $effect(() => {
     let cancelled = false;
+    let clientId: string | undefined;
 
     (async () => {
       const existing =
         typeof localStorage !== "undefined" ? localStorage.getItem(storageKey) : null;
       const resumed = existing !== null;
-      const clientId = existing ?? newOpId();
+      clientId = existing ?? newOpId();
 
       if (!resumed) {
-        if (typeof localStorage !== "undefined") localStorage.setItem(storageKey, clientId);
-        await logWrite(data.planSlug, {
-          kind: "start",
-          id: newOpId(),
-          workoutClientId: clientId,
-          planVersionId: data.planVersionId,
-          sessionKey: data.session.key,
-          startedAt: new Date().toISOString(),
-        });
+        /**
+         * Nothing is persisted here — not the resume key, not the `start` op. Both land
+         * on the first write against this workout, via the start armed below
+         * (`$lib/sync/deferred-start`). A session someone only opened to look at must
+         * not be able to claim it happened: a `workout` row advances Home's rotation
+         * cursor and counts as a Partial in the export's Adherence table, and the
+         * reviewing AI reads a Partial as a session the user abandoned.
+         *
+         * The op is minted *whole* right here rather than at commit time, and that is
+         * load-bearing twice over. Its ULID must sort below every op it precedes, or
+         * `planBatch` sends the set first and replay costs a wasted round trip on
+         * `NotYetError`; ULIDs are monotonic, so minting it now makes that free. And
+         * `startedAt` is honestly the moment the session opened — warm-up and setup are
+         * part of a session, and stamping it at the first set would silently narrow
+         * every future duration and break comparison with everything already logged.
+         */
+        const freshId = clientId;
+        armDeferredStart(
+          {
+            kind: "start",
+            id: newOpId(),
+            workoutClientId: freshId,
+            planVersionId: data.planVersionId,
+            sessionKey: data.session.key,
+            startedAt: new Date().toISOString(),
+          },
+          () => {
+            if (typeof localStorage !== "undefined") localStorage.setItem(storageKey, freshId);
+          },
+        );
       }
 
       if (cancelled) return;
@@ -169,6 +197,10 @@
 
     return () => {
       cancelled = true;
+      // Module state needs a way out of every state it can enter. A start armed for a
+      // session that was left without a write would otherwise sit there until the tab
+      // closed.
+      if (clientId) disarmDeferredStart(clientId);
     };
   });
 
@@ -584,8 +616,10 @@
 
 {#if !workoutClientId}
   <!-- UI §2: nothing below renders until the mount effect resolves a local
-       workout client id — a quiet "starting" state beats a live-looking strip that
-       writes against an id that does not exist yet. -->
+       workout client id — a quiet "starting" state beats a live-looking strip that could
+       tap against an id that does not exist yet. `workoutClientId` is assigned
+       synchronously, before the hydration/server round trip below, so this placeholder
+       is brief on both the fresh and resumed paths — no write happens here on either. -->
   <p class="starting">Starting your session…</p>
 {:else if showPreSession}
   <!-- Pre-session metrics (ARCHITECTURE §9): a genuine gate, following the same "quiet placeholder

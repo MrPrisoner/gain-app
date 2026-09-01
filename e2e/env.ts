@@ -105,6 +105,15 @@ export function quarantineDevUserFor(projectName: string): string {
 }
 
 /**
+ * A per-project dev user for the peek spec. It asserts that opening a session and logging
+ * nothing leaves Home's suggested next session where it was, which is whole-account state
+ * — see `homeDevUserFor` for the same reasoning and the header that makes it work.
+ */
+export function peekDevUserFor(projectName: string): string {
+  return `e2e-peek-${projectName}`;
+}
+
+/**
  * The one operator account. `GAIN_DEV_ADMIN` is a single environment variable read once
  * at boot, so unlike the subject below this cannot vary per project — which is fine,
  * because the admin spec asserts only on its own subject's card, never on the list as a
