@@ -16,7 +16,7 @@
 
 import { expect, test } from "@playwright/test";
 import { E2E_PLAN_SLUG, peekDevUserFor, seededDataDir } from "./env";
-import { assertNoHorizontalOverflow } from "./helpers";
+import { assertNoHorizontalOverflow, outboxRecords } from "./helpers";
 import { seedFixturePlan } from "./seed";
 
 test("opening a session and logging nothing leaves no workout and does not advance the rotation", async ({
@@ -46,20 +46,9 @@ test("opening a session and logging nothing leaves no workout and does not advan
   expect(storedKey, "a session that was only looked at must store no workout key").toBeNull();
 
   // And nothing is queued for sync.
-  const queued = await page.evaluate(
-    () =>
-      new Promise<number>((resolve) => {
-        const request = indexedDB.open("gain-sync", 1);
-        request.onsuccess = () => {
-          const db = request.result;
-          const all = db.transaction("outbox").objectStore("outbox").getAll();
-          all.onsuccess = () => resolve((all.result as unknown[]).length);
-          all.onerror = () => resolve(-1);
-        };
-        request.onerror = () => resolve(-1);
-      }),
+  expect(await outboxRecords(page), "a session that was only looked at must queue no ops").toEqual(
+    [],
   );
-  expect(queued, "a session that was only looked at must queue no ops").toBe(0);
 
   // -- Home is where it was: same suggestion, and no history row to show for it.
   await page.goto("/");
