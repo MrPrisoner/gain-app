@@ -20,7 +20,8 @@ import {
   type OutboxStore,
   type SyncStatus,
 } from "./queue";
-import type { SyncOp } from "./ops";
+import { resolveWrite } from "./deferred-start";
+import type { StartOp, SyncOp } from "./ops";
 import { openOutbox } from "./idb";
 
 export const syncStatus: SyncStatus = $state({
@@ -69,8 +70,44 @@ export async function refreshCounts(): Promise<void> {
   syncStatus.quarantined = counts.quarantined;
 }
 
+/**
+ * The workout whose `start` op is held back until something is actually written for it,
+ * and what to do when that happens. See `$lib/sync/deferred-start` for why.
+ *
+ * Module state, so it needs an explicit way out of every state it can enter — a lesson
+ * this file already paid for once, when a `needs-auth` state had no path back and a
+ * queue that hit one 401 stayed stuck after the user signed back in. There are exactly
+ * two ways out: `logWrite` consumes it, or the runner disarms it on leaving.
+ */
+let deferredStart: { op: StartOp; onCommit: () => void } | undefined;
+
+/**
+ * Hold this workout's `start` op back until the first write against it. `onCommit` runs
+ * at that moment — the runner uses it to write its `localStorage` resume key, which must
+ * not exist for a session that was only looked at either: a stale key would make the next
+ * visit take the resume path, find nothing on the server and nothing in the outbox, and
+ * arm no start at all, so the first set logged would strand forever.
+ */
+export function armDeferredStart(op: StartOp, onCommit: () => void): void {
+  deferredStart = { op, onCommit };
+}
+
+/** Drop an armed start that was never committed — the runner was left without a write. */
+export function disarmDeferredStart(workoutClientId: string): void {
+  if (deferredStart?.op.workoutClientId === workoutClientId) deferredStart = undefined;
+}
+
 export async function logWrite(planSlug: string, op: SyncOp): Promise<void> {
-  await (await store()).append(op);
+  const armed = deferredStart;
+  const { ops, consumed } = resolveWrite(armed?.op, op);
+  // Cleared synchronously, before the first `await`: two writes racing in one tick would
+  // otherwise both see the armed start and append it twice.
+  if (consumed) deferredStart = undefined;
+
+  const outbox = await store();
+  for (const next of ops) await outbox.append(next);
+  if (consumed) armed?.onCommit();
+
   await refreshCounts();
   void flushNow(planSlug);
 }
