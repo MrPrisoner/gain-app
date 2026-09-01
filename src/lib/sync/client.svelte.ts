@@ -104,9 +104,12 @@ export async function logWrite(planSlug: string, op: SyncOp): Promise<void> {
   // otherwise both see the armed start and append it twice.
   if (consumed) deferredStart = undefined;
 
-  const outbox = await store();
   let landed = 0;
+  // `store()` is inside the try as much as the appends are: it can reject too, and the
+  // armed start has already been cleared by the time it does, so a rejection outside this
+  // block would drop the start with nothing left to re-arm it.
   try {
+    const outbox = await store();
     for (const next of ops) {
       await outbox.append(next);
       landed += 1;
