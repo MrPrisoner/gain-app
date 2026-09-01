@@ -86,7 +86,7 @@ describe("migration 3: peeked-workout cleanup", () => {
   });
 
   it("deletes an old workout with nothing logged against it", () => {
-    peek("peek-1", daysAgo(5));
+    peek("peek-1", daysAgo(8));
     expect(countWorkouts()).toBe(1);
 
     userDb.db.exec(cleanupSql as string);
@@ -94,12 +94,13 @@ describe("migration 3: peeked-workout cleanup", () => {
     expect(countWorkouts()).toBe(0);
   });
 
-  it("spares an empty workout inside the 24-hour floor", () => {
-    // A session open on someone's phone right now has no rows yet either. Migrations run
-    // lazily on any request, POST /api/sync included, so without this floor a restart
-    // between the start op syncing and the first set arriving would delete the live
-    // workout and strand that set as permanently pending.
-    peek("peek-fresh", daysAgo(0));
+  it("spares an empty workout inside the 7-day floor", () => {
+    // A session opened partway through the week has no rows yet either, and is well
+    // short of the 7-day floor. Migrations run lazily on any request, POST /api/sync
+    // included, so without this floor a restart between the start op syncing and the
+    // first set arriving would delete the live workout and strand that set as
+    // permanently pending.
+    peek("peek-fresh", daysAgo(6));
 
     userDb.db.exec(cleanupSql as string);
 
@@ -107,7 +108,7 @@ describe("migration 3: peeked-workout cleanup", () => {
   });
 
   it("spares a workout with a logged set", () => {
-    const workoutId = peek("real-set", daysAgo(5));
+    const workoutId = peek("real-set", daysAgo(8));
     logSet(userDb, {
       workoutId,
       exerciseDefId: squatId,
@@ -127,7 +128,7 @@ describe("migration 3: peeked-workout cleanup", () => {
     // The NOT IN trap lives here: `metric_value.workout_id` is nullable, so a `NOT IN`
     // subquery over it goes NULL and deletes nothing at all. This is the test that
     // catches the wrong spelling.
-    const workoutId = peek("real-metric", daysAgo(5));
+    const workoutId = peek("real-metric", daysAgo(8));
     logMetric(userDb, {
       scope: "session",
       workoutId,
@@ -142,7 +143,7 @@ describe("migration 3: peeked-workout cleanup", () => {
   });
 
   it("spares a workout with only a deviation", () => {
-    const workoutId = peek("real-deviation", daysAgo(5));
+    const workoutId = peek("real-deviation", daysAgo(8));
     logDeviation(userDb, {
       workoutId,
       exerciseDefId: squatId,
@@ -159,7 +160,7 @@ describe("migration 3: peeked-workout cleanup", () => {
   it("spares a finished workout even with nothing logged against it", () => {
     // `completed_at` means the user tapped Finish. That is a claim they made about their
     // own session, and it is not this migration's to overrule.
-    const workoutId = peek("finished-empty", daysAgo(5));
+    const workoutId = peek("finished-empty", daysAgo(8));
     userDb.db
       .prepare("UPDATE workout SET status = 'completed', completed_at = ? WHERE id = ?")
       .run(LONG_AGO.toISOString(), workoutId);
@@ -171,8 +172,8 @@ describe("migration 3: peeked-workout cleanup", () => {
 
   it("deletes several peeks and spares several real workouts in one pass", () => {
     peek("peek-a", daysAgo(9));
-    peek("peek-b", daysAgo(4));
-    const real = peek("real", daysAgo(6));
+    peek("peek-b", daysAgo(8));
+    const real = peek("real", daysAgo(9));
     logSet(userDb, {
       workoutId: real,
       exerciseDefId: squatId,
