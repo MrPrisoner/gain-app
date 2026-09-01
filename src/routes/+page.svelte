@@ -10,7 +10,6 @@
   import { startSyncLoop } from "$lib/sync/client.svelte";
   import Button from "$lib/components/Button.svelte";
   import Card from "$lib/components/Card.svelte";
-  import PageHeader from "$lib/components/PageHeader.svelte";
   import IconArchive from "~icons/lucide/archive";
   import IconArchiveRestore from "~icons/lucide/archive-restore";
   import IconCheck from "~icons/lucide/check";
@@ -209,7 +208,13 @@
     <a class="primary-link" href="/import"><IconUpload />Paste the plan your AI gave you</a>
   </Card>
 {:else}
-  <PageHeader title="GAIN" />
+  <!-- The app's own wordmark already sits in the layout's top bar on every page, so a
+       visible "GAIN" page heading here rendered it twice, one under the other. The
+       heading itself stays, unpainted: this is the plans list, and it is the only screen
+       whose title is the app rather than a thing inside it. Unconditional rather than
+       folded into the greeting above, which only renders when the IdP supplied a display
+       name — a heading that disappears for some users is not a heading. -->
+  <h1 class="page-title">Your plans</h1>
 
   {#each dueNextMorning as candidate (candidate.workoutClientId)}
     <NextMorningPrompt
@@ -342,6 +347,21 @@
     margin: 0;
     color: var(--muted);
     font-weight: var(--w-bold);
+  }
+
+  /* Reachable by heading navigation, never painted. Same recipe as
+     `ImportPlanForm.svelte`'s `.file-input`; `display: none` would take it out of the
+     accessibility tree entirely, which is the one thing this must not do. */
+  .page-title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 
   .hero {
