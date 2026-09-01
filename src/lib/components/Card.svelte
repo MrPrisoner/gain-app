@@ -25,11 +25,12 @@
     box-shadow: var(--shadow-1), var(--edge-top);
   }
 
-  /* The site-wide de-facto section-separator rhythm (`docs/todo-ui-followups.md` tracks
-     sweeping every other literal use of it onto the `--s-N` scale) — kept as the same
-     literal here rather than rounded to `--s-5`, so a route mixing a spaced `Card` with
-     its own non-`Card` sections (`import/+page.svelte`'s `.report-card`/`.block`, for
-     one) does not read as two different rhythms side by side. */
+  /* The site-wide de-facto section-separator rhythm (UI §10 records why the rest of the
+     app's literal `margin`/`padding` values were never swept onto the `--s-N` scale) —
+     kept as the same literal here rather than rounded to `--s-5`, so a route mixing a
+     spaced `Card` with its own non-`Card` sections (`import/+page.svelte`'s
+     `.report-card`/`.block`, for one) does not read as two different rhythms side by
+     side. */
   .spaced {
     margin-top: 1.25rem;
   }

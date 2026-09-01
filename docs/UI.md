@@ -465,8 +465,16 @@ residual set of literal values remains: 109 literal `margin`/`padding` declarati
 33 files, of which most (79) already happen to equal a token's value but are written
 longhand rather than as `var(--s-N)`, and 37 are genuinely off-scale. The largest single
 pattern is `1.25rem` (12 sites across 9 files), used as a de-facto, uncatalogued spacing
-step for section-separator rhythm — sweeping this residue is tracked
-(`docs/todo-ui-followups.md`), not done.
+step for section-separator rhythm — `Card`'s `spaced` prop is the one place it is
+deliberate rather than residual.
+
+Sweeping the rest is **disclosed here rather than tracked**, and that is a decision, not
+an omission. It is a 33-file edit with no mechanical check behind it — the `gap` guard
+cannot be extended to shorthands without the exemption list above — so it would be a large
+diff that nothing afterwards keeps true, on a codebase whose spacing already reads
+consistently. What would reopen it: someone building the shorthand-aware guard, at which
+point the sweep is what makes the guard pass and the two land together. Until then, write
+`var(--s-N)` in new code and leave the residue where it is.
 
 `--pad-card` is the one derived spacing token — `var(--s-4)` (16px) on a phone, stepping to
 `var(--s-5)` (24px) at 480px and up. Card padding was the single most-repeated value in the
