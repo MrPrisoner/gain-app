@@ -51,11 +51,17 @@ verify` — a half-minute local check must never turn into a browser download. C
   the resolved Playwright version. `e2e/` is still
   typechecked, linted and formatted by `verify`; it is only never _executed_ by it.
   Narrow a run with `npx playwright test --project=offline e2e/offline-session.spec.ts`
-  rather than paying for the production build four times over. The three viewport
+  rather than paying for all four projects' specs — though note that both `webServer`
+  entries start whatever project is selected, so every run pays for the build once:
+  narrowing saves the specs, not the build. The three viewport
   projects are named `small-android`, `iphone` and `tablet-portrait` (see
   `playwright.config.ts`) — not `phone` or `mobile`. A killed run leaves its server
   holding port 4319 or 4320, and the next run then dies with "port already in use"
-  rather than a test failure; `ss -ltnp | grep -E '4319|4320'` names the pid
+  rather than a test failure; `ss -ltnp | grep -E '4319|4320'` names the pid.
+  A failed spec writes `test-results/<test>/error-context.md` — the accessibility snapshot
+  of the page at the moment it failed. Read that before reaching for the trace: a
+  component throwing at runtime shows up in it as the runner's own error alert, which the
+  Playwright timeout message never names
 - **To see a UI change without a display**, write a throwaway spec under `e2e/` (reuse
   `e2e/helpers.ts`'s gestures rather than re-deriving them), run it against a real
   project — `npx playwright test --project=iphone e2e/tmp-*.spec.ts` — and
@@ -83,7 +89,11 @@ tsconfig.worker.json` pass for `src/service-worker.ts` — SvelteKit's generated
   It short-circuits, so a lint failure means the tests never ran. The build is in there
   because typecheck and `svelte-check` do not exercise the adapter, the `?raw` asset
   imports or the Vite config — code that passes both and still cannot ship is a real
-  failure mode, not a hypothetical one
+  failure mode, not a hypothetical one.
+  **Never pipe it through `tail` or `head`.** The shell here is fish, so a pipeline
+  reports the _filter's_ exit status, not npm's — a failed `verify` comes back as a clean
+  exit, and the truncation window hides the error that caused it. Redirect to a file and
+  read that. The same trap applies to any command whose exit code you intend to trust
 
 Read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) first, then
 [`docs/CONTRACT.md`](docs/CONTRACT.md), before doing anything substantive. The twelve
