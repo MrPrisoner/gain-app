@@ -26,6 +26,7 @@ import { E2E_PLAN_SLUG } from "./env";
 import {
   assertNoHorizontalOverflow,
   dismissPreSessionPrompt,
+  logSetThroughRest,
   workoutClientId,
   workoutCountFor,
   workoutStatusOf,
@@ -34,6 +35,14 @@ import {
 test("the workout is already complete before the celebration is dismissed", async ({ page }) => {
   await page.goto(`/plan/${E2E_PLAN_SLUG}/session/A`);
   await dismissPreSessionPrompt(page);
+
+  // Lazy start (ARCHITECTURE, "the resume key"): the `gain:workout:...` localStorage key
+  // is only written on the *first* workout-scoped write, not on mount. Finish and the
+  // red-flag stop below both write-then-clear that key within one async call, so there is
+  // no window after either to read it from. Logging one set first commits the deferred
+  // start and writes the key via `onCommit` — and nothing clears it again until the
+  // terminating action runs — so it is the earliest point this spec can read it safely.
+  await logSetThroughRest(page);
   const clientId = await workoutClientId(page, "A");
 
   await page.getByRole("button", { name: "End session" }).click();
@@ -65,6 +74,10 @@ test("the workout is already complete before the celebration is dismissed", asyn
 test("a red-flag stop goes straight home without celebrating", async ({ page }) => {
   await page.goto(`/plan/${E2E_PLAN_SLUG}/session/A`);
   await dismissPreSessionPrompt(page);
+
+  // Same lazy-start reasoning as the test above: log one set first so the resume key
+  // exists to read, well before the red-flag stop that would otherwise clear it.
+  await logSetThroughRest(page);
   const clientId = await workoutClientId(page, "A");
 
   await page.locator(".log-strip .strip-change").click();
