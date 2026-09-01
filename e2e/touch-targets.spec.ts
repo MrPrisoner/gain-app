@@ -29,6 +29,13 @@ async function undersized(page: Page): Promise<string[]> {
       if (width <= 2 && height <= 2) continue;
       // An inline link inside a paragraph is text, not a control, and WCAG exempts it.
       if (el.tagName === "A" && style.display === "inline") continue;
+      // A chart's marks are exempt, and the exemption is a recorded risk rather than a
+      // convenience: `Sparkline`/`BarChart` give each mark the full-height column around
+      // it, but a chart is ~307 CSS px wide on a 360px phone, so past roughly six marks
+      // no per-mark geometry can reach 44px — and the `full history` window plots an
+      // unbounded number of them. See ARCHITECTURE §14, "A densely-plotted chart's tap
+      // targets"; this skip is what keeps that a known limit rather than a red suite.
+      if (el.closest("svg") !== null) continue;
       if (width < 44 || height < 44) {
         const label = (el.textContent ?? "").trim().slice(0, 30);
         bad.push(

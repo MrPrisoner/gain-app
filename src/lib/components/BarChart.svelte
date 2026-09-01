@@ -42,7 +42,7 @@
 </script>
 
 <figure class="bar-chart">
-  <!-- `role="group"`, not `role="img"`: the bars below are real focusable controls. -->
+  <!-- `role="group"`, not `role="img"`: each bar's hit band below is a real focusable control. -->
   <svg viewBox={`0 0 ${width} ${height}`} role="group" aria-label={ariaLabel}>
     {#if layout.length > 0}
       {#each layout as bar, i (i)}
@@ -52,6 +52,17 @@
           width={bar.barWidth}
           height={Math.max(bar.barHeight, 1)}
           fill={fillOf(data[i]!, i)}
+          class="bar"
+        />
+        <!-- The bar is drawn, but the full-height column around it is what gets tapped:
+             a bar's height IS its datum, so the smallest value on any chart would
+             otherwise be a one-pixel target. -->
+        <rect
+          x={bar.bandX}
+          y="0"
+          width={bar.bandWidth}
+          {height}
+          class="hit"
           role="button"
           tabindex="0"
           aria-label={formatReadout(data[i]!, i)}
@@ -88,7 +99,11 @@
     width: 100%;
     height: auto;
   }
-  rect {
+  .bar {
+    pointer-events: none;
+  }
+  .hit {
+    fill: transparent;
     cursor: pointer;
   }
   .bar-label {

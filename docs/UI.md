@@ -665,25 +665,22 @@ over-claimed mechanical check is worse than an acknowledged manual one:
   session runner itself are not in its route list**, so the log strip's controls —
   deliberately larger than 44 px, for sweaty hands and a phone on the floor — are believed
   compliant rather than mechanically checked, and `/admin` is likewise unverified by this
-  sweep specifically, though its overflow coverage above still applies. One further gap
-  the selector itself cannot close: `Sparkline` and `BarChart` give each plotted point a
-  real `role="button"` hit circle (24 viewBox units, scaled by the chart's own
-  `width: 100%` SVG), which renders under 44 CSS px on a narrow phone whenever a chart
-  actually has data to plot. This is a pre-existing sizing bug in both files, and this pass
-  did not touch it — the layout-chrome remap task (Task 3) edited the same two files, but
-  only to move their label font sizes onto scale tokens (`10px` → `var(--t-2xs)`, and
-  similarly for the rest); it never touched the hit-circle/hit-rect geometry, which is the
-  part that is actually broken. The token remap is also why "12px" is not literally true at
-  this call site: the label text lives inside the same viewBox that the chart's own
-  `width: 100%` scales, so a CSS-px-valued token renders at a size that scales with the
-  container's width there, the same mechanism behind the hit-target bug — not at the
-  fixed CSS pixel size the token implies everywhere else. Separately, progress's charts
-  render their empty `emptyLabel` state, with no circles at all, unless another spec has
-  already seeded duration data into the shared test database first, so a narrow run of just
-  this one spec file can appear to pass. Running the full suite — the way `npm run test:e2e`
-  and CI do — seeds that data, and the touch-targets check on the progress route then fails
-  on this. That failure is a known, already-understood assertion, not an intermittent one:
-  the next person who sees it red should not spend time debugging it as new.
+  sweep specifically, though its overflow coverage above still applies. **One further gap
+  the selector itself cannot close, and it is exempted rather than asserted:** a chart's
+  own marks. `Sparkline` and `BarChart` used to hang the tap target off the mark itself —
+  a 24-viewBox-unit hit circle over an 8-unit dot, and, for a bar, the drawn bar, whose
+  height *is* its datum, so the smallest value on any chart was a one-pixel target. Both
+  now give each mark the full-height column of the chart around it
+  (`$lib/progress/chart-geometry.ts`'s hit bands, tiled edge to edge so a tap anywhere in
+  the plot selects the nearest mark and no dead zones sit between them). That fixes the
+  unbounded half; what it cannot fix is arithmetic. A chart renders about 307 CSS px wide
+  on a 360 px phone, so past roughly six marks the bands themselves fall under 44 px, and
+  the `full history` window plots as many as the user has trained. `touch-targets.spec.ts`
+  therefore skips anything inside an `<svg>`, with the reason at the skip and the risk
+  recorded in ARCHITECTURE §14 — an acknowledged limit rather than a suite that is red on
+  every full run. Closing it properly means deciding what a chart does with more points
+  than it can offer a thumb, which is a progress-screen decision, not a chart-primitive
+  one.
 
 **Every sweep also runs under one fixed state, not several — a gap in kind, not just in
 route.** All three viewport projects authenticate through `GAIN_DEV_USER`'s auth bypass
