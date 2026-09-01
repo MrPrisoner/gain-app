@@ -231,6 +231,15 @@ export type OutboxRecordShape = {
  * than through the app. The quarantine invariant is about what *survives* a failure, and
  * the UI only ever shows a count — so a spec asserting an op was held rather than dropped
  * has to look at the store itself.
+ *
+ * **The app must have opened the outbox before this is called.** The open below names no
+ * version, so against a profile that has never appended anything it would *create* an
+ * empty `gain-sync` at version 1 with no object stores — the transaction then throws
+ * `NotFoundError`, and worse, `openOutbox`'s own `onupgradeneeded` never fires again for
+ * that profile, so the app's sync stays broken for the rest of the run. The peek specs
+ * are the ones this actually bears on, since they assert an *empty* outbox: both open
+ * with a visit to Home, whose `startSyncLoop` calls `flushNow` → `store()` →
+ * `openOutbox`, which creates the store properly. Keep that first visit.
  */
 export async function outboxRecords(page: Page): Promise<OutboxRecordShape[]> {
   return page.evaluate(
