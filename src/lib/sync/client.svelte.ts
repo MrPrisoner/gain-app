@@ -105,8 +105,19 @@ export async function logWrite(planSlug: string, op: SyncOp): Promise<void> {
   if (consumed) deferredStart = undefined;
 
   const outbox = await store();
-  for (const next of ops) await outbox.append(next);
-  if (consumed) armed?.onCommit();
+  let landed = 0;
+  try {
+    for (const next of ops) {
+      await outbox.append(next);
+      landed += 1;
+    }
+  } finally {
+    if (consumed) {
+      if (landed > 0)
+        armed?.onCommit(); // the start reached the outbox; the key must exist
+      else deferredStart ??= armed; // nothing landed — re-arm rather than strand
+    }
+  }
 
   await refreshCounts();
   void flushNow(planSlug);
