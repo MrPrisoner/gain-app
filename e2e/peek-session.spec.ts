@@ -67,4 +67,23 @@ test("opening a session and logging nothing leaves no workout and does not advan
 
   await page.goto(`/plan/${E2E_PLAN_SLUG}/history`);
   await expect(page.getByText("No workouts logged yet")).toBeVisible();
+
+  // -- The half that actually reaches the reviewing AI. The Adherence table has one row
+  // per declared session, so the row exists either way; the Partial *count* in it is the
+  // only thing that would move.
+  await page.goto(`/plan/${E2E_PLAN_SLUG}/export`);
+  await page.getByRole("button", { name: "Generate the export" }).click();
+  await expect(page.getByRole("heading", { name: "Paste this into your AI chat" })).toBeVisible();
+
+  const bundle = await page.locator("textarea.doc").inputValue();
+  const adherence = bundle.split("\n").find((line) => line.startsWith("| A |"));
+  expect(adherence, "the Adherence table must carry a row for session A").toBeTruthy();
+
+  // `| A | <name> | workouts | completed | partial | stopped |` — the leading pipe makes
+  // an empty first element, so cells[1] is the session key.
+  const cells = (adherence as string).split("|").map((cell) => cell.trim());
+  expect(cells[3], "a session that was only looked at is not a workout").toBe("0");
+  expect(cells[5], "a session that was only looked at is not a partial").toBe("0");
+
+  expect(bundle).toContain("Workouts in window: 0");
 });
