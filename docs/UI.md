@@ -556,15 +556,14 @@ full account.
   more than one no longer wraps each in its own `<div>` just to get a top margin. Reach
   for it for any raised content well; called from, for example,
   `plan/[slug]/export/+page.svelte`.
-- **`Field`** pairs a label with one form control, plus optional `hint`/`error` paragraphs
-  rendered as `{id}-hint`/`{id}-error`. `asGroup` swaps the default `<label for={id}>` for a
+- **`Field`** pairs a label with one form control, plus an optional `error` paragraph
+  rendered as `{id}-error`. `asGroup` swaps the default `<label for={id}>` for a
   `<span id="{id}-label">` when the wrapped control is a `<fieldset>` — a fieldset has
   nothing for a `for` attribute to point at. The span carries no accessible-name
   relationship on its own; the caller's `<fieldset>` must reference it with
   `aria-labelledby="{id}-label"` or the group has no accessible name at all. Field itself
   cannot reach into its own `children` snippet to add `aria-describedby` — the caller's
-  control has to reference `{id}-error`/`{id}-hint` itself, or the ids it renders describe
-  nothing. Called plainly from `import/ImportPlanForm.svelte`'s paste textarea, with
+  control has to reference `{id}-error` itself, or the id it renders describes nothing. Called plainly from `import/ImportPlanForm.svelte`'s paste textarea, with
   `asGroup` (plus the matching `aria-labelledby`) from
   `plan/[slug]/export/+page.svelte`'s history-window radio group, and with `error` (plus
   that `aria-describedby` wiring) from `/admin`'s and `/account`'s reset-confirmation
@@ -573,10 +572,9 @@ full account.
   an optional `subtitle` and an optional `backHref`/`backLabel` rendering a `BackLink`
   beneath the title. Reach for it at the top of any read route; called from, for example,
   `plan/[slug]/history/+page.svelte`.
-- **`EmptyState`** is a compact "nothing here yet" block — a `title`, an optional `body`
-  paragraph, and an optional `children` snippet for a call-to-action beneath it — so an
-  empty chart says so in a few lines rather than drawing its full well with nothing in it.
-  Called from, for example, `plan/[slug]/history/+page.svelte`.
+- **`EmptyState`** is a compact "nothing here yet" block — a `title`, and nothing else —
+  so an empty chart says so in a few lines rather than drawing its full well with nothing
+  in it. Called from, for example, `plan/[slug]/history/+page.svelte`.
 
 `Button`'s `href` and `size` were removed rather than kept ahead of use: neither ever had a
 call site, and `href` combined with `disabled`/`pending` to leave a real gap (an `<a>`
@@ -588,9 +586,15 @@ its precondition exists must be disabled" concern the runner has. `Card`'s `elev
 `padded` went the same way as `Button`'s `href`/`size`: no call site ever set either away
 from its default, so both were removed and their defaults (shadow-1, `--pad-card`) made
 unconditional — `spaced` replaces them as the one prop `Card` now carries, since the
-Card-adoption sweep gave it a real job. `Field`'s `hint` and `error` still have no call
-site; tracked in `docs/todo-ui-followups.md` rather than removed on sight, pending an
-adoption site that would actually exercise it.
+Card-adoption sweep gave it a real job. `Field`'s `error` did the opposite and found its
+first callers — `/admin`'s and `/account`'s reset-confirmation input — so it stays;
+`Field`'s `hint` and `EmptyState`'s `body`/`children` followed `Button`'s `href` out, for
+the same reason and after the same wait. **The rule these four removals converged on: a
+primitive carries the props its call sites use, and API kept ahead of a call site is
+deleted rather than documented.** An unreached prop is untested by construction — nothing
+renders it — so it accumulates exactly the kind of defect `href` had, invisible until the
+day someone finally reaches for it. Add the prop back with the call site that needs it,
+where it will be exercised the moment it exists.
 
 ---
 

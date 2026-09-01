@@ -1,12 +1,9 @@
 <script lang="ts">
-  import type { Snippet } from "svelte";
-  let { title, body, children }: { title: string; body?: string; children?: Snippet } = $props();
+  let { title }: { title: string } = $props();
 </script>
 
 <div class="empty">
   <p class="title">{title}</p>
-  {#if body}<p class="body">{body}</p>{/if}
-  {#if children}{@render children()}{/if}
 </div>
 
 <style>
@@ -24,10 +21,5 @@
     margin: 0;
     font-size: var(--t-sm);
     font-weight: var(--w-semi);
-  }
-
-  .body {
-    margin: 0;
-    font-size: var(--t-sm);
   }
 </style>

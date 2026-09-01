@@ -3,14 +3,12 @@
   let {
     label,
     id,
-    hint,
     error,
     asGroup = false,
     children,
   }: {
     label: string;
     id: string;
-    hint?: string;
     error?: string;
     asGroup?: boolean;
     children: Snippet;
@@ -29,7 +27,6 @@
   {:else}
     <label for={id}>{label}</label>
   {/if}
-  {#if hint}<p class="hint" id="{id}-hint">{hint}</p>{/if}
   {@render children()}
   <!-- An error the user cannot see is worse than a crash: it belongs next to the control
        that failed, not at the bottom of the document in muted grey. -->
@@ -46,12 +43,6 @@
   .label {
     font-size: var(--t-sm);
     font-weight: var(--w-semi);
-  }
-
-  .hint {
-    margin: 0;
-    color: var(--muted);
-    font-size: var(--t-sm);
   }
 
   .error {
