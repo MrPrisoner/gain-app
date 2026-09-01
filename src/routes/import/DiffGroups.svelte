@@ -21,7 +21,7 @@
 <style>
   details {
     border-top: 1px solid var(--line-soft);
-    padding: 0.6rem 0;
+    padding: var(--s-3) 0;
   }
 
   details:first-child {
@@ -31,16 +31,16 @@
 
   summary {
     cursor: pointer;
-    font-weight: 700;
+    font-weight: var(--w-bold);
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--s-2);
   }
 
   .count {
-    font-weight: 400;
+    font-weight: var(--w-body);
     color: var(--muted);
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
   }
 
   ul {
@@ -48,22 +48,22 @@
     margin: 0.75rem 0 0;
     padding: 0;
     display: grid;
-    gap: 0.75rem;
+    gap: var(--s-3);
   }
 
   li {
-    padding-left: 0.85rem;
+    padding-left: var(--s-3);
     border-left: 2px solid var(--line-soft);
   }
 
   .headline {
     margin: 0;
-    font-weight: 600;
+    font-weight: var(--w-semi);
   }
 
   .detail {
     margin: 0.2rem 0 0;
     color: var(--muted);
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
   }
 </style>

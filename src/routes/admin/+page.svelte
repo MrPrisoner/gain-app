@@ -1,6 +1,10 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
   import IconTriangleAlert from "~icons/lucide/triangle-alert";
+  import Button from "$lib/components/Button.svelte";
+  import Card from "$lib/components/Card.svelte";
+  import Field from "$lib/components/Field.svelte";
+  import PageHeader from "$lib/components/PageHeader.svelte";
   import type { ActionData, PageData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -39,10 +43,10 @@
 
 <svelte:head><title>Users — GAIN</title></svelte:head>
 
-<h1>Users</h1>
-<p class="lede">
-  Counts only. Plans, workouts and notes stay private to the person who wrote them.
-</p>
+<PageHeader
+  title="Users"
+  subtitle="Counts only. Plans, workouts and notes stay private to the person who wrote them."
+/>
 
 {#if form?.resetLabel}
   <p class="done" role="status">Reset {form.resetLabel}'s data.</p>
@@ -55,90 +59,90 @@
 <ul class="users">
   {#each data.users as user (user.userId)}
     <li class="card">
-      <h2>{user.displayLabel ?? "No name yet"}</h2>
-      <p class="status">{user.status}</p>
+      <Card>
+        <h2>{user.displayLabel ?? "No name yet"}</h2>
+        <p class="status">{user.status}</p>
 
-      <p class="counts tabular">
-        {user.plans}
-        {user.plans === 1 ? "plan" : "plans"} ·
-        {user.workoutsFinished} of {user.workoutsStarted} finished ·
-        {user.setLogs}
-        {user.setLogs === 1 ? "set" : "sets"}
-      </p>
-      <p class="meta tabular">
-        Joined {isoDate(user.createdAt)} · last seen {isoDate(user.lastLoginAt)} ·
-        {formatBytes(user.diskBytes)}
-      </p>
-      <p class="meta identity">{user.oidcSub}</p>
-      {#if user.schemaNote}
-        <p class="schema-note">{user.schemaNote}</p>
-      {/if}
+        <p class="counts tabular">
+          {user.plans}
+          {user.plans === 1 ? "plan" : "plans"} ·
+          {user.workoutsFinished} of {user.workoutsStarted} finished ·
+          {user.setLogs}
+          {user.setLogs === 1 ? "set" : "sets"}
+        </p>
+        <p class="meta tabular">
+          Joined {isoDate(user.createdAt)} · last seen {isoDate(user.lastLoginAt)} ·
+          {formatBytes(user.diskBytes)}
+        </p>
+        <p class="meta identity">{user.oidcSub}</p>
+        {#if user.schemaNote}
+          <p class="schema-note">{user.schemaNote}</p>
+        {/if}
 
-      {#if openFor === user.userId}
-        <form
-          method="POST"
-          action="?/reset"
-          class="danger-panel"
-          use:enhance={() => {
-            return async ({ update }) => {
-              await update();
-              close();
-            };
-          }}
-        >
-          <input type="hidden" name="userId" value={user.userId} />
+        {#if openFor === user.userId}
+          <form
+            method="POST"
+            action="?/reset"
+            class="danger-panel"
+            use:enhance={() => {
+              return async ({ update }) => {
+                await update();
+                close();
+              };
+            }}
+          >
+            <input type="hidden" name="userId" value={user.userId} />
 
-          <p class="warning" id="warn-{user.userId}">
-            <IconTriangleAlert aria-hidden="true" />
-            <span>
-              This permanently erases every plan, workout and log for
-              <strong>{user.confirmation}</strong>. They keep their account and can start again from
-              an empty GAIN.
-            </span>
-          </p>
+            <p class="warning" id="warn-{user.userId}">
+              <IconTriangleAlert aria-hidden="true" />
+              <span>
+                This permanently erases every plan, workout and log for
+                <strong>{user.confirmation}</strong>. They keep their account and can start again
+                from an empty GAIN.
+              </span>
+            </p>
 
-          <label for="confirm-{user.userId}">Type {user.confirmation} to confirm</label>
-          <input
-            id="confirm-{user.userId}"
-            name="confirmLabel"
-            bind:value={typed}
-            aria-describedby="warn-{user.userId}"
-            autocomplete="off"
-            autocapitalize="none"
-            spellcheck="false"
-          />
+            <Field
+              label={`Type ${user.confirmation} to confirm`}
+              id="confirm-{user.userId}"
+              error={form?.userId === user.userId ? form.actionError : undefined}
+            >
+              <input
+                id="confirm-{user.userId}"
+                name="confirmLabel"
+                bind:value={typed}
+                aria-describedby="warn-{user.userId} confirm-{user.userId}-error"
+                autocomplete="off"
+                autocapitalize="none"
+                spellcheck="false"
+              />
+            </Field>
 
-          {#if form?.actionError && form?.userId === user.userId}
-            <p class="action-error" role="alert">{form.actionError}</p>
-          {/if}
-
-          <div class="row">
-            <button class="danger" type="submit" disabled={typed !== user.confirmation}>
-              Reset {user.confirmation}'s data
-            </button>
-            <button class="quiet" type="button" onclick={close}>Cancel</button>
+            <div class="row">
+              <Button variant="danger" type="submit" disabled={typed !== user.confirmation}>
+                Reset {user.confirmation}'s data
+              </Button>
+              <Button variant="quiet" type="button" onclick={close}>Cancel</Button>
+            </div>
+          </form>
+        {:else}
+          <div class="trigger-row">
+            <Button variant="danger" type="button" onclick={() => open(user.userId)}>
+              Reset data…
+            </Button>
           </div>
-        </form>
-      {:else}
-        <button class="trigger" type="button" onclick={() => open(user.userId)}>
-          Reset data…
-        </button>
-      {/if}
+        {/if}
+      </Card>
     </li>
   {/each}
 </ul>
 
 <style>
-  .lede {
-    color: var(--muted);
-    margin-top: 0.25rem;
-  }
-
   .done {
     color: var(--text);
     background: var(--accent-soft);
     border-radius: var(--r-sm);
-    padding: 0.6rem 0.85rem;
+    padding: var(--s-3) var(--s-3);
     margin-top: 1rem;
   }
 
@@ -153,37 +157,30 @@
     margin: 1.5rem 0 0;
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
-    gap: 1rem;
-  }
-
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--line-soft);
-    border-radius: var(--r-md);
-    padding: 1.25rem;
+    gap: var(--s-4);
   }
 
   .card h2 {
-    font-size: 1.05rem;
-    font-weight: 600;
+    font-size: var(--t-base);
+    font-weight: var(--w-semi);
     margin: 0;
   }
 
   .status {
     color: var(--text);
-    font-size: 0.95rem;
+    font-size: var(--t-base);
     margin: 0.15rem 0 0.75rem;
   }
 
   .counts {
     color: var(--muted);
-    font-size: 0.875rem;
+    font-size: var(--t-sm);
     margin: 0;
   }
 
   .meta {
     color: var(--dim);
-    font-size: 0.8125rem;
+    font-size: var(--t-xs);
     margin: 0.15rem 0 0;
   }
 
@@ -193,41 +190,30 @@
 
   .schema-note {
     color: var(--amber);
-    font-size: 0.8125rem;
+    font-size: var(--t-xs);
     margin: 0.35rem 0 0;
   }
 
-  .trigger {
-    background: transparent;
-    border: 1px solid var(--line);
-    border-radius: var(--r-sm);
-    color: var(--muted);
-    padding: 0.5rem 0.85rem;
+  .trigger-row {
     margin-top: 1rem;
-    width: 100%;
   }
 
   .danger-panel {
     margin-top: 1rem;
-    padding: 1rem;
+    padding: var(--s-4);
     border-radius: var(--r-sm);
     border: 1px solid var(--red);
     background: color-mix(in srgb, var(--red) 10%, transparent);
     display: flex;
     flex-direction: column;
-    gap: 0.6rem;
+    gap: var(--s-3);
   }
 
   .warning {
     display: flex;
-    gap: 0.5rem;
+    gap: var(--s-2);
     align-items: start;
     margin: 0;
-    color: var(--text);
-  }
-
-  .danger-panel label {
-    font-size: 0.875rem;
     color: var(--text);
   }
 
@@ -235,35 +221,9 @@
     width: 100%;
   }
 
-  .action-error {
-    color: var(--text);
-    margin: 0;
-  }
-
   .row {
     display: flex;
-    gap: 0.5rem;
+    gap: var(--s-2);
     flex-wrap: wrap;
-  }
-
-  .danger {
-    background: var(--red);
-    color: #fff;
-    border: 0;
-    border-radius: var(--r-sm);
-    padding: 0.5rem 0.85rem;
-  }
-
-  .danger:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .quiet {
-    background: transparent;
-    border: 1px solid var(--line);
-    border-radius: var(--r-sm);
-    color: var(--muted);
-    padding: 0.5rem 0.85rem;
   }
 </style>

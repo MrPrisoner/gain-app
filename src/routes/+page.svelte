@@ -8,6 +8,8 @@
   import NextMorningPrompt from "./NextMorningPrompt.svelte";
   import { dueNextMorningPrompts } from "$lib/home/next-morning";
   import { startSyncLoop } from "$lib/sync/client.svelte";
+  import Button from "$lib/components/Button.svelte";
+  import Card from "$lib/components/Card.svelte";
   import IconArchive from "~icons/lucide/archive";
   import IconArchiveRestore from "~icons/lucide/archive-restore";
   import IconCheck from "~icons/lucide/check";
@@ -138,7 +140,7 @@
     </p>
   </section>
 
-  <section class="card">
+  <Card spaced>
     <h2>1 · Give the AI a running start</h2>
     <p class="muted">
       Four optional questions, all skippable — anything you leave out is something the AI will ask
@@ -167,12 +169,13 @@
         Anything to work around
         <input type="text" name="constraints" placeholder="e.g. a dodgy lower back" />
       </label>
-      <button type="submit" class="primary"><IconSparkles />Generate the prompt</button>
+      {#snippet sparklesIcon()}<IconSparkles />{/snippet}
+      <Button variant="primary" type="submit" icon={sparklesIcon}>Generate the prompt</Button>
     </form>
-  </section>
+  </Card>
 
   {#if form?.prompt}
-    <section class="card">
+    <Card spaced>
       <h2>2 · Paste this into your AI chat</h2>
       <p class="muted">
         One document — the AI reads it, interviews you, and returns a plan. Copy the whole thing;
@@ -181,18 +184,21 @@
       <textarea class="doc" readonly rows="14" aria-label="Bootstrap prompt" value={form.prompt}
       ></textarea>
       <div class="actions">
-        <button type="button" class="primary" onclick={copyPrompt}>
+        {#snippet copyIcon()}
           {#if copied}<IconCheck />{:else}<IconCopy />{/if}
+        {/snippet}
+        <Button variant="primary" type="button" onclick={copyPrompt} icon={copyIcon}>
           {copied ? "Copied" : "Copy prompt"}
-        </button>
-        <button type="button" class="secondary" onclick={downloadPrompt}>
-          <IconDownload />Download .md
-        </button>
+        </Button>
+        {#snippet downloadIcon()}<IconDownload />{/snippet}
+        <Button variant="secondary" type="button" onclick={downloadPrompt} icon={downloadIcon}>
+          Download .md
+        </Button>
       </div>
-    </section>
+    </Card>
   {/if}
 
-  <section class="card">
+  <Card spaced>
     <h2>{form?.prompt ? "3 · Bring back the plan" : "Already have a plan?"}</h2>
     <p class="muted">
       {form?.prompt
@@ -200,8 +206,16 @@
         : "Skip the interview and bring a plan document you already have."}
     </p>
     <a class="primary-link" href="/import"><IconUpload />Paste the plan your AI gave you</a>
-  </section>
+  </Card>
 {:else}
+  <!-- The app's own wordmark already sits in the layout's top bar on every page, so a
+       visible "GAIN" page heading here rendered it twice, one under the other. The
+       heading itself stays, unpainted: this is the plans list, and it is the only screen
+       whose title is the app rather than a thing inside it. Unconditional rather than
+       folded into the greeting above, which only renders when the IdP supplied a display
+       name — a heading that disappears for some users is not a heading. -->
+  <h1 class="page-title">Your plans</h1>
+
   {#each dueNextMorning as candidate (candidate.workoutClientId)}
     <NextMorningPrompt
       planSlug={candidate.planSlug}
@@ -228,57 +242,68 @@
   <ActivityStrip kinds={data.activityKinds} />
 
   {#each data.plans as plan (plan.slug)}
-    <section class="card plan-admin">
-      <h2>{plan.name}</h2>
-      <p class="muted">
-        version {plan.version_no} · imported {plan.imported_at} ·
-        {plan.counts.sessions} sessions, {plan.counts.exercises} exercises,
-        {plan.counts.prescriptions} prescriptions
-      </p>
-      <nav class="plan-links">
-        <a class="export-link" href={`/plan/${plan.slug}/export`}>
-          <IconExternalLink />Export for review
-        </a>
-        <a class="export-link" href={`/plan/${plan.slug}/progress`}>
-          <IconTrendingUp />Progress
-        </a>
-        <a class="export-link" href={`/plan/${plan.slug}/history`}>
-          <IconHistory />History
-        </a>
-        <a class="export-link" href={`/plan/${plan.slug}/versions`}>
-          <IconFileClock />Plan versions
-        </a>
-        <a class="export-link" href="/import">
-          <IconUpload />Import a revised plan
-        </a>
-      </nav>
-
-      <!--
-        Archiving is reversible and read-only (`$lib/db/archive.ts`), so it gets a plain
-        button and no type-to-confirm: the plan reappears one tap away in the Archived
-        group directly below, and nothing it has logged is at risk. The line above it
-        says so, because "archive" reads as "delete" to most people until told otherwise.
-      -->
-      <form method="POST" action="?/archive" class="archive-form" use:enhance>
-        <input type="hidden" name="slug" value={plan.slug} />
-        <p class="muted archive-hint">
-          Finished with this plan? Archiving hides it here and stops new sessions. History,
-          progress, export and versions all stay open, and you can bring it back any time.
+    <section class="plan-admin">
+      <Card spaced>
+        <!-- Not a bare repeat of NextSessionCard's own plan-name heading above: that
+             card names the plan once at the top of the screen, and multiple plans mean
+             this section isn't always adjacent to it (ActivityStrip sits between them) —
+             so this still has to say which plan it manages, just not as a second
+             identical headline. -->
+        <h2>Manage {plan.name}</h2>
+        <p class="muted">
+          version {plan.version_no} · imported {plan.imported_at} ·
+          {plan.counts.sessions} sessions, {plan.counts.exercises} exercises,
+          {plan.counts.prescriptions} prescriptions
         </p>
-        <button type="submit" class="quiet"><IconArchive />Archive plan</button>
-      </form>
+        <nav class="plan-links">
+          <!-- The two crossings of the round-trip loop (ARCHITECTURE §1) get the
+               accent treatment; Progress/History/Plan versions are read-only reference
+               and stay on the quieter default. -->
+          <a class="export-link loop-crossing" href={`/plan/${plan.slug}/export`}>
+            <IconExternalLink />Export for review
+          </a>
+          <a class="export-link" href={`/plan/${plan.slug}/progress`}>
+            <IconTrendingUp />Progress
+          </a>
+          <a class="export-link" href={`/plan/${plan.slug}/history`}>
+            <IconHistory />History
+          </a>
+          <a class="export-link" href={`/plan/${plan.slug}/versions`}>
+            <IconFileClock />Plan versions
+          </a>
+          <a class="export-link loop-crossing" href="/import">
+            <IconUpload />Import a revised plan
+          </a>
+        </nav>
+
+        <!--
+          Archiving is reversible and read-only (`$lib/db/archive.ts`), so it gets a plain
+          button and no type-to-confirm: the plan reappears one tap away in the Archived
+          group directly below, and nothing it has logged is at risk. The line above it
+          says so, because "archive" reads as "delete" to most people until told otherwise.
+        -->
+        <form method="POST" action="?/archive" class="archive-form" use:enhance>
+          <input type="hidden" name="slug" value={plan.slug} />
+          <p class="muted archive-hint">
+            Finished with this plan? Archiving hides it here and stops new sessions. History,
+            progress, export and versions all stay open, and you can bring it back any time.
+          </p>
+          {#snippet archiveIcon()}<IconArchive />{/snippet}
+          <Button variant="quiet" type="submit" icon={archiveIcon}>Archive plan</Button>
+        </form>
+      </Card>
     </section>
   {/each}
 
   {#if data.plans.length === 0}
-    <section class="card">
+    <Card spaced>
       <h2>Everything is archived</h2>
       <p class="muted">
         Every plan on this account is put away. Open one below to read its history, bring it back,
         or start something new.
       </p>
       <a class="primary-link" href="/import"><IconUpload />Paste a new plan</a>
-    </section>
+    </Card>
   {/if}
 
   {#if form?.planError}
@@ -308,7 +333,8 @@
           </nav>
           <form method="POST" action="?/unarchive" use:enhance>
             <input type="hidden" name="slug" value={plan.slug} />
-            <button type="submit" class="quiet"><IconArchiveRestore />Unarchive</button>
+            {#snippet unarchiveIcon()}<IconArchiveRestore />{/snippet}
+            <Button variant="quiet" type="submit" icon={unarchiveIcon}>Unarchive</Button>
           </form>
         </div>
       {/each}
@@ -320,16 +346,31 @@
   .greeting {
     margin: 0;
     color: var(--muted);
-    font-weight: 700;
+    font-weight: var(--w-bold);
+  }
+
+  /* Reachable by heading navigation, never painted. Same recipe as
+     `ImportPlanForm.svelte`'s `.file-input`; `display: none` would take it out of the
+     accessibility tree entirely, which is the one thing this must not do. */
+  .page-title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 
   .hero {
-    padding: 1.5rem 0 0.5rem;
+    padding: var(--s-5) 0 var(--s-2);
   }
 
   .hero h1 {
     margin: 0 0 0.75rem;
-    font-size: 1.6rem;
+    font-size: var(--t-xl);
     line-height: 1.25;
   }
 
@@ -338,34 +379,26 @@
     color: var(--muted);
   }
 
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--line-soft);
-    border-radius: var(--r-md);
-    padding: 1.25rem;
-    margin-top: 1.25rem;
-  }
-
-  .card h2 {
+  h2 {
     margin: 0 0 0.5rem;
-    font-size: 1.05rem;
+    font-size: var(--t-base);
   }
 
   .muted {
     color: var(--muted);
-    font-size: 0.9rem;
+    font-size: var(--t-sm);
     margin: 0 0 0.75rem;
   }
 
   .questions {
     display: grid;
-    gap: 0.75rem;
+    gap: var(--s-3);
   }
 
   .questions label {
     display: grid;
-    gap: 0.25rem;
-    font-size: 0.9rem;
+    gap: var(--s-1);
+    font-size: var(--t-sm);
     color: var(--muted);
     min-width: 0;
   }
@@ -373,16 +406,16 @@
   .row2 {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 0.75rem;
+    gap: var(--s-3);
     min-width: 0;
   }
 
   input {
     width: 100%;
     min-width: 0;
-    padding: 0.65rem 0.75rem;
+    padding: var(--s-3) var(--s-3);
     border-radius: var(--r-xs);
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-strong);
     background: var(--raised);
     color: var(--text);
     font: inherit;
@@ -390,57 +423,31 @@
 
   .doc {
     width: 100%;
-    padding: 0.75rem;
+    padding: var(--s-3);
     border-radius: var(--r-xs);
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-strong);
     background: var(--raised);
     color: var(--text);
     font: inherit;
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
     line-height: 1.45;
     resize: vertical;
   }
 
   .actions {
     display: flex;
-    gap: 0.6rem;
+    gap: var(--s-3);
     margin-top: 0.75rem;
     flex-wrap: wrap;
-  }
-
-  button {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    border: none;
-    border-radius: var(--r-sm);
-    padding: 0.7rem 1.25rem;
-    font-weight: 700;
-  }
-
-  button.primary {
-    background: var(--accent);
-    color: var(--accent-in);
-  }
-
-  button.primary:disabled {
-    opacity: 0.45;
-    cursor: default;
-  }
-
-  button.secondary {
-    background: var(--raised);
-    border: 1px solid var(--line);
-    color: var(--text);
   }
 
   .primary-link {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: var(--s-2);
     border-radius: var(--r-sm);
-    padding: 0.7rem 1.25rem;
-    font-weight: 700;
+    padding: var(--s-3) var(--s-5);
+    font-weight: var(--w-bold);
     background: var(--accent);
     color: var(--accent-in);
   }
@@ -453,49 +460,46 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.5rem;
+    gap: var(--s-2);
   }
 
   .export-link {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
-    padding: 0.7rem 1.25rem;
+    gap: var(--s-2);
+    padding: var(--s-3) var(--s-5);
     border-radius: var(--r-sm);
     background: var(--raised);
     border: 1px solid var(--line);
     color: var(--text);
-    font-weight: 700;
+    font-weight: var(--w-bold);
   }
 
   .export-link:hover {
     text-decoration: none;
   }
 
+  .loop-crossing {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
   .archive-form {
     margin-top: 1rem;
     border-top: 1px solid var(--line-soft);
-    padding-top: 1rem;
+    padding-top: var(--s-4);
   }
 
   .archive-hint {
     margin-bottom: 0.6rem;
   }
 
-  button.quiet {
-    background: transparent;
-    border: 1px solid var(--line);
-    color: var(--muted);
-    padding: 0.55rem 1rem;
-    font-size: 0.9rem;
-  }
-
   .plan-error {
     margin: 1rem 0 0;
-    padding: 0.65rem 0.8rem;
+    padding: var(--s-3) var(--s-3);
     border: 1px solid var(--red);
     border-radius: var(--r-sm);
-    font-size: 0.9rem;
+    font-size: var(--t-sm);
   }
 
   .archived-group {
@@ -503,35 +507,35 @@
     background: var(--surface);
     border: 1px solid var(--line-soft);
     border-radius: var(--r-md);
-    padding: 0.9rem 1.25rem;
+    padding: var(--s-4) var(--s-5);
   }
 
   .archived-group summary {
-    font-weight: 700;
+    font-weight: var(--w-bold);
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--s-2);
   }
 
   .archived-group .count {
     color: var(--muted);
-    font-weight: 400;
-    font-size: 0.85rem;
+    font-weight: var(--w-body);
+    font-size: var(--t-sm);
   }
 
   .archived-plan {
     margin-top: 1rem;
-    padding-top: 1rem;
+    padding-top: var(--s-4);
     border-top: 1px solid var(--line-soft);
     display: grid;
-    gap: 0.6rem;
+    gap: var(--s-3);
     justify-items: start;
   }
 
   .archived-plan h3 {
     margin: 0;
-    font-size: 1rem;
+    font-size: var(--t-base);
   }
 
   .archived-plan .muted {

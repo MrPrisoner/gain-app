@@ -8,7 +8,7 @@
  * What this test covers: Goblet squat's ranged `sets: [2, 3]` together with its
  * prescription-level `substitutes: [bodyweight-squat]` — swapped via the deviation
  * sheet's general "Swap" path rather than the inline chip, since this substitute has no
- * `conditional` flag to trigger that chip (UI-DECISIONS: the inline swap only renders
+ * `conditional` flag to trigger that chip (UI: the inline swap only renders
  * for a conditional exercise; the sheet's own substitute option does not care) — then
  * "Add the optional set" taken against the substitute itself, proving the ranged-set
  * range survives a swap. Dumbbell floor press's own ranged sets are logged at the
@@ -162,7 +162,7 @@ test("Session D end-to-end: a ranged set surviving a substitute, the two-round a
   const betweenRoundsRest = page.locator(".rest-overlay");
   await expect(betweenRoundsRest).toBeVisible();
 
-  // A circuit's unit is the round (UI-DECISIONS §4). This overlay is built by
+  // A circuit's unit is the round (UI §4). This overlay is built by
   // `upNextForExerciseAt` — the cross-exercise shape, whose context line is the sets
   // count everywhere else — and a rounds block is its one exception: "1 set" here would
   // be useless in a circuit *and* a contradiction of the strip revealed underneath,

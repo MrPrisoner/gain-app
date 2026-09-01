@@ -65,7 +65,7 @@ export function currentRoundOf(
  *
  * The two counters are deliberately separate mechanisms, not one number:
  *
- * - `addedSets` is UI-DECISIONS §6's "Add the optional 3rd set". A ranged prescription
+ * - `addedSets` is UI §6's "Add the optional 3rd set". A ranged prescription
  *   (`sets: [2, 3]`) draws its minimum and offers the sets the plan itself already
  *   declared. Taking one is *doing the plan*, so it logs no deviation, and it can never
  *   exceed the declared max.
@@ -159,7 +159,7 @@ export function exerciseAt(
 /**
  * Every exercise that needs nothing more from the user — each offered slot logged, or
  * the whole exercise skipped. Drives both the collapsed row's completion state
- * (UI-DECISIONS §1) and where auto-advance goes next.
+ * (UI §1) and where auto-advance goes next.
  */
 export function computeDoneExercises(session: ResolvedSession, ledger: SessionLedger): Set<string> {
   const done = new Set<string>();
@@ -217,7 +217,7 @@ export function blockIsComplete(
 }
 
 /**
- * Everything the pinned strip needs about the one open exercise (UI-DECISIONS §1: one
+ * Everything the pinned strip needs about the one open exercise (UI §1: one
  * exercise open, §2: the strip logs exactly one set). `next` is `undefined` once every
  * offered set is logged — the strip then shows its finished state rather than
  * vanishing, so the ledger's reserved bottom padding stays honest.
@@ -258,7 +258,7 @@ export function resolveOpenContext(
   return undefined;
 }
 
-/** UI-DECISIONS §4's up-next card: a name, a pre-formatted two-line body (`context` then
+/** UI §4's up-next card: a name, a pre-formatted two-line body (`context` then
  * icon-tagged `figures`), following the same pattern as `LogStrip`'s
  * `context`/`lastPerformance` props — `RestTimer` itself does no formatting, only
  * rendering. `isLast` tells `RestTimer` whether its dismiss button is starting something
@@ -361,7 +361,7 @@ export function upNextForExerciseAt(
 }
 
 /**
- * The rest overlay's up-next card (UI-DECISIONS §4) after a set is logged. Two cases:
+ * The rest overlay's up-next card (UI §4) after a set is logged. Two cases:
  *
  * - The exercise isn't finished — "next" is the next slot of the *same* exercise, its
  *   context formatted the same way `LogStrip`'s own context line is, plus the reps/time

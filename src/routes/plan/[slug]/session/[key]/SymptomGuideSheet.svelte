@@ -3,7 +3,7 @@
   import type { SymptomGuideLevel } from "$lib/session/symptom-guide";
 
   /**
-   * The symptom guide (UI-DECISIONS §5): the plan's own
+   * The symptom guide (UI §5): the plan's own
    * `safety.symptom_framework`, rendered rather than only exported. Read-only — there is
    * nothing here to submit, unlike every other sheet in the runner, so it carries no
    * `onApplied`/`onError` and no write path.
@@ -80,14 +80,14 @@
     background: var(--surface);
     border-top-left-radius: var(--r-lg);
     border-top-right-radius: var(--r-lg);
-    padding: 1.25rem;
-    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
+    padding: var(--s-5);
+    padding-bottom: calc(var(--s-5) + env(safe-area-inset-bottom));
     display: grid;
-    gap: 0.75rem;
+    gap: var(--s-3);
   }
   .levels {
     display: grid;
-    gap: 0.9rem;
+    gap: var(--s-4);
     margin: 0;
     padding: 0;
     list-style: none;
@@ -95,7 +95,7 @@
   .level-head {
     display: flex;
     align-items: baseline;
-    gap: 0.5rem;
+    gap: var(--s-2);
     flex-wrap: wrap;
   }
   .swatch {
@@ -106,36 +106,36 @@
     align-self: center;
   }
   .action {
-    font-weight: 600;
+    font-weight: var(--w-semi);
   }
   .label {
     color: var(--muted);
   }
   .modifications {
     margin: 0.35rem 0 0;
-    padding-left: 1.5rem;
-    font-size: 0.9rem;
+    padding-left: var(--s-5);
+    font-size: var(--t-sm);
     color: var(--muted);
   }
   .escalation {
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
     color: var(--muted);
     margin: 0.25rem 0 0;
   }
   .sheet-actions {
     display: flex;
     justify-content: flex-end;
-    gap: 0.6rem;
+    gap: var(--s-3);
     margin-top: 0.5rem;
   }
   .sheet-actions button {
     min-height: 2.75rem;
-    padding: 0 1.25rem;
+    padding: 0 var(--s-5);
     border-radius: var(--r-sm);
     border: 1px solid var(--line);
     background: var(--raised);
     color: var(--text);
-    font-size: 0.95rem;
+    font-size: var(--t-base);
   }
   .sheet-actions .primary {
     background: var(--accent);

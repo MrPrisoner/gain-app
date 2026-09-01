@@ -1,14 +1,19 @@
 <!-- src/routes/plan/[slug]/progress/metrics/+page.svelte -->
 <script lang="ts">
-  import BackLink from "$lib/components/BackLink.svelte";
+  import EmptyState from "$lib/components/EmptyState.svelte";
+  import PageHeader from "$lib/components/PageHeader.svelte";
   import type { PageData } from "./$types";
   let { data }: { data: PageData } = $props();
 </script>
 
-<h1>Metric trends</h1>
+<PageHeader
+  title="Metric trends"
+  backHref={`/plan/${data.planSlug}/progress`}
+  backLabel="Back to progress"
+/>
 
 {#if data.metrics.length === 0}
-  <p class="muted">No numeric metrics logged yet.</p>
+  <EmptyState title="No numeric metrics logged yet" />
 {:else}
   <ul class="metric-list">
     {#each data.metrics as metric (metric.scope + ":" + metric.key)}
@@ -22,33 +27,28 @@
   </ul>
 {/if}
 
-<BackLink href={`/plan/${data.planSlug}/progress`} label="Back to progress" />
-
 <style>
-  .muted {
-    color: var(--muted);
-  }
   .metric-list {
     list-style: none;
     margin: 0;
     padding: 0;
     display: grid;
-    gap: 0.6rem;
+    gap: var(--s-3);
   }
   .metric-list a {
     display: grid;
-    gap: 0.15rem;
-    padding: 0.85rem 1rem;
+    gap: var(--s-1);
+    padding: var(--s-3) var(--s-4);
     border-radius: var(--r-sm);
     background: var(--surface);
     border: 1px solid var(--line-soft);
     color: var(--text);
   }
   .metric-label {
-    font-weight: 700;
+    font-weight: var(--w-bold);
   }
   .metric-scope {
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
     color: var(--muted);
   }
 </style>

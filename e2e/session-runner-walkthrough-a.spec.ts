@@ -4,9 +4,9 @@
  * browser session, the way a person actually would, rather than exercising each piece
  * in isolation the way the rest of `e2e/session-runner-*.spec.ts` deliberately does.
  *
- * What this one test covers, in order: the warm-up checkoff pills (UI-DECISIONS §9), all
+ * What this one test covers, in order: the warm-up checkoff pills (UI §9), all
  * four `main` exercises, a rest timer that genuinely counts down and is genuinely
- * dismissed by a deliberate tap (UI-DECISIONS §4 — there is no auto-dismiss), a
+ * dismissed by a deliberate tap (UI §4 — there is no auto-dismiss), a
  * mid-session reload exercised as part of a real full walkthrough
  * (`session-runner-resume.spec.ts` already proves the mechanism in isolation; this
  * proves it survives a real session in progress), one deviation (`add_set` on Glute
@@ -41,7 +41,7 @@ test("Session A end-to-end: warm-up, four working exercises, rest, a deviation, 
   await dismissPreSessionPrompt(page);
   await expect(page.locator(".log-strip")).toBeVisible();
 
-  // --- Warm-up: check off all six pills (UI-DECISIONS §9 — pills, not set rows, and
+  // --- Warm-up: check off all six pills (UI §9 — pills, not set rows, and
   // never gate progress into the working blocks). ---
   const pills = page.locator(".checkoff-pills .pill");
   await expect(pills).toHaveCount(6);

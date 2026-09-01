@@ -47,7 +47,7 @@
 
 <style>
   .row {
-    padding: 0.85rem 0;
+    padding: var(--s-3) 0;
     border-top: 1px solid var(--line-soft);
   }
 
@@ -58,21 +58,21 @@
 
   .name {
     margin: 0 0 0.25rem;
-    font-weight: 700;
+    font-weight: var(--w-bold);
   }
 
   .reason {
     margin: 0 0 0.5rem;
     color: var(--muted);
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
   }
 
   select {
     width: 100%;
     min-width: 0;
-    padding: 0.65rem 0.75rem;
+    padding: var(--s-3);
     border-radius: var(--r-xs);
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-strong);
     background: var(--raised);
     color: var(--text);
     font: inherit;

@@ -1,5 +1,5 @@
 /**
- * Log-strip review follow-up (UI-DECISIONS §2):
+ * Log-strip review follow-up (UI §2):
  * two ways the pinned log strip could write a set the user did not ask for. Both are
  * about the strip being **one shared control** where the per-set rows used to be many
  * independent ones, so both regress silently if the guards are removed.

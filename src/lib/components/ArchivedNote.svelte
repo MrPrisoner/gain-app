@@ -22,14 +22,14 @@
   .archived {
     display: flex;
     align-items: flex-start;
-    gap: 0.5rem;
+    gap: var(--s-2);
     margin: 0 0 1rem;
-    padding: 0.65rem 0.8rem;
+    padding: var(--s-3) var(--s-3);
     border: 1px solid var(--line);
     border-radius: var(--r-sm);
     background: var(--raised);
     color: var(--muted);
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
     line-height: 1.45;
   }
 </style>

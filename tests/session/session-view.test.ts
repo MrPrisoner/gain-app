@@ -103,7 +103,7 @@ describe("resolveSession", () => {
   });
 });
 
-describe("resolveExercise — load resolution (UI-DECISIONS §3)", () => {
+describe("resolveExercise — load resolution (UI §3)", () => {
   it("resolves a weighted exercise's load configuration onto the exercise", () => {
     const session = resolveSession(fixtureContract(), "A");
     const main = session?.blocks.find((b) => b.key === "main");
@@ -245,7 +245,7 @@ describe("setSlotsFor", () => {
     expect(slots[0]?.key).toBe("main:goblet-squat:1:");
   });
 
-  // UI-DECISIONS §6: one ledger row per side, in the order performed — left then right
+  // UI §6: one ledger row per side, in the order performed — left then right
   // within a set, not all the lefts and then all the rights.
   it("draws left then right within each set for a per_side exercise", () => {
     const slots = setSlotsFor(
@@ -259,7 +259,7 @@ describe("setSlotsFor", () => {
     expect(slots.map((s) => `${s.setNo}${s.side}`)).toEqual(["1left", "1right", "2left", "2right"]);
   });
 
-  // UI-DECISIONS §6: a rounds block is not repeated per round; `set_no` *is* the round.
+  // UI §6: a rounds block is not repeated per round; `set_no` *is* the round.
   it("offers only the current round inside a rounds block, whatever shownSets says", () => {
     const slots = setSlotsFor(
       roundsBlock,
@@ -333,7 +333,7 @@ describe("upNextSlotParts", () => {
   const rounds = { type: "rounds" as const, rounds: 2 };
   const slot = (setNo: number, side?: "left" | "right") => ({ setNo, side, key: "k" });
 
-  it("names the next set, its rep figure and its load figure — UI-DECISIONS §4's example", () => {
+  it("names the next set, its rep figure and its load figure — UI §4's example", () => {
     const session = resolveSession(fixtureContract(), "A");
     const main = session?.blocks.find((b) => b.key === "main");
     const squat = main?.exercises.find((e) => e.slug === "goblet-squat");

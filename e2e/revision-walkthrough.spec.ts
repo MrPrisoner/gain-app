@@ -87,7 +87,10 @@ test("a logged goblet-squat set survives a rename to gobletsquat, end to end thr
   // empty chart by accident rather than proving anything. Passed on both navigations for
   // symmetry, though it is only load-bearing on the post-rename one. ---
   await page.goto(`/plan/${E2E_PLAN_SLUG}/progress/exercises/A/goblet-squat?window=full`);
-  const baselinePoint = page.locator(".hit");
+  // Scoped to the trend chart's own <svg>: `.hit` is the class both chart primitives give
+  // the tap band around a mark, so a bare `.hit` also matches the volume and difficulty
+  // bars further down the page.
+  const baselinePoint = page.locator('svg[aria-label$="trend chart"] .hit');
   await expect(baselinePoint).toHaveCount(1);
   await expect(baselinePoint).toHaveAttribute(
     "aria-label",
@@ -130,7 +133,7 @@ test("a logged goblet-squat set survives a rename to gobletsquat, end to end thr
   // --- The assertion the whole phase exists for: the set logged under the OLD slug is
   // visible on the NEW slug's progress detail, by its actual value. ---
   await page.goto(`/plan/${E2E_PLAN_SLUG}/progress/exercises/A/gobletsquat?window=full`);
-  const renamedPoint = page.locator(".hit");
+  const renamedPoint = page.locator('svg[aria-label$="trend chart"] .hit');
   await expect(renamedPoint).toHaveCount(1);
   await expect(renamedPoint).toHaveAttribute(
     "aria-label",

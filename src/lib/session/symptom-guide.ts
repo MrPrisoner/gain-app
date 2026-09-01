@@ -1,11 +1,11 @@
 /**
- * The symptom guide (UI-DECISIONS §5): the plan's own
+ * The symptom guide (UI §5): the plan's own
  * `safety.symptom_framework` (`docs/CONTRACT.md`), rendered rather than only exported.
  * Pure — takes the contract's `safety` block and returns a display-ready, canonically
  * ordered list, or `[]` when the plan declares none.
  *
  * The contract's middle level is spelled `yellow`; the design token is `--amber`
- * (UI-DECISIONS §5's vocabulary note). This module is the one place that mapping is
+ * (UI §5's vocabulary note). This module is the one place that mapping is
  * made, so it is a footnote everywhere else rather than a rediscovery.
  */
 

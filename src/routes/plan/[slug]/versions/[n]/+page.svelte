@@ -2,7 +2,7 @@
   src/routes/plan/[slug]/versions/[n]/+page.svelte
 
   The document, verbatim, with the same copy-then-download-fallback the bootstrap prompt
-  and the export use (UI-DECISIONS §11) — assume a phone with a chat open in another tab.
+  and the export use (UI §11) — assume a phone with a chat open in another tab.
 
   The textarea carries the text as a `value` expression rather than as element content,
   which is what keeps it byte-identical: HTML eats a newline immediately after the
@@ -11,8 +11,9 @@
 -->
 <script lang="ts">
   import { copyText, downloadText } from "$lib/copy";
-  import BackLink from "$lib/components/BackLink.svelte";
   import ArchivedNote from "$lib/components/ArchivedNote.svelte";
+  import Button from "$lib/components/Button.svelte";
+  import PageHeader from "$lib/components/PageHeader.svelte";
   import IconCheck from "~icons/lucide/check";
   import IconCopy from "~icons/lucide/copy";
   import IconDownload from "~icons/lucide/download";
@@ -43,7 +44,11 @@
   <title>v{data.versionNo} — {data.planName}</title>
 </svelte:head>
 
-<h1>{data.planName} — v{data.versionNo}</h1>
+<PageHeader
+  title={`${data.planName} — v${data.versionNo}`}
+  backHref={`/plan/${data.planSlug}/versions`}
+  backLabel="← All versions"
+/>
 
 {#if data.planArchived}
   <ArchivedNote />
@@ -61,79 +66,59 @@
   </p>
 {:else}
   <div class="actions">
-    <button type="button" class="primary" onclick={copy}>
+    {#snippet copyIcon()}
       {#if copied}<IconCheck />{:else}<IconCopy />{/if}
+    {/snippet}
+    <Button variant="primary" type="button" onclick={copy} icon={copyIcon}>
       {copied ? "Copied" : "Copy document"}
-    </button>
-    <button type="button" class="secondary" onclick={download}>
-      <IconDownload />Download .md
-    </button>
+    </Button>
+    {#snippet downloadIcon()}<IconDownload />{/snippet}
+    <Button variant="secondary" type="button" onclick={download} icon={downloadIcon}>
+      Download .md
+    </Button>
   </div>
 
   <textarea class="doc" readonly rows="24" aria-label="Plan document" value={data.source}
   ></textarea>
 {/if}
 
-<BackLink href={`/plan/${data.planSlug}/versions`} label="← All versions" />
-
 <style>
   .muted {
     color: var(--muted);
-    font-size: 0.9rem;
+    font-size: var(--t-sm);
     margin: 0 0 1rem;
   }
 
   .missing {
-    padding: 0.85rem 1rem;
+    padding: var(--s-3) var(--s-4);
     border: 1px solid var(--amber);
     border-radius: var(--r-sm);
     background: var(--amber-soft);
-    font-size: 0.9rem;
+    font-size: var(--t-sm);
     line-height: 1.5;
   }
 
   code {
-    font-size: 0.85em;
+    font-size: var(--t-sm);
     word-break: break-all;
   }
 
   .actions {
     display: flex;
-    gap: 0.6rem;
+    gap: var(--s-3);
     margin-bottom: 0.75rem;
     flex-wrap: wrap;
   }
 
-  button {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    border: none;
-    border-radius: var(--r-sm);
-    padding: 0.7rem 1.25rem;
-    font-weight: 700;
-  }
-
-  button.primary {
-    background: var(--accent);
-    color: var(--accent-in);
-  }
-
-  button.secondary {
-    background: var(--raised);
-    border: 1px solid var(--line);
-    color: var(--text);
-  }
-
   .doc {
     width: 100%;
-    padding: 0.75rem;
+    padding: var(--s-3);
     border-radius: var(--r-xs);
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-strong);
     background: var(--raised);
     color: var(--text);
     font: inherit;
-    font-size: 0.8rem;
+    font-size: var(--t-xs);
     line-height: 1.45;
     resize: vertical;
   }

@@ -1,5 +1,6 @@
 <script lang="ts">
   import "../app.css";
+  import { page } from "$app/state";
   import { REPO_URL } from "$lib/repo";
   import { discardQuarantined, setGeneration, syncStatus } from "$lib/sync/client.svelte";
   import { bannerText } from "$lib/sync/banner";
@@ -7,6 +8,13 @@
   import type { LayoutData } from "./$types";
 
   let { data, children }: { data: LayoutData; children: import("svelte").Snippet } = $props();
+
+  // Read routes — the paste box, the export bundle, a plan version — get the wide
+  // measure (`app.css`'s `--measure-wide`); every other route, including the versions
+  // *list*, keeps the phone measure. Matched on `route.id` rather than the resolved
+  // pathname so it tracks the route pattern, not a particular `slug`/`n`.
+  const wideRoutes = new Set(["/import", "/plan/[slug]/export", "/plan/[slug]/versions/[n]"]);
+  let wide = $derived(page.route.id !== null && wideRoutes.has(page.route.id));
 
   // Seeds the client's belief about its own generation from the server's authoritative
   // value on every load — see `client.svelte.ts`'s comment on why this can't
@@ -69,14 +77,17 @@
         <a href="/login">Sign in</a>
       {/if}
       {#if syncStatus.quarantined > 0}
-        <button class="linklike" type="button" onclick={() => discardQuarantined()}>
+        <!-- Permanently discards queued offline writes — genuinely destructive and
+             irreversible, unlike "Sign out"/"Users" beside it elsewhere in this
+             header, so it gets --red rather than the neutral .linklike treatment. -->
+        <button class="linklike danger" type="button" onclick={() => discardQuarantined()}>
           Discard
         </button>
       {/if}
     </p>
   {/if}
 
-  <main class="content">
+  <main class="content" class:wide>
     {@render children()}
   </main>
 
@@ -102,45 +113,62 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.9rem 1.25rem;
+    padding: var(--s-4) var(--s-5);
     border-bottom: 1px solid var(--line-soft);
     background: var(--surface);
   }
 
   .wordmark {
-    font-size: 1.15rem;
-    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    /* Blockified by `.top`'s flex layout, so this is a real control per
+       `e2e/touch-targets.spec.ts` — the same 44px floor `Button` holds for its own
+       controls (UI §12 names the layout chrome alongside the four routes
+       that gap was closed on). */
+    min-height: 2.75rem;
+    font-size: var(--t-md);
+    font-weight: var(--w-display);
     letter-spacing: 0.04em;
     color: var(--text);
     text-decoration: none;
   }
 
   .wordmark .ai {
-    /* matches the "AI" highlight in the app icon (static/gain-blue-steel.svg) */
-    color: #6a8098;
+    /* Echoes the "AI" highlight in the app icon (static/gain-blue-steel.svg), tuned per
+       theme by the --wordmark token so it clears 4.5:1 on every surface rather than
+       carrying one literal hue that fails most of them. */
+    color: var(--wordmark);
   }
 
   .top-right {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: var(--s-3);
   }
 
   .badge {
-    font-size: 0.75rem;
-    font-weight: 700;
+    font-size: var(--t-2xs);
+    font-weight: var(--w-bold);
     color: var(--amber);
     background: var(--amber-soft);
-    padding: 0.2rem 0.55rem;
+    padding: var(--s-1) var(--s-2);
     border-radius: var(--r-xs);
   }
 
   .linklike {
+    display: inline-flex;
+    align-items: center;
+    /* Same 44px floor `Button` holds (`Button.svelte`) — `.top`'s flex layout and the
+       sync banner's own flow both blockify these into real tap targets, and "Users" text
+       alone falls short of 44px wide, not just tall. */
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+    justify-content: center;
     background: none;
     border: none;
     padding: 0;
     color: var(--muted);
-    font-size: 0.9rem;
+    font-size: var(--t-sm);
   }
 
   .linklike:hover {
@@ -148,34 +176,49 @@
     text-decoration: underline;
   }
 
+  .linklike.danger {
+    color: var(--red);
+  }
+
+  .linklike.danger:hover {
+    color: var(--red);
+    text-decoration: underline;
+  }
+
   .sync-banner {
     margin: 0;
-    padding: 0.5rem 1.25rem;
+    padding: var(--s-2) var(--s-5);
     background: var(--amber-soft);
     color: var(--amber);
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
     text-align: center;
   }
 
   .sync-banner a {
     color: inherit;
     text-decoration: underline;
-    font-weight: 700;
+    font-weight: var(--w-bold);
   }
 
   .content {
     flex: 1;
     width: 100%;
-    max-width: 46rem;
+    max-width: var(--measure);
     margin: 0 auto;
-    padding: 1.5rem 1.25rem 3rem;
+    padding: var(--s-5) var(--s-5) var(--s-7);
+  }
+
+  /* Read routes — the paste box, the export bundle, a plan version — get the wide
+     measure over tapped ones. Still one centred column: wider, not multi-column. */
+  .content.wide {
+    max-width: var(--measure-wide);
   }
 
   .foot {
-    padding: 1rem 1.25rem 1.5rem;
+    padding: var(--s-4) var(--s-5) var(--s-5);
     border-top: 1px solid var(--line-soft);
     color: var(--dim);
-    font-size: 0.8rem;
+    font-size: var(--t-xs);
     text-align: center;
   }
 </style>

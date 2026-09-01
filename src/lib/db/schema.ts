@@ -283,8 +283,46 @@ const MIGRATION_002 = `
 DROP TABLE IF EXISTS ai_template;
 `;
 
+const MIGRATION_003 = `
+-- Until lazy start landed, opening the session runner wrote a start op on mount, so a
+-- session someone opened only to look at became a workout row with status 'partial'.
+-- Those rows advance Home's rotation cursor and count as a Partial in the export's
+-- Adherence table, where the reviewing AI reads them as sessions the user abandoned.
+--
+-- A row with no set, no deviation and no metric recorded nothing, which is what makes
+-- deleting it provably lossless rather than merely tidy. Those three are also the only
+-- tables with a foreign key onto workout, so a row passing this test is referenced by
+-- nothing.
+--
+-- NOT EXISTS rather than NOT IN, deliberately: metric_value.workout_id is nullable, and
+-- a NOT IN subquery yielding one NULL evaluates to NULL for every row, so the DELETE
+-- would silently match nothing while looking correct.
+--
+-- The 7-day floor is load-bearing, not caution. Migrations run lazily on a user's next
+-- request (ARCHITECTURE section 5), and POST /api/sync is one of those requests. Without
+-- the floor, a restart in the window between a start op syncing and the first set
+-- arriving would delete that live, still-empty workout and leave the set resolving no
+-- workout: NotYetError, transient, so never quarantined, and retried forever with the
+-- start op already acked out of the outbox. No live session is a week old.
+--
+-- Seven days narrows that window; it does not close it. A session opened online under
+-- pre-lazy-start code whose device then goes offline for longer than the floor collides
+-- with this migration on the very sync request that finally delivers its queued sets —
+-- see ARCHITECTURE section 14 for the residual risk, rather than re-arguing it here.
+--
+-- strftime rather than datetime('now'): datetime yields 'YYYY-MM-DD HH:MM:SS', which
+-- does not sort against started_at's ISO 'YYYY-MM-DDTHH:MM:SS.sssZ'.
+DELETE FROM workout
+WHERE completed_at IS NULL
+  AND started_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-7 day')
+  AND NOT EXISTS (SELECT 1 FROM set_log      s WHERE s.workout_id = workout.id)
+  AND NOT EXISTS (SELECT 1 FROM deviation    d WHERE d.workout_id = workout.id)
+  AND NOT EXISTS (SELECT 1 FROM metric_value m WHERE m.workout_id = workout.id);
+`;
+
 /** Ordered list of migrations; applied once each, tracked in `_gain_migration`. */
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: "domain-model-v1", sql: MIGRATION_001 },
   { version: 2, name: "drop-ai-template", sql: MIGRATION_002 },
+  { version: 3, name: "delete-peeked-workouts", sql: MIGRATION_003 },
 ];

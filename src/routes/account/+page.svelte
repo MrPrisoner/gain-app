@@ -6,6 +6,10 @@
   import { clearAfterReset, setGeneration } from "$lib/sync/client.svelte";
   import { purgeCachedUserData } from "$lib/sync/precache";
   import { clearWorkoutStorage } from "$lib/session/workout-storage";
+  import Button from "$lib/components/Button.svelte";
+  import Card from "$lib/components/Card.svelte";
+  import Field from "$lib/components/Field.svelte";
+  import PageHeader from "$lib/components/PageHeader.svelte";
   import type { ActionData, PageData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -17,7 +21,7 @@
 
 <svelte:head><title>Account — GAIN</title></svelte:head>
 
-<h1>Account</h1>
+<PageHeader title="Account" />
 
 <p class="identity">
   Signed in as <strong>{data.displayName ?? "you"}</strong>.
@@ -25,15 +29,19 @@
 </p>
 
 {#if !open}
-  <section class="section">
-    <h2>Reset your data</h2>
-    <p>
-      Erases every plan, workout and log in this account permanently. Your account itself survives —
-      signing in afterwards starts from an empty GAIN, the same as a brand-new user. Every other
-      device you are signed in on is signed out; this one stays signed in.
-    </p>
-    <button class="trigger" type="button" onclick={() => (open = true)}> Reset my data… </button>
-  </section>
+  <div class="section">
+    <Card>
+      <h2>Reset your data</h2>
+      <p>
+        Erases every plan, workout and log in this account permanently. Your account itself survives
+        — signing in afterwards starts from an empty GAIN, the same as a brand-new user. Every other
+        device you are signed in on is signed out; this one stays signed in.
+      </p>
+      <div class="trigger-row">
+        <Button variant="danger" type="button" onclick={() => (open = true)}>Reset my data…</Button>
+      </div>
+    </Card>
+  </div>
 {:else}
   <form
     method="POST"
@@ -80,32 +88,31 @@
       </span>
     </p>
 
-    <label for="confirm">Type RESET to confirm</label>
-    <input
-      id="confirm"
-      name="confirm"
-      bind:value={typed}
-      aria-describedby="reset-warning"
-      autocomplete="off"
-      autocapitalize="none"
-      spellcheck="false"
-    />
-
-    {#if form?.actionError}
-      <p class="action-error" role="alert">{form.actionError}</p>
-    {/if}
+    <Field label="Type RESET to confirm" id="confirm" error={form?.actionError}>
+      <input
+        id="confirm"
+        name="confirm"
+        bind:value={typed}
+        aria-describedby="reset-warning confirm-error"
+        autocomplete="off"
+        autocapitalize="none"
+        spellcheck="false"
+      />
+    </Field>
 
     <div class="row">
-      <button
-        class="danger"
+      <Button
+        variant="danger"
         type="submit"
-        disabled={typed.trim().toUpperCase() !== "RESET" || resetting}
+        disabled={typed.trim().toUpperCase() !== "RESET"}
+        pending={resetting}
+        pendingLabel="Resetting…"
       >
-        {resetting ? "Resetting…" : "Reset my data"}
-      </button>
-      <button class="quiet" type="button" onclick={() => (open = false)} disabled={resetting}>
+        Reset my data
+      </Button>
+      <Button variant="quiet" type="button" onclick={() => (open = false)} disabled={resetting}>
         Cancel
-      </button>
+      </Button>
     </div>
   </form>
 {/if}
@@ -117,56 +124,41 @@
   }
 
   .section {
-    background: var(--surface);
-    border: 1px solid var(--line-soft);
-    border-radius: var(--r-md);
-    padding: 1.25rem;
     margin-top: 1.5rem;
   }
 
   .section h2 {
-    font-size: 1.05rem;
-    font-weight: 600;
+    font-size: var(--t-base);
+    font-weight: var(--w-semi);
     margin: 0 0 0.5rem;
   }
 
   .section p {
     color: var(--muted);
-    font-size: 0.9rem;
+    font-size: var(--t-sm);
     margin: 0;
   }
 
-  .trigger {
-    background: transparent;
-    border: 1px solid var(--line);
-    border-radius: var(--r-sm);
-    color: var(--muted);
-    padding: 0.5rem 0.85rem;
+  .trigger-row {
     margin-top: 1rem;
-    width: 100%;
   }
 
   .danger-panel {
     margin-top: 1.5rem;
-    padding: 1.25rem;
+    padding: var(--s-5);
     border-radius: var(--r-md);
     border: 1px solid var(--red);
     background: color-mix(in srgb, var(--red) 10%, transparent);
     display: flex;
     flex-direction: column;
-    gap: 0.6rem;
+    gap: var(--s-3);
   }
 
   .warning {
     display: flex;
-    gap: 0.5rem;
+    gap: var(--s-2);
     align-items: start;
     margin: 0;
-    color: var(--text);
-  }
-
-  .danger-panel label {
-    font-size: 0.875rem;
     color: var(--text);
   }
 
@@ -174,35 +166,9 @@
     width: 100%;
   }
 
-  .action-error {
-    color: var(--text);
-    margin: 0;
-  }
-
   .row {
     display: flex;
-    gap: 0.5rem;
+    gap: var(--s-2);
     flex-wrap: wrap;
-  }
-
-  .danger {
-    background: var(--red);
-    color: #fff;
-    border: 0;
-    border-radius: var(--r-sm);
-    padding: 0.5rem 0.85rem;
-  }
-
-  .danger:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .quiet {
-    background: transparent;
-    border: 1px solid var(--line);
-    border-radius: var(--r-sm);
-    color: var(--muted);
-    padding: 0.5rem 0.85rem;
   }
 </style>

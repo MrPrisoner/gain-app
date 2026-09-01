@@ -1,11 +1,31 @@
 /*
- * Design tokens (UI-DECISIONS §10). One family — Plus Jakarta Sans, self-hosted —
- * tabular numerals wherever figures are compared, no monospace anywhere. Colour is
- * reserved for meaning: green/amber/red belong to the plan's symptom framework, one
- * accent hue carries interactivity, everything else is neutral.
+ * Design tokens (UI §10 — this file is the one place nobody editing a token can miss).
+ * One family — Plus Jakarta Sans, self-hosted — tabular numerals wherever figures are
+ * compared, no monospace anywhere. Colour is reserved for meaning: green/amber/red
+ * belong to the plan's symptom framework, one accent hue carries interactivity,
+ * everything else is neutral.
  *
  * Dark is the default; light follows prefers-color-scheme, and an explicit
  * data-theme attribute on <html> overrides both.
+ *
+ * The scales, in short (full reasoning and exact values in UI §10):
+ *   type (--t-)     nine steps, --t-2xs (12px) to --t-2xl (40px), plus a fluid
+ *                   --t-display for the rest timer's clock and the error glyph.
+ *   weight (--w-)   five steps, 400 to 800, each with exactly one job.
+ *   spacing (--s-)  4/8px rhythm, --s-1 (4px) to --s-7 (48px). --pad-card is the one
+ *                   derived token: 16px on a phone, 24px from 480px up.
+ *   borders         two tokens, two jobs: --line is the ordinary hairline, and it
+ *                   carries card edges, dividers and every button-like control;
+ *                   --line-strong is reserved for the fields a value is typed or
+ *                   picked into (input/textarea/select), where the border *is* the
+ *                   control, and is held to WCAG's 3:1 non-text floor.
+ *   elevation       two --shadow- steps; light casts a true shadow, dark lightens
+ *                   the surface and adds an --edge-top highlight, because a shadow
+ *                   on a near-black ground reads as nothing.
+ *   motion          --dur- durations and --ease easings, collapsed to 1ms under
+ *                   prefers-reduced-motion.
+ *   --dim           a size-and-weight distinction now, not a third luminance step
+ *                   (see UI §10 for why).
  */
 
 @font-face {
@@ -17,22 +37,28 @@
 }
 
 :root {
-  --ground: #0b0d10;
-  --surface: #14171c;
-  --raised: #1b1f26;
-  --hover: #232831;
-  --line: #272d36;
-  --line-soft: #1e232b;
+  --ground: #0a0c0f;
+  --surface: #16191f;
+  --raised: #1e222a;
+  --hover: #272c36;
+  --line: #333a45;
+  --line-soft: #22262f;
+  --line-strong: #727d8b;
   --text: #f2f5f8;
   --muted: #99a3b0;
-  --dim: #6b7480;
-  --accent: #5b8def;
+  --dim: #8d97a5;
+  --accent: #6b98f1;
   --accent-in: #0b0d10;
-  --accent-soft: rgba(91, 141, 239, 0.15);
+  --accent-soft: rgba(107, 152, 241, 0.15);
   --green: #3fa96a;
   --amber: #d9a23f;
   --amber-soft: rgba(217, 162, 63, 0.12);
   --red: #e0655b;
+  /* The wordmark's "AI" highlight. Its own token because it answers to the app icon's
+       hue, not to --accent — kept separate so a future accent change can't silently pull
+       the logotype's colour with it. Picked to clear 4.5:1 on every surface, same floor
+       as --accent and --dim. */
+  --wordmark: #7e98b4;
 
   --font: "Jakarta", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 
@@ -40,6 +66,61 @@
   --r-sm: 12px;
   --r-md: 16px;
   --r-lg: 22px;
+
+  /* Type scale. Nine steps, snapped from the 124 `font-size` declarations that preceded
+       them rather than imported from a ratio — `--t-sm` absorbs 74 of those on its own,
+       because `0.85rem` and `0.9rem` were two spellings of one intention. */
+  --t-2xs: 0.75rem;
+  --t-xs: 0.8125rem;
+  --t-sm: 0.875rem;
+  --t-base: 1rem;
+  --t-md: 1.125rem;
+  --t-lg: 1.375rem;
+  --t-xl: 1.75rem;
+  --t-2xl: 2.5rem;
+  /* The two full-screen figures — the rest timer's clock and the error glyph. Fluid so
+       they cannot crowd a 360 px viewport, which fixed 3.5–4rem could. */
+  --t-display: clamp(3rem, 14vw, 4rem);
+
+  /* Weight. Plus Jakarta Sans is loaded as a variable face at 400..800; before this,
+       `700` was 48 of 76 declarations and weight therefore distinguished nothing. */
+  --w-body: 400;
+  --w-medium: 500;
+  --w-semi: 600;
+  --w-bold: 700;
+  --w-display: 800;
+
+  /* Spacing: a 4/8px rhythm on the 16px base. */
+  --s-1: 0.25rem;
+  --s-2: 0.5rem;
+  --s-3: 0.75rem;
+  --s-4: 1rem;
+  --s-5: 1.5rem;
+  --s-6: 2rem;
+  --s-7: 3rem;
+
+  /* Card padding is the most-repeated value in the app and the one that decides how much
+       line length a 360px phone has — the runner nests three deep, so 4px per level is
+       12px of content width. One token, so it is one line to revisit. */
+  --pad-card: var(--s-4);
+
+  /* Motion. Before these there were two transitions in the whole codebase, so every
+       state change snapped. */
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-3: 0 16px 40px rgba(0, 0, 0, 0.6);
+  --edge-top: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+
+  /* The app is one centred column. Routes that are *read* rather than tapped — the paste
+     box, the export bundle, a plan version — get a wider one; everything else keeps the
+     phone measure, because a session is a phone screen wherever it is opened. */
+  --measure: 44rem;
+  --measure-wide: 60rem;
 }
 
 @media (prefers-color-scheme: light) {
@@ -48,18 +129,23 @@
     --surface: #ffffff;
     --raised: #f8fafb;
     --hover: #eff2f5;
-    --line: #e3e7ec;
+    --line: #dfe4ea;
     --line-soft: #edf0f4;
+    --line-strong: #7f8995;
     --text: #0f1319;
     --muted: #5c6672;
-    --dim: #8b95a1;
-    --accent: #2c6be0;
+    --dim: #646d78;
+    --accent: #2560cd;
     --accent-in: #ffffff;
-    --accent-soft: rgba(44, 107, 224, 0.1);
-    --green: #2e8b52;
-    --amber: #9c7218;
-    --amber-soft: rgba(156, 114, 24, 0.1);
-    --red: #c94a40;
+    --accent-soft: rgba(37, 96, 205, 0.1);
+    --green: #277544;
+    --amber: #876314;
+    --amber-soft: rgba(135, 99, 20, 0.1);
+    --red: #b34038;
+    --wordmark: #5c6f84;
+    --shadow-1: 0 1px 2px rgba(15, 19, 25, 0.06), 0 1px 3px rgba(15, 19, 25, 0.05);
+    --shadow-3: 0 12px 32px rgba(15, 19, 25, 0.16);
+    --edge-top: none;
   }
 }
 
@@ -68,37 +154,65 @@
   --surface: #ffffff;
   --raised: #f8fafb;
   --hover: #eff2f5;
-  --line: #e3e7ec;
+  --line: #dfe4ea;
   --line-soft: #edf0f4;
+  --line-strong: #7f8995;
   --text: #0f1319;
   --muted: #5c6672;
-  --dim: #8b95a1;
-  --accent: #2c6be0;
+  --dim: #646d78;
+  --accent: #2560cd;
   --accent-in: #ffffff;
-  --accent-soft: rgba(44, 107, 224, 0.1);
-  --green: #2e8b52;
-  --amber: #9c7218;
-  --amber-soft: rgba(156, 114, 24, 0.1);
-  --red: #c94a40;
+  --accent-soft: rgba(37, 96, 205, 0.1);
+  --green: #277544;
+  --amber: #876314;
+  --amber-soft: rgba(135, 99, 20, 0.1);
+  --red: #b34038;
+  --wordmark: #5c6f84;
+  --shadow-1: 0 1px 2px rgba(15, 19, 25, 0.06), 0 1px 3px rgba(15, 19, 25, 0.05);
+  --shadow-3: 0 12px 32px rgba(15, 19, 25, 0.16);
+  --edge-top: none;
 }
 
 :root[data-theme="dark"] {
-  --ground: #0b0d10;
-  --surface: #14171c;
-  --raised: #1b1f26;
-  --hover: #232831;
-  --line: #272d36;
-  --line-soft: #1e232b;
+  --ground: #0a0c0f;
+  --surface: #16191f;
+  --raised: #1e222a;
+  --hover: #272c36;
+  --line: #333a45;
+  --line-soft: #22262f;
+  --line-strong: #727d8b;
   --text: #f2f5f8;
   --muted: #99a3b0;
-  --dim: #6b7480;
-  --accent: #5b8def;
+  --dim: #8d97a5;
+  --accent: #6b98f1;
   --accent-in: #0b0d10;
-  --accent-soft: rgba(91, 141, 239, 0.15);
+  --accent-soft: rgba(107, 152, 241, 0.15);
   --green: #3fa96a;
   --amber: #d9a23f;
   --amber-soft: rgba(217, 162, 63, 0.12);
   --red: #e0655b;
+  --wordmark: #7e98b4;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-3: 0 16px 40px rgba(0, 0, 0, 0.6);
+  --edge-top: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* One step of breathing room once there is room to breathe. Phones keep 16px. */
+@media (min-width: 480px) {
+  :root {
+    --pad-card: var(--s-5);
+  }
+}
+
+/* A strict superset of the handling `CelebrationOverlay` already does for itself — that
+   component removes its particle field, which is removing elements rather than
+   shortening a duration, so it keeps its own opt-out as well. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 1ms;
+    --dur-base: 1ms;
+    --dur-slow: 1ms;
+  }
 }
 
 /* ---------------------------------------------------------------------------
@@ -125,7 +239,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Every figure that can be compared vertically (UI-DECISIONS §10). */
+/* Every figure that can be compared vertically (UI §10). */
 input,
 button,
 textarea,

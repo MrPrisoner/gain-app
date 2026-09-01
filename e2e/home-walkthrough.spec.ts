@@ -32,6 +32,7 @@ import {
   assertNoHorizontalOverflow,
   dismissPreSessionPrompt,
   finishSession,
+  logSetThroughRest,
 } from "./helpers";
 
 test.use({ timezoneId: "UTC" });
@@ -51,12 +52,17 @@ test("home suggests the next session, logs an activity, and asks the next-mornin
 
   // Finish session A under a clock fixed to yesterday, so the workout's completed_at
   // (the client's own clock, ops.ts) lands on a date the next-morning prompt can
-  // recognise as "yesterday" once the clock is restored below. Ending immediately
-  // (rather than logging every set) is enough — nothing here is testing the runner.
+  // recognise as "yesterday" once the clock is restored below. One set and then straight
+  // to the end (rather than logging every set) is enough — nothing here is testing the
+  // runner. The one set is not optional though: under lazy start a session nothing was
+  // written for has no workout to finish, and End session on it leaves for Home without
+  // writing anything (UI §2) — there would be no completed workout for the next-morning
+  // prompt to fire on, and none for `suggestNextSession` to advance past.
   await page.clock.setFixedTime(yesterdayNoon);
   await page.goto(`/plan/${E2E_PLAN_SLUG}/session/A`);
   await dismissPreSessionPrompt(page);
   await expect(page.locator(".log-strip")).toBeVisible();
+  await logSetThroughRest(page);
   await page.getByRole("button", { name: "End session" }).click();
   await finishSession(page);
   await expect(page).toHaveURL(/\/$/);

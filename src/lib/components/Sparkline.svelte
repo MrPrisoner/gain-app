@@ -9,10 +9,10 @@
    * labels every point with reps while plotting weight; a metric trend labels only its
    * last point, in the metric's own unit.
    *
-   * No hover tooltip: this is a phone app. Each mark is its own tap/focus target (the
-   * dot IS the hit target, matching how a bar chart's mark already has to work), and the
-   * tapped value renders in a caption below the chart rather than a floating layer a
-   * thumb would cover.
+   * No hover tooltip: this is a phone app. Each mark is its own tap/focus target — the
+   * full-height column of the chart around it, per `chart-geometry.ts`'s hit bands,
+   * matching how a bar chart's mark already has to work — and the tapped value renders
+   * in a caption below the chart rather than a floating layer a thumb would cover.
    */
   let {
     points,
@@ -56,13 +56,15 @@
       <path d={layout.path} class="line" />
       {#each layout.plotted as point, i (i)}
         {@const pointLabel = formatPointLabel(points[i]!, i, points)}
-        <!-- Two circles: the visible 8px mark and a transparent 24px hit
-             target over it, because a thumb is not 8px wide. -->
+        <!-- The visible 8px mark, and the full-height column that belongs to it as the
+             hit target: a thumb is not 8px wide, and a transparent circle over the dot
+             left dead zones between the marks as well as being too small. -->
         <circle cx={point.cx} cy={point.cy} r="4" class="dot" />
-        <circle
-          cx={point.cx}
-          cy={point.cy}
-          r="12"
+        <rect
+          x={point.bandX}
+          y="0"
+          width={point.bandWidth}
+          {height}
           class="hit"
           role="button"
           tabindex="0"
@@ -116,6 +118,10 @@
     cursor: pointer;
   }
   .point-label {
+    /* Fixed px, not a token: this text lives inside the SVG's `viewBox`, a coordinate
+       space that does not scale with the root font size the way `rem`-based tokens do —
+       a token here grows past the plotted geometry under a larger root and clips against
+       the chart edge instead of just re-flowing. design-scale.test.ts exempts this file. */
     font-size: 10px;
     fill: var(--muted);
   }
@@ -125,8 +131,8 @@
   }
   .readout {
     margin-top: 0.35rem;
-    font-size: 0.85rem;
-    font-weight: 700;
+    font-size: var(--t-sm);
+    font-weight: var(--w-bold);
     color: var(--text);
     text-align: center;
   }

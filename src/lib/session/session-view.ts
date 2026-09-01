@@ -25,7 +25,7 @@ export type ResolvedExercise = {
   loadRef: string | undefined;
   /**
    * The resolved load configuration (CONTRACT `loads`), or `undefined` when this
-   * exercise declares no `load` ref at all. UI-DECISIONS §3, Settled 2026-08-10: a
+   * exercise declares no `load` ref at all. UI §3, Settled 2026-08-10: a
    * paired lift (e.g. floor press) would ideally show `12 kg` with a `2 × 6` sub-line
    * beneath it, but the contract has no field that means "this movement is paired" —
    * `per_side` doesn't mean it (goblet squat is single-dumbbell and not `per_side`;
@@ -261,7 +261,7 @@ export function exerciseMetrics(contract: GainContract): MetricDef[] {
 }
 
 /**
- * UI-DECISIONS §6: draw the ranged-set minimum only, then offer "Add the optional Nth
+ * UI §6: draw the ranged-set minimum only, then offer "Add the optional Nth
  * set" up to the declared max. `addedSets` is how many optional sets the user has
  * already tapped to add this exercise, this workout.
  */
@@ -275,7 +275,7 @@ export function visibleSetCount(
 }
 
 /**
- * UI-DECISIONS §4: rest appears only where the contract declares `rest_sec`, and never
+ * UI §4: rest appears only where the contract declares `rest_sec`, and never
  * between exercises in a checkoff block (no sets logged at all) or a rounds block (rest
  * there is between rounds, handled by `restBetweenRounds`).
  */
@@ -378,7 +378,7 @@ export function highestLoggedSetNo(
 /**
  * Every slot the open exercise currently offers, in the order they are performed:
  * set by set, and within a set left then right for a `per_side` exercise
- * (UI-DECISIONS §6 — one ledger row per side, because differing between sides is the
+ * (UI §6 — one ledger row per side, because differing between sides is the
  * entire reason the flag exists).
  *
  * `shownSets` is `visibleSetCount(...).shown` — a ranged prescription draws its minimum
@@ -408,7 +408,7 @@ export function setSlotsFor(
 }
 
 /**
- * The one set the log strip is about to write (UI-DECISIONS §2: the strip logs exactly
+ * The one set the log strip is about to write (UI §2: the strip logs exactly
  * one set at a time), or `undefined` when every slot on offer is already logged.
  *
  * `logged` is anything that can answer "is this key logged" — the runner's client-side
@@ -422,7 +422,7 @@ export function nextUnloggedSlot(
 }
 
 /**
- * The log strip's context line (UI-DECISIONS §2) — names exactly what the next tap
+ * The log strip's context line (UI §2) — names exactly what the next tap
  * writes. A rounds block counts rounds, not sets, because that is what its `set_no` is.
  */
 export function formatSlotContext(
@@ -439,7 +439,7 @@ export function formatSlotContext(
 
 /**
  * One figure of the rest overlay's up-next line — an icon-tagged number, so `RestTimer`
- * can pair each with its `FigureIcon` (UI-DECISIONS §4) instead of parsing a sentence
+ * can pair each with its `FigureIcon` (UI §4) instead of parsing a sentence
  * back apart the way a single formatted string would require.
  */
 export type UpNextFigure = { kind: "reps" | "time" | "load"; text: string };
@@ -460,7 +460,7 @@ export type UpNextParts = { context: string; figures: readonly UpNextFigure[] };
  * has to handle; a throw here would take the rest overlay down mid-session.
  *
  * The load says `"12 kg total"`, the same unit `LogStrip`'s own dial is labelled with,
- * for the same reason: `weight_kg` is always the total being lifted (UI-DECISIONS §3,
+ * for the same reason: `weight_kg` is always the total being lifted (UI §3,
  * settled 2026-08-10), and this figure is the one the user reads on the way to the rack
  * — a bare `"12 kg"` beside a paired movement invites loading 12 kg per hand.
  */
@@ -486,7 +486,7 @@ function upNextFigures(
 }
 
 /**
- * The rest overlay's up-next card (UI-DECISIONS §4: "names what is coming next") for the
+ * The rest overlay's up-next card (UI §4: "names what is coming next") for the
  * *same* exercise's next slot — `context: "Set 3 of 3"`, `figures: [8–12 reps, 12 kg]`.
  * Built out of `formatSlotContext` so the overlay can never describe the next slot
  * differently than the ledger row it will fill in.
@@ -636,7 +636,7 @@ export function formatRepsOrDurationOrDash(
 }
 
 /**
- * UI-DECISIONS §1: a finished exercise collapses to what it actually was —
+ * UI §1: a finished exercise collapses to what it actually was —
  * `11 · 10 · 10 at 6 kg`. One figure per logged set in performed order, then the load,
  * collapsed to a single value when every set shared one and to a range when they did not
  * (dropping the weight mid-exercise is exactly the thing worth seeing from the collapsed
@@ -665,7 +665,7 @@ export function summariseLoggedSets(sets: readonly LoggedSet[]): string {
  * Every exercise of a session that can be opened and logged, in prescribed order, as
  * `${block.key}:${slug}` keys — the same identity every keyed map in the runner uses.
  * Checkoff blocks are excluded: they have no set rows and nothing to open
- * (UI-DECISIONS §9).
+ * (UI §9).
  */
 export function trackedExerciseKeys(session: Pick<ResolvedSession, "blocks">): string[] {
   return session.blocks
@@ -674,7 +674,7 @@ export function trackedExerciseKeys(session: Pick<ResolvedSession, "blocks">): s
 }
 
 /**
- * The exercise the runner should open next (UI-DECISIONS §1: the default path is not
+ * The exercise the runner should open next (UI §1: the default path is not
  * "hunt for the next row one-handed"). Searches forward from `currentKey` in prescribed
  * order, then wraps to the start so an exercise left unfinished earlier — done out of
  * order, or skipped and then un-skipped — is picked up rather than stranded. `undefined`

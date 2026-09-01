@@ -30,6 +30,32 @@ describe("layoutLineChart", () => {
     const { plotted } = layoutLineChart([{ x: 0, y: 0, label: "12" }], 300, 100, 10);
     expect(plotted[0]!.label).toBe("12");
   });
+
+  it("tiles hit bands edge to edge, splitting each gap between neighbours", () => {
+    const { plotted } = layoutLineChart(
+      [
+        { x: 0, y: 0 },
+        { x: 5, y: 5 },
+        { x: 10, y: 10 },
+      ],
+      300,
+      100,
+      10,
+    );
+    // Centres at 10, 150 and 290: the interior edges land midway, at 80 and 220.
+    expect(plotted.map((p) => [p.bandX, p.bandWidth])).toEqual([
+      [0, 80],
+      [80, 140],
+      [220, 80],
+    ]);
+    // No dead zone anywhere in the chart: every tap belongs to exactly one mark.
+    expect(plotted.at(-1)!.bandX + plotted.at(-1)!.bandWidth).toBe(300);
+  });
+
+  it("gives a single point the whole chart as its hit band", () => {
+    const { plotted } = layoutLineChart([{ x: 5, y: 5 }], 300, 100, 10);
+    expect(plotted[0]!).toMatchObject({ bandX: 0, bandWidth: 300 });
+  });
 });
 
 describe("layoutBarChart", () => {
@@ -48,5 +74,12 @@ describe("layoutBarChart", () => {
   it("treats an all-zero dataset as a flat baseline rather than dividing by zero", () => {
     const bars = layoutBarChart([{ value: 0 }, { value: 0 }], 100, 50, 5, 2);
     expect(bars[0]!.barHeight).toBe(0);
+  });
+
+  it("gives a zero-height bar a full-height hit band anyway", () => {
+    const bars = layoutBarChart([{ value: 0 }, { value: 10 }], 100, 50, 5, 2);
+    expect(bars[0]!.barHeight).toBe(0);
+    expect(bars[0]!.bandWidth).toBeGreaterThan(bars[0]!.barWidth);
+    expect(bars.at(-1)!.bandX + bars.at(-1)!.bandWidth).toBe(100);
   });
 });

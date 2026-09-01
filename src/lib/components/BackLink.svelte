@@ -7,6 +7,6 @@
 <style>
   .back {
     margin: 1.25rem 0 0;
-    font-size: 0.9rem;
+    font-size: var(--t-sm);
   }
 </style>

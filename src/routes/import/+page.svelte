@@ -4,6 +4,9 @@
   import { copyText, downloadText } from "$lib/copy";
   import { blockingReport } from "$lib/import/blocking-report";
   import { refreshCounts, syncStatus } from "$lib/sync/client.svelte";
+  import Button from "$lib/components/Button.svelte";
+  import Card from "$lib/components/Card.svelte";
+  import PageHeader from "$lib/components/PageHeader.svelte";
   import IconCheck from "~icons/lucide/check";
   import IconCircleCheck from "~icons/lucide/circle-check";
   import IconCopy from "~icons/lucide/copy";
@@ -92,17 +95,17 @@
   <title>Import a plan — GAIN</title>
 </svelte:head>
 
-<h1>Import a plan</h1>
+<PageHeader title="Import a plan" />
 
-<section class="card">
+<Card>
   <p class="muted">
     The whole document — prose and contract block. GAIN checks it before writing anything.
   </p>
   <ImportPlanForm bind:pasted />
-</section>
+</Card>
 
 {#if form?.importError}
-  <section class="card report-card">
+  <section class="report-card">
     <h2>Nothing was imported</h2>
     <p>{form.importError}</p>
   </section>
@@ -112,11 +115,11 @@
   {#if form.importFailure.kind === "export_bundle"}
     <!--
       A pasted bundle is a wrong-document error, not a parse failure
-      (UI-DECISIONS §11). The fix belongs to the user, not to the AI, so this
+      (UI §11). The fix belongs to the user, not to the AI, so this
       case gets no field paths and no copy-for-the-AI action — sending a
       bundle back to the chat would only confuse it.
     -->
-    <section class="card report-card">
+    <section class="report-card">
       <h2>That is a GAIN export, not a plan</h2>
       <p>
         Export bundles are what GAIN hands <em>to</em> an AI. Paste what your AI gave you back: the
@@ -124,7 +127,7 @@
       </p>
     </section>
   {:else}
-    <section class="card report-card">
+    <section class="report-card">
       <h2>Nothing was imported</h2>
       <p class="muted">
         This report is written for your AI, not for you — copy it back into the chat and the AI will
@@ -132,17 +135,19 @@
       </p>
       <pre class="report">{form.importFailure.report}</pre>
       <div class="actions">
-        <button type="button" class="primary" onclick={copyReport}>
+        {#snippet copyReportIcon()}
           {#if copied}<IconCheck />{:else}<IconCopy />{/if}
+        {/snippet}
+        <Button variant="primary" type="button" onclick={copyReport} icon={copyReportIcon}>
           {copied ? "Copied" : "Copy report for the AI"}
-        </button>
+        </Button>
       </div>
     </section>
   {/if}
 {/if}
 
 {#if form?.firstImport}
-  <section class="card">
+  <Card spaced>
     <h2>Ready to import</h2>
     <p>
       <strong>{form.firstImport.plan_name}</strong> — version {form.firstImport.version_no}:
@@ -152,14 +157,15 @@
     <form method="POST" action="?/commit" use:enhance>
       <input type="hidden" name="source_md" value={form?.source ?? ""} />
       <div class="actions">
-        <button type="submit" class="primary"><IconCircleCheck />Commit import</button>
+        {#snippet commitImportIcon()}<IconCircleCheck />{/snippet}
+        <Button variant="primary" type="submit" icon={commitImportIcon}>Commit import</Button>
       </div>
     </form>
-  </section>
+  </Card>
 {/if}
 
 {#if form?.revision}
-  <section class="card">
+  <Card spaced>
     <h2>Review the revision</h2>
     <p class="muted">
       Version {form.revision.fromVersion} → {form.revision.toVersion} of {form.revision.planSlug}.
@@ -175,10 +181,12 @@
           {/each}
         </ul>
         <div class="actions">
-          <button type="button" class="secondary" onclick={copyBlocking}>
+          {#snippet copyBlockingIcon()}
             {#if copiedBlocking}<IconCheck />{:else}<IconCopy />{/if}
+          {/snippet}
+          <Button variant="secondary" type="button" onclick={copyBlocking} icon={copyBlockingIcon}>
             {copiedBlocking ? "Copied" : "Copy for the AI"}
-          </button>
+          </Button>
         </div>
       </div>
     {/if}
@@ -232,86 +240,57 @@
       {/if}
 
       <div class="actions">
-        <button type="submit" class="primary" disabled={!ready}>
-          <IconCircleCheck />Commit revision
-        </button>
+        {#snippet commitRevisionIcon()}<IconCircleCheck />{/snippet}
+        <Button variant="primary" type="submit" disabled={!ready} icon={commitRevisionIcon}>
+          Commit revision
+        </Button>
       </div>
     </form>
-  </section>
+  </Card>
 {/if}
 
 <style>
-  h1 {
-    margin: 1.25rem 0 0;
-    font-size: 1.3rem;
-  }
-
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--line-soft);
-    border-radius: var(--r-md);
-    padding: 1.25rem;
-    margin-top: 1.25rem;
-  }
-
-  .card h2 {
+  /* Every h2 on this route — Card's own or .report-card's — wants the same treatment,
+     so it is one rule rather than two selectors chasing each section's own wrapper. */
+  h2 {
     margin: 0 0 0.5rem;
-    font-size: 1.05rem;
+    font-size: var(--t-base);
   }
 
   .muted {
     color: var(--muted);
-    font-size: 0.9rem;
+    font-size: var(--t-sm);
     margin: 0 0 0.75rem;
   }
 
   .actions {
     display: flex;
-    gap: 0.6rem;
+    gap: var(--s-3);
     margin-top: 0.75rem;
     flex-wrap: wrap;
   }
 
-  button {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    border: none;
-    border-radius: var(--r-sm);
-    padding: 0.7rem 1.25rem;
-    font-weight: 700;
-  }
-
-  button.primary {
-    background: var(--accent);
-    color: var(--accent-in);
-  }
-
-  button.primary:disabled {
-    opacity: 0.45;
-    cursor: default;
-  }
-
-  button.secondary {
-    background: var(--raised);
-    border: 1px solid var(--line);
-    color: var(--text);
-  }
-
+  /* Not `Card`: the amber border is meaningful signal (an import failure), not the
+     neutral shell `Card` renders, so this stays a self-contained shell rather than a
+     colour override reaching into a shared component. */
   .report-card {
-    border-color: var(--amber);
+    background: var(--surface);
+    border: 1px solid var(--amber);
+    border-radius: var(--r-md);
+    padding: var(--pad-card);
+    margin-top: 1.25rem;
   }
 
   .report {
     font-family: inherit;
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
     line-height: 1.45;
     white-space: pre-wrap;
     word-break: break-word;
     background: var(--raised);
     border: 1px solid var(--line);
     border-radius: var(--r-xs);
-    padding: 0.75rem;
+    padding: var(--s-3);
     margin: 0;
     max-height: 24rem;
     overflow: auto;
@@ -326,17 +305,17 @@
   .section-label {
     display: flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: var(--s-2);
     margin: 0 0 0.5rem;
-    font-weight: 700;
-    font-size: 0.95rem;
+    font-weight: var(--w-bold);
+    font-size: var(--t-base);
   }
 
   /* `--red` here is ordinary error colour, not the runner's symptom triad — this screen
      is outside the session runner (CLAUDE.md, "Correct CLAUDE.md's colour rule"). */
   .blocking {
     margin-top: 1rem;
-    padding: 1rem;
+    padding: var(--s-4);
     border-radius: var(--r-sm);
     border: 1px solid var(--red);
     background: color-mix(in srgb, var(--red) 10%, transparent);
@@ -349,10 +328,10 @@
   .block ul,
   .blocking ul {
     margin: 0;
-    padding: 0 0 0 1.1rem;
+    padding: 0 0 0 var(--s-4);
     display: grid;
-    gap: 0.4rem;
-    font-size: 0.9rem;
+    gap: var(--s-2);
+    font-size: var(--t-sm);
   }
 
   .warnings .section-label {
@@ -361,10 +340,10 @@
 
   .outbox-note {
     margin: 1.25rem 0 0;
-    padding: 0.75rem 1rem;
+    padding: var(--s-3) var(--s-4);
     border-radius: var(--r-sm);
     background: var(--amber-soft);
     color: var(--text);
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
   }
 </style>

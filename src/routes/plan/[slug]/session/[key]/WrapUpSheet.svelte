@@ -3,11 +3,11 @@
   import type { MetricDef } from "$lib/contract/schema";
   import { trapFocus } from "$lib/actions/focus-trap";
   import { newOpId } from "$lib/sync/ops";
-  import { logWrite } from "$lib/sync/client.svelte";
+  import { isStartDeferred, logWrite } from "$lib/sync/client.svelte";
   import MetricRow from "$lib/components/MetricRow.svelte";
 
   /**
-   * The end-of-session sheet (UI-DECISIONS §8): end metrics, a note about which metrics
+   * The end-of-session sheet (UI §8): end metrics, a note about which metrics
    * are deliberately not asked here, and the finish op that ends the workout. Only ever
    * rendered while `workoutClientId` is set (the caller's `{#if showWrapUp &&
    * workoutClientId}`), so it is required here rather than optional — `DeviationSheet`
@@ -22,6 +22,7 @@
     storageKey,
     onClose,
     onFinished,
+    onLeftWithoutStarting,
     onError,
   }: {
     planSlug: string;
@@ -34,6 +35,9 @@
     /** The workout is finished and its local key cleared. The caller decides what
      * happens next — today, the celebration screen, and the navigation home after it. */
     onFinished: () => void;
+    /** Nothing was ever written for this workout, so there was nothing to finish — the
+     * user opened a session and left. No op, no row, and nothing to celebrate. */
+    onLeftWithoutStarting: () => void;
     onError: (message: string | undefined) => void;
   } = $props();
 
@@ -43,6 +47,18 @@
     if (finishing) return;
     finishing = true;
     try {
+      if (isStartDeferred(workoutClientId)) {
+        // Nothing has been written for this workout — no set, no deviation, and no end
+        // metric answered on the sheet above, since any of those would have committed the
+        // deferred start already. There is therefore no workout to finish: writing the
+        // op here would *create* one, `completed` and empty, which is the wrong claim in
+        // the export's Adherence table lazy start exists to prevent (ARCHITECTURE §9).
+        // Opening a session and tapping End session is leaving, not training. No key to
+        // clear either — `onCommit` never ran, so none was ever written.
+        onLeftWithoutStarting();
+        return;
+      }
+
       await logWrite(planSlug, {
         kind: "finish",
         id: newOpId(),
@@ -65,7 +81,7 @@
 </script>
 
 <div class="sheet-backdrop" role="presentation">
-  <!-- UI-DECISIONS §8: a real modal dialog, not just a visually bottom-sheeted div —
+  <!-- UI §8: a real modal dialog, not just a visually bottom-sheeted div —
        `role="dialog"`/`aria-modal="true"` plus `aria-labelledby` pointing at the heading
        below announce it as such, and `use:trapFocus` (see `$lib/actions/focus-trap`)
        moves focus to that heading on open, cycles Tab within the sheet, restores focus
@@ -91,7 +107,7 @@
     {/each}
 
     {#if nextMorningMetrics.length > 0}
-      <!-- UI-DECISIONS §8: `next_morning` metrics are deliberately not asked here — they
+      <!-- UI §8: `next_morning` metrics are deliberately not asked here — they
            surface the following day. Say so explicitly rather than the user wondering
            whether the question was silently dropped (the nudge itself, on a future Today
            screen, is out of scope for this plan). -->
@@ -126,21 +142,21 @@
     background: var(--surface);
     border-top-left-radius: var(--r-lg);
     border-top-right-radius: var(--r-lg);
-    padding: 1.25rem;
-    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
+    padding: var(--s-5);
+    padding-bottom: calc(var(--s-5) + env(safe-area-inset-bottom));
     display: grid;
-    gap: 0.75rem;
+    gap: var(--s-3);
   }
   .sheet-actions {
     display: flex;
     justify-content: flex-end;
-    gap: 0.6rem;
+    gap: var(--s-3);
   }
   .sheet-actions button {
     border: none;
     border-radius: var(--r-sm);
-    padding: 0.7rem 1.25rem;
-    font-weight: 700;
+    padding: var(--s-3) var(--s-5);
+    font-weight: var(--w-bold);
   }
   .primary {
     background: var(--accent);
@@ -153,7 +169,7 @@
   }
   .next-morning-note {
     color: var(--muted);
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
     margin: 0;
   }
 </style>

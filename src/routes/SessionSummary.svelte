@@ -34,22 +34,22 @@
 
 <style>
   .session-summary {
-    padding: 0.85rem 1rem 0.25rem;
+    padding: var(--s-4) var(--s-4) var(--s-1);
     display: grid;
-    gap: 0.6rem;
+    gap: var(--s-3);
   }
   .note {
     color: var(--muted);
-    font-size: 0.9rem;
+    font-size: var(--t-sm);
     margin: 0 0 0.1rem;
   }
   .block-summary h3 {
     margin: 0 0 0.15rem;
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
     color: var(--muted);
   }
   .block-summary p {
     margin: 0;
-    font-size: 0.9rem;
+    font-size: var(--t-sm);
   }
 </style>

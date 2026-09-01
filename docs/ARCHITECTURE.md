@@ -345,11 +345,11 @@ structure is version-scoped, and logs bind to the version they were recorded und
   surfaces them but does not act on them, except `scheduling.sequence`, which drives
   the suggested next session.
 - **`workout` has no "in progress" state.** `status` is `completed | partial | stopped`.
-  A workout row is created the moment a session starts, as `partial` with a NULL
-  `completed_at` — true until proven otherwise — and updated when the user finishes or
-  red-flag-stops. In-progress is the absence of `completed_at`, not a fourth status, so a
-  session abandoned mid-way is already recorded honestly without anything having to
-  reconcile it later.
+  A workout row is created the moment it is first written to, never merely opened (§9,
+  "Offline model"), as `partial` with a NULL `completed_at` — true until proven otherwise
+  — and updated when the user finishes or red-flag-stops. In-progress is the absence of
+  `completed_at`, not a fourth status, so a session abandoned mid-way after real effort is
+  already recorded honestly without anything having to reconcile it later.
 - **A log row records what was performed, not where in the session.** `set_log` and
   `deviation` key on `exercise_def_id` and carry no `block_key`. The runner, which must
   distinguish two occurrences of one movement in one session, keys its own state on
@@ -716,7 +716,7 @@ The screen you actually stare at, sweating, between sets. It gets the most desig
 
 Built at `src/routes/plan/[slug]/session/[key]/`, with the pure logic in
 `src/lib/session/` (resolution, pre-fill, rest timer, resume reconstruction). **How it
-behaves is settled in [`docs/UI-DECISIONS.md`](./UI-DECISIONS.md)**, not here; this
+behaves is settled in [`docs/UI.md`](./UI.md)**, not here; this
 section is the architectural half. The Home screen below is
 where a session is reached from.
 
@@ -733,7 +733,7 @@ where a session is reached from.
   pre-filled from the last time you did this exercise, so the common case is one tap.
   Large touch targets — assume sweaty hands and a phone propped on the floor.
 - **Set entry:** reps (stepper, pre-filled), weight (stepper, 1 kg, total kilograms —
-  UI-DECISIONS §3), difficulty (Easy / Medium / Hard). Per-side exercises log left and
+  UI §3), difficulty (Easy / Medium / Hard). Per-side exercises log left and
   right separately. Time-based exercises get a countdown. Pre-fill falls back down a
   chain: the last matching performance, else the load configuration's `default_kg`, else
   blank — so a user's *first* session is still one tap, which is the only reason
@@ -801,6 +801,22 @@ across workouts. Making it exact needs the `block_key` column §5 describes.
 
 - The client owns workout state. Everything is written to IndexedDB first, then queued
   for sync.
+- **A workout is not created until it is written to.** Opening the runner mints the
+  workout's `client_id`, its `start` op and its `startedAt` in memory and persists none of
+  them; the first op carrying that `workoutClientId` drags the start into the outbox ahead
+  of itself and writes the `localStorage` resume key (`$lib/sync/deferred-start.ts`).
+  **Every** workout-scoped op commits it, a `finish` included — not as a judgement about
+  which ops are real effort, but because an op reaching the server with no workout behind
+  it resolves nothing, throws `NotYetError`, and is retried forever with no start op left
+  in the outbox to rescue it. This includes a pre-session metric answered on the "Before
+  you start" gate, before "Continue to session" is tapped: the peek is only free if the
+  user touches nothing on that screen.
+
+  The start op is minted **whole at mount**, not at commit. Its ULID has to sort below
+  every op it precedes or `planBatch` sends the set first and replay pays a wasted round
+  trip; ULIDs are monotonic, so minting it at mount makes that ordering free. It also
+  fixes `startedAt` at the moment the session opened, which keeps warm-up and setup inside
+  the session's duration and keeps that figure comparable with everything already logged.
 - All writes carry a client-generated ULID and are **idempotent** on the server —
   replaying the queue can never duplicate a set.
 - Sync is append-only per workout; there is no multi-device concurrent-edit case worth
@@ -998,3 +1014,6 @@ Explicitly out of scope, to stop agents inventing work:
 | A resumed workout attributes a set to the wrong slot of the same session | Accepted and bounded (§9, "Resuming"): log rows carry no `block_key`, so reconstruction infers. It can never cross workouts, invent a row or drop one. The exact fix is a schema column, deferred until a real plan needs it |
 | One user fills the shared volume for everyone | Accepted, unbounded by design. Nothing caps per-user disk usage; isolation is physical, but the filesystem underneath is shared. The operator screen surfaces per-user byte totals, so the condition is visible before it is terminal, and on a household instance that is the whole of the answer. A quota is a real feature with a real failure mode of its own — a user who cannot log a set — and is not worth building before someone has come close |
 | A device with a badly wrong clock files its sets into the wrong week | Accepted and bounded. `set_log` carries no timestamp column at all: chronology comes from the ULID primary key, which sorts by its embedded millisecond timestamp and is generated on the phone, because the offline model has no server to stamp it. A few seconds out is harmless — order *within* a session is by `set_no` — but a device days out (a flat battery, a factory reset) interleaves permanently into the wrong week, and the export's progress summary is arithmetic the reviewing AI will trust and not check. Closing it means a server-stamped `received_at` written at replay, as a monotonic fallback that leaves the offline model alone; not worth the schema change until a real device is seen doing it |
+| A densely-plotted chart's tap targets can still render under the 44px touch-target floor | Accepted and bounded. Each mark now owns the full-height column of the chart around it (`chart-geometry.ts`'s hit bands, tiled edge to edge so there are no dead zones between marks) rather than a hit circle over the dot or the bar rect itself — which fixed the unbounded half of this, since a bar's height is its own datum and the smallest value on a chart was a one-pixel target. What remains is arithmetic no per-mark geometry can beat: a chart is ~307 CSS px wide on a 360px phone, so past roughly six marks the bands themselves fall under 44px, and the `full history` window plots an unbounded number of them. `e2e/touch-targets.spec.ts` therefore exempts marks inside an `<svg>` and names this row. Closing it properly means deciding what a chart does with more points than it can offer a thumb — downsample, page, or scroll horizontally — which is a progress-screen design decision rather than a chart-primitive fix |
+| Migration 3 (`delete-peeked-workouts`) can delete a workout mid-flight through an offline sync | Accepted and narrowed rather than closed. The window: a session started online under pre-lazy-start code, then the device goes offline longer than the migration's floor before reconnecting and syncing its queued sets. Migrations run lazily, immediately before `replayOps` (section 5), so the very sync request that finally delivers those sets first sees an empty, floor-aged workout and deletes it — the queued set ops then resolve no workout, throw `NotYetError`, and `replayOps` never quarantines that error, so they retry forever with no recourse (`discardQuarantined` only touches records already quarantined). Widening the floor to 7 days (`src/lib/db/schema.ts`) narrows the window rather than closing it, and shrinks further over time: lazy start mints no new peek-only workouts, so there is nothing left for a future migration run to race against but the dwindling set that predates it. Closing it fully means either quarantining `NotYetError` — a broader change to the replay contract — or having the migration skip workouts with pending local ops, which it has no way to see. Reopens if the floor is ever felt to still bite — a real user training through a genuinely multi-week offline streak |
+| Two tabs open on the same session mint two workouts | Accepted, and narrower than it looks. The resume key (`$lib/session/workout-storage.ts`) is what makes a second visit join the first workout, and lazy start does not write it until the first real write — so two tabs opened on one session before either has logged anything arm two distinct `client_id`s, and a set logged in each commits two `partial` rows that the export's Adherence table counts separately. Writing the key at mount is exactly the peek this feature exists to remove, so the fix is not to put it back: closing it properly means the tabs coordinating over `localStorage` or a `BroadcastChannel`, which is real machinery for a case a one-user, one-phone app has no reported instance of. Reopens if a browser is ever seen restoring a session tab alongside a fresh one |

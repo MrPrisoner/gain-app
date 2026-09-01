@@ -4,13 +4,17 @@
   import { resolve } from "$app/paths";
   import { page } from "$app/state";
   import Sparkline from "$lib/components/Sparkline.svelte";
-  import BackLink from "$lib/components/BackLink.svelte";
+  import PageHeader from "$lib/components/PageHeader.svelte";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
 </script>
 
-<h1>{data.label}</h1>
+<PageHeader
+  title={data.label}
+  backHref={`/plan/${data.planSlug}/progress/metrics`}
+  backLabel="Back to metrics"
+/>
 
 <label class="window-picker">
   Window
@@ -39,22 +43,20 @@
   formatReadout={(p) => `${p.y} on ${new Date(p.x).toISOString().slice(0, 10)}`}
 />
 
-<BackLink href={`/plan/${data.planSlug}/progress/metrics`} label="Back to metrics" />
-
 <style>
   .window-picker {
     display: block;
     margin-bottom: 1rem;
-    font-size: 0.9rem;
+    font-size: var(--t-sm);
     color: var(--muted);
   }
   .window-picker select {
     display: block;
     margin-top: 0.25rem;
     width: 100%;
-    padding: 0.6rem 0.75rem;
+    padding: var(--s-3) var(--s-3);
     border-radius: var(--r-xs);
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-strong);
     background: var(--raised);
     color: var(--text);
     font: inherit;

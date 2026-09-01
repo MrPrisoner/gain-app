@@ -2,20 +2,21 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
-  import BackLink from "$lib/components/BackLink.svelte";
   import ArchivedNote from "$lib/components/ArchivedNote.svelte";
+  import EmptyState from "$lib/components/EmptyState.svelte";
+  import PageHeader from "$lib/components/PageHeader.svelte";
   import type { PageData } from "./$types";
   let { data }: { data: PageData } = $props();
 </script>
 
-<h1>{data.planName} — history</h1>
+<PageHeader title={`${data.planName} — history`} backHref="/" backLabel="Back to your plans" />
 
 {#if data.planArchived}
   <ArchivedNote />
 {/if}
 
 {#if data.workouts.length === 0}
-  <p class="muted">No workouts logged yet.</p>
+  <EmptyState title="No workouts logged yet" />
 {:else}
   <ul class="workout-list">
     {#each data.workouts as workout (workout.id)}
@@ -24,7 +25,8 @@
           <span class="date">{new Date(workout.startedAt).toISOString().slice(0, 10)}</span>
           <span class="session">{workout.sessionKey} · {workout.sessionName}</span>
           <span class="detail"
-            >{workout.status} · {workout.setCount} sets{workout.versionNo
+            >{workout.status} · {workout.setCount}
+            {workout.setCount === 1 ? "set" : "sets"}{workout.versionNo
               ? ` · v${workout.versionNo}`
               : ""}</span
           >
@@ -53,47 +55,42 @@
   {/if}
 </div>
 
-<BackLink href="/" label="Back to your plans" />
-
 <style>
-  .muted {
-    color: var(--muted);
-  }
   .workout-list {
     list-style: none;
     margin: 0;
     padding: 0;
     display: grid;
-    gap: 0.6rem;
+    gap: var(--s-3);
   }
   .workout-list a {
     display: grid;
-    gap: 0.15rem;
-    padding: 0.85rem 1rem;
+    gap: var(--s-1);
+    padding: var(--s-3) var(--s-4);
     border-radius: var(--r-sm);
     background: var(--surface);
     border: 1px solid var(--line-soft);
     color: var(--text);
   }
   .date {
-    font-weight: 700;
+    font-weight: var(--w-bold);
   }
   .session,
   .detail {
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
     color: var(--muted);
   }
   .pager {
     display: flex;
-    gap: 0.6rem;
+    gap: var(--s-3);
     margin-top: 1rem;
   }
   .pager button {
-    padding: 0.6rem 1.1rem;
+    padding: var(--s-3) var(--s-4);
     border-radius: var(--r-sm);
     background: var(--raised);
     border: 1px solid var(--line);
     color: var(--text);
-    font-weight: 700;
+    font-weight: var(--w-bold);
   }
 </style>

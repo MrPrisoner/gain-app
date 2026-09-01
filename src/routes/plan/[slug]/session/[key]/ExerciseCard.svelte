@@ -20,7 +20,7 @@
   import IconMinus from "~icons/lucide/minus";
 
   /**
-   * One exercise row of the runner (UI-DECISIONS §1): collapsed to name, target and
+   * One exercise row of the runner (UI §1): collapsed to name, target and
    * completion state, or expanded to its condition/substitute chips, cues and read-only
    * set ledger. The pinned strip that actually logs a set lives at the page level, driven
    * by `openSlug` — this component only ever renders the *read-only* trail of what has
@@ -118,7 +118,7 @@
   );
   const slots = $derived(slotsFor(ledger, block, prescribed));
   const nextSlot = $derived(nextUnloggedSlot(slots, ledger.loggedSets));
-  // UI-DECISIONS §1: the collapsed row carries name, target *and completion state*. Done
+  // UI §1: the collapsed row carries name, target *and completion state*. Done
   // collapses to what it actually was, skipped says so, and what has not been reached
   // yet recedes.
   const headline = $derived(
@@ -184,7 +184,7 @@
                      `condition` text these chips render beside is what makes them appear
                      at all, and in this plan it reads "if it reproduces familiar back
                      symptoms, replace it". `other` said nothing, and the reason is
-                     exported as signal for the revising AI (UI-DECISIONS §7), so saying
+                     exported as signal for the revising AI (UI §7), so saying
                      nothing is a real loss. `pain` is the code behind DeviationSheet's own
                      "Symptoms" chip (`submitConditionSwap`, above). Anything more precise
                      needs a reason picker in this inline row, which §7 already puts in the
@@ -269,7 +269,7 @@
           {/each}
         </ul>
 
-        <!-- UI-DECISIONS §6's optional set, and *only* that: this offers sets the
+        <!-- UI §6's optional set, and *only* that: this offers sets the
              ranged prescription already declared, so it is not a deviation and logs
              none. The deviation sheet's add_set/drop_set is a separate mechanism
              against a separate counter — see `$lib/session/ledger`'s `shownSetsFor`. -->
@@ -300,15 +300,15 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 0.75rem;
+    gap: var(--s-3);
     background: none;
     border: none;
-    padding: 0.85rem 1rem;
+    padding: var(--s-4) var(--s-4);
     text-align: left;
   }
   .exercise-meta {
     color: var(--muted);
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
     text-align: right;
     margin-left: auto;
   }
@@ -328,21 +328,21 @@
   .exercise.skipped .exercise-status {
     color: var(--dim);
   }
-  /* UI-DECISIONS §1/§5: the three states of a row are carried entirely by weight and
+  /* UI §1/§5: the three states of a row are carried entirely by weight and
      luminance — no colour anywhere below, because colour in this app means symptoms and
      effort, and a list that traffic-lights "done" competes with the one scale that has
      to stay readable. The open exercise is heaviest and brightest; a finished one stays
      legible so its summary can be read at a glance; one not yet reached recedes to
      `--dim`. */
   .exercise-name {
-    font-weight: 600;
+    font-weight: var(--w-semi);
   }
   .exercise.open .exercise-name {
-    font-weight: 750;
+    font-weight: var(--w-bold);
   }
   .exercise.done .exercise-name {
     color: var(--muted);
-    font-weight: 500;
+    font-weight: var(--w-medium);
   }
   .exercise.done .exercise-meta {
     color: var(--text);
@@ -350,21 +350,21 @@
   .exercise.upcoming .exercise-name,
   .exercise.upcoming .exercise-meta {
     color: var(--dim);
-    font-weight: 500;
+    font-weight: var(--w-medium);
   }
   .exercise-body {
-    padding: 0 1rem 1rem;
+    padding: 0 var(--s-4) var(--s-4);
     display: grid;
-    gap: 0.6rem;
+    gap: var(--s-3);
   }
   .condition {
     color: var(--muted);
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
   }
   .substitute-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.4rem;
+    gap: var(--s-2);
   }
   .chip {
     min-height: 2.75rem;
@@ -372,8 +372,8 @@
     background: var(--raised);
     color: var(--text);
     border-radius: var(--r-lg);
-    padding: 0.4rem 0.8rem;
-    font-size: 0.85rem;
+    padding: var(--s-2) var(--s-3);
+    font-size: var(--t-sm);
   }
   .chip--primary {
     background: var(--accent-soft);
@@ -382,7 +382,7 @@
   .cue {
     margin: 2px 0;
     color: var(--muted);
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
   }
   /* The read-only set ledger. Flex with wrap rather than a fixed grid: at 360px the
      actual/effort pair drops to its own line instead of forcing the row wider than the
@@ -396,10 +396,10 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 0;
+    gap: var(--s-2);
+    padding: var(--s-2) 0;
     border-bottom: 1px solid var(--line-soft);
-    font-size: 0.9rem;
+    font-size: var(--t-sm);
   }
   .ledger-row:last-child {
     border-bottom: none;
@@ -414,7 +414,7 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--s-2);
     border: none;
     background: none;
     color: inherit;
@@ -425,10 +425,10 @@
   }
   .led-set {
     flex: none;
-    font-weight: 600;
+    font-weight: var(--w-semi);
     color: var(--muted);
   }
-  /* Three states, by luminance and the one accent hue only (UI-DECISIONS §5): a logged
+  /* Three states, by luminance and the one accent hue only (UI §5): a logged
      row reads at full strength, the row the strip is about to write is accented, and a
      set still to come stays quiet. The "next" row bleeds into `.exercise-body`'s side
      padding so the highlight reaches the card edges rather than sitting as an inset
@@ -438,7 +438,7 @@
   }
   .ledger-row.next {
     margin: 0 -1rem;
-    padding: 0.5rem 1rem;
+    padding: var(--s-2) var(--s-4);
     background: var(--accent-soft);
     border-bottom-color: transparent;
     border-radius: var(--r-md);
@@ -448,21 +448,21 @@
   }
   .led-target {
     color: var(--dim);
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
   }
   .led-actual {
     margin-left: auto;
-    font-weight: 600;
+    font-weight: var(--w-semi);
   }
   .led-pending {
-    font-weight: 400;
+    font-weight: var(--w-body);
     color: var(--dim);
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
   }
   .led-effort {
     flex: none;
     display: inline-flex;
-    gap: 3px;
+    gap: var(--s-1);
   }
   .led-effort i {
     display: block;
@@ -485,6 +485,6 @@
     background: none;
     color: var(--accent);
     border-radius: var(--r-xs);
-    padding: 0.4rem 0.8rem;
+    padding: var(--s-2) var(--s-3);
   }
 </style>

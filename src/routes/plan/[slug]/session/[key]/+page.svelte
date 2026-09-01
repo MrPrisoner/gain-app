@@ -36,13 +36,20 @@
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import { newOpId } from "$lib/sync/ops";
-  import { logWrite, opsForWorkout, startSyncLoop } from "$lib/sync/client.svelte";
+  import {
+    armDeferredStart,
+    disarmDeferredStart,
+    logWrite,
+    opsForWorkout,
+    startSyncLoop,
+  } from "$lib/sync/client.svelte";
   import { historyFromOps } from "$lib/sync/history";
   import IconFlag from "~icons/lucide/flag";
   import IconInfo from "~icons/lucide/info";
   import RestTimer from "./RestTimer.svelte";
   import DeviationSheet from "./DeviationSheet.svelte";
   import LogStrip from "./LogStrip.svelte";
+  import Card from "$lib/components/Card.svelte";
   import MetricRow from "$lib/components/MetricRow.svelte";
   import BlockSection from "./BlockSection.svelte";
   import WrapUpSheet from "./WrapUpSheet.svelte";
@@ -68,13 +75,13 @@
   const storageKey = untrack(() => workoutStorageKey(data.planSlug, data.session.key));
 
   // `undefined` until the mount effect below resolves the local pointer (and, for a fresh
-  // workout, writes its `start` op) — nothing below renders a logging control until then,
+  // workout, arms its deferred `start` op) — nothing below renders a logging control until then,
   // the same "quiet placeholder over a live-looking strip that would 400 on every tap"
-  // rule phase 4 established (UI-DECISIONS §2), now guarding against a tap racing
+  // rule phase 4 established (UI §2), now guarding against a tap racing
   // IndexedDB instead of a network round trip.
   let workoutClientId = $state<string | undefined>(undefined);
 
-  // Pre-session metrics (ARCHITECTURE §9, UI-DECISIONS §8): a genuinely fresh start gates
+  // Pre-session metrics (ARCHITECTURE §9, UI §8): a genuinely fresh start gates
   // the runner behind `data.startMetrics` until "Continue to session" is tapped — asking
   // "how do you feel before you start" makes no sense on a workout already in progress, so
   // a workout resumed from an existing local pointer skips this gate entirely and never
@@ -84,7 +91,7 @@
   // surfacing an empty sheet with only a Continue button.
   let showPreSession = $state(false);
 
-  // The one error surface for the whole runner (UI-DECISIONS §2) — every write below, and
+  // The one error surface for the whole runner (UI §2) — every write below, and
   // `DeviationSheet` via its `onError` prop, funnels into this single piece of state so
   // there is exactly one place an error renders, one visual treatment, one dismiss
   // control. Unlike phase 4, a write here can only fail *locally* now (IndexedDB itself
@@ -125,23 +132,48 @@
 
   $effect(() => {
     let cancelled = false;
+    let clientId: string | undefined;
 
     (async () => {
       const existing =
         typeof localStorage !== "undefined" ? localStorage.getItem(storageKey) : null;
       const resumed = existing !== null;
-      const clientId = existing ?? newOpId();
+      clientId = existing ?? newOpId();
 
       if (!resumed) {
-        if (typeof localStorage !== "undefined") localStorage.setItem(storageKey, clientId);
-        await logWrite(data.planSlug, {
-          kind: "start",
-          id: newOpId(),
-          workoutClientId: clientId,
-          planVersionId: data.planVersionId,
-          sessionKey: data.session.key,
-          startedAt: new Date().toISOString(),
-        });
+        /**
+         * Nothing is persisted here — not the resume key, not the `start` op. Both land
+         * on the first write against this workout, via the start armed below
+         * (`$lib/sync/deferred-start`). A session someone only opened to look at must
+         * not be able to claim it happened: a `workout` row advances Home's rotation
+         * cursor and counts as a Partial in the export's Adherence table, and the
+         * reviewing AI reads a Partial as a session the user abandoned.
+         *
+         * The op is minted *whole* right here rather than at commit time, and that is
+         * load-bearing twice over. Its ULID must sort below every op it precedes, or
+         * `planBatch` sends the set first and replay costs a wasted round trip on
+         * `NotYetError`; ULIDs are monotonic, so minting it now makes that free. And
+         * `startedAt` is honestly the moment the session opened — warm-up and setup are
+         * part of a session, and stamping it at the first set would silently narrow
+         * every future duration and break comparison with everything already logged.
+         */
+        // Narrows `clientId` (declared `string | undefined` above) to a definite `string`
+        // for the `onCommit` closure below — capturing the outer binding instead would
+        // read whatever it holds when the closure runs, not what it held here.
+        const freshId = clientId;
+        armDeferredStart(
+          {
+            kind: "start",
+            id: newOpId(),
+            workoutClientId: freshId,
+            planVersionId: data.planVersionId,
+            sessionKey: data.session.key,
+            startedAt: new Date().toISOString(),
+          },
+          () => {
+            if (typeof localStorage !== "undefined") localStorage.setItem(storageKey, freshId);
+          },
+        );
       }
 
       if (cancelled) return;
@@ -168,6 +200,10 @@
 
     return () => {
       cancelled = true;
+      // Module state needs a way out of every state it can enter. A start armed for a
+      // session that was left without a write would otherwise sit there until the tab
+      // closed.
+      if (clientId) disarmDeferredStart(clientId);
     };
   });
 
@@ -223,7 +259,7 @@
     await leaveForHome();
   }
 
-  // Which exercise is expanded — UI-DECISIONS §1: exactly one, the others collapse.
+  // Which exercise is expanded — UI §1: exactly one, the others collapse.
   // Keyed by `${block.key}:${slug}` since the same exercise slug can appear in more
   // than one block within a session (e.g. a warm-up checkoff and a working block) and
   // expanding one must not affect the other. Always the *prescribed* slug, never a
@@ -252,7 +288,7 @@
   // Rounds completed so far for a `type: rounds` block, keyed by block key.
   const completedRounds = new SvelteMap<string, number>();
 
-  // The substitute actually swapped in for a prescribed exercise (UI-DECISIONS §6),
+  // The substitute actually swapped in for a prescribed exercise (UI §6),
   // keyed `${block.key}:${slug}` by the *prescribed* slug, holding the substitute
   // resolved through the plan's catalogue (`resolveSubstitute`) rather than its bare
   // slug: everything downstream — the strip's `exercise_slug`, the ledger's target, the
@@ -300,14 +336,16 @@
   // it never gates anything: the workout is already complete by the time this is true, and
   // a user who backgrounds the phone here loses nothing but the confetti. A red-flag stop
   // never sets it — `onRedFlagStop` leaves straight away, because a session that ended
-  // because something hurt is not an occasion.
+  // because something hurt is not an occasion. Neither does End session on a workout
+  // nothing was ever written for: there is no finish op, no row, and nothing to
+  // celebrate — see `WrapUpSheet`'s `onLeftWithoutStarting`.
   let celebrating = $state(false);
   // Tap-to-select values for session-scope metrics, keyed by metric key — held here for
-  // display only; each tap fires its own `?/logMetric` submission (UI-DECISIONS §8).
+  // display only; each tap fires its own `?/logMetric` submission (UI §8).
   const sessionMetricValues = new SvelteMap<string, number | string>();
 
   /**
-   * Everything the pinned strip needs about the one open exercise (UI-DECISIONS §1: one
+   * Everything the pinned strip needs about the one open exercise (UI §1: one
    * exercise open, §2: the strip logs exactly one set). `next` is `undefined` once every
    * offered set is logged — the strip then shows its finished state rather than
    * vanishing, so the ledger's reserved bottom padding stays honest. See
@@ -318,7 +356,7 @@
   /**
    * Every exercise that needs nothing more from the user — each offered slot logged, or
    * the whole exercise skipped. Drives both the collapsed row's completion state
-   * (UI-DECISIONS §1) and where auto-advance goes next. See `$lib/session/ledger`'s
+   * (UI §1) and where auto-advance goes next. See `$lib/session/ledger`'s
    * `computeDoneExercises` for the resolution itself.
    */
   const doneExercises = $derived.by(() => computeDoneExercises(data.session, ledger));
@@ -331,11 +369,11 @@
    * Set when an exercise finished while its rest was still counting down: advancing then
    * would swap the strip's context out from under a timer the user is still watching, so
    * the move waits until the rest is dismissed — always by the user tapping "start next
-   * set early" (`onSkip`/`onRestDismissed`; UI-DECISIONS §4's rest has no auto-dismiss).
+   * set early" (`onSkip`/`onRestDismissed`; UI §4's rest has no auto-dismiss).
    */
   let advanceAfterRest = $state(false);
 
-  /** Auto-advance (UI-DECISIONS §1): open the next exercise that still needs something.
+  /** Auto-advance (UI §1): open the next exercise that still needs something.
    * Nothing left means nothing moves — the finished exercise stays open showing its
    * finished strip rather than the list snapping somewhere arbitrary. */
   function advance(): void {
@@ -420,7 +458,7 @@
    *
    * Without this, round 2 would start at position 4 of 4, and a rounds block followed by
    * another block would advance straight *out* of the circuit after round 1, abandoning
-   * the remaining rounds with no prompt (UI-DECISIONS §6 — rounds are a primitive the
+   * the remaining rounds with no prompt (UI §6 — rounds are a primitive the
    * design commits to handling).
    */
   function startNextRound(block: ResolvedBlock): void {
@@ -582,9 +620,11 @@
 {/if}
 
 {#if !workoutClientId}
-  <!-- UI-DECISIONS §2: nothing below renders until the mount effect resolves a local
-       workout client id — a quiet "starting" state beats a live-looking strip that
-       writes against an id that does not exist yet. -->
+  <!-- UI §2: nothing below renders until the mount effect resolves a local
+       workout client id — a quiet "starting" state beats a live-looking strip that could
+       tap against an id that does not exist yet. `workoutClientId` is assigned
+       synchronously, before the hydration/server round trip below, so this placeholder
+       is brief on both the fresh and resumed paths — no write happens here on either. -->
   <p class="starting">Starting your session…</p>
 {:else if showPreSession}
   <!-- Pre-session metrics (ARCHITECTURE §9): a genuine gate, following the same "quiet placeholder
@@ -592,29 +632,33 @@
        does not render underneath, rather than a dismissible overlay on top of it, so
        nothing here can be tapped before the pre-session prompt is dealt with. -->
   <div class="pre-session">
-    <h2>Before you start</h2>
-    {#each data.startMetrics as metric (metric.key)}
-      <MetricRow
-        {metric}
-        planSlug={data.planSlug}
-        {workoutClientId}
-        selected={sessionMetricValues.get(metric.key)}
-        onSelected={(value) => sessionMetricValues.set(metric.key, value)}
-        onError={setError}
-      />
-    {/each}
-    <div class="sheet-actions">
-      <button type="button" class="primary" onclick={() => (showPreSession = false)}>
-        Continue to session
-      </button>
-    </div>
+    <Card>
+      <div class="pre-session-body">
+        <h2>Before you start</h2>
+        {#each data.startMetrics as metric (metric.key)}
+          <MetricRow
+            {metric}
+            planSlug={data.planSlug}
+            {workoutClientId}
+            selected={sessionMetricValues.get(metric.key)}
+            onSelected={(value) => sessionMetricValues.set(metric.key, value)}
+            onError={setError}
+          />
+        {/each}
+        <div class="sheet-actions">
+          <button type="button" class="primary" onclick={() => (showPreSession = false)}>
+            Continue to session
+          </button>
+        </div>
+      </div>
+    </Card>
   </div>
 {:else}
   <!-- The strip is `position: fixed`, so the scroll area has to reserve its measured
        height or the last block sits underneath it forever. -->
   <div
     class="blocks"
-    style:padding-bottom={stripHeight > 0 ? `calc(${stripHeight}px + 1rem)` : undefined}
+    style:padding-bottom={stripHeight > 0 ? `calc(${stripHeight}px + var(--s-4))` : undefined}
   >
     {#each data.session.blocks as block (block.key)}
       <BlockSection
@@ -685,7 +729,7 @@
 
 {#if activeRest}
   {@const rest = activeRest}
-  <!-- UI-DECISIONS §4: both escapes stay user-initiated — +30s and "start the next set
+  <!-- UI §4: both escapes stay user-initiated — +30s and "start the next set
        early" (`onSkip`, wired to the same dismissal `advanceAfterRest` reads). There is
        no auto-dismiss: rest never ends on its own, only on a deliberate tap, so
        `onRestDismissed` has exactly one caller. -->
@@ -734,6 +778,10 @@
       showWrapUp = false;
       celebrating = true;
     }}
+    onLeftWithoutStarting={() => {
+      showWrapUp = false;
+      void leaveForHome();
+    }}
     onError={setError}
   />
 {/if}
@@ -744,16 +792,16 @@
 
 <style>
   .runner-head {
-    padding: 1rem 0 0.5rem;
+    padding: var(--s-4) 0 var(--s-2);
   }
   .runner-head-row {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--s-2);
   }
   .runner-head h1 {
     margin: 0;
-    font-size: 1.25rem;
+    font-size: var(--t-lg);
   }
   .symptom-guide-trigger {
     display: inline-flex;
@@ -765,16 +813,16 @@
     border: none;
     background: transparent;
     color: var(--muted);
-    font-size: 1.1rem;
+    font-size: var(--t-md);
   }
   .note {
     color: var(--muted);
-    font-size: 0.9rem;
+    font-size: var(--t-sm);
     margin: 0.25rem 0 0;
   }
   .blocks {
     display: grid;
-    gap: 1rem;
+    gap: var(--s-4);
     /* Replaced at runtime by the strip's measured height (see the `style:` binding
        above); this is only what SSR renders before the measurement lands. */
     padding-bottom: 15rem;
@@ -786,13 +834,13 @@
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 0.75rem;
+    gap: var(--s-3);
     background: var(--raised);
     color: var(--text);
-    font-weight: 700;
+    font-weight: var(--w-bold);
     border: 1px solid var(--line);
     border-radius: var(--r-sm);
-    padding: 0.75rem 1rem;
+    padding: var(--s-3) var(--s-4);
     margin: 0.75rem 0;
   }
   .action-error p {
@@ -805,45 +853,44 @@
     border: none;
     background: none;
     color: inherit;
-    font-weight: 700;
-    font-size: 1.2rem;
+    font-weight: var(--w-bold);
+    font-size: var(--t-md);
     line-height: 1;
     padding: 0;
   }
   .starting {
     color: var(--muted);
     text-align: center;
-    padding: 3rem 0;
+    padding: var(--s-7) 0;
   }
-  /* The pre-session gate (UI-DECISIONS §8): styled like `.sheet` below, but in-flow rather than a
+  /* The pre-session gate (UI §8): styled like `.sheet` below, but in-flow rather than a
      fixed backdrop overlay — it stands in for the runner entirely until dismissed, the
      same "quiet placeholder" precedent as `.starting`, so nothing underneath it is ever
-     reachable before "Continue to session" is tapped. */
+     reachable before "Continue to session" is tapped. The shell itself is `Card`; this
+     class now only places it below whatever renders above (the error banner, if any). */
   .pre-session {
-    background: var(--surface);
-    border: 1px solid var(--line-soft);
-    border-radius: var(--r-md);
-    padding: 1.25rem;
     margin-top: 1rem;
-    display: grid;
-    gap: 0.75rem;
   }
-  .pre-session h2 {
+  .pre-session-body {
+    display: grid;
+    gap: var(--s-3);
+  }
+  .pre-session-body h2 {
     margin: 0;
-    font-size: 1.1rem;
+    font-size: var(--t-md);
   }
   .end-session {
     justify-self: start;
     min-height: 2.75rem;
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: var(--s-2);
     border: none;
     background: var(--accent);
     color: var(--accent-in);
-    font-weight: 700;
+    font-weight: var(--w-bold);
     border-radius: var(--r-sm);
-    padding: 0.5rem 1rem;
+    padding: var(--s-2) var(--s-4);
   }
   /* Shared visually with `WrapUpSheet`'s own finish/back buttons — scoped styles don't
      cross component boundaries, so this is a deliberate duplicate of that rule rather
@@ -851,13 +898,13 @@
   .sheet-actions {
     display: flex;
     justify-content: flex-end;
-    gap: 0.6rem;
+    gap: var(--s-3);
   }
   .sheet-actions button {
     border: none;
     border-radius: var(--r-sm);
-    padding: 0.7rem 1.25rem;
-    font-weight: 700;
+    padding: var(--s-3) var(--s-5);
+    font-weight: var(--w-bold);
   }
   .primary {
     background: var(--accent);

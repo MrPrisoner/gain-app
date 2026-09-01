@@ -1,5 +1,7 @@
 <script lang="ts">
   import { enhance } from "$app/forms";
+  import Button from "$lib/components/Button.svelte";
+  import Field from "$lib/components/Field.svelte";
   import IconCheck from "~icons/lucide/check";
   import IconUpload from "~icons/lucide/upload";
 
@@ -7,7 +9,7 @@
    * The paste-or-upload half of every `?/check` submission — Export offers copy and
    * download, so Import offers paste and upload. A
    * chosen file only fills the same textarea a paste would: both paths go through the
-   * identical "Check the plan" review step (UI-DECISIONS §11) rather than one bypassing
+   * identical "Check the plan" review step (UI §11) rather than one bypassing
    * it, and `use:enhance` is what keeps the pasted text in place across a failed import.
    */
   let { pasted = $bindable() }: { pasted: string } = $props();
@@ -24,22 +26,27 @@
 </script>
 
 <form method="POST" action="?/check" use:enhance>
-  <!-- A placeholder is a hint, not an accessible name, and it disappears as soon as the
-       box has content — which for this box is the entire time it matters. -->
-  <textarea
-    class="doc"
-    name="source_md"
-    rows="10"
-    aria-label="Plan document"
-    placeholder="Paste the plan document here…"
-    bind:value={pasted}></textarea>
+  <Field label="Plan document" id="plan-document">
+    <!-- A placeholder is a hint, not an accessible name — it disappears as soon as the
+         box has content, which for this box is the entire time it matters. The visible
+         label above is the accessible name now. -->
+    <textarea
+      class="doc"
+      name="source_md"
+      id="plan-document"
+      rows="10"
+      placeholder="Paste the plan document here…"
+      bind:value={pasted}></textarea>
+  </Field>
   <div class="actions">
-    <button type="submit" class="primary" disabled={!pasted.trim()}>
-      <IconCheck />Check the plan
-    </button>
-    <button type="button" class="secondary" onclick={() => fileInput?.click()}>
-      <IconUpload />Import file
-    </button>
+    {#snippet checkIcon()}<IconCheck />{/snippet}
+    <Button variant="primary" type="submit" disabled={!pasted.trim()} icon={checkIcon}>
+      Check the plan
+    </Button>
+    {#snippet uploadIcon()}<IconUpload />{/snippet}
+    <Button variant="secondary" type="button" onclick={() => fileInput?.click()} icon={uploadIcon}>
+      Import file
+    </Button>
     <input
       bind:this={fileInput}
       type="file"
@@ -54,48 +61,25 @@
 <style>
   .doc {
     width: 100%;
-    padding: 0.75rem;
+    /* The paste box is a short wide strip above two-thirds of empty screen on the wide
+       desktop measure otherwise — use the viewport it's given, finite on a phone. */
+    min-height: min(60vh, 40rem);
+    padding: var(--s-3);
     border-radius: var(--r-xs);
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-strong);
     background: var(--raised);
     color: var(--text);
     font: inherit;
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
     line-height: 1.45;
     resize: vertical;
   }
 
   .actions {
     display: flex;
-    gap: 0.6rem;
+    gap: var(--s-3);
     margin-top: 0.75rem;
     flex-wrap: wrap;
-  }
-
-  button {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    border: none;
-    border-radius: var(--r-sm);
-    padding: 0.7rem 1.25rem;
-    font-weight: 700;
-  }
-
-  button.primary {
-    background: var(--accent);
-    color: var(--accent-in);
-  }
-
-  button.primary:disabled {
-    opacity: 0.45;
-    cursor: default;
-  }
-
-  button.secondary {
-    background: var(--raised);
-    border: 1px solid var(--line);
-    color: var(--text);
   }
 
   .file-input {

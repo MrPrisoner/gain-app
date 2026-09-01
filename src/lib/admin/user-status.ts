@@ -8,7 +8,7 @@
  *
  * The three states below are the ones that matter during alpha, in the order that
  * distinguishes them: an account with no plan is a different problem from a plan nobody
- * has trained, which is different again from someone who trained and stopped. UI-DECISIONS
+ * has trained, which is different again from someone who trained and stopped. UI
  * §5 reserves colour for the plan's symptom framework, so this says it in words — which
  * is the better answer anyway, since a coloured dot would need a legend.
  */

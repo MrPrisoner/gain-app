@@ -1,9 +1,17 @@
-# GAIN UI decisions — the session runner
+# GAIN UI
 
 Settled in a design pass against
 [`fixtures/plans/home-training-v1.md`](../fixtures/plans/home-training-v1.md),
 before any code existed. It is built, at `src/routes/plan/[slug]/session/[key]/` with the
 pure logic in `src/lib/session/`; the architectural half is ARCHITECTURE §9.
+
+**§1–§9 are the session runner's decisions** — settled first, against one screen used
+one-handed, mid-set, on a phone, in a garage. **§10–§12 are the app-wide system** — the
+token layer, the shared component primitives (`Button`, `Card`, `PageHeader`, `Field`,
+`EmptyState`), and the two mechanical checks that hold every screen to the same floor.
+That half exists because rules like the 44px touch-target minimum and the page-title
+treatment belong to no single screen, and by the time `Button` and `PageHeader` existed
+this document's "session runner" title no longer covered what it decided.
 
 The build was made to conform to this document rather than the document to the build, and
 that stays the direction of travel. **Exactly one clause goes deliberately unbuilt** —
@@ -16,19 +24,8 @@ them, the same way ARCHITECTURE §2 works. Where a decision has a *reason* attac
 reason is the part that matters; if a future change makes the reason false, the decision
 is open again.
 
-The screen this describes is used **one-handed, mid-set, on a phone, in a garage**. Every
+The screen §1–§9 describe is used **one-handed, mid-set, on a phone, in a garage**. Every
 decision below falls out of that.
-
-**There is a mockup**, at
-[`design/session-runner-mockup.html`](../design/session-runner-mockup.html) — open it in a
-browser, no build step and no network. It shows every decision here rendered with real
-fixture data, including the awkward primitives in §6.
-
-It is **illustrative, not authoritative.** This document is the specification; the mockup
-is a snapshot of what it looked like on 2026-08-08. Where they disagree, this document
-wins. Do not reverse-engineer behaviour from the markup, and do not treat its CSS as a
-component library — the real implementation is SvelteKit. Now that the runner is built,
-the mockup is useful for **proportion and density only**.
 
 ---
 
@@ -46,7 +43,12 @@ if it has any, is done — the next exercise opens. Tapping any collapsed row st
 it, so nothing is taken away; but the default path is never "hunt one-handed for the row
 you are now on".
 
-Hierarchy is carried by **weight and luminance**, not by colour — see §5.
+Hierarchy is carried by **weight, size and position**, with luminance as reinforcement and
+the accent tick (below) as the explicit mark — not by colour, see §5. Luminance alone
+cannot do the job: at the WCAG 4.5:1 contrast floor §10 holds every text tier to, a third
+tier cannot sit far enough below `--muted` to read as a distinct step by darkness alone, so
+a design that leaned on luminance to carry hierarchy would be leaning on a gap too narrow
+to see.
 
 ### Settled 2026-08-15: one completion mark, everywhere
 
@@ -126,6 +128,22 @@ the contract at all.
 at the bottom of the document is an error nobody sees, and a set that silently failed to
 log looks exactly like one that succeeded. Errors surface adjacent to the strip, legible
 at arm's length, dismissible — and **not in `var(--red)`**, which §5 has spoken for.
+
+**Effort commits the workout, not only the set.** Opening the runner writes nothing —
+no `start` op, no resume key — until the first real write against that workout. Before
+that, a session someone opened to see what was in it created a `workout` row on mount,
+which advanced Home's rotation cursor and counted as a Partial in the export's Adherence
+table; the reviewing AI reads a Partial as a session that was abandoned, so a moment of
+curiosity became a wrong claim in the next revision. A session that was only looked at
+must not be able to say it happened. The architectural half — what is held, and why the
+op is minted at mount rather than at commit — is ARCHITECTURE §9.
+
+**End session** on a session nothing was written for is therefore leaving, not finishing:
+no finish op, no row, and no celebration. Left to write its op like any other ending it
+would have created the workout it claimed to be completing — the same false Adherence row,
+now reading *Completed* rather than *Partial*, which is the louder of the two lies. The
+sheet's own end metrics are ordinary writes, so answering one and then finishing does end
+a real workout; the check is what has been written, not which screen it was written from.
 
 ## 3. Load is total kilograms
 
@@ -413,18 +431,205 @@ open, and close on Escape.
 Six pills sit above the first working exercise every session. Small enough not to be in
 the way; visible enough that it does not quietly stop happening.
 
-## 10. Type and colour tokens
+## 10. The token system
 
-Typography is a single family — **Plus Jakarta Sans**, self-hosted, no CDN — with
-`font-variant-numeric: tabular-nums` on every figure that can be compared vertically.
+Everything below lives in `src/app.css`. Before these tokens existed, thirty-nine
+`.svelte` files each arrived at their own type size, spacing value and shadow by eye — that
+is what "inconsistent and unpolished" meant from the outside. The tokens are the standard
+new code is expected to reach for; they are not yet a claim that every screen already does,
+and the gaps that remain are named precisely below rather than smoothed over.
+
+**Type** is a single family — **Plus Jakarta Sans**, self-hosted, no CDN — with
+`font-variant-numeric: tabular-nums` on every figure that can be compared vertically, and a
+nine-step scale rather than a bare `rem` at each call site:
+
+| Token | Value | Typical use |
+| --- | --- | --- |
+| `--t-2xs` | 0.75rem / 12px | chart labels — the smallest text in the app |
+| `--t-xs` | 0.8125rem / 13px | secondary meta |
+| `--t-sm` | 0.875rem / 14px | the default — most of the app's text reads at this step |
+| `--t-base` | 1rem / 16px | body copy, form values |
+| `--t-md` | 1.125rem / 18px | sub-headings |
+| `--t-lg` | 1.375rem / 22px | `PageHeader`'s `<h1>` |
+| `--t-xl` | 1.75rem / 28px | prominent standalone figures |
+| `--t-2xl` | 2.5rem / 40px | the largest static figure |
+| `--t-display` | `clamp(3rem, 14vw, 4rem)` | the rest timer's clock and the error glyph — fluid so a fixed size cannot crowd a 360px viewport |
 
 **No monospace anywhere.** Alignment is what monospace was doing, and tabular numerals do
 it without the instrument-panel connotation. The app should read modern and clean, not
 technical.
 
-Both light and dark themes are first-class: define the palette as custom properties, style
-components through the tokens only, and honour both `prefers-color-scheme` and an explicit
-theme override.
+**Weight** is a five-step ladder, each with exactly one job — before it existed, `700` was
+roughly half of every `font-weight` declaration in the app, so weight distinguished
+nothing:
+
+| Token | Weight | Job |
+| --- | --- | --- |
+| `--w-body` | 400 | body copy, prose, notes |
+| `--w-medium` | 500 | meta lines, captions, units |
+| `--w-semi` | 600 | card titles, buttons, labels |
+| `--w-bold` | 700 | section headings, figures |
+| `--w-display` | 800 | page titles, the rest timer |
+
+**Spacing** is a 4/8px rhythm on the 16px base, `--s-1` through `--s-7` (4px to 48px). It is
+the standard for every gap and padding, and for `gap` specifically it is mechanically
+guarded: `tests/design-scale.test.ts` asserts every flex/grid `gap` declaration in the app
+resolves to a step on the scale. Padding and margin were never swept the same way — the
+test's own header comment says why: a multi-value shorthand (`padding: 0.75rem 1rem`) can't
+be checked against a single-value scale without an exemption list nobody has built. So a
+residual set of literal values remains: 109 literal `margin`/`padding` declarations across
+33 files, of which most (79) already happen to equal a token's value but are written
+longhand rather than as `var(--s-N)`, and 37 are genuinely off-scale. The largest single
+pattern is `1.25rem` (12 sites across 9 files), used as a de-facto, uncatalogued spacing
+step for section-separator rhythm — `Card`'s `spaced` prop is the one place it is
+deliberate rather than residual.
+
+Sweeping the rest is **disclosed here rather than tracked**, and that is a decision, not
+an omission. It is a 33-file edit with no mechanical check behind it — the `gap` guard
+cannot be extended to shorthands without the exemption list above — so it would be a large
+diff that nothing afterwards keeps true, on a codebase whose spacing already reads
+consistently. What would reopen it: someone building the shorthand-aware guard, at which
+point the sweep is what makes the guard pass and the two land together. Until then, write
+`var(--s-N)` in new code and leave the residue where it is.
+
+`--pad-card` is the one derived spacing token — `var(--s-4)` (16px) on a phone, stepping to
+`var(--s-5)` (24px) at 480px and up. Card padding was the single most-repeated value in the
+app before this existed, and it is the one that decides how much line length a 360px phone
+has: the runner nests three deep (block, exercise, set row), so 4px per level back is 12px
+of content width.
+
+**Two border tokens, two jobs — and the split is text entry, not tappability.** `--line`
+is the app's ordinary hairline. It carries dividers and card edges, and it also carries
+every button-like control: `Button`'s unfilled variants, pills, chips, radio-label chips,
+list toggles, scale cells, pagers and the two dashed add-set buttons. `--line-strong` is
+reserved for the controls the user types or picks into — `<input>`, `<textarea>`,
+`<select>`. Against `--surface` it holds 4.21:1 in dark and 3.55:1 in light, comfortably
+past WCAG's 3:1 non-text floor; `--line` sits at 1.54:1 in dark and 1.28:1 in light, and
+is not trying to clear it.
+
+Settled 2026-09-01, reversing the 2026-08-31 pass that put every tappable control on
+`--line-strong`. That pass read WCAG 1.4.11 as "a control's boundary must clear 3:1" and
+applied it uniformly, which is the right rule read too literally: on a screen of stacked
+cards and rows it drew a bright rectangle around everything, and the accent-filled primary
+button — the one control the eye is meant to land on — stopped being the loudest thing on
+the page. The distinction that actually matters is whether the border **is** the control.
+A text field is an empty rectangle; erase its edge and there is nothing left to find, and
+1.4.11 is squarely about that case. A button is a filled surface carrying a label at
+`--w-bold` on `--raised`, sitting on `--surface`, inside a `Card` on `--ground` — its
+boundary is one of four signals, not the only one, so a quiet edge costs the user nothing
+and buys back the visual hierarchy.
+
+So: reach for `--line` by default, including on anything tappable, and `--line-strong`
+only on a field the user enters a value into. The failure this replaces is the opposite
+of the one the old rule guarded against — not an invisible button, but a screen where
+every element shouts at the same volume.
+
+**Elevation** is two steps — `--shadow-1` (cards, list rows) and `--shadow-3` (reserved
+for full-screen overlays and modals; nothing consumes it yet). `--shadow-2` existed
+between them for "sheets, the log strip, sticky chrome" but was removed 2026-08-31: `Card`
+was its only consumer, via an `elevation: 1 | 2` prop nothing ever set away from its
+default, and a documented-but-unreached step invites exactly the confusion `--dim` caused
+before it was resolved. Add it back the day something genuinely wants a level between a
+card and a full-screen overlay, rather than carrying it as aspirational API. The two
+themes earn depth by opposite means, per `Card.svelte`'s own header comment: light gets a
+true shadow, because it has ground to cast one against; dark gets a much weaker shadow plus
+a 1px inset top highlight (`--edge-top`), because a shadow on a near-black ground reads as
+nothing, and a lighter surface plus a visible edge is what actually separates a raised
+surface from the one behind it there.
+
+**Motion** is three durations and two easings — `--dur-fast` (120ms: press feedback,
+focus), `--dur-base` (200ms: hover, colour, opacity) and `--dur-slow` (320ms: sheets,
+overlays), with `--ease` for a standard transition and `--ease-out` for anything entering.
+`prefers-reduced-motion: reduce` collapses all three durations to 1ms at `:root` — a strict
+superset of the opt-out `CelebrationOverlay` already carried for its own particle field,
+which removes elements rather than shortening a duration and so keeps that handling on top
+of this one. `Button`'s press feedback — an opacity dip on `:active`, never a
+`transform: scale`, which would shift a control's neighbours in a flex row — was the first
+consumer of `--dur-fast`. `--dur-base` and `--ease-out` sat undeclared until 2026-08-31:
+four hand-written transitions (`NextSessionCard`'s and `SessionOverrideList`'s two chevron
+rotations, `RestTimer`'s rest-fill width) now read `var(--dur-base)`, so the reduced-motion
+collapse actually reaches them, and `CelebrationOverlay`'s `rise` animation reads
+`var(--ease-out)` instead of the bare CSS keyword. `--dur-slow` remains genuinely
+unconsumed — nothing in the app currently animates a sheet's entrance, so giving it a first
+consumer would mean inventing that entrance rather than wiring an existing one onto the
+token, which is its own design decision and not one to make in passing here.
+
+**`--dim` is a size-and-weight distinction now, not a third luminance step.** It used to be
+the darkest of three text tiers and failed WCAG AA outright — 2.80:1 on light ground,
+3.79:1 on dark surface, against a 4.5:1 requirement. Raised to pass (`#8d97a5` dark /
+`#646d78` light — 4.67:1 to 6.62:1 across the app's actual surfaces in each theme, worst
+case against `--hover`), it necessarily now sits close to `--muted`: there is no room for a
+third tier to sit legibly further down the luminance scale and still clear 4.5:1. So a call
+site that wants a step below `--muted` pairs `--dim` with a lighter weight and the app's
+default size (`--t-sm` + `--w-medium`, against `--t-base` + `--w-semi` for the tier above)
+rather than relying on darkness alone to carry the distinction — the same lesson §1's
+2026-08-15 completion-mark note already drew one level up (weight and luminance alone were
+"too quiet"), applied here one level down, to text.
+
+Both light and dark themes are first-class: every token above is defined as a custom
+property in both palettes, components read the tokens and never a literal colour or pixel
+value, and the app honours both `prefers-color-scheme` and an explicit `data-theme`
+override.
+
+### The five primitives
+
+`src/lib/components/Button.svelte`, `Card.svelte`, `Field.svelte`, `PageHeader.svelte` and
+`EmptyState.svelte` are what turn the tokens above into shared building blocks, rather than
+leaving every screen to reassemble the same button or card border from raw CSS. Each is
+small and its own header comment or props carry the detail; this is the pointer, not the
+full account.
+
+- **`Button`** is the one place the 44px touch-target floor, press feedback and disabled
+  state live — a `variant` of `primary | secondary | quiet | danger`, and
+  `pending`/`pendingLabel` to disable a control and swap its label while an in-flight
+  request has not yet satisfied its precondition (see "A control that can post before its
+  precondition exists must be disabled" earlier in this file). Called from, for example,
+  the generate/copy/download actions on `plan/[slug]/export/+page.svelte`.
+- **`Card`** applies `--shadow-1`, `--pad-card` and the card border unconditionally, plus a
+  `spaced` prop (default `false`) applying the site's `1.25rem` section-separator margin
+  — the card's own answer to "how far below the previous section", so a route stacking
+  more than one no longer wraps each in its own `<div>` just to get a top margin. Reach
+  for it for any raised content well; called from, for example,
+  `plan/[slug]/export/+page.svelte`.
+- **`Field`** pairs a label with one form control, plus an optional `error` paragraph
+  rendered as `{id}-error`. `asGroup` swaps the default `<label for={id}>` for a
+  `<span id="{id}-label">` when the wrapped control is a `<fieldset>` — a fieldset has
+  nothing for a `for` attribute to point at. The span carries no accessible-name
+  relationship on its own; the caller's `<fieldset>` must reference it with
+  `aria-labelledby="{id}-label"` or the group has no accessible name at all. Field itself
+  cannot reach into its own `children` snippet to add `aria-describedby` — the caller's
+  control has to reference `{id}-error` itself, or the id it renders describes nothing. Called plainly from `import/ImportPlanForm.svelte`'s paste textarea, with
+  `asGroup` (plus the matching `aria-labelledby`) from
+  `plan/[slug]/export/+page.svelte`'s history-window radio group, and with `error` (plus
+  that `aria-describedby` wiring) from `/admin`'s and `/account`'s reset-confirmation
+  input.
+- **`PageHeader`** is the `<h1>` treatment (`--t-lg` / `--w-display`, see "Type" above) plus
+  an optional `subtitle` and an optional `backHref`/`backLabel` rendering a `BackLink`
+  beneath the title. Reach for it at the top of any read route; called from, for example,
+  `plan/[slug]/history/+page.svelte`.
+- **`EmptyState`** is a compact "nothing here yet" block — a `title`, and nothing else —
+  so an empty chart says so in a few lines rather than drawing its full well with nothing
+  in it. Called from, for example, `plan/[slug]/history/+page.svelte`.
+
+`Button`'s `href` and `size` were removed rather than kept ahead of use: neither ever had a
+call site, and `href` combined with `disabled`/`pending` to leave a real gap (an `<a>`
+rendered `pointer-events: none` + `aria-disabled`, neither of which blocks keyboard
+Enter/Space on a real anchor) that nothing depended on and nothing would have caught until
+the first call site shipped it. `pending`/`pendingLabel` stay — `account/+page.svelte`'s
+reset flow uses them for its own `?/reset` race, the same "a control that can post before
+its precondition exists must be disabled" concern the runner has. `Card`'s `elevation` and
+`padded` went the same way as `Button`'s `href`/`size`: no call site ever set either away
+from its default, so both were removed and their defaults (shadow-1, `--pad-card`) made
+unconditional — `spaced` replaces them as the one prop `Card` now carries, since the
+Card-adoption sweep gave it a real job. `Field`'s `error` did the opposite and found its
+first callers — `/admin`'s and `/account`'s reset-confirmation input — so it stays;
+`Field`'s `hint` and `EmptyState`'s `body`/`children` followed `Button`'s `href` out, for
+the same reason and after the same wait. **The rule these four removals converged on: a
+primitive carries the props its call sites use, and API kept ahead of a call site is
+deleted rather than documented.** An unreached prop is untested by construction — nothing
+renders it — so it accumulates exactly the kind of defect `href` had, invisible until the
+day someone finally reaches for it. Add the prop back with the call site that needs it,
+where it will be exercised the moment it exists.
 
 ---
 
@@ -469,9 +674,9 @@ fixed-width track that silently pushes a control off the edge, which looks like 
 all on a desktop browser. `npm run test:e2e` (Playwright, kept out of `npm run verify` —
 ARCHITECTURE §12) is where it lives, via `assertNoHorizontalOverflow` in `e2e/helpers.ts`.
 
-**What is actually enforced, as of 2026-08-27** — stated precisely, because this section
-previously claimed more than the suite delivers and an over-claimed mechanical check is
-worse than an acknowledged manual one:
+**What is actually enforced, as of 2026-08-30** — stated precisely, because this section
+has already been corrected once for claiming more than the suite delivers, and an
+over-claimed mechanical check is worse than an acknowledged manual one:
 
 - **Overflow** is asserted at all three viewports on the runner and its four overlays,
   Home, export, the four progress routes, history, versions, admin, account and `/import`
@@ -479,39 +684,96 @@ worse than an acknowledged manual one:
   explanation and the revision review screen, which is the widest shape on the route. It
   is **not** asserted on `/login`, `/offline`, `+error`, the pre-session metric gate, or
   the activity sheet and next-morning prompt in their *open* states.
-- **Both themes** is delivered on three screens only (the runner, admin, account), and the
-  runner's theme spec pins itself to 360 × 800. The light palette is never rendered at 390
-  or 768, and never at all on home, import, export, progress, history or versions.
-- **44 px touch targets** are asserted **nowhere**. `min-height: 2.75rem` is applied across
-  the runner, the metric rows and the activity strip, and is absent on `/admin`,
-  `/account`, `/export`, `/import` and the layout chrome, which use padding with no floor.
+- **Both themes** now extends past the three screens that had it (the runner, pinned to
+  360 × 800; admin and account, across all three viewport projects). `e2e/theme-coverage.spec.ts`
+  adds Home, `/import`, export, progress, history and versions, at all three viewport
+  projects, in both `colorScheme`s — the path a real user actually arrives on, rather than
+  the `data-theme` override the runner's own spec exercises. Each check asserts more than
+  that the page rendered: `getComputedStyle(document.body).backgroundColor` must equal the
+  theme's `--ground` (`rgb(10, 12, 15)` dark, `rgb(244, 246, 248)` light), so a theme that
+  silently failed to apply cannot pass by rendering the wrong one. **What this still does
+  not reach:** `/login`, `/offline`, `+error`, and the runner's own overlays and sheets
+  beyond what its dedicated spec covers.
+- **44 px touch targets** are now asserted by `e2e/touch-targets.spec.ts`, on Home,
+  `/import`, `/account`, export, progress, history and versions, at all three viewport
+  projects. It checks every `button`, `a[href]`, non-hidden `input`, `select`, `textarea`
+  and `[role="button"]`, skipping elements hidden by CSS, the visually-hidden-input
+  pattern (≤2×2 CSS px), and an inline text link. `Button`'s `min-height`/`min-width:
+  2.75rem` (§10) is what makes the swept routes pass — before it existed the floor was
+  applied on eleven files and absent on five. **What this does not reach: `/admin` and the
+  session runner itself are not in its route list**, so the log strip's controls —
+  deliberately larger than 44 px, for sweaty hands and a phone on the floor — are believed
+  compliant rather than mechanically checked, and `/admin` is likewise unverified by this
+  sweep specifically, though its overflow coverage above still applies. **One further gap
+  the selector itself cannot close, and it is exempted rather than asserted:** a chart's
+  own marks. `Sparkline` and `BarChart` used to hang the tap target off the mark itself —
+  a 24-viewBox-unit hit circle over an 8-unit dot, and, for a bar, the drawn bar, whose
+  height *is* its datum, so the smallest value on any chart was a one-pixel target. Both
+  now give each mark the full-height column of the chart around it
+  (`$lib/progress/chart-geometry.ts`'s hit bands, tiled edge to edge so a tap anywhere in
+  the plot selects the nearest mark and no dead zones sit between them). That fixes the
+  unbounded half; what it cannot fix is arithmetic. A chart renders about 307 CSS px wide
+  on a 360 px phone, so past roughly six marks the bands themselves fall under 44 px, and
+  the `full history` window plots as many as the user has trained. `touch-targets.spec.ts`
+  therefore skips anything inside an `<svg>`, with the reason at the skip and the risk
+  recorded in ARCHITECTURE §14 — an acknowledged limit rather than a suite that is red on
+  every full run. Closing it properly means deciding what a chart does with more points
+  than it can offer a thumb, which is a progress-screen decision, not a chart-primitive
+  one.
 
-Everything interactive *should* be at least 44 px, and the log strip's controls are
-deliberately larger than that — sweaty hands, a phone on the floor, arm's length. The gap
-between that intent and what is mechanically checked is open, and stated here rather than
-tracked elsewhere: a touch-target sweep is the same shape of assertion as the overflow one
-and catches the same class of desktop-invisible bug.
+**Every sweep also runs under one fixed state, not several — a gap in kind, not just in
+route.** All three viewport projects authenticate through `GAIN_DEV_USER`'s auth bypass
+against a database with a plan already seeded, so every route above is checked in exactly
+one condition: an ordinary, non-admin user, mid-plan, signed in. A control that only
+renders in a *different* state is exercised by no sweep at all, regardless of whether its
+route is in scope — this is distinct from the route gaps named above. Known instances: the
+header's "Sign out" button (`+layout.svelte`'s `.linklike` styling, no `min-height`, ~21px
+tall in production — rendered only when the app is *not* running under the dev bypass); the
+admin-only "Users" link (rendered only for an actual admin session); the sync banner's
+"Discard" button for a quarantined offline write (a genuinely destructive control by this
+repo's own quarantine invariant — see CLAUDE.md's "Offline is a hard requirement" section);
+and first-run home's three buttons (rendered only when a user has zero plans, and the e2e
+fixture always seeds one). None of these are believed compliant by inference from a sibling
+control that *is* swept — they are simply unchecked, and are recorded here so that is known
+rather than assumed.
 
 **One accepted keyboard cost, recorded so it is not rediscovered as a bug.** The progress
 window pickers navigate on `change`, so arrow-keying a *closed* `<select>` on a desktop
 keyboard fires one navigation per keypress. Accepted: the target is a phone, where a
 `<select>` commits once on dismiss.
 
+**Native `<select>` and radio inputs stay native, deliberately, next to a custom pill
+pattern used everywhere else for the same kind of choice.** `DeviationSheet`'s substitute
+picker, the three progress window pickers, and `DispositionList` all use a plain
+`<select>`; the export screen's history-window choice uses plain radios. Converting any of
+these to the app's pill/chip visual pattern would mean hand-rolling roving-tabindex and
+ARIA listbox semantics the platform gives a `<select>` for free, and would trade away the
+one thing a native control does that a custom one cannot: on a phone, it opens the OS's own
+picker sheet — full-height, thumb-scrollable, and already accessible to whatever assistive
+tech the user has configured system-wide. The substitute picker's option list in particular
+can run long (every exercise in the catalogue), which a native control handles for free and
+a row of pills does not. This is not an oversight the rest of the pill sweep missed; it is
+the correct choice for a control whose job is picking one of several values by name rather
+than toggling a small, fixed set of states.
+
 ---
 
 ## What this does not decide
 
-This document covers the session runner. Home with its suggested next session, history,
-progress and the offline sync-state indicator are all built, and their decisions live
-where they were made: ARCHITECTURE §9 and §10 for the architecture, and CLAUDE.md's
-Invariants for the two that hardened into rules — the sync banner's 700 ms / 1.5 s gate,
-and the celebration being a moment rather than a step.
+§1–§9 cover the session runner specifically; §10–§12 cover the tokens, primitives and
+mechanical checks every screen shares. Neither half settles a given screen's own
+information architecture or interaction model outside those two remits. Home's suggested
+next session, history, progress and the offline sync-state indicator are all built, and
+their decisions live where they were made: ARCHITECTURE §9 and §10 for the architecture,
+and CLAUDE.md's Invariants for the two that hardened into rules — the sync banner's
+700 ms / 1.5 s gate, and the celebration being a moment rather than a step.
 
 §5's symptom framework — whether GAIN shows a plan's green/yellow/red pain guidance to
 the person training — was the last genuinely open question here, and it is settled and
 built: see §5.
 
-What this document still does not cover is anything outside the runner and the screens
-named above. A new surface gets its decisions recorded here when it has any worth
+What this document still does not cover is a given screen's own layout judgement calls —
+navigation structure, which actions get visual weight, and the like — outside what §10–§12
+hold every screen to. A new surface gets its decisions recorded here when it has any worth
 settling, and not before — an empty section reserving a screen that does not exist is the
 drift this document has already been corrected for once.

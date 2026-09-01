@@ -1,6 +1,6 @@
 {
   // Prettier is the only formatter, for every language it handles. That matters more
-  // than it looks: docs/, fixtures/, templates/ and design/ are byte-sensitive and
+  // than it looks: docs/, fixtures/ and templates/ are byte-sensitive and
   // listed in .prettierignore, and the Prettier extension honours that file — but only
   // for files it is actually the formatter for. If VS Code's built-in Markdown or JSON
   // formatter runs on save instead, .prettierignore is not consulted and a reformatted

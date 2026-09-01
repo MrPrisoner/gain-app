@@ -4,7 +4,7 @@
   import IconPartyPopper from "~icons/lucide/party-popper";
 
   /**
-   * The screen a completed session lands on before the home screen (UI-DECISIONS §5,
+   * The screen a completed session lands on before the home screen (UI §5,
    * "Settled 2026-08-15"). It is shown *after* the finish op is already written and the
    * workout's local key cleared, so it is purely a moment — dismissing it, backgrounding
    * the phone or killing the browser here all leave exactly the same finished workout
@@ -31,12 +31,12 @@
    *
    * Colours are fixed literals rather than theme tokens because the scrim behind them is
    * dark in both themes, exactly as the runner's sheets already are. They are accent
-   * blues, gold and silver: UI-DECISIONS §5 reserves green, amber and red for the plan's
+   * blues, gold and silver: UI §5 reserves green, amber and red for the plan's
    * symptom framework, and a burst of red and green on the screen that immediately
    * follows a session where those colours meant "stop" is the one thing this animation
    * must not do.
    */
-  const COLOURS = ["#5b8def", "#8fb3f5", "#d9b45f", "#f0d78c", "#c9d1d9", "#ffffff"];
+  const COLOURS = ["#6b98f1", "#8fb3f5", "#d9b45f", "#f0d78c", "#c9d1d9", "#ffffff"];
   const PIECES = Array.from({ length: 42 }, (_, i) => ({
     key: i,
     left: Math.random() * 100,
@@ -74,7 +74,7 @@
     {/each}
   </div>
 
-  <!-- A real dialog for the same reasons the wrap-up sheet is one (UI-DECISIONS §8). -->
+  <!-- A real dialog for the same reasons the wrap-up sheet is one (UI §8). -->
   <div
     class="celebrate-card"
     role="dialog"
@@ -104,7 +104,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 1.25rem;
+    padding: var(--s-5);
   }
 
   .confetti {
@@ -150,12 +150,12 @@
     max-width: 22rem;
     background: var(--surface);
     border-radius: var(--r-lg);
-    padding: 2rem 1.5rem;
+    padding: var(--s-6) var(--s-5);
     display: grid;
     justify-items: center;
-    gap: 1rem;
+    gap: var(--s-4);
     text-align: center;
-    animation: rise 0.35s ease-out both;
+    animation: rise 0.35s var(--ease-out) both;
   }
 
   @keyframes rise {
@@ -171,13 +171,13 @@
 
   .celebrate-icon {
     display: inline-flex;
-    font-size: 2.5rem;
+    font-size: var(--t-2xl);
     color: var(--accent);
   }
 
   .celebrate-card h2 {
     margin: 0;
-    font-size: 1.25rem;
+    font-size: var(--t-lg);
     line-height: 1.35;
   }
   .celebrate-card h2:focus-visible {
@@ -187,8 +187,8 @@
   .primary {
     border: none;
     border-radius: var(--r-sm);
-    padding: 0.8rem 1.5rem;
-    font-weight: 700;
+    padding: var(--s-3) var(--s-5);
+    font-weight: var(--w-bold);
     background: var(--accent);
     color: var(--accent-in);
     min-height: 2.75rem;

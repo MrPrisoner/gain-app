@@ -8,7 +8,7 @@
  * real one: the `setLogsOf` copies had already drifted into two different return types.
  * A helper with two shapes is two helpers, and the second one is the bug.
  *
- * Pre-session metrics (ARCHITECTURE §9, UI-DECISIONS §8): a
+ * Pre-session metrics (ARCHITECTURE §9, UI §8): a
  * genuinely fresh workout opens on the pre-session metrics prompt before the runner
  * itself (`.log-strip`, `.exercise-head`, …) becomes visible at all — a *resumed* workout
  * (`page.reload()` within a test, which lands back on the same `client_id`) skips this
@@ -25,7 +25,7 @@ export async function dismissPreSessionPrompt(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Continue to session" }).click();
 }
 
-/** The exercise row currently expanded — there is exactly one (UI-DECISIONS §1). */
+/** The exercise row currently expanded — there is exactly one (UI §1). */
 export function openExercise(page: Page) {
   return page.locator(".exercise.open");
 }
@@ -74,6 +74,11 @@ export async function logSetThroughRest(page: Page): Promise<void> {
  * Note what this proves incidentally: the finish op is written *before* the celebration is
  * shown, so a spec that never dismissed it would still find the workout complete in the
  * database. The celebration is a moment, never a step.
+ *
+ * **Something must have been written for the session first** — a set, a deviation, a
+ * metric. Under lazy start there is no workout until then, so End session on an untouched
+ * one leaves for Home without finishing anything and no celebration ever appears (UI §2).
+ * A spec that wants a completed workout has to earn one.
  */
 export async function finishSession(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Finish session" }).click();
@@ -226,6 +231,15 @@ export type OutboxRecordShape = {
  * than through the app. The quarantine invariant is about what *survives* a failure, and
  * the UI only ever shows a count — so a spec asserting an op was held rather than dropped
  * has to look at the store itself.
+ *
+ * **The app must have opened the outbox before this is called.** The open below names no
+ * version, so against a profile that has never appended anything it would *create* an
+ * empty `gain-sync` at version 1 with no object stores — the transaction then throws
+ * `NotFoundError`, and worse, `openOutbox`'s own `onupgradeneeded` never fires again for
+ * that profile, so the app's sync stays broken for the rest of the run. The peek specs
+ * are the ones this actually bears on, since they assert an *empty* outbox: both open
+ * with a visit to Home, whose `startSyncLoop` calls `flushNow` → `store()` →
+ * `openOutbox`, which creates the store properly. Keep that first visit.
  */
 export async function outboxRecords(page: Page): Promise<OutboxRecordShape[]> {
   return page.evaluate(

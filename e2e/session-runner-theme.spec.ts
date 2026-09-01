@@ -1,5 +1,5 @@
 /**
- * UI-DECISIONS §12: "Check both
+ * UI §12: "Check both
  * themes: `prefers-color-scheme` and an explicit `data-theme` override, at 360px.
  * Screenshot both." `src/app.css` makes dark the default, light follow
  * `prefers-color-scheme: light`, and an explicit `data-theme="light"`/`"dark"` on
@@ -40,7 +40,7 @@ test.beforeEach(({}, testInfo) => {
  * colours (`rgb(r, g, b)`), not the source hex, so the assertion compares like with
  * like. */
 const GROUND = {
-  dark: "rgb(11, 13, 16)", // #0b0d10
+  dark: "rgb(10, 12, 15)", // #0a0c0f
   light: "rgb(244, 246, 248)", // #f4f6f8
 } as const;
 

@@ -1,6 +1,6 @@
 /**
- * UI-DECISIONS §1 and §7: the exercise state
- * machine — UI-DECISIONS §1 (completion state and auto-advance), §6 (a substitute is a
+ * UI §1 and §7: the exercise state
+ * machine — UI §1 (completion state and auto-advance), §6 (a substitute is a
  * real swap), §7 (deviation is one tap away, and it *does* something).
  *
  * Each of these asserts on the thing that could silently rot back to the old behaviour:

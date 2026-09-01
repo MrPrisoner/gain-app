@@ -1,5 +1,5 @@
 /**
- * UI-DECISIONS §8: both the wrap-up
+ * UI §8: both the wrap-up
  * sheet (`+page.svelte`) and `DeviationSheet.svelte` are now real modal dialogs —
  * `role="dialog"`, `aria-modal="true"`, a labelled heading, focus moved into the sheet
  * on open, Tab/Shift+Tab trapped inside it, Escape treated the same as the existing
@@ -195,7 +195,7 @@ test("the rest overlay traps focus and Escape starts the next set", async ({ pag
   await expect(rest.getByRole("button", { name: "+30s" })).toBeFocused();
 
   // Escape is wired to the same deliberate escape the primary button offers — "start the
-  // next set early" (`onSkip`). It is a tap, not the auto-dismiss UI-DECISIONS §4 forbids.
+  // next set early" (`onSkip`). It is a tap, not the auto-dismiss UI §4 forbids.
   await upNext.click();
   await page.keyboard.press("Escape");
   await expect(rest).toHaveCount(0);

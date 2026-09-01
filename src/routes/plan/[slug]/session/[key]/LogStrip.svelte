@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * The log strip (UI-DECISIONS §2): pinned to the bottom of the viewport, in the thumb
+   * The log strip (UI §2): pinned to the bottom of the viewport, in the thumb
    * zone, logging exactly one set — the next unlogged slot of the open exercise. A reps
    * (or duration) stepper, a load stepper unless the resolved load is bodyweight, and
    * three effort keys. **Tapping an effort key logs the set**; there is no save button,
@@ -99,7 +99,7 @@
   }
 
   /**
-   * UI-DECISIONS §3: the load dial steps 1 kg, with no per-load-configuration increment
+   * UI §3: the load dial steps 1 kg, with no per-load-configuration increment
    * and no new contract field. Duration steps 5 sec, the granularity a held position is
    * actually timed at. The arithmetic itself is `$lib/session/stepper.ts`, where it is
    * unit-tested — it produces `weight_kg`, and a stepper that drifts reaches the export.
@@ -111,7 +111,7 @@
   }
 
   /**
-   * UI-DECISIONS §2: tapping an effort key logs the set — and *only* tapping an effort
+   * UI §2: tapping an effort key logs the set — and *only* tapping an effort
    * key does. Kept for the same reason it existed under a `<form>`: Enter dismisses the
    * keyboard rather than doing anything else, which is what it should do regardless of
    * how the tap is wired up.
@@ -206,7 +206,7 @@
     {#if onCancel}
       <button type="button" class="strip-change" onclick={cancel}>Cancel</button>
     {:else}
-      <!-- UI-DECISIONS §7: deviating must never be slower than lying, so skip/swap/add
+      <!-- UI §7: deviating must never be slower than lying, so skip/swap/add
            live one tap away here, not at the bottom of the exercise body. -->
       <button type="button" class="strip-change" onclick={onDeviate}>Change</button>
     {/if}
@@ -305,7 +305,7 @@
         {/if}
       </div>
 
-      <!-- UI-DECISIONS §5: one, two or three filled segments in the accent. Never a
+      <!-- UI §5: one, two or three filled segments in the accent. Never a
            traffic light — colouring "Hard" red would say *stop* about the outcome the
            plan is usually trying to produce. -->
       <div class="efforts">
@@ -343,21 +343,21 @@
     z-index: 40;
     background: var(--surface);
     border-top: 1px solid var(--line);
-    padding: 0.7rem 1rem;
-    padding-bottom: calc(0.7rem + env(safe-area-inset-bottom));
+    padding: var(--s-3) var(--s-4);
+    padding-bottom: calc(var(--s-3) + env(safe-area-inset-bottom));
   }
   .strip-top {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.5rem;
+    gap: var(--s-2);
   }
   .strip-context {
     min-width: 0;
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
   }
   .strip-exercise {
-    font-weight: 700;
+    font-weight: var(--w-bold);
   }
   .strip-set {
     color: var(--muted);
@@ -372,25 +372,25 @@
     background: var(--raised);
     color: var(--muted);
     border-radius: var(--r-lg);
-    padding: 0 1rem;
-    font-size: 0.85rem;
-    font-weight: 600;
+    padding: 0 var(--s-4);
+    font-size: var(--t-sm);
+    font-weight: var(--w-semi);
   }
   .strip-last {
     margin: 0.1rem 0 0.5rem;
     color: var(--dim);
-    font-size: 0.8rem;
+    font-size: var(--t-xs);
     font-variant-numeric: tabular-nums;
   }
   .strip-done {
     margin: 0.4rem 0 0.2rem;
     color: var(--muted);
-    font-size: 0.85rem;
+    font-size: var(--t-sm);
   }
   .dials {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 0.5rem;
+    gap: var(--s-2);
   }
   .dials--single {
     grid-template-columns: 1fr;
@@ -410,7 +410,7 @@
     border: none;
     background: none;
     color: var(--muted);
-    font-size: 1.5rem;
+    font-size: var(--t-xl);
     line-height: 1;
     border-radius: var(--r-md);
     padding: 0;
@@ -418,7 +418,7 @@
   .dial-val {
     display: grid;
     justify-items: center;
-    gap: 0.15rem;
+    gap: var(--s-1);
     min-width: 0;
   }
   .dial-n {
@@ -428,8 +428,8 @@
     background: none;
     color: var(--text);
     font: inherit;
-    font-size: 1.6rem;
-    font-weight: 750;
+    font-size: var(--t-xl);
+    font-weight: var(--w-bold);
     line-height: 1;
     text-align: center;
     padding: 0;
@@ -437,9 +437,9 @@
   .dial-u {
     display: inline-flex;
     align-items: center;
-    gap: 0.3rem;
-    font-size: 0.8rem;
-    font-weight: 600;
+    gap: var(--s-1);
+    font-size: var(--t-xs);
+    font-weight: var(--w-semi);
     color: var(--dim);
     line-height: 1;
     text-align: center;
@@ -447,7 +447,7 @@
   .efforts {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 0.5rem;
+    gap: var(--s-2);
     margin-top: 0.5rem;
   }
   .effort-key {
@@ -455,29 +455,29 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.4rem;
+    gap: var(--s-2);
     min-height: 3.5rem;
     border: 1px solid var(--line);
     background: var(--raised);
     border-radius: var(--r-md);
-    padding: 0.4rem 0.2rem;
+    padding: var(--s-2) var(--s-1);
   }
   .effort-key:disabled {
     opacity: 0.55;
   }
   .effort-name {
-    font-size: 0.85rem;
-    font-weight: 600;
+    font-size: var(--t-sm);
+    font-weight: var(--w-semi);
   }
   .effort-fill {
     display: flex;
-    gap: 3px;
+    gap: var(--s-1);
   }
   .effort-fill i {
     display: block;
-    width: 12px;
-    height: 4px;
-    border-radius: 2px;
+    width: 18px;
+    height: 6px;
+    border-radius: 3px;
     background: var(--line);
   }
   .effort-fill i.on {
