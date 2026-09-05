@@ -22,6 +22,7 @@
     formatPointLabel,
     formatReadout,
     emptyLabel = "No data yet",
+    yDomain,
   }: {
     points: ChartPoint[];
     width?: number;
@@ -32,10 +33,12 @@
     formatPointLabel: (point: ChartPoint, index: number, all: ChartPoint[]) => string | undefined;
     formatReadout: (point: ChartPoint) => string;
     emptyLabel?: string;
+    /** Plot against fixed bounds rather than the series' own range. */
+    yDomain?: [number, number];
   } = $props();
 
   const padding = 20;
-  const layout = $derived(layoutLineChart(points, width, height, padding));
+  const layout = $derived(layoutLineChart(points, width, height, padding, yDomain));
   let tapped = $state<number | undefined>(undefined);
   /**
    * The window picker re-renders this component in place with a different series, so a

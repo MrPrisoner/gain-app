@@ -58,6 +58,32 @@ describe("layoutLineChart", () => {
   });
 });
 
+describe("layoutLineChart with an explicit y-domain", () => {
+  const points = [
+    { x: 0, y: 2 },
+    { x: 1, y: 3 },
+  ];
+
+  it("scales against the given domain, not the data's own range", () => {
+    // Domain 0-10 in a 120-tall chart with 20 padding: the plot area is 80 tall, so
+    // y=2 sits 16px up from the baseline (100) and y=3 sits 24px up.
+    const { plotted } = layoutLineChart(points, 320, 120, 20, [0, 10]);
+    expect(plotted[0]?.cy).toBeCloseTo(84);
+    expect(plotted[1]?.cy).toBeCloseTo(76);
+  });
+
+  it("auto-scales exactly as before when the domain is omitted", () => {
+    const { plotted } = layoutLineChart(points, 320, 120, 20);
+    expect(plotted[0]?.cy).toBeCloseTo(100);
+    expect(plotted[1]?.cy).toBeCloseTo(20);
+  });
+
+  it("keeps a flat series on the baseline rather than dividing by zero", () => {
+    const { plotted } = layoutLineChart([{ x: 0, y: 5 }], 320, 120, 20, [5, 5]);
+    expect(Number.isFinite(plotted[0]?.cy ?? NaN)).toBe(true);
+  });
+});
+
 describe("layoutBarChart", () => {
   it("sizes each bar relative to the tallest value", () => {
     const bars = layoutBarChart([{ value: 10 }, { value: 20 }, { value: 5 }], 100, 50, 5, 2);

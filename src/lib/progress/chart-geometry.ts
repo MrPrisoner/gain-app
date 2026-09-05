@@ -42,6 +42,11 @@ export function layoutLineChart(
   width: number,
   height: number,
   padding: number,
+  /** Plot against these bounds instead of the data's own range. A plan-declared `scale`
+   * metric passes its declared min/max, so a 2-to-3 movement on a 0-10 scale renders as
+   * the near-flat line it is rather than as a climb. Omitted everywhere else, which
+   * preserves the auto-scaling every other chart relies on. */
+  yDomain?: readonly [number, number],
 ): { plotted: PlottedPoint[]; path: string } {
   if (points.length === 0) return { plotted: [], path: "" };
 
@@ -49,8 +54,8 @@ export function layoutLineChart(
   const ys = points.map((p) => p.y);
   const xMin = Math.min(...xs);
   const xMax = Math.max(...xs);
-  const yMin = Math.min(...ys);
-  const yMax = Math.max(...ys);
+  const yMin = yDomain ? yDomain[0] : Math.min(...ys);
+  const yMax = yDomain ? yDomain[1] : Math.max(...ys);
   const xSpan = xMax - xMin || 1;
   const ySpan = yMax - yMin || 1;
 
