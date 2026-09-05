@@ -360,7 +360,9 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: `buildSeriesForExercise(logs: Logs, exerciseSlug: string): ExerciseSeriesPoint[]`. `buildExerciseSeries(logs, sessionKey, exerciseSlug)` keeps its exact current signature and behaviour, now implemented as a filter over the new function.
+- Produces: `buildSeriesForExercise(logs: Logs, exerciseSlug: string): ExerciseSeriesPoint[]` and `buildPrescribedSeries(contract: GainContract, logs: Logs, exerciseSlug: string): ExerciseSeriesPoint[]`. `buildExerciseSeries(logs, sessionKey, exerciseSlug)` keeps its exact current signature and behaviour, now implemented as a filter over the first.
+
+`buildPrescribedSeries` exists so Tasks 5 and 7 share one definition of "this movement's history". Both need to exclude sets logged against a movement during a session it is not prescribed in — a mid-session substitution — and if they filtered independently the hub's new-best count could name a movement its own movers list does not show.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -377,6 +379,21 @@ describe("buildSeriesForExercise", () => {
     expect(series.map((p) => p.workoutId)).toEqual(["w-a1", "w-d1", "w-a2"]);
   });
 
+  it("excludes a session the movement is not prescribed in", () => {
+    // reverse-crunch is prescribed in session D only. A set logged against it during a
+    // session-A workout is a mid-session substitution and belongs to session A's own
+    // movement — counting it here would make it the newest session and so the link
+    // target, which the detail route answers with a 404.
+    const substituted: Logs = {
+      ...logs,
+      set_logs: [
+        ...logs.set_logs,
+        { id: "s9", workout_id: "w-a2", exercise_slug: "reverse-crunch", set_no: 1, reps: 12 },
+      ],
+    };
+    expect(buildPrescribedSeries(contract, substituted, "reverse-crunch")).toEqual([]);
+  });
+
   it("still splits by session when asked, over the same grouping code", () => {
     expect(buildExerciseSeries(logs, "A", "goblet-squat").map((p) => p.workoutId)).toEqual([
       "w-a1",
@@ -388,6 +405,8 @@ describe("buildSeriesForExercise", () => {
   });
 });
 ```
+
+`buildPrescribedSeries` needs the fixture contract, so add the same three lines `tests/progress/movers.test.ts` uses in Task 5 — `readFileSync` of `fixtures/plans/home-training-v1.md`, `parsePlanDocument` from `src/lib/parse/parser`, and a throw if it does not parse. If the file already declares a `logs` const, rename the one below rather than shadowing it; what matters is the behaviour asserted, not the identifier.
 
 Add the fixture this describes to the top of the file if the existing `logs` const does not already carry a session-D goblet squat — the three workouts must be `w-a1` (session A, earliest), `w-d1` (session D, middle) and `w-a2` (session A, latest), each with at least one `goblet-squat` set:
 
@@ -455,6 +474,31 @@ export function buildSeriesForExercise(
   }
 
   return points.sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+}
+
+/**
+ * A movement's sessions, restricted to the session types the contract prescribes it in.
+ *
+ * A set logged against a movement during a session it is not prescribed in — a mid-session
+ * substitution — belongs to that session's own movement. Counting it here would inflate the
+ * movement's history and, worse, could make it the newest session and so the link target,
+ * which the detail route answers with "not prescribed in this session". Shared by
+ * `movers.ts` and `headline.ts` so the hub's counts and its lists cannot disagree.
+ */
+export function buildPrescribedSeries(
+  contract: GainContract,
+  logs: Logs,
+  exerciseSlug: string,
+): ExerciseSeriesPoint[] {
+  const keys = new Set(
+    exerciseOccurrences(contract)
+      .filter((o) => o.exerciseSlug === exerciseSlug)
+      .map((o) => o.sessionKey),
+  );
+  const workoutIds = new Set(
+    logs.workouts.filter((w) => keys.has(w.session_key)).map((w) => w.id),
+  );
+  return buildSeriesForExercise(logs, exerciseSlug).filter((p) => workoutIds.has(p.workoutId));
 }
 
 /** One point per workout of THIS session type the exercise was logged in, chronological.
@@ -912,7 +956,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Test: `tests/progress/movers.test.ts`
 
 **Interfaces:**
-- Consumes: `buildSeriesForExercise` (Task 3); `scoreKindFor`, `bestSetsBySession`, `breakthroughs`, `BestSet`, `ScoreKind` (Task 4); `exerciseOccurrences` from `exercise-series.ts`.
+- Consumes: `buildPrescribedSeries` and `exerciseOccurrences` (Task 3); `scoreKindFor`, `bestSetsBySession`, `BestSet`, `ScoreKind` (Task 4). Deliberately NOT `breakthroughs` — see the `latestIsBreakthrough` comment in the code below.
 - Produces: `Mover`, `buildMovers(contract: GainContract, windowedLogs: Logs, fullLogs: Logs): Mover[]`.
 
 - [ ] **Step 1: Write the failing test**
@@ -1076,10 +1120,9 @@ Create `src/lib/progress/movers.ts`:
 
 import type { GainContract } from "../contract/schema";
 import type { Logs } from "../logs/types";
-import { buildSeriesForExercise, exerciseOccurrences } from "./exercise-series";
+import { buildPrescribedSeries, exerciseOccurrences } from "./exercise-series";
 import {
   bestSetsBySession,
-  breakthroughs,
   scoreKindFor,
   type BestSet,
   type ScoreKind,
@@ -1116,20 +1159,7 @@ export function buildMovers(
 
   const movers: Mover[] = [];
   for (const [slug, occurrences] of bySlug) {
-    // Only sessions the contract prescribes this movement in. A set logged against it
-    // during another session — a mid-session substitution — belongs to that session's own
-    // movement, and letting it in here would both inflate the row and produce a
-    // `linkSessionKey` the detail route 404s on ("not prescribed in this session").
-    const prescribedKeys = new Set(occurrences.map((o) => o.sessionKey));
-    const prescribed = (logs: Logs): Set<string> =>
-      new Set(
-        logs.workouts.filter((w) => prescribedKeys.has(w.session_key)).map((w) => w.id),
-      );
-
-    const fullIds = prescribed(fullLogs);
-    const fullSeries = buildSeriesForExercise(fullLogs, slug).filter((p) =>
-      fullIds.has(p.workoutId),
-    );
+    const fullSeries = buildPrescribedSeries(contract, fullLogs, slug);
     if (fullSeries.length === 0) continue;
 
     // `type` comes from the first occurrence in catalogue order. A movement prescribed as
@@ -1142,10 +1172,7 @@ export function buildMovers(
     // movement's unit and silently change what the row means.
     const kind = scoreKindFor(fullSeries, type);
 
-    const windowIds = prescribed(windowedLogs);
-    const windowSeries = buildSeriesForExercise(windowedLogs, slug).filter((p) =>
-      windowIds.has(p.workoutId),
-    );
+    const windowSeries = buildPrescribedSeries(contract, windowedLogs, slug);
     // Both sides at once: a mover row summarises the movement, and the detail route is
     // where left and right are kept apart.
     const bests = bestSetsBySession(windowSeries, kind);
@@ -1158,9 +1185,18 @@ export function buildMovers(
         ? undefined
         : (latestBest.score - firstBest.score) / firstBest.score;
 
-    const latestIsBreakthrough = breakthroughs(fullSeries, slug, type, false).some(
-      (b) => b.at.workoutId === latestBest.workoutId,
-    );
+    // Computed over the same unfiltered best-per-session series the row's own numbers
+    // come from, NOT via `breakthroughs`: that function scores per side, and asking it
+    // for the unsided side of a per_side movement returns nothing at all, so every
+    // per_side row would have reported false. The headline still uses `breakthroughs`,
+    // where per-side scoring is the point.
+    const fullBests = bestSetsBySession(fullSeries, kind);
+    const latestIndex = fullBests.findIndex((b) => b.workoutId === latestBest.workoutId);
+    const latestIsBreakthrough =
+      latestIndex > 0 &&
+      fullBests
+        .slice(0, latestIndex)
+        .every((earlier) => earlier.score < fullBests[latestIndex]!.score);
 
     const withLogs = occurrences.filter((o) =>
       windowSeries.some((p) =>
@@ -1532,7 +1568,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Test: `tests/progress/headline.test.ts`
 
 **Interfaces:**
-- Consumes: `buildMovers` (Task 5); `breakthroughs` (Task 4); `buildSeriesForExercise`/`exerciseOccurrences` (Task 3); `doubleProgressionState` from `double-progression.ts`.
+- Consumes: `buildMovers` (Task 5); `breakthroughs` (Task 4); `buildPrescribedSeries`, `buildExerciseSeries` and `exerciseOccurrences` (Task 3); `doubleProgressionState` from `double-progression.ts`.
 - Produces: `Headline`, `buildHeadline(contract: GainContract, windowedLogs: Logs, fullLogs: Logs, windowStart: string | undefined): Headline`.
 
 Note the fourth parameter: the spec's signature block omits it, because new-best counting needs the window boundary while `breakthroughs` itself must see full history. Passing the boundary is cheaper and clearer than passing the same logs twice.
@@ -1602,10 +1638,12 @@ describe("buildHeadline", () => {
   });
 
   it("counts movements, not breakthroughs, so a per-side best cannot report two", () => {
-    // split-squat is per_side in the fixture. A best on each side is one new best.
+    // split-squat is per_side in the fixture and is prescribed in session C (not D —
+    // verified against fixtures/plans/home-training-v1.md, which is why the session key
+    // matters: buildPrescribedSeries drops workouts of any other session type).
     const logs: Logs = {
       ...EMPTY_LOGS,
-      workouts: [workout("w1", "D", "2026-08-03"), workout("w2", "D", "2026-08-10")],
+      workouts: [workout("w1", "C", "2026-08-03"), workout("w2", "C", "2026-08-10")],
       set_logs: [
         set("s1", "w1", "split-squat", 8, 6, "left"),
         set("s2", "w1", "split-squat", 8, 6, "right"),
@@ -1683,7 +1721,7 @@ Create `src/lib/progress/headline.ts`:
 import type { GainContract } from "../contract/schema";
 import type { Logs } from "../logs/types";
 import { doubleProgressionState } from "./double-progression";
-import { buildExerciseSeries, buildSeriesForExercise, exerciseOccurrences } from "./exercise-series";
+import { buildExerciseSeries, buildPrescribedSeries, exerciseOccurrences } from "./exercise-series";
 import { breakthroughs } from "./personal-best";
 import { buildMovers } from "./movers";
 
@@ -1710,8 +1748,10 @@ export function buildHeadline(
   const improvedSlugs = new Set<string>();
   for (const [slug, occurrence] of bySlug) {
     // Full history, then filtered by date: a personal best must beat everything before it,
-    // not merely everything since the window opened.
-    const series = buildSeriesForExercise(fullLogs, slug);
+    // not merely everything since the window opened. Prescribed sessions only, matching
+    // `buildMovers` exactly — otherwise this count could name a movement whose row the
+    // movers list does not show.
+    const series = buildPrescribedSeries(contract, fullLogs, slug);
     const found = breakthroughs(
       series,
       slug,
@@ -1835,6 +1875,8 @@ describe("hubMetricRows", () => {
   });
 
   it("carries a scale metric's declared bounds so the chart cannot overstate it", () => {
+    // symptoms_during is declared at BOTH set and session scope in the fixture, each a
+    // 0-10 scale — which is exactly why rows key on (scope, key) and never the bare key.
     const logs: Logs = {
       ...EMPTY_LOGS,
       workouts: [
@@ -1847,11 +1889,18 @@ describe("hubMetricRows", () => {
         },
       ],
       metric_values: [
-        { id: "m1", key: "energy", ref: { scope: "session", workout_id: "w1" }, value_num: 3 },
+        {
+          id: "m1",
+          key: "symptoms_during",
+          ref: { scope: "session", workout_id: "w1" },
+          value_num: 3,
+        },
       ],
     };
-    const row = hubMetricRows(contract, logs).find((r) => r.key === "energy");
-    expect(row?.domain).toBeDefined();
+    const row = hubMetricRows(contract, logs).find(
+      (r) => r.key === "symptoms_during" && r.scope === "session",
+    );
+    expect(row?.domain).toEqual([0, 10]);
   });
 
   it("omits a metric with nothing logged", () => {
@@ -1859,8 +1908,6 @@ describe("hubMetricRows", () => {
   });
 });
 ```
-
-Before running, check the fixture's actual metric keys and pick a real `scale` metric for the second case — `npx vitest run tests/fixture-coverage.test.ts` and the fixture's `metrics:` block name them. Substitute the real key and scope if `energy` is not one.
 
 - [ ] **Step 2: Run the test and confirm it fails**
 
