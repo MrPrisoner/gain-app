@@ -371,60 +371,66 @@ Append to `tests/progress/exercise-series.test.ts`:
 ```ts
 describe("buildSeriesForExercise", () => {
   it("collects a movement's sessions across every session type, chronologically", () => {
-    // goblet-squat is prescribed in session A ([8,12]) and session D ([12,15]) of the
-    // fixture. buildExerciseSeries deliberately keeps those apart, because
+    // The file's existing `contract` prescribes goblet-squat in session A ([8,12]) and
+    // session D ([12,15]). buildExerciseSeries deliberately keeps those apart, because
     // double-progression compares a performance against a prescribed range. An absolute
     // score in kg, reps or seconds has no such dependency, so movers group by movement.
-    const series = buildSeriesForExercise(logs, "goblet-squat");
-    expect(series.map((p) => p.workoutId)).toEqual(["w-a1", "w-d1", "w-a2"]);
-  });
-
-  it("excludes a session the movement is not prescribed in", () => {
-    // reverse-crunch is prescribed in session D only. A set logged against it during a
-    // session-A workout is a mid-session substitution and belongs to session A's own
-    // movement — counting it here would make it the newest session and so the link
-    // target, which the detail route answers with a 404.
-    const substituted: Logs = {
-      ...logs,
-      set_logs: [
-        ...logs.set_logs,
-        { id: "s9", workout_id: "w-a2", exercise_slug: "reverse-crunch", set_no: 1, reps: 12 },
-      ],
-    };
-    expect(buildPrescribedSeries(contract, substituted, "reverse-crunch")).toEqual([]);
+    // Chronological order interleaves the two: w1 (A, Aug 1), w3 (D, Aug 3), w2 (A, Aug 8).
+    expect(buildSeriesForExercise(logs, "goblet-squat").map((p) => p.workoutId)).toEqual([
+      "w1",
+      "w3",
+      "w2",
+    ]);
   });
 
   it("still splits by session when asked, over the same grouping code", () => {
     expect(buildExerciseSeries(logs, "A", "goblet-squat").map((p) => p.workoutId)).toEqual([
-      "w-a1",
-      "w-a2",
+      "w1",
+      "w2",
     ]);
-    expect(buildExerciseSeries(logs, "D", "goblet-squat").map((p) => p.workoutId)).toEqual([
-      "w-d1",
+    expect(buildExerciseSeries(logs, "D", "goblet-squat").map((p) => p.workoutId)).toEqual(["w3"]);
+  });
+});
+
+describe("buildPrescribedSeries", () => {
+  // A set logged against a movement during a session it is not prescribed in — a
+  // mid-session substitution. The contract prescribes goblet-squat in A and D only, so a
+  // session-B workout is exactly that case.
+  const substituted: Logs = {
+    ...logs,
+    workouts: [
+      ...logs.workouts,
+      { id: "w4", session_key: "B", started_at: "2026-08-15T07:00:00Z", status: "completed" },
+    ],
+    set_logs: [
+      ...logs.set_logs,
+      { id: "s99", workout_id: "w4", exercise_slug: "goblet-squat", set_no: 1, reps: 10 },
+    ],
+  };
+
+  it("drops a session the movement is not prescribed in", () => {
+    // Counting it would inflate the movement's history and, worse, make it the newest
+    // session and so the link target — which the detail route answers with 404.
+    expect(
+      buildPrescribedSeries(contract, substituted, "goblet-squat").map((p) => p.workoutId),
+    ).toEqual(["w1", "w3", "w2"]);
+  });
+
+  it("is the only thing that separates it from the unfiltered series", () => {
+    expect(buildSeriesForExercise(substituted, "goblet-squat").map((p) => p.workoutId)).toEqual([
+      "w1",
+      "w3",
+      "w2",
+      "w4",
     ]);
   });
 });
 ```
 
-`buildPrescribedSeries` needs the fixture contract, so add the same three lines `tests/progress/movers.test.ts` uses in Task 5 — `readFileSync` of `fixtures/plans/home-training-v1.md`, `parsePlanDocument` from `src/lib/parse/parser`, and a throw if it does not parse. If the file already declares a `logs` const, rename the one below rather than shadowing it; what matters is the behaviour asserted, not the identifier.
-
-Add the fixture this describes to the top of the file if the existing `logs` const does not already carry a session-D goblet squat — the three workouts must be `w-a1` (session A, earliest), `w-d1` (session D, middle) and `w-a2` (session A, latest), each with at least one `goblet-squat` set:
-
-```ts
-const logs: Logs = {
-  ...EMPTY_LOGS,
-  workouts: [
-    { id: "w-a1", session_key: "A", started_at: "2026-08-03T07:00:00Z", completed_at: "2026-08-03T07:40:00Z", status: "completed" },
-    { id: "w-d1", session_key: "D", started_at: "2026-08-07T07:00:00Z", completed_at: "2026-08-07T07:40:00Z", status: "completed" },
-    { id: "w-a2", session_key: "A", started_at: "2026-08-10T07:00:00Z", completed_at: "2026-08-10T07:40:00Z", status: "completed" },
-  ],
-  set_logs: [
-    { id: "s1", workout_id: "w-a1", exercise_slug: "goblet-squat", set_no: 1, reps: 10, weight_kg: 6 },
-    { id: "s2", workout_id: "w-d1", exercise_slug: "goblet-squat", set_no: 1, reps: 13, weight_kg: 6 },
-    { id: "s3", workout_id: "w-a2", exercise_slug: "goblet-squat", set_no: 1, reps: 12, weight_kg: 6 },
-  ],
-};
-```
+Add `buildSeriesForExercise` and `buildPrescribedSeries` to the file's existing import block. The
+file already declares the `contract` and `logs` these tests need — a hand-built contract with
+goblet-squat prescribed in sessions A and D, and three workouts across them. Do not import the
+plan fixture and do not add a second `contract` or `logs`.
 
 - [ ] **Step 2: Run the test and confirm it fails**
 
