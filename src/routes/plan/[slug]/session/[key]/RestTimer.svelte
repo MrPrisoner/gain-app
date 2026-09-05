@@ -27,7 +27,7 @@
   }: {
     spec: RestSpec;
     /** What is coming next (UI §4), pre-formatted by the caller the same way
-     * `LogStrip`'s `context`/`lastPerformance` are — this component does no formatting
+     * `LogStrip`'s `context` is — this component does no formatting
      * of its own, only rendering. The `UpNext` type itself rather than a structural
      * restatement of its fields: the two branches that build the card already have to
      * agree on the shape, and a fourth copy of it here would drift silently the first

@@ -99,8 +99,8 @@ optional metric; it never appears in the log strip.
 
 **The strip logs exactly one set** — the next unlogged one of the open exercise, per side
 and per round where those apply. It names what it is about to write ("Set 2 of 3", "Side
-plank — right") and what happened last time, and everything above it is a read-only
-ledger. The exercise's own rows never carry inputs.
+plank — right"), on its own line under the movement's name, and everything above it is a
+read-only ledger. The exercise's own rows never carry inputs.
 
 That is not only a tidiness argument, and it is the point at which this decision was once
 nearly reversed: a first implementation put the inputs inline, one row per set. At 360 px
@@ -144,6 +144,47 @@ would have created the workout it claimed to be completing — the same false Ad
 now reading *Completed* rather than *Partial*, which is the louder of the two lies. The
 sheet's own end metrics are ordinary writes, so answering one and then finishing does end
 a real workout; the check is what has been written, not which screen it was written from.
+
+### Settled 2026-09-05: the strip is the runner's one elevated plate
+
+The strip shipped as `--surface` with a `--line` hairline along its top, which is exactly
+what `Card` is — so the one live control surface on the screen was rendered with strictly
+less emphasis than the read-only exercise cards scrolling past it, and read as the page's
+bottom edge rather than as a thing you act on. It is now a plate: a `--raised` ground one
+elevation step above those cards, rounded top corners, a 2px `--accent` rule along its
+top, and the elevation pair — `--shadow-3-up` (added for this, the only bottom-pinned
+panel in the app) for light, `--edge-top` for dark, where a shadow on a near-black ground
+reads as nothing. The dials, the effort keys and the deviation control move to `--hover`
+to keep their existing one-step separation from the new ground.
+
+The accent rule is the only hue involved, and it does not breach §5: accent carries
+interactivity, and this is the surface interaction happens on. A full accent *ground* was
+considered and rejected — it would say the whole panel is a button, and it would leave
+the effort keys' accent fill segments with no hue to be legible in.
+
+**The last-performance line is gone, and the context line moved off the name's line.**
+"Last time 11 at 12 kg" was fed the same `PrefillResult` the steppers were seeded from —
+its own doc said so, calling that agreement the point — so it could only ever restate the
+two figures sitting directly beneath it in 28px type. It was a third line of 13px text
+explaining the largest numbers on the screen. `formatLastPerformance` went with it;
+`PrefillResult.isFirstTime`, which only that function read, is kept and documented as
+unread, because the suggestion-versus-history distinction is real and correctly derived
+and the next thing that needs it should not re-derive it. Separately, the "Set 1 of 2 —
+left" context now renders on its own line rather than after a `·` on the movement's: at
+360px a long name plus a per-side round counter does not fit one line, and the wrap broke
+the counter — the one part the user must read to know what they are about to log — across
+whatever point the name ran out.
+
+**The type inside it went up one step, and the numbers deliberately did not.** The strip
+is read with the phone on the floor at arm's length, and it carried the smallest text in
+the app — 13–14px — attached to the only controls that matter, so the context line, the
+last-time line, the unit labels, the effort labels and the deviation control each moved
+up a step. `.dial-n` stayed at `--t-xl`. At 360px a dial has 160px, two 2.75rem steppers
+take 88 of it, and "100" in bold tabular Jakarta fills the remaining 72px at the *next*
+step of the scale: `--t-2xl` is the overflow, not a margin before it. Making the figures
+larger requires moving the unit line into the value row or going below the touch-target
+floor, and neither is worth doing to a layout that already gives the number twice the
+size of anything near it.
 
 ## 3. Load is total kilograms
 

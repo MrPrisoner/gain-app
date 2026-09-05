@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   carryForwardFromPreviousSet,
-  formatLastPerformance,
   pickPrefill,
   type RecentSetRow,
 } from "../../src/lib/session/prefill";
@@ -238,53 +237,5 @@ describe("carryForwardFromPreviousSet (todo: set 2 starts from what set 1 was ac
       weightKg: undefined,
       durationS: 30,
     });
-  });
-});
-
-describe("formatLastPerformance — the log strip's last-performance line (UI §2)", () => {
-  it("names reps and total load", () => {
-    expect(formatLastPerformance(pickPrefill(rows, undefined), "reps")).toBe(
-      "Last time 11 at 12 kg",
-    );
-  });
-
-  it("names reps alone when the movement carries no load", () => {
-    expect(formatLastPerformance(pickPrefill(perSideRows, "left"), "reps")).toBe("Last time 9");
-  });
-
-  it("names a held duration for a time exercise", () => {
-    expect(formatLastPerformance({ durationS: 30 }, "time")).toBe("Last time 30 sec");
-  });
-
-  it("does not pass off a duration-target fallback as history", () => {
-    expect(
-      formatLastPerformance(pickPrefill([], undefined, undefined, undefined, [20, 40]), "time"),
-    ).toBe("No history — starting at 20 sec");
-  });
-
-  // A first-time result carries starting suggestions, not a performance that ever
-  // happened, so it is named as one rather than dressed up as history.
-  it("does not pass off a default_kg fallback as history", () => {
-    expect(formatLastPerformance(pickPrefill([], undefined, 6), "reps")).toBe(
-      "No history — starting at 6 kg",
-    );
-  });
-
-  it("does not pass off a reps-target fallback as history", () => {
-    expect(formatLastPerformance(pickPrefill([], undefined, undefined, [8, 12]), "reps")).toBe(
-      "No history — starting at 8",
-    );
-  });
-
-  it("names both starting suggestions together", () => {
-    expect(formatLastPerformance(pickPrefill([], undefined, 6, [8, 12]), "reps")).toBe(
-      "No history — starting at 8 at 6 kg",
-    );
-  });
-
-  it("says so plainly when there is nothing at all", () => {
-    expect(formatLastPerformance(undefined, "reps")).toBe("No history yet");
-    expect(formatLastPerformance(undefined, "time")).toBe("No history yet");
-    expect(formatLastPerformance({ reps: 8 }, "time")).toBe("No history yet");
   });
 });

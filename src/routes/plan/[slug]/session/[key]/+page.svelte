@@ -32,7 +32,6 @@
   import { hydrateSession, type SessionHydration } from "$lib/session/resume";
   import { workoutStorageKey } from "$lib/session/workout-storage";
   import type { DeviationKind } from "$lib/logs/types";
-  import { formatLastPerformance } from "$lib/session/prefill";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
   import { newOpId } from "$lib/sync/ops";
@@ -718,7 +717,6 @@
       : edit
         ? `Editing ${formatSlotContext(ctx.block, slot, ctx.shownSets)}`
         : formatSlotContext(ctx.block, slot, ctx.shownSets)}
-    lastPerformance={formatLastPerformance(fill, ctx.exercise.type)}
     prefill={fill}
     onLogged={edit ? onSetCorrected : onSetLogged}
     onError={setError}

@@ -21,7 +21,9 @@
  *                   control, and is held to WCAG's 3:1 non-text floor.
  *   elevation       two --shadow- steps; light casts a true shadow, dark lightens
  *                   the surface and adds an --edge-top highlight, because a shadow
- *                   on a near-black ground reads as nothing.
+ *                   on a near-black ground reads as nothing. --shadow-3-up is the
+ *                   same step cast upwards, for a panel pinned to the bottom of the
+ *                   viewport — the log strip is the only one.
  *   motion          --dur- durations and --ease easings, collapsed to 1ms under
  *                   prefers-reduced-motion.
  *   --dim           a size-and-weight distinction now, not a third luminance step
@@ -114,6 +116,7 @@
 
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-3: 0 16px 40px rgba(0, 0, 0, 0.6);
+  --shadow-3-up: 0 -16px 40px rgba(0, 0, 0, 0.6);
   --edge-top: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 
   /* The app is one centred column. Routes that are *read* rather than tapped — the paste
@@ -145,6 +148,7 @@
     --wordmark: #5c6f84;
     --shadow-1: 0 1px 2px rgba(15, 19, 25, 0.06), 0 1px 3px rgba(15, 19, 25, 0.05);
     --shadow-3: 0 12px 32px rgba(15, 19, 25, 0.16);
+    --shadow-3-up: 0 -12px 32px rgba(15, 19, 25, 0.16);
     --edge-top: none;
   }
 }
@@ -170,6 +174,7 @@
   --wordmark: #5c6f84;
   --shadow-1: 0 1px 2px rgba(15, 19, 25, 0.06), 0 1px 3px rgba(15, 19, 25, 0.05);
   --shadow-3: 0 12px 32px rgba(15, 19, 25, 0.16);
+  --shadow-3-up: 0 -12px 32px rgba(15, 19, 25, 0.16);
   --edge-top: none;
 }
 
@@ -194,6 +199,7 @@
   --wordmark: #7e98b4;
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-3: 0 16px 40px rgba(0, 0, 0, 0.6);
+  --shadow-3-up: 0 -16px 40px rgba(0, 0, 0, 0.6);
   --edge-top: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 

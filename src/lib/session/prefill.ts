@@ -49,9 +49,16 @@ export type PrefillResult = {
   /**
    * True when no row matched at all, so `reps`/`weightKg`/`durationS` (if present) are
    * starting suggestions — the reps or duration target's lower bound, `default_kg` —
-   * rather than a performance that actually happened. `formatLastPerformance` reads this
-   * rather than inferring it from which fields are present, now that more than one field
-   * can carry a non-history default at once.
+   * rather than a performance that actually happened. It is stated here rather than
+   * inferred from which fields are present, because more than one field can carry a
+   * non-history default at once.
+   *
+   * Nothing in the runner reads it today. It backed the strip's "Last time 11 at 12 kg"
+   * line, which was removed 2026-09-05 (UI §2) once it became clear the line could only
+   * ever restate what the steppers beside it were already pre-filled with. Kept because
+   * the distinction is real, correctly derived and covered by `tests/session/prefill`;
+   * anything that wants to say "this is a suggestion, not history" should read it rather
+   * than re-derive it.
    */
   isFirstTime: boolean;
 };
@@ -129,36 +136,4 @@ export function carryForwardFromPreviousSet(
     weightKg: previous.weightKg ?? base.weightKg,
     durationS: previous.durationS ?? base.durationS,
   };
-}
-
-/**
- * The log strip's last-performance line (UI §2) — "Last time 11 at 12 kg".
- * It renders the same data the steppers pre-fill from, so the number the user is about
- * to commit and the number it came from are never in disagreement.
- *
- * `isFirstTime` (see `PrefillResult`) says outright whether `reps`/`weightKg` are a
- * starting suggestion or a real performance — named honestly either way, rather than
- * dressed up as history it isn't.
- */
-export function formatLastPerformance(
-  prefill:
-    { reps?: number; weightKg?: number; durationS?: number; isFirstTime?: boolean } | undefined,
-  type: "reps" | "time",
-): string {
-  if (type === "time") {
-    if (prefill?.durationS === undefined) return "No history yet";
-    return prefill.isFirstTime
-      ? `No history — starting at ${prefill.durationS} sec`
-      : `Last time ${prefill.durationS} sec`;
-  }
-  if (prefill?.reps === undefined && prefill?.weightKg === undefined) return "No history yet";
-
-  const value =
-    prefill.reps === undefined
-      ? `${prefill.weightKg} kg`
-      : prefill.weightKg === undefined
-        ? `${prefill.reps}`
-        : `${prefill.reps} at ${prefill.weightKg} kg`;
-
-  return prefill.isFirstTime ? `No history — starting at ${value}` : `Last time ${value}`;
 }
