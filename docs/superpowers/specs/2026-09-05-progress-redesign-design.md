@@ -343,6 +343,9 @@ export function buildHeadline(
   contract: GainContract,
   windowedLogs: Logs,
   fullLogs: Logs,
+  /** The window's boundary. Breakthroughs are found over full history and then filtered
+   * to it — passing the boundary is cheaper than passing the same logs twice. */
+  windowStart: string | undefined,
 ): Headline;
 ```
 
