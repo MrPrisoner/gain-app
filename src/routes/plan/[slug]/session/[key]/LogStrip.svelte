@@ -27,7 +27,6 @@
     exercise,
     slot,
     context,
-    lastPerformance,
     prefill,
     onLogged,
     onError,
@@ -40,10 +39,10 @@
     exercise: ResolvedExercise;
     /** The slot the next tap writes, or `undefined` once every offered set is logged. */
     slot: SetSlot | undefined;
-    /** "Set 2 of 3", "Round 1 of 2 — right" (`formatSlotContext`). */
+    /** "Set 2 of 3", "Round 1 of 2 — right" (`formatSlotContext`), on its own line under
+     * the exercise name so a long name and a per-side round counter never fight for one
+     * line and wrap into each other. */
     context: string;
-    /** "Last time 11 at 12 kg" (`formatLastPerformance`). */
-    lastPerformance: string;
     prefill: { reps?: number; weightKg?: number; durationS?: number };
     /** Reports what was *actually submitted* — read straight off the op this component
      * built, never off the pre-fill the steppers happened to start at. */
@@ -53,10 +52,11 @@
     onDeviate: () => void;
     /** Present only when the strip is re-showing an already-logged slot for correction
      * (a tap on a logged ledger row) rather than the next unlogged one — swaps "Change"
-     * for a "Cancel" that backs out without writing anything, and hides the last-time
-     * line, which names history irrelevant to a value already on screen. */
+     * for a "Cancel" that backs out without writing anything. */
     onCancel?: () => void;
-    /** Measured, so the ledger can reserve exactly this much scroll padding. */
+    /** Measured, so the ledger can reserve exactly this much scroll padding. Read off
+     * `offsetHeight`, not `clientHeight`: the strip's top border is 2px of accent rule,
+     * and `clientHeight` excludes borders, so the ledger would sit 2px short. */
     height?: number;
   } = $props();
 
@@ -197,7 +197,7 @@
   ] as const;
 </script>
 
-<div class="log-strip" bind:clientHeight={height}>
+<div class="log-strip" bind:offsetHeight={height}>
   <div class="strip-top">
     <span class="strip-context">
       <span class="strip-exercise">{exercise.name}</span>
@@ -213,10 +213,6 @@
   </div>
 
   {#if slot}
-    {#if !onCancel}
-      <p class="strip-last">{lastPerformance}</p>
-    {/if}
-
     <div class="log-fields">
       <div class="dials" class:dials--single={!showLoadDial}>
         {#if exercise.type === "time"}
@@ -333,6 +329,15 @@
 </div>
 
 <style>
+  /* The strip is the runner's one elevated plate, and it has to earn that at arm's
+     length: it used to be `--surface` with a hairline, which is *exactly* what every
+     read-only exercise card is, so the only live control surface on the screen was the
+     least emphasised thing on it. Four things separate it now — a `--raised` ground one
+     elevation step above the cards, rounded top corners so it reads as a panel rather
+     than the page's bottom edge, the accent rule along its top, and the elevation pair
+     (`--shadow-3-up` for light, `--edge-top` for dark, where a shadow on a near-black
+     ground reads as nothing). The controls inside move up to `--hover` to keep the same
+     one-step separation from their new ground. */
   .log-strip {
     position: fixed;
     left: 0;
@@ -341,8 +346,10 @@
     /* Above the ledger it covers, below the rest overlay (50) and the sheets (60) — a
        sheet must never have this poking through it. */
     z-index: 40;
-    background: var(--surface);
-    border-top: 1px solid var(--line);
+    background: var(--raised);
+    border-top: 2px solid var(--accent);
+    border-radius: var(--r-lg) var(--r-lg) 0 0;
+    box-shadow: var(--shadow-3-up), var(--edge-top);
     padding: var(--s-3) var(--s-4);
     padding-bottom: calc(var(--s-3) + env(safe-area-inset-bottom));
   }
@@ -352,40 +359,48 @@
     justify-content: space-between;
     gap: var(--s-2);
   }
+  /* Everything below is a step up the type scale from what it was. The strip is read at
+     arm's length with the phone on the floor, and it carried the *smallest* text in the
+     app (13–14px) on the only controls that matter. `.dial-n` is the deliberate
+     exception — see its own note. */
+  /* Two lines, always — not one line that wraps. A long movement name plus a per-side
+     round counter ("One-arm braced row · Round 1 of 2 — left") does not fit one line at
+     360px, and letting it wrap broke the counter across the line ending in whatever
+     place the name happened to run out, which is the one part of this the user has to
+     read to know what they are about to log. */
   .strip-context {
+    display: grid;
     min-width: 0;
-    font-size: var(--t-sm);
+    font-size: var(--t-md);
   }
   .strip-exercise {
     font-weight: var(--w-bold);
   }
   .strip-set {
     color: var(--muted);
-  }
-  .strip-set::before {
-    content: " · ";
+    font-size: var(--t-base);
   }
   .strip-change {
     flex: none;
     min-height: 2.75rem;
     border: none;
-    background: var(--raised);
+    background: var(--hover);
     color: var(--muted);
     border-radius: var(--r-lg);
     padding: 0 var(--s-4);
-    font-size: var(--t-sm);
+    font-size: var(--t-base);
     font-weight: var(--w-semi);
-  }
-  .strip-last {
-    margin: 0.1rem 0 0.5rem;
-    color: var(--dim);
-    font-size: var(--t-xs);
-    font-variant-numeric: tabular-nums;
   }
   .strip-done {
     margin: 0.4rem 0 0.2rem;
     color: var(--muted);
-    font-size: var(--t-sm);
+    font-size: var(--t-base);
+  }
+  /* The gap under the context lines used to come from `.strip-last`'s bottom margin;
+     that line is gone (it restated what the dials were already pre-filled with), so the
+     spacing is stated here instead of inherited from something unrelated. */
+  .log-fields {
+    margin-top: var(--s-3);
   }
   .dials {
     display: grid;
@@ -401,7 +416,7 @@
        is what made the old set row unshrinkable, and this is the same shape. */
     grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem;
     align-items: center;
-    background: var(--raised);
+    background: var(--hover);
     border-radius: var(--r-md);
     height: 4.25rem;
   }
@@ -421,6 +436,13 @@
     gap: var(--s-1);
     min-width: 0;
   }
+  /* Held at `--t-xl` while everything around it went up a step, and the arithmetic is
+     why: at 360px the dials grid has 328px of content and an 8px gap, so a dial is
+     160px, and two 2.75rem steppers (the touch-target floor, not a style choice) leave
+     exactly 72px of value track. "100" in bold tabular Jakarta is ~50px at 28px and
+     ~72px at `--t-2xl` — the next step is the overflow, not a margin before it. Making
+     this bigger means moving the unit line into the value row or shrinking the
+     steppers, which is a different change. */
   .dial-n {
     width: 100%;
     min-width: 0;
@@ -438,7 +460,7 @@
     display: inline-flex;
     align-items: center;
     gap: var(--s-1);
-    font-size: var(--t-xs);
+    font-size: var(--t-sm);
     font-weight: var(--w-semi);
     color: var(--dim);
     line-height: 1;
@@ -458,7 +480,7 @@
     gap: var(--s-2);
     min-height: 3.5rem;
     border: 1px solid var(--line);
-    background: var(--raised);
+    background: var(--hover);
     border-radius: var(--r-md);
     padding: var(--s-2) var(--s-1);
   }
@@ -466,7 +488,7 @@
     opacity: 0.55;
   }
   .effort-name {
-    font-size: var(--t-sm);
+    font-size: var(--t-md);
     font-weight: var(--w-semi);
   }
   .effort-fill {
@@ -475,8 +497,8 @@
   }
   .effort-fill i {
     display: block;
-    width: 18px;
-    height: 6px;
+    width: 22px;
+    height: 7px;
     border-radius: 3px;
     background: var(--line);
   }

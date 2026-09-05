@@ -260,7 +260,7 @@ export function resolveOpenContext(
 
 /** UI §4's up-next card: a name, a pre-formatted two-line body (`context` then
  * icon-tagged `figures`), following the same pattern as `LogStrip`'s
- * `context`/`lastPerformance` props — `RestTimer` itself does no formatting, only
+ * `context` prop — `RestTimer` itself does no formatting, only
  * rendering. `isLast` tells `RestTimer` whether its dismiss button is starting something
  * or just closing the overlay, so the button's own label can agree with "Nothing left"
  * instead of offering to start a set that isn't coming. */
