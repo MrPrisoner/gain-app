@@ -8,8 +8,12 @@ folding it back in").
 
 The Progress feature answers the wrong question. Its landing screen is four session cards
 whose largest element is a **duration** sparkline — minutes per workout — and whose only
-other content is a completion rate that reads 100% for anyone who does not red-flag-stop,
-plus a deviation count. Nobody trains to move any of those numbers. Meanwhile the one
+other content is a completion rate and a deviation count. Nobody trains to move any of
+those numbers, and the completion rate cannot move at all: the runner writes only
+`completed` (`WrapUpSheet`) or `stopped` (a red-flag stop), `partial` is merely the state a
+workout is created in, and `sessionTypeStats` divides completed workouts by *finished*
+ones. The stat is therefore always exactly 100% or 0%, never anything between. Meanwhile
+the one
 genuinely actionable thing GAIN computes — `doubleProgressionState`'s "12/12/12 — ready
 for a load increase" — is rendered as muted 14px body text on a second-level list, unsorted
 and unhighlighted.
@@ -34,9 +38,17 @@ These were argued and agreed before this document was written. Implement against
 1. **Progress gets its own time control, decoupled from the export windows.** Pills, not a
    `<select>`: `4w · 12w · 6m · All`, defaulting to 12w. `since_version` disappears from
    Progress entirely.
-2. **The headline is "new bests", "ready to go up", and a volume delta.** Improvement is
-   expressed against the start of the window ("up 14% since June"), never as a percentage
-   of an all-time max.
+2. **The headline is "new bests", "ready to go up", and "movements improved".** Per-movement
+   improvement is expressed against the start of the window ("up 14% since June"), never as
+   a percentage of an all-time max.
+
+   Total volume was the original third stat and was rejected on review. Under double
+   progression — the fixture's own model — `6 kg 12/12/12` becoming `8 kg 8/8/8` is exactly
+   what success looks like, and tonnage falls from 216 to 192. A motivational headline that
+   goes negative at the user's best moment is worse than no headline. "7 of 12 movements
+   improved" cannot invert on success, is defined for bodyweight and timed work, and needs
+   no synthetic index. Volume survives only where it is already honest: the per-exercise
+   detail page's existing `BarChart`.
 3. **An estimated 1RM is acceptable as the in-app comparator** that decides whether
    8 kg × 8 beats 6 kg × 12. It is labelled an estimate in the UI and never reaches the
    export bundle.
@@ -80,8 +92,6 @@ export type ProgressWindow = {
   label: string;
   /** ISO 8601. Absent for `all`. */
   start?: string;
-  /** The equal-length period immediately before `start`. Absent for `all`. */
-  previous?: { start: string; end: string };
 };
 
 export const DEFAULT_PROGRESS_WINDOW: ProgressWindowId = "12w";
@@ -99,9 +109,13 @@ Resolution never fails. A hand-edited `?window=` falls back to the default rathe
 erroring, exactly as the current hub does and deliberately unlike the export route: nothing
 on a chart screen leaves the app, so a silent substitution mislabels nothing.
 
-`previous` exists so the volume delta compares like with like — the window against the
-equal-length period immediately before it — using `filterLogsToWindow`'s existing
-`start`/`end` support. No new filtering code.
+**A window carries no notion of a preceding period, deliberately.** An earlier draft
+attached one so a volume delta could compare the window against the equal-length span
+before it; dropping volume from the headline removed the only caller, and with it a class
+of wrong answers. A user five weeks into training, on `4w`, would have been compared against
+a preceding period holding one week of work, producing a large and meaningless number. Every
+comparison this screen makes is now *within* one window — first logged session against
+latest — which is always either well defined or absent.
 
 ### 3.2 `src/lib/progress/personal-best.ts`
 
@@ -110,15 +124,27 @@ second-class citizens of a load-centric screen. Roughly half the fixture is body
 timed (`dead-bug`, `mcgill-curl-up`, `side-plank-knees`, every warm-up), so any headline
 built on tonnage alone reads as flat or zero for half the plan.
 
-| The series carries | Score |
-| ------------------ | ----- |
-| Load and reps | Estimated 1RM, Epley: `weight_kg × (1 + reps / 30)` |
-| Load and time | The load itself; longest hold at that load breaks ties |
-| Reps, no load | Best reps |
-| Time, no load | Best seconds |
+| The series carries | Score | Kind |
+| ------------------ | ----- | ---- |
+| Load and reps | Estimated 1RM, Epley: `weight_kg × (1 + min(reps, 12) / 30)` | `e1rm` |
+| Load and time | `weight_kg × duration_s` | `loaded_hold` |
+| Reps, no load | Best reps | `reps` |
+| Time, no load | Best seconds | `seconds` |
+
+**Reps are capped at 12 inside the Epley estimate.** The formula is a straight line fitted
+to low-rep work and drifts badly above roughly twelve; the fixture prescribes ranges running
+to fifteen, so an uncapped estimate would rank a long light set above a genuinely heavier
+one. Capping makes the estimate conservative in exactly the region where it is least
+trustworthy. Wherever a number derived from it is shown, it is labelled an estimate.
+
+**A loaded hold scores `weight × seconds`, not load alone.** An earlier draft scored it on
+load with duration as a tiebreak, which cannot work: a breakthrough is defined as a score
+strictly exceeding the previous best, and a tiebreak is a comparator rather than a scalar.
+Under that draft a user holding 8 kg for 45 s after 30 s at the same load recorded no
+improvement at all — the fixture's per-side loaded hold is precisely that movement.
 
 ```ts
-export type ScoreKind = "e1rm" | "load" | "reps" | "seconds";
+export type ScoreKind = "e1rm" | "loaded_hold" | "reps" | "seconds";
 
 export type BestSet = {
   score: number;
@@ -171,8 +197,10 @@ This definition stays meaningful on every window including `All`, where a naive
 before-window/after-window comparison would have nothing to compare against and would
 report zero.
 
-Per-side movements are scored per side. A breakthrough on either side counts, and carries
-its side so the UI can label it L/R.
+Per-side movements are scored per side, and a breakthrough carries its side so a row can
+label it L/R. **The headline count is of distinct exercises, not of breakthroughs** — a
+best on each side of one movement is one new best, not two. Inflating the number is exactly
+the kind of quietly-wrong arithmetic this screen exists to stop producing.
 
 **The estimated 1RM never leaves the app.** `src/lib/export/` is untouched by this work.
 The module doc comment must say so, and ARCHITECTURE gains a line, because the export's
@@ -185,7 +213,7 @@ derived from a formula the plan never declared has no business in it.
 export type Mover = {
   exerciseSlug: string;
   exerciseName: string;
-  /** The occurrence to link to: the one with the most recent logged set. */
+  /** The occurrence to link to. See the note below — never derived from logs alone. */
   linkSessionKey: string;
   kind: ScoreKind;
   first: BestSet;
@@ -204,7 +232,20 @@ export function buildMovers(
 ): Mover[];
 ```
 
-Sorted by `deltaPct` descending; rows with no delta sort last, ordered by recency.
+**Sorted by recency of last improvement**, not by `deltaPct`. Relative change is not
+comparable across score kinds: a hold going 30 s to 45 s is +50% while a squat going 60 kg
+to 63 kg is +5%, so a delta-sorted list is topped by the same two or three bodyweight
+movements permanently, whatever the user actually did this month. Recency also answers
+"what changed" more literally than magnitude does. Ordering is therefore: movements whose
+latest session was a breakthrough first, most recent first; then movements that improved
+across the window, most recent first; then the rest. Rows with no delta sort last.
+
+`linkSessionKey` **is chosen from `exerciseOccurrences`, never from the logs.** The most
+recent set logged against a movement may come from a session where it was swapped in as a
+*substitute* rather than prescribed, and the detail route throws 404 ("That exercise is not
+prescribed in this session") for exactly that case. Take the occurrences the contract
+declares, keep those with logged sets, and pick the one whose most recent set is newest; a
+movement with occurrences but no prescribed-session logs does not become a mover at all.
 
 `first` and `latest` are the best sets of the earliest and most recent sessions **inside
 the window**, and `deltaPct` is `(latest.score - first.score) / first.score`. `points` plots
@@ -259,6 +300,12 @@ export function buildConsistency(
 ): Consistency;
 ```
 
+**"Finished" means `completed_at` is set, whatever the `status`** — the same test
+`sessionTypeStats` already applies. A red-flag stop is a workout the user turned up for and
+counts towards consistency and the streak; a workout still open counts towards neither. This
+definition is used identically by `consistency.ts`, the window's session count, and the
+movers' session counts, so the three can never disagree on the same screen.
+
 Weeks are bucketed Monday-start in **UTC** rather than local time, so the buckets are
 deterministic and testable; a workout logged late on a Sunday evening in a positive
 timezone offset falls into the following week, which is accepted and stated in the module
@@ -285,16 +332,16 @@ free to want it — it simply stops being rendered on Progress.
 
 ```ts
 export type Headline = {
+  /** Distinct exercises with a breakthrough inside the window. */
   newBests: number;
   readyToIncrease: number;
-  /** Undefined when no logged set in the window carried a load at all. */
-  volume: { windowKg: number; deltaPct: number | undefined } | undefined;
+  /** Movements that improved, out of those comparable at all. */
+  improved: { count: number; comparable: number };
 };
 
 export function buildHeadline(
   contract: GainContract,
   windowedLogs: Logs,
-  previousLogs: Logs,
   fullLogs: Logs,
 ): Headline;
 ```
@@ -305,8 +352,13 @@ its results rather than its input.
 `readyToIncrease` counts occurrences whose `doubleProgressionState` is `ready`, computed
 over full unwindowed history — matching what the current exercises list already does, and
 correct because readiness is a statement about the next session rather than about a span.
-`volume` sums `weight_kg × reps` over the window's set logs and compares it against the
-same sum over `window.previous`.
+
+`improved` is a fraction with a stated denominator: **`comparable` counts movements with at
+least two logged sessions in the window**, and `count` those whose `deltaPct` is positive. A
+movement logged once in the window is neither improved nor unimproved and belongs in
+neither number — it is excluded from both rather than counted as a failure. The UI renders
+the pair ("7 of 12 movements improved") and never the count alone, because a bare "7
+improved" hides whether that is out of eight or out of thirty.
 
 ## 4. Route surface
 
@@ -347,7 +399,8 @@ Top to bottom at 360 px:
 1. **Window pills** — `4w · 12w · 6m · All`, with the sample size beside them:
    "12w · 19 sessions". A calendar window silently lies about density when someone trains
    fortnightly; stating the count is the cheapest possible correction.
-2. **What changed** — three stats: `3 new bests`, `4 ready to go up`, `volume +12%`.
+2. **What changed** — three stats: `3 new bests`, `4 ready to go up`, `7 of 12 movements
+   improved`.
 3. **Ready to go up** — the readiness roll-up as a real list: movement, session name,
    `12/12/12`. Per-occurrence, because the range differs per session and the session name
    is what makes the row actionable.
@@ -361,6 +414,23 @@ Top to bottom at 360 px:
 Keying on `(scope, key)` and never the bare key is the existing invariant: a plan may
 legally declare `symptoms_during` at both set and session scope, as the fixture does, and
 merging them reports a plausible wrong number.
+
+**A set-scope metric is averaged per workout for its hub row.** `numericMetricSeries`
+stamps every value with its workout's `started_at`, so a metric answered once per set —
+the fixture's set-scope `symptoms_during` — returns several points sharing one x
+coordinate. That is already true on today's metric detail page; inlining the chart on a
+busier screen makes a vertical stack of dots at one date look like a rendering fault. The
+hub plots one point per workout, the mean of that workout's values; `numericMetricSeries`
+itself is unchanged, and the aggregation lives in the route's load function.
+
+The plan's declared `scale` bounds are drawn as the chart's y-domain rather than letting
+`Sparkline` auto-scale, so a 0-10 symptom score that ranged 2 to 3 renders as a nearly flat
+line near the bottom instead of a dramatic climb — the same overstatement §1 objects to in
+the duration charts. This is the **one shared-component change** this work makes:
+`layoutLineChart` takes an optional `yDomain: [number, number]` and falls back to today's
+`Math.min`/`Math.max` over the points when it is absent, and `Sparkline` passes a matching
+optional prop through. Every existing call site keeps its current behaviour untouched, and
+`tests/progress/chart-geometry.test.ts` gains a case for the explicit domain.
 
 **`MetricRow.svelte` is not reusable here.** Despite the name it is an input component —
 one metric prompt for the pre-session gate and the wrap-up sheet — not a display row. The
@@ -377,17 +447,22 @@ clear the 44 px touch-target floor, which `touch-targets.spec.ts` already sweeps
 
 Each of these is a case where the easy rendering states something false.
 
-- **A bodyweight-only plan hides the volume stat**, rather than showing `+0%`.
-- **`All` has no preceding period**, so it shows the total with no delta. No invented
-  comparison.
-- **A movement with one session in the window** shows its latest value and no delta. A
-  fabricated 0% is worse than an absent one.
+- **A movement with one session in the window** shows its latest value and no delta, and is
+  counted in neither half of "improved". A fabricated 0% is worse than an absent one.
+- **"Improved" always states its denominator** — "7 of 12", never a bare "7".
+- **The new-bests count is of movements, not of breakthroughs**, so a per-side movement
+  cannot report two.
+- **An archived plan still renders `ArchivedNote`** above the content, as the current hub
+  does. Progress is a read route and archiving leaves every read route open
+  (`e2e/archive-walkthrough.spec.ts`).
 - **An empty window** renders "nothing logged in the last 12 weeks" with a tap through to
   `All` — not four empty chart wells. `EmptyState` exists for exactly this and its own
   comment records that `/progress` used to draw four wells to say nothing.
 - **The estimated 1RM is labelled as an estimate** wherever a number derived from it is
-  shown, and never reaches the export.
+  shown, is capped at 12 reps, and never reaches the export.
 - **Deltas state their basis.** "+14% since June", not a bare "+14%".
+- **A `scale` metric plots against its declared bounds**, not against its own range, so a
+  score that moved 2 to 3 on a 0-10 scale does not render as a climb.
 
 ## 7. Accepted gaps
 
@@ -407,17 +482,19 @@ New unit specs under `tests/progress/`:
 
 | Spec | Covers |
 | ---- | ------ |
-| `progress-window.test.ts` | Window arithmetic with an injected clock; `previous` alignment; unknown id falls back to the default; `all` carries neither `start` nor `previous` |
-| `personal-best.test.ts` | All four score kinds; kind decided series-wide, not per set; per-side scoring; first session is a baseline not a breakthrough; running max established over full history |
-| `movers.test.ts` | Grouping by slug across two sessions; ordering; single-session rows carry no delta and sort last; `linkSessionKey` picks the most recent occurrence |
-| `consistency.test.ts` | Monday-start UTC buckets; empty weeks present; streak measured to last completed week; streak spans the window boundary |
-| `headline.test.ts` | Volume delta against the previous period; volume absent for a bodyweight-only plan; `All` yields a total with no delta |
+| `progress-window.test.ts` | Window arithmetic with an injected clock; unknown id falls back to the default; `all` carries no `start` |
+| `personal-best.test.ts` | All four score kinds; kind decided series-wide, not per set; the Epley rep cap; a longer hold at a fixed load scores higher; per-side scoring; first session is a baseline not a breakthrough; running max established over full history |
+| `movers.test.ts` | Grouping by slug across two sessions; recency ordering with breakthroughs first; single-session rows carry no delta and sort last; `linkSessionKey` never names a session the movement is not prescribed in, including when the newest set was logged as a substitute |
+| `consistency.test.ts` | Monday-start UTC buckets; empty weeks present; a red-flag-stopped workout counts as finished; streak measured to last completed week; streak spans the window boundary |
+| `headline.test.ts` | New bests counted per movement, not per side; `comparable` excludes single-session movements; a window where nothing is comparable |
 
 Existing specs to update:
 
 - `e2e/progress-walkthrough.spec.ts` — rewritten against the new single screen.
 - `e2e/revision-walkthrough.spec.ts` — two `?window=full` URLs become `?window=all`.
 - `tests/progress/exercise-series.test.ts` — covers the new `buildSeriesForExercise`.
+- `tests/progress/chart-geometry.test.ts` — covers `layoutLineChart`'s optional `yDomain`,
+  including that omitting it preserves today's auto-scaling exactly.
 - `e2e/touch-targets.spec.ts` and `e2e/theme-coverage.spec.ts` already sweep `/progress`
   only, so they need no route-list change; the pills must pass the touch sweep.
 
@@ -447,4 +524,6 @@ In the same commit that lands the work:
 No schema change. No change to `src/lib/export/`. No horizontal paging or downsampling for
 dense charts (ARCHITECTURE §14 keeps that open). No attempt to close the substitute-only
 occurrence gap. Duration is not re-homed anywhere new — History already shows it per
-workout.
+workout. Total volume gains no new home either: the per-exercise detail page's existing
+`BarChart` is the only place it appears, and the headline stat it was proposed for is
+"movements improved" instead (§2).
