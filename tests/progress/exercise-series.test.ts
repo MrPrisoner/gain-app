@@ -3,6 +3,8 @@ import type { GainContract } from "../../src/lib/contract/schema";
 import { EMPTY_LOGS, type Logs } from "../../src/lib/logs/types";
 import {
   buildExerciseSeries,
+  buildPrescribedSeries,
+  buildSeriesForExercise,
   difficultyDistribution,
   exerciseOccurrences,
   topSetChartPoints,
@@ -245,5 +247,62 @@ describe("difficultyDistribution", () => {
   it("counts difficulty across every set in the series", () => {
     const series = buildExerciseSeries(logs, "A", "goblet-squat");
     expect(difficultyDistribution(series, undefined)).toEqual({ easy: 0, medium: 1, hard: 1 });
+  });
+});
+
+describe("buildSeriesForExercise", () => {
+  it("collects a movement's sessions across every session type, chronologically", () => {
+    // The file's existing `contract` prescribes goblet-squat in session A ([8,12]) and
+    // session D ([12,15]). buildExerciseSeries deliberately keeps those apart, because
+    // double-progression compares a performance against a prescribed range. An absolute
+    // score in kg, reps or seconds has no such dependency, so movers group by movement.
+    // Chronological order interleaves the two: w1 (A, Aug 1), w3 (D, Aug 3), w2 (A, Aug 8).
+    expect(buildSeriesForExercise(logs, "goblet-squat").map((p) => p.workoutId)).toEqual([
+      "w1",
+      "w3",
+      "w2",
+    ]);
+  });
+
+  it("still splits by session when asked, over the same grouping code", () => {
+    expect(buildExerciseSeries(logs, "A", "goblet-squat").map((p) => p.workoutId)).toEqual([
+      "w1",
+      "w2",
+    ]);
+    expect(buildExerciseSeries(logs, "D", "goblet-squat").map((p) => p.workoutId)).toEqual(["w3"]);
+  });
+});
+
+describe("buildPrescribedSeries", () => {
+  // A set logged against a movement during a session it is not prescribed in — a
+  // mid-session substitution. The contract prescribes goblet-squat in A and D only, so a
+  // session-B workout is exactly that case.
+  const substituted: Logs = {
+    ...logs,
+    workouts: [
+      ...logs.workouts,
+      { id: "w4", session_key: "B", started_at: "2026-08-15T07:00:00Z", status: "completed" },
+    ],
+    set_logs: [
+      ...logs.set_logs,
+      { id: "s99", workout_id: "w4", exercise_slug: "goblet-squat", set_no: 1, reps: 10 },
+    ],
+  };
+
+  it("drops a session the movement is not prescribed in", () => {
+    // Counting it would inflate the movement's history and, worse, make it the newest
+    // session and so the link target — which the detail route answers with 404.
+    expect(
+      buildPrescribedSeries(contract, substituted, "goblet-squat").map((p) => p.workoutId),
+    ).toEqual(["w1", "w3", "w2"]);
+  });
+
+  it("is the only thing that separates it from the unfiltered series", () => {
+    expect(buildSeriesForExercise(substituted, "goblet-squat").map((p) => p.workoutId)).toEqual([
+      "w1",
+      "w3",
+      "w2",
+      "w4",
+    ]);
   });
 });
