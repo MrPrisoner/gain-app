@@ -2754,10 +2754,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Modify: `docs/ARCHITECTURE.md` (§10, §14 if the accepted-gap row's wording no longer fits)
 - Modify: `docs/UI.md` (the keyboard-cost note and the native-`<select>` note)
 - Modify: `CLAUDE.md` (the area table's Progress row; the e2e paragraph's route references)
-- Delete: `docs/superpowers/specs/2026-09-05-progress-redesign-design.md`
-- Delete: `docs/superpowers/plans/2026-09-05-progress-redesign.md`
-
-CLAUDE.md's own rule: a tracking doc is deleted in the same commit that lands the durable half, with no strikethrough, no "done" section and no archive directory. `git log` recovers anything that mattered.
+**The spec and this plan are deliberately NOT deleted in this task.** CLAUDE.md's rule is that a tracking doc dies in the same commit that lands the durable half, and that rule still governs — the user has asked to keep both until the redesigned screen has been used for a week, which is a deferral with an owner, not an exemption. Fold the durable half in as described below regardless: the standing documents must describe the app as it now is whether or not the scaffolding is still lying around. Deleting both files is a follow-up commit once the user says the screen has earned its keep.
 
 - [ ] **Step 1: Rewrite ARCHITECTURE §10**
 
@@ -2824,10 +2821,14 @@ In the e2e paragraph, the list of walkthroughs is unchanged in name — `progres
 Run: `grep -n "progress" CLAUDE.md`
 Expected: nothing describing a per-exercise list route or metric routes.
 
-- [ ] **Step 4: Delete the tracking docs**
+- [ ] **Step 4: Mark both tracking docs as awaiting deletion**
 
-```bash
-git rm docs/superpowers/specs/2026-09-05-progress-redesign-design.md docs/superpowers/plans/2026-09-05-progress-redesign.md
+Add this line directly under the `Status:` line at the top of BOTH `docs/superpowers/specs/2026-09-05-progress-redesign-design.md` and this plan, so the next reader cannot mistake a kept document for a live intention — the exact confusion CLAUDE.md says this repository has already paid for once:
+
+```markdown
+> **Shipped.** The work described here landed; the durable half is in ARCHITECTURE section 10, UI
+> and CLAUDE.md. This file is kept only until the screen has been used for a week, then deleted.
+> It is a record of how the change was made, not a statement of what is still open.
 ```
 
 - [ ] **Step 5: Full verify and the whole e2e suite**
@@ -2852,9 +2853,10 @@ its estimated 1RM must never reach the export. UI's two references to the
 progress window pickers named a control that is now a link, and the
 native-select note gains the reason the pills are the exception to it.
 
-The spec and the plan are deleted rather than archived, per this repo's own
-rule: git log is the record of how something got built, and the standing
-documents are the record of what is true now.
+The spec and the plan are kept for now, at the user's request, until the screen
+has been used for a week — both are stamped as shipped so a kept document cannot
+read as a live intention, which is the confusion this repository has already paid
+for once. They are deleted in a follow-up commit.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ```
@@ -2863,7 +2865,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 ## Self-Review
 
-**Spec coverage.** Every section of the spec maps to a task: §3.1→1, §3.2→4, §3.3→5, §3.4→6, §3.5→7, §4→10 and 11, §5→9 and 10, §6 honesty rules→spread across 5, 7, 8 and 10 (empty window and `ArchivedNote` in 10; denominator in 7; single-session in 5; `scale` bounds in 2 and 8), §7 accepted gaps→carried forward, unchanged, §8→each task's own test steps, §9→12. The chart-geometry change the spec adds late (§5, "one shared-component change") is Task 2.
+**Spec coverage.** Every section of the spec maps to a task: §3.1→1, §3.2→4, §3.3→5, §3.4→6, §3.5→7, §4→10 and 11, §5→9 and 10, §6 honesty rules→spread across 5, 7, 8 and 10 (empty window and `ArchivedNote` in 10; denominator in 7; single-session in 5; `scale` bounds in 2 and 8), §7 accepted gaps→carried forward, unchanged, §8→each task's own test steps, §9→12 (the fold-back half; the spec's own deletion is deferred by the user, and Task 12 stamps both docs as shipped instead). The chart-geometry change the spec adds late (§5, "one shared-component change") is Task 2.
 
 **Type consistency.** `ProgressWindow` (Task 1) is consumed by Tasks 10 and 11 as `{ id, label, start? }` and passed to `filterLogsToWindow` unchanged. `BestSet`/`ScoreKind` (Task 4) are consumed by Tasks 5 and 7 and rendered through `formatScore` in Task 10. `Mover` (Task 5) is consumed by Task 7's `improved` and flattened for the client in Task 10. `Consistency.weeks` (Task 6) feeds Task 10's `weekBars`. `HubMetricRow.domain` (Task 8) feeds `Sparkline`'s `yDomain` (Task 2). `buildHeadline` takes four parameters in both its definition (Task 7) and its call site (Task 10).
 
