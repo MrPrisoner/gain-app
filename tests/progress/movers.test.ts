@@ -19,8 +19,23 @@ function workout(id: string, sessionKey: string, day: string) {
   };
 }
 
-function set(id: string, workoutId: string, slug: string, reps: number, weightKg?: number) {
-  return { id, workout_id: workoutId, exercise_slug: slug, set_no: 1, reps, weight_kg: weightKg };
+function set(
+  id: string,
+  workoutId: string,
+  slug: string,
+  reps: number,
+  weightKg?: number,
+  side?: "left" | "right",
+) {
+  return {
+    id,
+    workout_id: workoutId,
+    exercise_slug: slug,
+    set_no: 1,
+    reps,
+    weight_kg: weightKg,
+    side,
+  };
 }
 
 describe("buildMovers", () => {
@@ -104,6 +119,34 @@ describe("buildMovers", () => {
     expect(row?.linkSessionKey).toBe("D");
     // And the substituted-in set does not inflate the row's session count.
     expect(row?.sessionCount).toBe(1);
+  });
+
+  it("reports a breakthrough on a per_side movement, whose sets carry no unsided score", () => {
+    // The one ruling on this branch that only code inspection was holding: a mover row
+    // summarises the whole movement, so `latestIsBreakthrough` is computed inline over
+    // `bestSetsBySession(fullSeries, kind)` — every set of the movement, both sides — and
+    // NOT via `breakthroughs()`, which scores each side separately. Ask `breakthroughs()`
+    // for the unsided series of a per_side movement and its filter matches nothing, so it
+    // returns no breakthrough at all and every per_side row reports false forever.
+    //
+    // split-squat is `per_side: true` in the fixture's catalogue and is prescribed in
+    // session C (`sets: 2, reps: [10, 12]`) — not D. `buildPrescribedSeries` drops workouts
+    // of any other session type, so the key matters.
+    const logs: Logs = {
+      ...EMPTY_LOGS,
+      workouts: [workout("w1", "C", "2026-08-03"), workout("w2", "C", "2026-08-10")],
+      set_logs: [
+        set("s1", "w1", "split-squat", 10, 6, "left"),
+        set("s2", "w1", "split-squat", 10, 6, "right"),
+        // The left side beats everything before it; the right holds station. One side is
+        // enough, because the row is about the movement.
+        set("s3", "w2", "split-squat", 12, 6, "left"),
+        set("s4", "w2", "split-squat", 10, 6, "right"),
+      ],
+    };
+    const row = buildMovers(contract, logs, logs).find((m) => m.exerciseSlug === "split-squat");
+    expect(row?.sessionCount).toBe(2);
+    expect(row?.latestIsBreakthrough).toBe(true);
   });
 
   it("plots one point per session, which is the same statement as the delta", () => {

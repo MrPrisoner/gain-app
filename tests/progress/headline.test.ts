@@ -102,6 +102,39 @@ describe("buildHeadline", () => {
     expect(headline.improved).toEqual({ count: 1, comparable: 2 });
   });
 
+  it("counts a movement sitting at the top of its range for every prescribed set", () => {
+    // Session A prescribes goblet-squat as `sets: 3, reps: [8, 12]`, so three sets at 12
+    // is exactly `doubleProgressionState`'s ready condition: the latest workout carried at
+    // least the prescribed set count and every set met the range's top. Readiness reads
+    // full history rather than the window, which is why `windowStart` is irrelevant here.
+    const logs: Logs = {
+      ...EMPTY_LOGS,
+      workouts: [workout("w1", "A", "2026-08-03")],
+      set_logs: [
+        { ...set("s1", "w1", "goblet-squat", 12, 8), set_no: 1 },
+        { ...set("s2", "w1", "goblet-squat", 12, 8), set_no: 2 },
+        { ...set("s3", "w1", "goblet-squat", 12, 8), set_no: 3 },
+      ],
+    };
+    expect(buildHeadline(contract, logs, logs, undefined).readyToIncrease).toBeGreaterThanOrEqual(
+      1,
+    );
+  });
+
+  it("does not count a movement short of its prescribed set count as ready", () => {
+    // Two sets at the top of a three-set prescription is not a session that earned more
+    // load — the guard `double-progression.ts` calls load-bearing rather than pedantry.
+    const logs: Logs = {
+      ...EMPTY_LOGS,
+      workouts: [workout("w1", "A", "2026-08-03")],
+      set_logs: [
+        { ...set("s1", "w1", "goblet-squat", 12, 8), set_no: 1 },
+        { ...set("s2", "w1", "goblet-squat", 12, 8), set_no: 2 },
+      ],
+    };
+    expect(buildHeadline(contract, logs, logs, undefined).readyToIncrease).toBe(0);
+  });
+
   it("reports nothing comparable rather than dividing by zero on an empty window", () => {
     const headline = buildHeadline(contract, EMPTY_LOGS, EMPTY_LOGS, undefined);
     expect(headline).toEqual({

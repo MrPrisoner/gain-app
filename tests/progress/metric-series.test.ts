@@ -16,6 +16,12 @@ const contract = {
     session: [
       { key: "rpe", label: "Session RPE", type: "scale", min: 1, max: 10 },
       { key: "symptoms_during", label: "Symptoms", type: "scale", min: 0, max: 10 },
+      // The one non-numeric metric, and the only reason `numericMetricDefs`' assertion
+      // below proves anything: with a contract of nothing but `scale` metrics, that
+      // expectation passes with the number/scale filter deleted entirely. Deliberately
+      // given no logged value in any test's `logs`, so `hubMetricRows` — which omits a
+      // metric with nothing logged — is unaffected by its presence.
+      { key: "session_notes", label: "Notes", type: "text" },
     ],
   },
 } as unknown as GainContract;
