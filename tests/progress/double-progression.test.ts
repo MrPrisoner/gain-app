@@ -1,10 +1,18 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { parsePlanDocument } from "../../src/lib/parse/parser";
+import { EMPTY_LOGS, type Logs } from "../../src/lib/logs/types";
 import type { ExerciseSeriesPoint } from "../../src/lib/progress/exercise-series";
 import {
   doubleProgressionState,
   formatDoubleProgressionState,
   formatReadiness,
+  readyOccurrences,
 } from "../../src/lib/progress/double-progression";
+
+const parsed = parsePlanDocument(readFileSync("fixtures/plans/home-training-v1.md", "utf8"));
+if (!parsed.ok) throw new Error("fixture must parse");
+const contract = parsed.contract;
 
 const point = (startedAt: string, sets: ExerciseSeriesPoint["sets"]): ExerciseSeriesPoint => ({
   workoutId: startedAt,
@@ -78,6 +86,65 @@ describe("doubleProgressionState", () => {
     const series = [point("2026-08-01", [{ ...setOf(1, 0), reps: undefined, duration_s: 40 }])];
     const state = doubleProgressionState(series, [20, 40], 1, "time", false);
     expect(state?.none).toEqual({ status: "ready", latest: [40] });
+  });
+});
+
+describe("readyOccurrences", () => {
+  const workout = (id: string, sessionKey: string, day: string) => ({
+    id,
+    session_key: sessionKey,
+    started_at: `${day}T07:00:00Z`,
+    completed_at: `${day}T07:40:00Z`,
+    status: "completed" as const,
+  });
+  const logged = (id: string, workoutId: string, slug: string, setNo: number, reps: number) => ({
+    id,
+    workout_id: workoutId,
+    exercise_slug: slug,
+    set_no: setNo,
+    reps,
+  });
+
+  it("names the occurrence and carries the state the list renders from", () => {
+    // Session A prescribes goblet-squat as `sets: 3, reps: [8, 12]`.
+    const logs: Logs = {
+      ...EMPTY_LOGS,
+      workouts: [workout("w1", "A", "2026-08-03")],
+      set_logs: [
+        logged("s1", "w1", "goblet-squat", 1, 12),
+        logged("s2", "w1", "goblet-squat", 2, 12),
+        logged("s3", "w1", "goblet-squat", 3, 12),
+      ],
+    };
+    const ready = readyOccurrences(contract, logs);
+    const squat = ready.find((r) => r.occurrence.exerciseSlug === "goblet-squat");
+    expect(squat?.occurrence.sessionKey).toBe("A");
+    expect(formatReadiness(squat?.state, "–")).toBe("12/12/12 — ready for a load increase");
+  });
+
+  it("finds nothing in an empty log rather than reporting every occurrence ready", () => {
+    expect(readyOccurrences(contract, EMPTY_LOGS)).toEqual([]);
+  });
+
+  it("keeps the same occurrence in another session out of the list", () => {
+    // goblet-squat is prescribed in session A ([8,12]) and session D ([12,15]). Three sets
+    // of 12 in session A earns a load increase there and does not touch session D, whose
+    // range tops out at 15 — one row, not two.
+    const logs: Logs = {
+      ...EMPTY_LOGS,
+      workouts: [workout("w1", "A", "2026-08-03"), workout("w2", "D", "2026-08-07")],
+      set_logs: [
+        logged("s1", "w1", "goblet-squat", 1, 12),
+        logged("s2", "w1", "goblet-squat", 2, 12),
+        logged("s3", "w1", "goblet-squat", 3, 12),
+        logged("s4", "w2", "goblet-squat", 1, 12),
+        logged("s5", "w2", "goblet-squat", 2, 12),
+      ],
+    };
+    const squats = readyOccurrences(contract, logs).filter(
+      (r) => r.occurrence.exerciseSlug === "goblet-squat",
+    );
+    expect(squats.map((r) => r.occurrence.sessionKey)).toEqual(["A"]);
   });
 });
 

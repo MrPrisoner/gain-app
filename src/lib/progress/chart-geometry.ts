@@ -42,6 +42,19 @@ export function layoutLineChart(
   width: number,
   height: number,
   padding: number,
+  /** Bounds the plot must at least span. A plan-declared `scale` metric passes its
+   * declared min/max, so a 2-to-3 movement on a 0-10 scale renders as the near-flat line
+   * it is rather than as a climb. Omitted everywhere else, which preserves the
+   * auto-scaling every other chart relies on.
+   *
+   * It widens the domain rather than replacing it, because an SVG clips to its viewBox: a
+   * point outside these bounds would be plotted off-canvas and vanish silently, dot, hit
+   * band and line segment together, and the chart would read as though those sessions
+   * were never logged. That is reachable without anything being wrong — a plan revision
+   * narrowing a scale from 0-10 to 0-5 leaves older values above the new max. Widening
+   * keeps the declared range as the floor, which is the whole point of passing one, while
+   * never dropping a real observation. */
+  yDomain?: readonly [number, number],
 ): { plotted: PlottedPoint[]; path: string } {
   if (points.length === 0) return { plotted: [], path: "" };
 
@@ -49,8 +62,8 @@ export function layoutLineChart(
   const ys = points.map((p) => p.y);
   const xMin = Math.min(...xs);
   const xMax = Math.max(...xs);
-  const yMin = Math.min(...ys);
-  const yMax = Math.max(...ys);
+  const yMin = Math.min(...ys, ...(yDomain ? [yDomain[0]] : []));
+  const yMax = Math.max(...ys, ...(yDomain ? [yDomain[1]] : []));
   const xSpan = xMax - xMin || 1;
   const ySpan = yMax - yMin || 1;
 
@@ -96,12 +109,20 @@ export function layoutBarChart(
   const max = Math.max(...data.map((d) => d.value), 0) || 1;
   const plotWidth = width - 2 * padding;
   const plotHeight = height - 2 * padding;
-  const barWidth = (plotWidth - gap * (data.length - 1)) / data.length;
+  // The gap yields before the bars do. At the caller's gap, `barWidth` reaches zero at
+  // around 71 bars in the hub's own geometry and goes negative past it — and an SVG `rect`
+  // with a non-positive width renders nothing at all, so the chart empties out silently
+  // rather than looking cramped. Capping the gap at half a bar's share of the plot keeps
+  // every bar at least `plotWidth / 2n` wide for any n, and is a no-op at the bar counts
+  // every caller actually renders. The legibility fix is upstream, in how many buckets a
+  // caller hands over; this is the floor under it.
+  const effectiveGap = Math.min(gap, plotWidth / (2 * data.length));
+  const barWidth = (plotWidth - effectiveGap * (data.length - 1)) / data.length;
 
   const placed = data.map((d, i) => {
     const barHeight = (d.value / max) * plotHeight;
     return {
-      x: padding + i * (barWidth + gap),
+      x: padding + i * (barWidth + effectiveGap),
       y: height - padding - barHeight,
       barWidth,
       barHeight,

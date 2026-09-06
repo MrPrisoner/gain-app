@@ -114,6 +114,20 @@ export function peekDevUserFor(projectName: string): string {
 }
 
 /**
+ * A per-project dev user for the Progress hub's "Ready to go up" assertion.
+ *
+ * Readiness is decided by the movement's MOST RECENT workout of that session type
+ * (`double-progression.ts`), so it is whole-account state in the sharpest way: a sibling
+ * project logging the same session against the shared `E2E_DEV_USER` a moment later
+ * replaces the performance this spec just staged and the list empties out. Same reasoning
+ * as `homeDevUserFor`, and the same `x-gain-e2e-user` header makes it work. Seeded in the
+ * spec via `seedFixturePlan`, like `peekDevUserFor`.
+ */
+export function progressReadyDevUserFor(projectName: string): string {
+  return `e2e-progress-ready-${projectName}`;
+}
+
+/**
  * The one operator account. `GAIN_DEV_ADMIN` is a single environment variable read once
  * at boot, so unlike the subject below this cannot vary per project — which is fine,
  * because the admin spec asserts only on its own subject's card, never on the list as a

@@ -720,7 +720,7 @@ has already been corrected once for claiming more than the suite delivers, and a
 over-claimed mechanical check is worse than an acknowledged manual one:
 
 - **Overflow** is asserted at all three viewports on the runner and its four overlays,
-  Home, export, the four progress routes, history, versions, admin, account and `/import`
+  Home, export, the progress hub, history, versions, admin, account and `/import`
   — the last covering the empty paste box, a parse-failure report, the wrong-document
   explanation and the revision review screen, which is the widest shape on the route. It
   is **not** asserted on `/login`, `/offline`, `+error`, the pre-session metric gate, or
@@ -778,24 +778,29 @@ fixture always seeds one). None of these are believed compliant by inference fro
 control that *is* swept — they are simply unchecked, and are recorded here so that is known
 rather than assumed.
 
-**One accepted keyboard cost, recorded so it is not rediscovered as a bug.** The progress
-window pickers navigate on `change`, so arrow-keying a *closed* `<select>` on a desktop
-keyboard fires one navigation per keypress. Accepted: the target is a phone, where a
-`<select>` commits once on dismiss.
+**One accepted keyboard cost, now closed rather than accepted.** The progress window
+pickers used to navigate on a `<select>`'s `change`, so arrow-keying a closed `<select>` on
+a desktop keyboard fired one navigation per keypress. They are links now (`WindowPills`),
+which has no such behaviour.
 
 **Native `<select>` and radio inputs stay native, deliberately, next to a custom pill
 pattern used everywhere else for the same kind of choice.** `DeviationSheet`'s substitute
-picker, the three progress window pickers, and `DispositionList` all use a plain
-`<select>`; the export screen's history-window choice uses plain radios. Converting any of
-these to the app's pill/chip visual pattern would mean hand-rolling roving-tabindex and
-ARIA listbox semantics the platform gives a `<select>` for free, and would trade away the
-one thing a native control does that a custom one cannot: on a phone, it opens the OS's own
-picker sheet — full-height, thumb-scrollable, and already accessible to whatever assistive
-tech the user has configured system-wide. The substitute picker's option list in particular
-can run long (every exercise in the catalogue), which a native control handles for free and
-a row of pills does not. This is not an oversight the rest of the pill sweep missed; it is
-the correct choice for a control whose job is picking one of several values by name rather
-than toggling a small, fixed set of states.
+picker and `DispositionList` both use a plain `<select>`; the export screen's
+history-window choice uses plain radios. Converting either to the app's pill/chip visual
+pattern would mean hand-rolling roving-tabindex and ARIA listbox semantics the platform
+gives a `<select>` for free, and would trade away the one thing a native control does that
+a custom one cannot: on a phone, it opens the OS's own picker sheet — full-height,
+thumb-scrollable, and already accessible to whatever assistive tech the user has configured
+system-wide. The substitute picker's option list in particular can run long (every exercise
+in the catalogue), which a native control handles for free and a row of pills does not.
+This is not an oversight the rest of the pill sweep missed; it is the correct choice for a
+control whose job is picking one of several values by name rather than toggling a small,
+fixed set of states.
+
+The progress screens are the deliberate exception, and the reason is the same rule read the
+other way: `WindowPills` renders a small fixed set of toggle-like states, not one of many
+values picked by name, so it gets the pill pattern the rest of the app uses for exactly
+that. A native picker sheet buys nothing for four options.
 
 ---
 

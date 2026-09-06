@@ -11,7 +11,7 @@ import { getUserDbFor } from "$lib/server/app-state";
 import { contractOfVersion, getCurrentVersion, getPlanBySlug } from "$lib/db/read";
 import { logsForPlan } from "$lib/db/logs";
 import { filterLogsToWindow } from "$lib/export/bundle";
-import { exportWindowOptions, resolveExportWindow } from "$lib/export/windows";
+import { progressWindowOptions, resolveProgressWindow } from "$lib/progress/progress-window";
 import { isoDate } from "$lib/export/summary";
 import {
   buildExerciseSeries,
@@ -49,18 +49,8 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
   const logs = logsForPlan(userDb, plan.id);
   const fullSeries = buildExerciseSeries(logs, params.session, params.exercise);
 
-  const context = {
-    versionNo: version.version_no,
-    importedAt: version.imported_at,
-    blockLengthWeeks: version.block_length_weeks,
-    now: new Date(),
-  };
-  const options = exportWindowOptions(context);
-  // `exportWindowOptions` always returns at least `since_version` and `full`, so
-  // `options[0]` is never undefined — the assertion documents that invariant rather
-  // than papering over a real gap (matches the progress hub's own load function).
-  const windowId = url.searchParams.get("window") ?? options[0]!.id;
-  const window = resolveExportWindow(windowId, context) ?? options[0]!;
+  const now = new Date();
+  const window = resolveProgressWindow(url.searchParams.get("window"), now);
   const windowedSeries = buildExerciseSeries(
     filterLogsToWindow(logs, window),
     params.session,
@@ -120,9 +110,11 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
 
   return {
     planSlug: plan.slug,
+    sessionKey: params.session,
+    exerciseSlug: params.exercise,
     sessionName: occurrence.sessionName,
     exerciseName: occurrence.exerciseName,
-    windowOptions: options.map((o) => ({ id: o.id, label: o.label })),
+    windowOptions: progressWindowOptions(now).map((o) => ({ id: o.id, label: o.label })),
     selectedWindow: window.id,
     charts,
   };

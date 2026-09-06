@@ -55,3 +55,66 @@ export function numericMetricSeries(
 
   return points.sort((a, b) => a.startedAt.localeCompare(b.startedAt));
 }
+
+export type HubMetricRow = {
+  scope: MetricScope;
+  key: string;
+  label: string;
+  points: { x: number; y: number }[];
+  latest: number | undefined;
+  /** A `scale` metric's declared bounds, for `Sparkline`'s `yDomain`. */
+  domain: [number, number] | undefined;
+};
+
+/**
+ * One row per `(scope, key)` with something logged, ready to render inline on the hub.
+ *
+ * A set-scope metric is averaged per workout. `numericMetricSeries` stamps every value
+ * with its workout's `started_at`, so a metric answered once per set — the fixture's
+ * set-scope `symptoms_during` — returns several points sharing one x coordinate. That is
+ * already true on the old metric detail page; inlining the chart on a busier screen makes
+ * a vertical stack of dots at one date look like a rendering fault.
+ *
+ * A `scale` metric carries its declared bounds so `Sparkline` plots against them rather
+ * than auto-scaling: a 0-10 score that moved 2 to 3 must render as the near-flat line it
+ * is, not as a climb.
+ */
+export function hubMetricRows(contract: GainContract, logs: Logs): HubMetricRow[] {
+  const rows: HubMetricRow[] = [];
+  for (const { scope, def } of numericMetricDefs(contract)) {
+    const series = numericMetricSeries(logs, scope, def.key);
+    if (series.length === 0) continue;
+
+    const sums = new Map<string, { startedAt: string; total: number; count: number }>();
+    for (const point of series) {
+      const entry = sums.get(point.workoutId) ?? {
+        startedAt: point.startedAt,
+        total: 0,
+        count: 0,
+      };
+      entry.total += point.value;
+      entry.count += 1;
+      sums.set(point.workoutId, entry);
+    }
+
+    const points = [...sums.values()]
+      .sort((a, b) => a.startedAt.localeCompare(b.startedAt))
+      .map((entry) => ({
+        x: new Date(entry.startedAt).getTime(),
+        y: entry.total / entry.count,
+      }));
+
+    rows.push({
+      scope,
+      key: def.key,
+      label: def.label,
+      points,
+      latest: points.at(-1)?.y,
+      domain:
+        def.type === "scale" && def.min !== undefined && def.max !== undefined
+          ? [def.min, def.max]
+          : undefined,
+    });
+  }
+  return rows;
+}

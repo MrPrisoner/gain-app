@@ -22,6 +22,8 @@
     formatPointLabel,
     formatReadout,
     emptyLabel = "No data yet",
+    yDomain,
+    padding = 20,
   }: {
     points: ChartPoint[];
     width?: number;
@@ -32,10 +34,22 @@
     formatPointLabel: (point: ChartPoint, index: number, all: ChartPoint[]) => string | undefined;
     formatReadout: (point: ChartPoint) => string;
     emptyLabel?: string;
+    /** Plot against fixed bounds rather than the series' own range. */
+    yDomain?: [number, number];
+    /**
+     * The margin the plot is inset by, in viewBox units — the default leaves room above
+     * each mark for a `formatPointLabel` caption at the chart's full height.
+     *
+     * It has to come down with the height, because the y-range is mapped onto
+     * `height - 2 * padding`: at the movers list's `height={48}` the default 20 leaves 8
+     * units of plot, so every row's trend renders as a near-flat line however much the
+     * movement actually moved — which is the one thing that row exists to show. A short
+     * chart with no point labels should pass something small.
+     */
+    padding?: number;
   } = $props();
 
-  const padding = 20;
-  const layout = $derived(layoutLineChart(points, width, height, padding));
+  const layout = $derived(layoutLineChart(points, width, height, padding, yDomain));
   let tapped = $state<number | undefined>(undefined);
   /**
    * The window picker re-renders this component in place with a different series, so a

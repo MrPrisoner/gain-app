@@ -1,0 +1,146 @@
+/**
+ * Showing up: weekly buckets, a streak, and the per-session-type counts that replace the
+ * hub's four duration charts.
+ *
+ * "Finished" means `completed_at` is set, whatever the status — the same test
+ * `sessionTypeStats` already applies. A red-flag stop is a workout the user turned up for
+ * and counts; a workout still open counts towards neither the buckets nor the streak. The
+ * window's session count, the buckets and the movers' session counts all use this one
+ * definition, so the three can never disagree on the same screen.
+ *
+ * Weeks are Monday-start in UTC rather than in local time, so the buckets are
+ * deterministic and testable. The accepted consequence: a workout logged late on a Sunday
+ * evening in a positive UTC offset falls into the following week.
+ *
+ * The streak is computed over full history, never the window — it is a fact about the
+ * user, not about the selected span, and windowing it to `4w` would cap it at four. It is
+ * measured to the current week if that week already holds a workout and otherwise to the
+ * previous one, so opening the app on a Monday morning does not read "streak: 0" and
+ * punish the user for the calendar.
+ */
+
+import type { GainContract } from "../contract/schema";
+import type { Logs, Workout } from "../logs/types";
+import { sessionTypeStats } from "./session-stats";
+
+export type WeekBucket = { weekStart: string; count: number };
+
+/**
+ * How many weekly buckets the strip renders, at most — the most recent ones.
+ *
+ * Only the `All` window is unbounded: `26w`, the longest bounded one, tops out at about 27
+ * buckets on its own, so this is the same density the user already sees one pill over. A
+ * bar chart 320 viewBox units wide cannot say anything with more than that; past roughly 70
+ * buckets — a year and a third of training, which `All` reaches on its own — the bars
+ * themselves stop being drawable at all (`layoutBarChart` floors that, but a hairline is
+ * not a chart).
+ *
+ * The cap is on the strip alone. `sessionCount`, `streakWeeks` and the per-session-type
+ * table all read their own source, so a user with three years of history still sees a
+ * three-year streak above a six-month strip.
+ */
+export const MAX_WEEK_BUCKETS = 26;
+
+export type Consistency = {
+  weeks: WeekBucket[];
+  sessionCount: number;
+  streakWeeks: number;
+  deviationCount: number;
+  activityCount: number;
+  bySessionType: { key: string; name: string; finished: number; deviations: number }[];
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function isFinished(workout: Workout): boolean {
+  return workout.completed_at !== undefined;
+}
+
+/** The Monday of the UTC week an ISO timestamp falls in, as `YYYY-MM-DD`. */
+export function weekStartOf(iso: string): string {
+  const date = new Date(iso);
+  const mondayOffset = (date.getUTCDay() + 6) % 7;
+  const monday = Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate() - mondayOffset,
+  );
+  return new Date(monday).toISOString().slice(0, 10);
+}
+
+function previousWeek(weekStart: string): string {
+  return new Date(new Date(`${weekStart}T00:00:00Z`).getTime() - 7 * DAY_MS)
+    .toISOString()
+    .slice(0, 10);
+}
+
+function nextWeek(weekStart: string): string {
+  return new Date(new Date(`${weekStart}T00:00:00Z`).getTime() + 7 * DAY_MS)
+    .toISOString()
+    .slice(0, 10);
+}
+
+export function buildConsistency(
+  contract: GainContract,
+  windowedLogs: Logs,
+  fullLogs: Logs,
+  now: Date,
+): Consistency {
+  const finished = windowedLogs.workouts.filter(isFinished);
+
+  const counts = new Map<string, number>();
+  for (const workout of finished) {
+    const week = weekStartOf(workout.started_at);
+    counts.set(week, (counts.get(week) ?? 0) + 1);
+  }
+
+  // Contiguous from the earliest logged week to the current one, so a gap renders as a
+  // gap rather than being compressed out of existence — then trimmed to the most recent
+  // `MAX_WEEK_BUCKETS` on the way out, never thinned, so the strip's weeks stay adjacent.
+  const weeks: WeekBucket[] = [];
+  const thisWeek = weekStartOf(now.toISOString());
+  const logged = [...counts.keys()].sort();
+  const earliest = logged[0];
+  // The strip runs to the current week or to the last week holding a workout, whichever
+  // is later. `started_at` is client-stamped by the offline write layer, so a phone whose
+  // clock is ahead files a workout into a week the server has not reached: bounding the
+  // loop at `thisWeek` alone dropped that workout's bar while it still counted towards
+  // the session count and the streak beside it — and if it were the only one logged, the
+  // loop never ran and an empty strip sat next to "1 session".
+  const latest = logged.at(-1);
+  const end = latest !== undefined && latest > thisWeek ? latest : thisWeek;
+  if (earliest !== undefined) {
+    for (let week = earliest; week <= end; week = nextWeek(week)) {
+      weeks.push({ weekStart: week, count: counts.get(week) ?? 0 });
+    }
+  }
+
+  const trained = new Set(
+    fullLogs.workouts.filter(isFinished).map((w) => weekStartOf(w.started_at)),
+  );
+  let cursor = trained.has(thisWeek) ? thisWeek : previousWeek(thisWeek);
+  let streakWeeks = 0;
+  while (trained.has(cursor)) {
+    streakWeeks += 1;
+    cursor = previousWeek(cursor);
+  }
+
+  const bySessionType = contract.sessions.map((session) => {
+    const stats = sessionTypeStats(windowedLogs, session.key);
+    return {
+      key: session.key,
+      name: session.name,
+      finished: stats.finishedCount,
+      deviations: stats.deviationCount,
+    };
+  });
+
+  return {
+    weeks: weeks.slice(-MAX_WEEK_BUCKETS),
+    sessionCount: finished.length,
+    streakWeeks,
+    deviationCount: windowedLogs.deviations.length,
+    activityCount: windowedLogs.activities.length,
+    bySessionType,
+  };
+}

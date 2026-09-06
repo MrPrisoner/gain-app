@@ -25,22 +25,22 @@ export type ExerciseSeriesPoint = {
   sets: SetLog[];
 };
 
-/** One point per workout the exercise was logged in, chronological. `renderExerciseSets`
- * (export/summary.ts) accepts `.sets` directly — no adapter needed. */
-export function buildExerciseSeries(
-  logs: Logs,
-  sessionKey: string,
-  exerciseSlug: string,
-): ExerciseSeriesPoint[] {
+/**
+ * Every workout a movement was logged in, chronological, regardless of session type.
+ *
+ * The module's `(session_key, exercise_slug)` grouping exists because the same movement
+ * can carry a different rep range in different sessions, and comparing a performance
+ * against the wrong range is a silent wrong answer. That concern belongs to
+ * double-progression, which compares against a prescribed range; it does not apply to an
+ * absolute score in kilograms, reps or seconds. Readiness therefore stays on the
+ * occurrence-grouped path below, and `movers.ts` uses this one.
+ */
+export function buildSeriesForExercise(logs: Logs, exerciseSlug: string): ExerciseSeriesPoint[] {
   const workoutById = new Map(logs.workouts.map((w) => [w.id, w]));
-  const sessionWorkoutIds = new Set(
-    logs.workouts.filter((w) => w.session_key === sessionKey).map((w) => w.id),
-  );
 
   const byWorkout = new Map<string, SetLog[]>();
   for (const set of logs.set_logs) {
     if (set.exercise_slug !== exerciseSlug) continue;
-    if (!sessionWorkoutIds.has(set.workout_id)) continue;
     const list = byWorkout.get(set.workout_id) ?? [];
     list.push(set);
     byWorkout.set(set.workout_id, list);
@@ -60,6 +60,63 @@ export function buildExerciseSeries(
   }
 
   return points.sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+}
+
+/**
+ * A movement's sessions, restricted to the session types the contract prescribes it in.
+ *
+ * A set logged against a movement during a session it is not prescribed in — a mid-session
+ * substitution — belongs to that session's own movement. Counting it here would inflate the
+ * movement's history and, worse, could make it the newest session and so the link target,
+ * which the detail route answers with "not prescribed in this session". Shared by
+ * `movers.ts` and `headline.ts` so the hub's counts and its lists cannot disagree.
+ */
+export function buildPrescribedSeries(
+  contract: GainContract,
+  logs: Logs,
+  exerciseSlug: string,
+): ExerciseSeriesPoint[] {
+  const keys = new Set(
+    exerciseOccurrences(contract)
+      .filter((o) => o.exerciseSlug === exerciseSlug)
+      .map((o) => o.sessionKey),
+  );
+  return seriesInSessions(logs, exerciseSlug, keys);
+}
+
+/**
+ * The same restriction as `buildPrescribedSeries`, for a caller that already holds the
+ * movement's occurrences.
+ *
+ * It exists because `exerciseOccurrences` resolves every session of the contract on every
+ * call, and the hub's two list-builders walk every movement: going back through the
+ * contract per slug re-resolved the whole plan a hundred times over for one page load.
+ * Both callers enumerate the occurrences once and hand the session keys down.
+ */
+export function seriesInSessions(
+  logs: Logs,
+  exerciseSlug: string,
+  sessionKeys: ReadonlySet<string>,
+): ExerciseSeriesPoint[] {
+  const workoutIds = new Set(
+    logs.workouts.filter((w) => sessionKeys.has(w.session_key)).map((w) => w.id),
+  );
+  return buildSeriesForExercise(logs, exerciseSlug).filter((p) => workoutIds.has(p.workoutId));
+}
+
+/** One point per workout of THIS session type the exercise was logged in, chronological.
+ * `renderExerciseSets` (export/summary.ts) accepts `.sets` directly — no adapter needed. */
+export function buildExerciseSeries(
+  logs: Logs,
+  sessionKey: string,
+  exerciseSlug: string,
+): ExerciseSeriesPoint[] {
+  const sessionWorkoutIds = new Set(
+    logs.workouts.filter((w) => w.session_key === sessionKey).map((w) => w.id),
+  );
+  return buildSeriesForExercise(logs, exerciseSlug).filter((p) =>
+    sessionWorkoutIds.has(p.workoutId),
+  );
 }
 
 export type ExerciseOccurrence = {

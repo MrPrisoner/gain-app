@@ -80,13 +80,13 @@ test("a logged goblet-squat set survives a rename to gobletsquat, end to end thr
   // revision exists. Read the actual value off the chart's point, not just the chart's
   // presence — a Sparkline renders its <svg> container in every state, populated or not
   // (CLAUDE.md's phase-7 review note), so only the point's own reading proves data.
-  // `window=full` matters here for the *second* navigation below: the detail page
-  // defaults to the "since current version" window (`src/lib/export/windows.ts`), and
-  // once v2 is committed that window starts at v2's import time — after this set was
-  // logged — so the default would exclude it and this spec would be asserting on an
-  // empty chart by accident rather than proving anything. Passed on both navigations for
-  // symmetry, though it is only load-bearing on the post-rename one. ---
-  await page.goto(`/plan/${E2E_PLAN_SLUG}/progress/exercises/A/goblet-squat?window=full`);
+  // `window=all` matters here for the *second* navigation below: the detail page
+  // defaults to a 12-week window (`src/lib/progress/progress-window.ts`), and this set
+  // may have been logged further back than that during a slow CI run — so the default
+  // could exclude it and this spec would be asserting on an empty chart by accident
+  // rather than proving anything. Passed on both navigations for symmetry, though it is
+  // only load-bearing on the post-rename one. ---
+  await page.goto(`/plan/${E2E_PLAN_SLUG}/progress/exercises/A/goblet-squat?window=all`);
   // Scoped to the trend chart's own <svg>: `.hit` is the class both chart primitives give
   // the tap band around a mark, so a bare `.hit` also matches the volume and difficulty
   // bars further down the page.
@@ -132,7 +132,7 @@ test("a logged goblet-squat set survives a rename to gobletsquat, end to end thr
 
   // --- The assertion the whole phase exists for: the set logged under the OLD slug is
   // visible on the NEW slug's progress detail, by its actual value. ---
-  await page.goto(`/plan/${E2E_PLAN_SLUG}/progress/exercises/A/gobletsquat?window=full`);
+  await page.goto(`/plan/${E2E_PLAN_SLUG}/progress/exercises/A/gobletsquat?window=all`);
   const renamedPoint = page.locator('svg[aria-label$="trend chart"] .hit');
   await expect(renamedPoint).toHaveCount(1);
   await expect(renamedPoint).toHaveAttribute(

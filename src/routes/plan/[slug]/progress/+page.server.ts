@@ -1,8 +1,10 @@
 /**
- * The progress hub: one compact card per declared session — no
- * drill-down, a handful of sessions is not the sprawl per-exercise progress avoids by
- * listing then drilling down instead — plus links out to the exercises and metrics
- * lists (Parts 4–5).
+ * The Progress screen, whole. Four routes collapsed to two: the exercises list was pure
+ * indirection over a readiness string, and both metric routes existed to put a window
+ * picker above a single sparkline.
+ *
+ * Thin by construction — every number here comes from a unit-tested module under
+ * `$lib/progress/`. The one thing this file decides is what the screen shows first.
  */
 
 import { error, redirect } from "@sveltejs/kit";
@@ -11,8 +13,13 @@ import { getUserDbFor } from "$lib/server/app-state";
 import { contractOfVersion, getCurrentVersion, getPlanBySlug } from "$lib/db/read";
 import { logsForPlan } from "$lib/db/logs";
 import { filterLogsToWindow } from "$lib/export/bundle";
-import { exportWindowOptions, resolveExportWindow } from "$lib/export/windows";
-import { sessionTypeStats } from "$lib/progress/session-stats";
+import { progressWindowOptions, resolveProgressWindow } from "$lib/progress/progress-window";
+import { formatReadiness, readyOccurrences } from "$lib/progress/double-progression";
+import { buildMovers } from "$lib/progress/movers";
+import { buildConsistency } from "$lib/progress/consistency";
+import { buildHeadline } from "$lib/progress/headline";
+import { hubMetricRows } from "$lib/progress/metric-series";
+import { formatScore } from "$lib/progress/personal-best";
 
 export const load: PageServerLoad = ({ params, locals, url }) => {
   const user = locals.user;
@@ -26,47 +33,54 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
   if (!version) throw error(409, "That plan has no current version");
   const contract = contractOfVersion(version);
 
-  const context = {
-    versionNo: version.version_no,
-    importedAt: version.imported_at,
-    blockLengthWeeks: version.block_length_weeks,
-    now: new Date(),
-  };
-  // A hand-edited `?window=` falls back to the default rather than erroring. That is
-  // deliberately unlike the export route, which must `fail(400)`: the window's label is
-  // written into the bundle the reviewing AI reads, so a silent substitution there
-  // mislabels the document (`windows.ts`). Nothing on a chart screen leaves the app.
-  const options = exportWindowOptions(context);
-  // `exportWindowOptions` always returns at least `since_version` and `full`, so
-  // `options[0]` is never undefined — the assertion documents that invariant rather
-  // than papering over a real gap.
-  const windowId = url.searchParams.get("window") ?? options[0]!.id;
-  const window = resolveExportWindow(windowId, context) ?? options[0]!;
-
+  const now = new Date();
+  const window = resolveProgressWindow(url.searchParams.get("window"), now);
   const logs = logsForPlan(userDb, plan.id);
   const windowed = filterLogsToWindow(logs, window);
 
-  const sessions = contract.sessions.map((session) => {
-    const stats = sessionTypeStats(windowed, session.key);
-    return {
-      key: session.key,
-      name: session.name,
-      completionRate: stats.completionRate,
-      finishedCount: stats.finishedCount,
-      deviationCount: stats.deviationCount,
-      duration: stats.duration.map((d) => ({
-        x: new Date(d.startedAt).getTime(),
-        y: Math.round(d.minutes),
-      })),
-    };
-  });
+  const movers = buildMovers(contract, windowed, logs);
+  // Readiness reads full unwindowed history: it is a statement about the next session,
+  // not about a span.
+  const ready = readyOccurrences(contract, logs);
+
+  const moverRows = movers.map((mover) => ({
+    exerciseSlug: mover.exerciseSlug,
+    exerciseName: mover.exerciseName,
+    linkSessionKey: mover.linkSessionKey,
+    linkSessionName: mover.linkSessionName,
+    from: formatScore(mover.first),
+    to: formatScore(mover.latest),
+    // The score kind and the window's first session travel with the row: the delta is
+    // computed from the score, so for `e1rm` it is derived from an estimate and cannot be
+    // checked against the two logged numbers beside it. The row says both.
+    kind: mover.kind,
+    firstAt: mover.first.startedAt,
+    deltaPct: mover.deltaPct,
+    latestIsBreakthrough: mover.latestIsBreakthrough,
+    points: mover.points,
+    sessionCount: mover.sessionCount,
+  }));
+
+  const readyRows = ready.map(({ occurrence, state }) => ({
+    exerciseSlug: occurrence.exerciseSlug,
+    exerciseName: occurrence.exerciseName,
+    sessionKey: occurrence.sessionKey,
+    sessionName: occurrence.sessionName,
+    summary: formatReadiness(state, "No range to progress through"),
+  }));
 
   return {
     planSlug: plan.slug,
     planName: plan.name,
     planArchived: !!plan.archived_at,
-    windowOptions: options.map((o) => ({ id: o.id, label: o.label })),
+    windowOptions: progressWindowOptions(now).map((o) => ({ id: o.id, label: o.label })),
     selectedWindow: window.id,
-    sessions,
+    // Both lists are handed over rather than rebuilt inside: the headline counts exactly
+    // what the screen renders, so the number above a list cannot disagree with it.
+    headline: buildHeadline(contract, logs, window.start, movers, ready),
+    ready: readyRows,
+    movers: moverRows,
+    consistency: buildConsistency(contract, windowed, logs, now),
+    metrics: hubMetricRows(contract, windowed),
   };
 };
