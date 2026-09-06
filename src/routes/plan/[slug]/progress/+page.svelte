@@ -29,8 +29,23 @@
     return `${rounded >= 0 ? "+" : ""}${rounded}%`;
   }
 
+  /**
+   * About this many dated bars, whatever the bucket count. An `MM-DD` label is roughly 25
+   * units wide in a 320-unit viewBox, so labelling every bucket collides from about eight
+   * bars on — and the strip runs to `MAX_WEEK_BUCKETS`. Every bar still names its own week
+   * exactly through the chart's tap-to-reveal readout, so these labels orient the axis
+   * rather than being the only way to read a value.
+   */
+  const MAX_WEEK_LABELS = 6;
+
+  /** Labels are counted back from the LAST bucket, so the most recent week is always the
+   * one named — an axis whose right-hand end is unlabelled is the one that misleads. */
   function weekBars(weeks: { weekStart: string; count: number }[]) {
-    return weeks.map((w) => ({ value: w.count, label: w.weekStart.slice(5) }));
+    const step = Math.max(1, Math.ceil(weeks.length / MAX_WEEK_LABELS));
+    return weeks.map((w, i) => ({
+      value: w.count,
+      label: (weeks.length - 1 - i) % step === 0 ? w.weekStart.slice(5) : undefined,
+    }));
   }
 </script>
 
@@ -104,6 +119,7 @@
               points={mover.points}
               width={320}
               height={48}
+              padding={6}
               ariaLabel={`${mover.exerciseName} progress trend chart`}
               formatPointLabel={() => undefined}
               formatReadout={(p) =>
@@ -125,8 +141,10 @@
     <BarChart
       data={weekBars(data.consistency.weeks)}
       ariaLabel="sessions per week bar chart"
-      formatReadout={(d) =>
-        `${d.value} session${d.value === 1 ? "" : "s"} in the week of ${d.label}`}
+      formatReadout={(d, i) =>
+        `${d.value} session${d.value === 1 ? "" : "s"} in the week of ${
+          data.consistency.weeks[i]?.weekStart
+        }`}
     />
     <p class="stat-line">
       {sessionCaption} · {data.consistency.streakWeeks}-week streak · {data.consistency

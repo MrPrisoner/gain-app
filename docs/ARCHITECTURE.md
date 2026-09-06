@@ -848,7 +848,12 @@ across workouts. Making it exact needs the `block_key` column §5 describes.
   metric plots against its declared bounds rather than auto-scaling.
 - **History:** reverse-chronological workout list, each drilling into full set detail
   and the plan version it ran under.
-- Charts stay simple and read well on a phone. No dashboard sprawl.
+- Charts stay simple and read well on a phone. No dashboard sprawl. The consistency strip
+  is the one place that bites: `All` is unbounded, and a bar chart 320 units wide stops
+  drawing bars at all somewhere past seventy of them. It therefore renders the most recent
+  weeks only (`MAX_WEEK_BUCKETS`) and dates about six of them, while the streak and the
+  counts beside it still read full history — a deliberate asymmetry, because a strip is
+  about cadence and a streak is about the user.
 
 ---
 

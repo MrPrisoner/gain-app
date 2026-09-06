@@ -25,6 +25,22 @@ import { sessionTypeStats } from "./session-stats";
 
 export type WeekBucket = { weekStart: string; count: number };
 
+/**
+ * How many weekly buckets the strip renders, at most — the most recent ones.
+ *
+ * Only the `All` window is unbounded: `26w`, the longest bounded one, tops out at about 27
+ * buckets on its own, so this is the same density the user already sees one pill over. A
+ * bar chart 320 viewBox units wide cannot say anything with more than that; past roughly 70
+ * buckets — a year and a third of training, which `All` reaches on its own — the bars
+ * themselves stop being drawable at all (`layoutBarChart` floors that, but a hairline is
+ * not a chart).
+ *
+ * The cap is on the strip alone. `sessionCount`, `streakWeeks` and the per-session-type
+ * table all read their own source, so a user with three years of history still sees a
+ * three-year streak above a six-month strip.
+ */
+export const MAX_WEEK_BUCKETS = 26;
+
 export type Consistency = {
   weeks: WeekBucket[];
   sessionCount: number;
@@ -79,7 +95,8 @@ export function buildConsistency(
   }
 
   // Contiguous from the earliest logged week to the current one, so a gap renders as a
-  // gap rather than being compressed out of existence.
+  // gap rather than being compressed out of existence — then trimmed to the most recent
+  // `MAX_WEEK_BUCKETS` on the way out, never thinned, so the strip's weeks stay adjacent.
   const weeks: WeekBucket[] = [];
   const thisWeek = weekStartOf(now.toISOString());
   const earliest = [...counts.keys()].sort()[0];
@@ -110,7 +127,7 @@ export function buildConsistency(
   });
 
   return {
-    weeks,
+    weeks: weeks.slice(-MAX_WEEK_BUCKETS),
     sessionCount: finished.length,
     streakWeeks,
     deviationCount: windowedLogs.deviations.length,

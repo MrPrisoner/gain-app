@@ -101,12 +101,20 @@ export function layoutBarChart(
   const max = Math.max(...data.map((d) => d.value), 0) || 1;
   const plotWidth = width - 2 * padding;
   const plotHeight = height - 2 * padding;
-  const barWidth = (plotWidth - gap * (data.length - 1)) / data.length;
+  // The gap yields before the bars do. At the caller's gap, `barWidth` reaches zero at
+  // around 71 bars in the hub's own geometry and goes negative past it — and an SVG `rect`
+  // with a non-positive width renders nothing at all, so the chart empties out silently
+  // rather than looking cramped. Capping the gap at half a bar's share of the plot keeps
+  // every bar at least `plotWidth / 2n` wide for any n, and is a no-op at the bar counts
+  // every caller actually renders. The legibility fix is upstream, in how many buckets a
+  // caller hands over; this is the floor under it.
+  const effectiveGap = Math.min(gap, plotWidth / (2 * data.length));
+  const barWidth = (plotWidth - effectiveGap * (data.length - 1)) / data.length;
 
   const placed = data.map((d, i) => {
     const barHeight = (d.value / max) * plotHeight;
     return {
-      x: padding + i * (barWidth + gap),
+      x: padding + i * (barWidth + effectiveGap),
       y: height - padding - barHeight,
       barWidth,
       barHeight,

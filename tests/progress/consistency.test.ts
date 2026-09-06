@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { parsePlanDocument } from "../../src/lib/parse/parser";
 import { EMPTY_LOGS, type Logs, type Workout } from "../../src/lib/logs/types";
-import { buildConsistency } from "../../src/lib/progress/consistency";
+import { MAX_WEEK_BUCKETS, buildConsistency } from "../../src/lib/progress/consistency";
 
 const source = readFileSync("fixtures/plans/home-training-v1.md", "utf8");
 const parsed = parsePlanDocument(source);
@@ -100,6 +100,30 @@ describe("buildConsistency", () => {
     // A streak is a fact about the user, not about the selected span — windowing it to
     // two weeks would report a four-week streak as two.
     expect(buildConsistency(contract, windowed, full, NOW).streakWeeks).toBe(4);
+  });
+
+  it("caps the strip at the most recent buckets rather than handing over an unbounded run", () => {
+    // Two years of weekly training on the `All` window. Past roughly 70 buckets the bar
+    // chart's own arithmetic runs out of width (chart-geometry.test.ts holds the floor
+    // under that); long before then the strip stops saying anything, so it is trimmed to
+    // its most recent weeks here.
+    const workouts = Array.from({ length: 104 }, (_, i) =>
+      finished(
+        `w${i}`,
+        "A",
+        new Date(Date.UTC(2024, 7, 26) + i * 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+      ),
+    );
+    const logs: Logs = { ...EMPTY_LOGS, workouts };
+    const c = buildConsistency(contract, logs, logs, NOW);
+    expect(c.weeks).toHaveLength(MAX_WEEK_BUCKETS);
+    // The trim takes the tail, so the strip ends on the current week and its weeks stay
+    // contiguous — never thinned, which would silently redefine what a bar means.
+    expect(c.weeks.at(-1)?.weekStart).toBe("2026-08-24");
+    expect(c.weeks[0]?.weekStart).toBe("2026-03-02");
+    // And the numbers beside the strip still read the whole log rather than the trim.
+    expect(c.sessionCount).toBe(104);
+    expect(c.streakWeeks).toBe(104);
   });
 
   it("breaks down finished workouts and deviations per session type", () => {

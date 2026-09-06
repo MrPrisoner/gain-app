@@ -102,6 +102,32 @@ describe("layoutBarChart", () => {
     expect(bars[0]!.barHeight).toBe(0);
   });
 
+  it("keeps every bar drawable however many there are, by yielding the gap first", () => {
+    // The hub's own geometry: 320 wide, 20 padding, 4 gap. At the requested gap the bar
+    // width hits zero at 71 bars and goes negative past it, and an SVG rect with a
+    // non-positive width renders nothing — the chart would empty out in silence rather
+    // than look cramped. 200 bars is well past anything a real log produces.
+    for (const n of [26, 52, 71, 104, 200]) {
+      const bars = layoutBarChart(
+        Array.from({ length: n }, () => ({ value: 1 })),
+        320,
+        120,
+        20,
+        4,
+      );
+      expect(bars).toHaveLength(n);
+      for (const bar of bars) expect(bar.barWidth).toBeGreaterThan(0);
+      // Still inside the plot: the last bar's right edge lands on the padding, not past it.
+      expect(bars.at(-1)!.x + bars.at(-1)!.barWidth).toBeLessThanOrEqual(300 + 1e-9);
+    }
+  });
+
+  it("leaves the requested gap alone at the bar counts callers actually render", () => {
+    // The clamp is a floor, not a redesign — three bars must lay out exactly as before.
+    const bars = layoutBarChart([{ value: 10 }, { value: 20 }, { value: 5 }], 100, 50, 5, 2);
+    expect(bars[1]!.x - bars[0]!.x).toBeCloseTo(bars[0]!.barWidth + 2, 6);
+  });
+
   it("gives a zero-height bar a full-height hit band anyway", () => {
     const bars = layoutBarChart([{ value: 0 }, { value: 10 }], 100, 50, 5, 2);
     expect(bars[0]!.barHeight).toBe(0);
