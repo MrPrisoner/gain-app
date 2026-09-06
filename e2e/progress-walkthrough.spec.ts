@@ -1,10 +1,11 @@
 // e2e/progress-walkthrough.spec.ts
 /**
- * Phase 7b's own durable proof: goblet-squat is prescribed in both session A
- * ([8,12]) and session D ([12,15]) of the fixture — logging it in both and finding two
- * separate rows on the exercises list is the one behaviour that would silently regress
- * to a merged row if buildExerciseSeries ever went back to keying on a bare
- * exercise_slug.
+ * The hub's own durable proof. goblet-squat is prescribed in both session A ([8,12]) and
+ * session D ([12,15]) of the fixture, and the redesign splits what that means: it is ONE
+ * mover row, because whether squats are moving is not a per-session question, and up to
+ * TWO readiness rows, because a range belongs to an occurrence. A regression in either
+ * direction — a movers list that keys on (session, exercise), or a readiness list that
+ * collapses to the slug — shows up here.
  */
 
 import { expect, test } from "@playwright/test";
@@ -18,6 +19,12 @@ import {
 } from "./helpers";
 import type { Page } from "@playwright/test";
 
+// The second test's link click depends on the first test's mover row existing —
+// `fullyParallel: true` (playwright.config.ts) otherwise schedules all three tests in
+// this file onto separate workers at once, and the second test would find an empty
+// `.mover-list` racing the first test's still-in-flight session log.
+test.describe.configure({ mode: "serial" });
+
 async function logGobletSquat(page: Page, sessionKey: string, sets: number): Promise<void> {
   await page.goto(`/plan/${E2E_PLAN_SLUG}/session/${sessionKey}`);
   await dismissPreSessionPrompt(page);
@@ -29,95 +36,65 @@ async function logGobletSquat(page: Page, sessionKey: string, sets: number): Pro
 
   await expect(openExercise(page).locator(".exercise-name")).toHaveText("Goblet squat");
   for (let i = 0; i < sets; i++) await logSetThroughRest(page);
+  await page.getByRole("button", { name: "End session" }).click();
+  await finishSession(page);
 }
 
-test("goblet squat, prescribed in two sessions, tracks as two separate progress rows", async ({
+test("the hub answers what changed, and groups movements the way each section needs", async ({
   page,
 }) => {
-  test.setTimeout(60_000);
+  test.setTimeout(90_000);
 
   await logGobletSquat(page, "A", 3);
   await logGobletSquat(page, "D", 2);
 
-  await page.goto(`/plan/${E2E_PLAN_SLUG}/progress/exercises`);
-  const rows = page.getByRole("listitem").filter({ hasText: "Goblet squat" });
-  await expect(rows).toHaveCount(2);
-  await assertNoHorizontalOverflow(page);
+  await page.goto(`/plan/${E2E_PLAN_SLUG}/progress?window=all`);
 
-  await rows.first().getByRole("link").click();
-  await expect(page.getByRole("heading", { name: "Goblet squat" })).toBeVisible();
-  // Goblet squat carries a load, so the first chart plots it; a bodyweight movement
-  // would plot reps instead and be headed differently (topSetChartPoints, Task 1).
   // Counts stay "at least one" rather than exact: this suite shares one seeded database
   // across three parallel viewport projects (history-walkthrough.spec.ts), so how many
-  // times session A has been logged by the time this assertion runs isn't deterministic.
+  // times a session has been logged by the time this runs is not deterministic.
+  await expect(page.getByRole("heading", { name: "Where you're moving" })).toBeVisible();
+
+  // One mover row for the movement, whichever sessions it was logged in.
+  const moverRows = page.locator(".mover-list li").filter({ hasText: "Goblet squat" });
+  await expect(moverRows).toHaveCount(1);
+
+  // The row's sparkline must actually be populated — Sparkline renders its <svg
+  // aria-label> in the empty branch too, so the container proves nothing.
   await expect(
-    page.locator('svg[aria-label="Load × reps trend chart"] .dot').first(),
+    page.locator('svg[aria-label="Goblet squat progress trend chart"] .dot').first(),
   ).toBeVisible();
-  await expect(page.locator('svg[aria-label="volume bar chart"] rect').first()).toBeVisible();
-  // difficultyBars always renders three bars (easy/medium/hard), even at zero-zero-zero
-  // (unlike Sparkline's empty state, BarChart's `<svg aria-label>` alone proves nothing
-  // about whether any set was actually logged) — so proving the chart is populated means
-  // reading a specific bar's readout, not just the svg's presence. Every set above was
-  // logged through `logSetThroughRest`'s default Medium tap, so Easy and Hard stay at 0.
-  await expect(page.getByRole("button", { name: /^Medium: [1-9]\d*$/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Easy: 0" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Hard: 0" })).toBeVisible();
+
+  // The consistency strip is a real chart with real bars, not an empty well.
+  await expect(
+    page.locator('svg[aria-label="sessions per week bar chart"] rect').first(),
+  ).toBeVisible();
 
   await assertNoHorizontalOverflow(page);
 });
 
-test("the progress hub shows a session card with a duration chart", async ({ page }) => {
-  await logGobletSquat(page, "A", 1);
-  await page.getByRole("button", { name: "End session" }).click();
-  await finishSession(page);
+test("a mover row links to a session the movement is actually prescribed in", async ({ page }) => {
+  await page.goto(`/plan/${E2E_PLAN_SLUG}/progress?window=all`);
+  const link = page.locator(".mover-list li a").first();
+  await link.click();
+  // The detail route 404s on an unprescribed (session, exercise) pair, so arriving at a
+  // rendered heading is the assertion.
+  await expect(page.locator("h1")).toBeVisible();
+  await expect(page.getByText("not prescribed in this session")).toHaveCount(0);
+});
 
+test("the window pills navigate and mark the current span", async ({ page }) => {
   await page.goto(`/plan/${E2E_PLAN_SLUG}/progress`);
-  await expect(page.getByRole("heading", { name: "Squat, Press & Row" })).toBeVisible();
-  // The svg wrapper renders in both the populated and empty-data states (Sparkline.svelte),
-  // so proving the duration series actually got a point means asserting on `.dot`, not the
-  // svg's mere presence.
-  await expect(
-    page.locator('svg[aria-label="Squat, Press & Row duration trend chart"] .dot').first(),
-  ).toBeVisible();
-
-  await assertNoHorizontalOverflow(page);
-});
-
-test("the metric trends list and detail chart the session-scope symptoms metric", async ({
-  page,
-}) => {
-  // The fixture declares `symptoms_during` at both set and session scope — the one
-  // pairing the `(scope, key)` invariant exists to protect. The wrap-up sheet only ever
-  // asks the session-scope one (`prompt_when: end`), so answering it here is the
-  // cheapest way to get a chartable value onto these two never-before-visited routes.
-  await logGobletSquat(page, "A", 1);
-  await page.getByRole("button", { name: "End session" }).click();
-  await page
-    .getByRole("group", { name: "Hip / lower-back symptoms during this session" })
-    .getByRole("button", { name: "4", exact: true })
-    .click();
-  await finishSession(page);
-
-  await page.goto(`/plan/${E2E_PLAN_SLUG}/progress/metrics`);
-  const row = page
-    .getByRole("listitem")
-    .filter({ hasText: "Hip / lower-back symptoms during this session" });
-  await expect(row).toHaveCount(1);
-
-  await row.getByRole("link").click();
-  await expect(
-    page.getByRole("heading", { name: "Hip / lower-back symptoms during this session" }),
-  ).toBeVisible();
-  // `.dot`, not the bare `svg`, for the same reason as the two charts above: Sparkline
-  // renders its `<svg role="group" aria-label>` in both the populated and the empty
-  // branch — only the contents swap — so asserting on the shell alone passes with zero
-  // plotted points and proves nothing about the metric series reaching the chart.
-  await expect(
-    page
-      .locator('svg[aria-label="Hip / lower-back symptoms during this session trend chart"] .dot')
-      .first(),
-  ).toBeVisible();
-
+  // 12w is the default and is current without any query string.
+  await expect(page.locator('.window-pills a[data-window="12w"]')).toHaveAttribute(
+    "aria-current",
+    "true",
+  );
+  await page.locator('.window-pills a[data-window="all"]').click();
+  await expect(page).toHaveURL(/window=all/);
+  await expect(page.locator('.window-pills a[data-window="all"]')).toHaveAttribute(
+    "aria-current",
+    "true",
+  );
   await assertNoHorizontalOverflow(page);
 });
