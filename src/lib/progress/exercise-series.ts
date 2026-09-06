@@ -81,7 +81,26 @@ export function buildPrescribedSeries(
       .filter((o) => o.exerciseSlug === exerciseSlug)
       .map((o) => o.sessionKey),
   );
-  const workoutIds = new Set(logs.workouts.filter((w) => keys.has(w.session_key)).map((w) => w.id));
+  return seriesInSessions(logs, exerciseSlug, keys);
+}
+
+/**
+ * The same restriction as `buildPrescribedSeries`, for a caller that already holds the
+ * movement's occurrences.
+ *
+ * It exists because `exerciseOccurrences` resolves every session of the contract on every
+ * call, and the hub's two list-builders walk every movement: going back through the
+ * contract per slug re-resolved the whole plan a hundred times over for one page load.
+ * Both callers enumerate the occurrences once and hand the session keys down.
+ */
+export function seriesInSessions(
+  logs: Logs,
+  exerciseSlug: string,
+  sessionKeys: ReadonlySet<string>,
+): ExerciseSeriesPoint[] {
+  const workoutIds = new Set(
+    logs.workouts.filter((w) => sessionKeys.has(w.session_key)).map((w) => w.id),
+  );
   return buildSeriesForExercise(logs, exerciseSlug).filter((p) => workoutIds.has(p.workoutId));
 }
 

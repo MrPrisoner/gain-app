@@ -121,6 +121,28 @@ describe("buildMovers", () => {
     expect(row?.sessionCount).toBe(1);
   });
 
+  it("links to the occurrence holding the newest set, not the last one the contract lists", () => {
+    // goblet-squat is prescribed in session A and session D, and `exerciseOccurrences`
+    // emits them in contract order, so "the last occurrence with any logged sets" would
+    // always answer D. The row has to name where the movement is actually being trained:
+    // here every recent session is an A, and D was months ago.
+    const logs: Logs = {
+      ...EMPTY_LOGS,
+      workouts: [
+        workout("w-d1", "D", "2026-06-01"),
+        workout("w-a1", "A", "2026-08-03"),
+        workout("w-a2", "A", "2026-08-10"),
+      ],
+      set_logs: [
+        set("s1", "w-d1", "goblet-squat", 13, 6),
+        set("s2", "w-a1", "goblet-squat", 10, 6),
+        set("s3", "w-a2", "goblet-squat", 12, 8),
+      ],
+    };
+    const row = buildMovers(contract, logs, logs).find((m) => m.exerciseSlug === "goblet-squat");
+    expect(row?.linkSessionKey).toBe("A");
+  });
+
   it("reports a breakthrough on a per_side movement, whose sets carry no unsided score", () => {
     // The one ruling on this branch that only code inspection was holding: a mover row
     // summarises the whole movement, so `latestIsBreakthrough` is computed inline over

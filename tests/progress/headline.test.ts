@@ -3,11 +3,28 @@ import { readFileSync } from "node:fs";
 import { parsePlanDocument } from "../../src/lib/parse/parser";
 import { EMPTY_LOGS, type Logs } from "../../src/lib/logs/types";
 import { buildHeadline } from "../../src/lib/progress/headline";
+import { buildMovers } from "../../src/lib/progress/movers";
+import { readyOccurrences } from "../../src/lib/progress/double-progression";
 
 const source = readFileSync("fixtures/plans/home-training-v1.md", "utf8");
 const parsed = parsePlanDocument(source);
 if (!parsed.ok) throw new Error("fixture must parse");
 const contract = parsed.contract;
+
+/**
+ * `buildHeadline` counts the two lists the screen renders rather than rebuilding them, so
+ * a caller has to hand them over. Composing them here the way the route does is the point:
+ * it is what makes "the number above a list cannot disagree with the list" structural.
+ */
+function headlineOf(windowedLogs: Logs, fullLogs: Logs, windowStart?: string) {
+  return buildHeadline(
+    contract,
+    fullLogs,
+    windowStart,
+    buildMovers(contract, windowedLogs, fullLogs),
+    readyOccurrences(contract, fullLogs),
+  );
+}
 
 function workout(id: string, sessionKey: string, day: string) {
   return {
@@ -45,7 +62,7 @@ describe("buildHeadline", () => {
       workouts: [workout("w1", "A", "2026-08-03"), workout("w2", "A", "2026-08-10")],
       set_logs: [set("s1", "w1", "goblet-squat", 10, 6), set("s2", "w2", "goblet-squat", 10, 9)],
     };
-    expect(buildHeadline(contract, logs, logs, undefined).newBests).toBe(1);
+    expect(headlineOf(logs, logs).newBests).toBe(1);
   });
 
   it("does not count the first ever session as a new best", () => {
@@ -54,7 +71,7 @@ describe("buildHeadline", () => {
       workouts: [workout("w1", "A", "2026-08-03")],
       set_logs: [set("s1", "w1", "goblet-squat", 10, 6)],
     };
-    expect(buildHeadline(contract, logs, logs, undefined).newBests).toBe(0);
+    expect(headlineOf(logs, logs).newBests).toBe(0);
   });
 
   it("counts movements, not breakthroughs, so a per-side best cannot report two", () => {
@@ -71,7 +88,7 @@ describe("buildHeadline", () => {
         set("s4", "w2", "split-squat", 10, 6, "right"),
       ],
     };
-    expect(buildHeadline(contract, logs, logs, undefined).newBests).toBe(1);
+    expect(headlineOf(logs, logs).newBests).toBe(1);
   });
 
   it("keeps a breakthrough outside the window out of the count", () => {
@@ -80,7 +97,7 @@ describe("buildHeadline", () => {
       workouts: [workout("w1", "A", "2026-08-03"), workout("w2", "A", "2026-08-10")],
       set_logs: [set("s1", "w1", "goblet-squat", 10, 6), set("s2", "w2", "goblet-squat", 10, 9)],
     };
-    expect(buildHeadline(contract, logs, logs, "2026-08-20T00:00:00Z").newBests).toBe(0);
+    expect(headlineOf(logs, logs, "2026-08-20T00:00:00Z").newBests).toBe(0);
   });
 
   it("states improvement as a fraction whose denominator excludes single-session work", () => {
@@ -98,7 +115,7 @@ describe("buildHeadline", () => {
         set("s5", "w1", "prone-row", 10, 8),
       ],
     };
-    const headline = buildHeadline(contract, logs, logs, undefined);
+    const headline = headlineOf(logs, logs);
     expect(headline.improved).toEqual({ count: 1, comparable: 2 });
   });
 
@@ -116,9 +133,7 @@ describe("buildHeadline", () => {
         { ...set("s3", "w1", "goblet-squat", 12, 8), set_no: 3 },
       ],
     };
-    expect(buildHeadline(contract, logs, logs, undefined).readyToIncrease).toBeGreaterThanOrEqual(
-      1,
-    );
+    expect(headlineOf(logs, logs).readyToIncrease).toBeGreaterThanOrEqual(1);
   });
 
   it("does not count a movement short of its prescribed set count as ready", () => {
@@ -132,11 +147,11 @@ describe("buildHeadline", () => {
         { ...set("s2", "w1", "goblet-squat", 12, 8), set_no: 2 },
       ],
     };
-    expect(buildHeadline(contract, logs, logs, undefined).readyToIncrease).toBe(0);
+    expect(headlineOf(logs, logs).readyToIncrease).toBe(0);
   });
 
   it("reports nothing comparable rather than dividing by zero on an empty window", () => {
-    const headline = buildHeadline(contract, EMPTY_LOGS, EMPTY_LOGS, undefined);
+    const headline = headlineOf(EMPTY_LOGS, EMPTY_LOGS);
     expect(headline).toEqual({
       newBests: 0,
       readyToIncrease: 0,

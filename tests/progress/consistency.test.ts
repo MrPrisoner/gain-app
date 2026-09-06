@@ -139,3 +139,26 @@ describe("buildConsistency", () => {
     expect(c.deviationCount).toBe(1);
   });
 });
+
+describe("buildConsistency with a workout dated ahead of the server's week", () => {
+  it("draws a bar for it rather than leaving an empty strip beside a session count", () => {
+    // `started_at` is client-stamped by the offline write layer, so a phone whose clock
+    // runs ahead files a workout into a week the server has not reached yet. Bounding the
+    // strip at the current week dropped that bar while the workout still counted towards
+    // the session count and the streak printed underneath it.
+    // NOW is in the week of 2026-08-24, so the second workout is two weeks ahead of it.
+    const logs: Logs = {
+      ...EMPTY_LOGS,
+      workouts: [finished("w1", "A", "2026-08-17"), finished("w2", "A", "2026-09-07")],
+    };
+    const consistency = buildConsistency(contract, logs, logs, NOW);
+
+    expect(consistency.sessionCount).toBe(2);
+    expect(consistency.weeks).toEqual([
+      { weekStart: "2026-08-17", count: 1 },
+      { weekStart: "2026-08-24", count: 0 },
+      { weekStart: "2026-08-31", count: 0 },
+      { weekStart: "2026-09-07", count: 1 },
+    ]);
+  });
+});

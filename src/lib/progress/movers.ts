@@ -15,7 +15,7 @@
 
 import type { GainContract } from "../contract/schema";
 import type { Logs } from "../logs/types";
-import { buildPrescribedSeries, exerciseOccurrences } from "./exercise-series";
+import { exerciseOccurrences, seriesInSessions } from "./exercise-series";
 import { bestSetsBySession, scoreKindFor, type BestSet, type ScoreKind } from "./personal-best";
 
 export type Mover = {
@@ -43,9 +43,12 @@ export function buildMovers(contract: GainContract, windowedLogs: Logs, fullLogs
     bySlug.set(occurrence.exerciseSlug, list);
   }
 
+  const sessionOfWorkout = new Map(windowedLogs.workouts.map((w) => [w.id, w.session_key]));
+
   const movers: Mover[] = [];
   for (const [slug, occurrences] of bySlug) {
-    const fullSeries = buildPrescribedSeries(contract, fullLogs, slug);
+    const sessionKeys = new Set(occurrences.map((o) => o.sessionKey));
+    const fullSeries = seriesInSessions(fullLogs, slug, sessionKeys);
     if (fullSeries.length === 0) continue;
 
     // `type` comes from the first occurrence in catalogue order. A movement prescribed as
@@ -58,7 +61,7 @@ export function buildMovers(contract: GainContract, windowedLogs: Logs, fullLogs
     // movement's unit and silently change what the row means.
     const kind = scoreKindFor(fullSeries, type);
 
-    const windowSeries = buildPrescribedSeries(contract, windowedLogs, slug);
+    const windowSeries = seriesInSessions(windowedLogs, slug, sessionKeys);
     // Both sides at once: a mover row summarises the movement, and the detail route is
     // where left and right are kept apart.
     const bests = bestSetsBySession(windowSeries, kind);
@@ -84,12 +87,18 @@ export function buildMovers(contract: GainContract, windowedLogs: Logs, fullLogs
         .slice(0, latestIndex)
         .every((earlier) => earlier.score < fullBests[latestIndex]!.score);
 
-    const withLogs = occurrences.filter((o) =>
-      windowSeries.some((p) =>
-        windowedLogs.workouts.some((w) => w.id === p.workoutId && w.session_key === o.sessionKey),
-      ),
-    );
-    const link = withLogs[withLogs.length - 1] ?? first;
+    // The occurrence holding the movement's NEWEST logged set, not the last one the
+    // contract happens to declare. A movement prescribed in two sessions and trained
+    // almost entirely in the earlier one would otherwise link to the session it has barely
+    // been done in — always a valid target, so nothing 404s and nothing fails, but the
+    // wrong charts. `windowSeries` is chronological and already restricted to prescribed
+    // sessions, so the last point that names an occurrence is that occurrence.
+    let link = first;
+    for (const point of windowSeries) {
+      const key = sessionOfWorkout.get(point.workoutId);
+      const occurrence = occurrences.find((o) => o.sessionKey === key);
+      if (occurrence) link = occurrence;
+    }
 
     movers.push({
       exerciseSlug: slug,

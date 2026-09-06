@@ -99,9 +99,18 @@ export function buildConsistency(
   // `MAX_WEEK_BUCKETS` on the way out, never thinned, so the strip's weeks stay adjacent.
   const weeks: WeekBucket[] = [];
   const thisWeek = weekStartOf(now.toISOString());
-  const earliest = [...counts.keys()].sort()[0];
-  if (earliest) {
-    for (let week = earliest; week <= thisWeek; week = nextWeek(week)) {
+  const logged = [...counts.keys()].sort();
+  const earliest = logged[0];
+  // The strip runs to the current week or to the last week holding a workout, whichever
+  // is later. `started_at` is client-stamped by the offline write layer, so a phone whose
+  // clock is ahead files a workout into a week the server has not reached: bounding the
+  // loop at `thisWeek` alone dropped that workout's bar while it still counted towards
+  // the session count and the streak beside it — and if it were the only one logged, the
+  // loop never ran and an empty strip sat next to "1 session".
+  const latest = logged.at(-1);
+  const end = latest !== undefined && latest > thisWeek ? latest : thisWeek;
+  if (earliest !== undefined) {
+    for (let week = earliest; week <= end; week = nextWeek(week)) {
       weeks.push({ weekStart: week, count: counts.get(week) ?? 0 });
     }
   }

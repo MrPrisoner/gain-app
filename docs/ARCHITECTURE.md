@@ -845,7 +845,10 @@ across workouts. Making it exact needs the `block_key` column §5 describes.
   ("12/11/11 — one session from a load increase"), and difficulty distribution.
 - **Metric trends:** any numeric plan-declared metric is chartable, so symptom and energy
   tracking come free from the metric definitions rather than from hardcoding. A `scale`
-  metric plots against its declared bounds rather than auto-scaling.
+  metric plots against at least its declared bounds rather than auto-scaling to its own
+  range — "at least", because a revision that narrows a scale leaves older values above
+  the new maximum, and an SVG clips to its viewBox, so bounds taken literally would drop
+  those sessions from the chart without saying so.
 - **History:** reverse-chronological workout list, each drilling into full set detail
   and the plan version it ran under.
 - Charts stay simple and read well on a phone. No dashboard sprawl. The consistency strip

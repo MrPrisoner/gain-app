@@ -161,3 +161,27 @@ export function formatScore(best: BestSet): string {
       return `${best.durationS}s`;
   }
 }
+
+/**
+ * A score in its own units — the one place a user is shown the comparator itself rather
+ * than what they logged, because a chart plots scores and a tapped point has to say what
+ * it is standing on.
+ *
+ * `e1rm` names itself an estimate. It is one: Epley, off a rep count capped at twelve, so
+ * it is not reconcilable from the kilograms and reps beside it and must never read as a
+ * measurement. A loaded hold's kg-seconds is an index rather than a quantity anyone
+ * trains, so it is named too — an unlabelled "360.0" under a tapped point tells the reader
+ * nothing at all.
+ */
+export function formatScoreValue(score: number, kind: ScoreKind): string {
+  switch (kind) {
+    case "e1rm":
+      return `${score.toFixed(1)} kg est. 1RM`;
+    case "loaded_hold":
+      return `${Math.round(score)} kg·s`;
+    case "reps":
+      return `${score} reps`;
+    case "seconds":
+      return `${score}s`;
+  }
+}

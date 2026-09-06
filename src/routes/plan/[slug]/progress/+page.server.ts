@@ -38,24 +38,30 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
   const logs = logsForPlan(userDb, plan.id);
   const windowed = filterLogsToWindow(logs, window);
 
-  const movers = buildMovers(contract, windowed, logs).map((mover) => ({
+  const movers = buildMovers(contract, windowed, logs);
+  // Readiness reads full unwindowed history: it is a statement about the next session,
+  // not about a span.
+  const ready = readyOccurrences(contract, logs);
+
+  const moverRows = movers.map((mover) => ({
     exerciseSlug: mover.exerciseSlug,
     exerciseName: mover.exerciseName,
     linkSessionKey: mover.linkSessionKey,
     linkSessionName: mover.linkSessionName,
     from: formatScore(mover.first),
     to: formatScore(mover.latest),
+    // The score kind and the window's first session travel with the row: the delta is
+    // computed from the score, so for `e1rm` it is derived from an estimate and cannot be
+    // checked against the two logged numbers beside it. The row says both.
+    kind: mover.kind,
+    firstAt: mover.first.startedAt,
     deltaPct: mover.deltaPct,
     latestIsBreakthrough: mover.latestIsBreakthrough,
     points: mover.points,
     sessionCount: mover.sessionCount,
   }));
 
-  // Readiness reads full unwindowed history: it is a statement about the next session,
-  // not about a span. The predicate itself lives in `double-progression.ts` because
-  // `buildHeadline` counts exactly these rows — two copies of it would let the count above
-  // the list disagree with the list.
-  const ready = readyOccurrences(contract, logs).map(({ occurrence, state }) => ({
+  const readyRows = ready.map(({ occurrence, state }) => ({
     exerciseSlug: occurrence.exerciseSlug,
     exerciseName: occurrence.exerciseName,
     sessionKey: occurrence.sessionKey,
@@ -69,9 +75,11 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
     planArchived: !!plan.archived_at,
     windowOptions: progressWindowOptions(now).map((o) => ({ id: o.id, label: o.label })),
     selectedWindow: window.id,
-    headline: buildHeadline(contract, windowed, logs, window.start),
-    ready,
-    movers,
+    // Both lists are handed over rather than rebuilt inside: the headline counts exactly
+    // what the screen renders, so the number above a list cannot disagree with it.
+    headline: buildHeadline(contract, logs, window.start, movers, ready),
+    ready: readyRows,
+    movers: moverRows,
     consistency: buildConsistency(contract, windowed, logs, now),
     metrics: hubMetricRows(contract, windowed),
   };

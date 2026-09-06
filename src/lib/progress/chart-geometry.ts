@@ -42,10 +42,18 @@ export function layoutLineChart(
   width: number,
   height: number,
   padding: number,
-  /** Plot against these bounds instead of the data's own range. A plan-declared `scale`
-   * metric passes its declared min/max, so a 2-to-3 movement on a 0-10 scale renders as
-   * the near-flat line it is rather than as a climb. Omitted everywhere else, which
-   * preserves the auto-scaling every other chart relies on. */
+  /** Bounds the plot must at least span. A plan-declared `scale` metric passes its
+   * declared min/max, so a 2-to-3 movement on a 0-10 scale renders as the near-flat line
+   * it is rather than as a climb. Omitted everywhere else, which preserves the
+   * auto-scaling every other chart relies on.
+   *
+   * It widens the domain rather than replacing it, because an SVG clips to its viewBox: a
+   * point outside these bounds would be plotted off-canvas and vanish silently, dot, hit
+   * band and line segment together, and the chart would read as though those sessions
+   * were never logged. That is reachable without anything being wrong — a plan revision
+   * narrowing a scale from 0-10 to 0-5 leaves older values above the new max. Widening
+   * keeps the declared range as the floor, which is the whole point of passing one, while
+   * never dropping a real observation. */
   yDomain?: readonly [number, number],
 ): { plotted: PlottedPoint[]; path: string } {
   if (points.length === 0) return { plotted: [], path: "" };
@@ -54,8 +62,8 @@ export function layoutLineChart(
   const ys = points.map((p) => p.y);
   const xMin = Math.min(...xs);
   const xMax = Math.max(...xs);
-  const yMin = yDomain ? yDomain[0] : Math.min(...ys);
-  const yMax = yDomain ? yDomain[1] : Math.max(...ys);
+  const yMin = Math.min(...ys, ...(yDomain ? [yDomain[0]] : []));
+  const yMax = Math.max(...ys, ...(yDomain ? [yDomain[1]] : []));
   const xSpan = xMax - xMin || 1;
   const ySpan = yMax - yMin || 1;
 

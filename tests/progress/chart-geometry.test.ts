@@ -135,3 +135,26 @@ describe("layoutBarChart", () => {
     expect(bars.at(-1)!.bandX + bars.at(-1)!.bandWidth).toBe(100);
   });
 });
+
+describe("layoutLineChart with a yDomain that does not contain the data", () => {
+  it("widens the domain rather than plotting a point outside the viewBox", () => {
+    // A plan revision that narrows a scale metric from 0-10 to 0-5 leaves older values
+    // above the new max. An SVG clips to its viewBox, so a domain taken literally would
+    // drop those points silently — dot, hit band and line segment — and the chart would
+    // read as though those sessions were never logged.
+    const points = [
+      { x: 0, y: 2 },
+      { x: 1, y: 8 },
+    ];
+    const { plotted } = layoutLineChart(points, 100, 100, 10, [0, 5]);
+
+    for (const point of plotted) {
+      expect(point.cy).toBeGreaterThanOrEqual(10);
+      expect(point.cy).toBeLessThanOrEqual(90);
+    }
+    // The declared floor still holds: 0 stays the bottom of the domain, so the 2 sits low
+    // rather than being pinned to the axis the way auto-scaling would pin it.
+    expect(plotted[0]!.cy).toBeGreaterThan(plotted[1]!.cy);
+    expect(plotted[0]!.cy).toBeLessThan(90);
+  });
+});

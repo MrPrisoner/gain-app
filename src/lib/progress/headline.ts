@@ -11,14 +11,21 @@
  * that is out of eight or out of thirty. `comparable` counts movements with at least two
  * logged sessions in the window; a movement logged once is neither improved nor
  * unimproved and belongs in neither number rather than being counted as a failure.
+ *
+ * **Two of the three numbers are counted off the very lists the screen renders**, which
+ * are passed in rather than recomputed here. Recomputing them was both wasteful — the
+ * route built each list and this module built it again, resolving the whole contract a
+ * second time — and weaker: "the count and the list are built from the same function" is
+ * a convention that a later edit can break silently, while counting the list itself
+ * cannot disagree with it at all.
  */
 
 import type { GainContract } from "../contract/schema";
 import type { Logs } from "../logs/types";
-import { readyOccurrences } from "./double-progression";
-import { buildPrescribedSeries, exerciseOccurrences } from "./exercise-series";
+import type { ReadyOccurrence } from "./double-progression";
+import { exerciseOccurrences, seriesInSessions, type ExerciseOccurrence } from "./exercise-series";
 import { breakthroughs } from "./personal-best";
-import { buildMovers } from "./movers";
+import type { Mover } from "./movers";
 
 export type Headline = {
   /** Distinct exercises with a breakthrough inside the window — never per side. */
@@ -29,46 +36,38 @@ export type Headline = {
 
 export function buildHeadline(
   contract: GainContract,
-  windowedLogs: Logs,
   fullLogs: Logs,
   windowStart: string | undefined,
+  movers: readonly Mover[],
+  ready: readonly ReadyOccurrence[],
 ): Headline {
-  const occurrences = exerciseOccurrences(contract);
-
-  const bySlug = new Map<string, (typeof occurrences)[number]>();
-  for (const occurrence of occurrences) {
-    if (!bySlug.has(occurrence.exerciseSlug)) bySlug.set(occurrence.exerciseSlug, occurrence);
+  const bySlug = new Map<string, ExerciseOccurrence[]>();
+  for (const occurrence of exerciseOccurrences(contract)) {
+    const list = bySlug.get(occurrence.exerciseSlug) ?? [];
+    list.push(occurrence);
+    bySlug.set(occurrence.exerciseSlug, list);
   }
 
-  const improvedSlugs = new Set<string>();
-  for (const [slug, occurrence] of bySlug) {
+  const bestSlugs = new Set<string>();
+  for (const [slug, occurrences] of bySlug) {
     // Full history, then filtered by date: a personal best must beat everything before it,
     // not merely everything since the window opened. Prescribed sessions only, matching
     // `buildMovers` exactly — otherwise this count could name a movement whose row the
     // movers list does not show.
-    const series = buildPrescribedSeries(contract, fullLogs, slug);
-    const found = breakthroughs(
-      series,
-      slug,
-      occurrence.resolved.type,
-      occurrence.resolved.perSide,
-    );
+    const first = occurrences[0]!;
+    const series = seriesInSessions(fullLogs, slug, new Set(occurrences.map((o) => o.sessionKey)));
+    const found = breakthroughs(series, slug, first.resolved.type, first.resolved.perSide);
     const inWindow = found.filter(
       (b) => windowStart === undefined || b.at.startedAt >= windowStart,
     );
-    if (inWindow.length > 0) improvedSlugs.add(slug);
+    if (inWindow.length > 0) bestSlugs.add(slug);
   }
 
-  // The same function the hub's own "Ready to go up" list is built from, so this number
-  // and that list can never disagree about what is ready.
-  const readyToIncrease = readyOccurrences(contract, fullLogs).length;
-
-  const movers = buildMovers(contract, windowedLogs, fullLogs);
   const comparable = movers.filter((m) => m.deltaPct !== undefined);
 
   return {
-    newBests: improvedSlugs.size,
-    readyToIncrease,
+    newBests: bestSlugs.size,
+    readyToIncrease: ready.length,
     improved: {
       count: comparable.filter((m) => (m.deltaPct ?? 0) > 0).length,
       comparable: comparable.length,

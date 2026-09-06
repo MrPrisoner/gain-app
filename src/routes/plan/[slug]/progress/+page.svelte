@@ -6,6 +6,7 @@
   import PageHeader from "$lib/components/PageHeader.svelte";
   import EmptyState from "$lib/components/EmptyState.svelte";
   import WindowPills from "$lib/components/WindowPills.svelte";
+  import { formatScoreValue, type ScoreKind } from "$lib/progress/personal-best";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
@@ -22,11 +23,41 @@
     return `/plan/${data.planSlug}/progress?window=${id}`;
   }
 
-  /** Always with its basis, never a bare percentage. */
-  function formatDelta(pct: number | undefined): string {
-    if (pct === undefined) return "First session in this window";
+  const MONTHS = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+
+  /** "3 Aug", in UTC like every other date this screen derives. */
+  function shortDate(iso: string): string {
+    const date = new Date(iso);
+    // `getUTCMonth` is 0-11 by definition, so the index is always in range.
+    return `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]!}`;
+  }
+
+  /**
+   * Never a bare percentage: the row states what the change is measured from, and an
+   * `e1rm` delta says it is an estimate.
+   *
+   * That marker is not decoration. An e1rm score is Epley off a rep count capped at
+   * twelve, so `6 kg × 15 → 8 kg × 8 · +21%` is arithmetic the reader cannot do from the
+   * two numbers in front of them — the cap is invisible and deliberately so. A percentage
+   * that looks checkable and is not is exactly the quietly-wrong number this screen exists
+   * to stop producing.
+   */
+  function formatDelta(pct: number, kind: ScoreKind): string {
     const rounded = Math.round(pct * 100);
-    return `${rounded >= 0 ? "+" : ""}${rounded}%`;
+    return `${rounded >= 0 ? "+" : ""}${rounded}%${kind === "e1rm" ? " est." : ""}`;
   }
 
   /**
@@ -64,9 +95,14 @@
 
 {#if data.consistency.sessionCount === 0}
   <EmptyState title="Nothing logged in this window" />
-  <p class="empty-hint">
-    <a href={windowHref("all")}>Look at your full history instead</a>
-  </p>
+  {#if data.selectedWindow !== "all"}
+    <!-- Only where it leads somewhere else. On `All` there is no wider window to offer,
+         and a link back to the page you are already on is a dead end dressed as a way
+         out. -->
+    <p class="empty-hint">
+      <a href={windowHref("all")}>Look at your full history instead</a>
+    </p>
+  {/if}
 {:else}
   <section class="headline" aria-label="What changed">
     <p class="stat"><strong>{data.headline.newBests}</strong> new bests</p>
@@ -112,7 +148,9 @@
               {#if mover.deltaPct === undefined}
                 {mover.to} · one session so far
               {:else}
-                {mover.from} → {mover.to} · <span class="delta">{formatDelta(mover.deltaPct)}</span>
+                {mover.from} → {mover.to} ·
+                <span class="delta">{formatDelta(mover.deltaPct, mover.kind)}</span>
+                since {shortDate(mover.firstAt)}
               {/if}
             </span>
             <Sparkline
@@ -123,7 +161,9 @@
               ariaLabel={`${mover.exerciseName} progress trend chart`}
               formatPointLabel={() => undefined}
               formatReadout={(p) =>
-                `${p.y.toFixed(1)} on ${new Date(p.x).toISOString().slice(0, 10)}`}
+                `${formatScoreValue(p.y, mover.kind)} on ${new Date(p.x)
+                  .toISOString()
+                  .slice(0, 10)}`}
             />
           </a>
         </li>
