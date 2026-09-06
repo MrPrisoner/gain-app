@@ -1,14 +1,16 @@
 <!-- src/routes/plan/[slug]/progress/exercises/[session]/[exercise]/+page.svelte -->
 <script lang="ts">
-  import { goto } from "$app/navigation";
-  import { resolve } from "$app/paths";
-  import { page } from "$app/state";
   import Sparkline from "$lib/components/Sparkline.svelte";
   import BarChart from "$lib/components/BarChart.svelte";
   import PageHeader from "$lib/components/PageHeader.svelte";
+  import WindowPills from "$lib/components/WindowPills.svelte";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
+
+  function windowHref(id: string): string {
+    return `/plan/${data.planSlug}/progress/exercises/${data.sessionKey}/${data.exerciseSlug}?window=${id}`;
+  }
 
   function difficultyBars(counts: { easy: number; medium: number; hard: number }) {
     return [
@@ -33,32 +35,11 @@
 <PageHeader
   title={data.exerciseName}
   subtitle={data.sessionName}
-  backHref={`/plan/${data.planSlug}/progress/exercises`}
-  backLabel="Back to exercises"
+  backHref={`/plan/${data.planSlug}/progress`}
+  backLabel="Back to progress"
 />
 
-<label class="window-picker">
-  Window
-  <select
-    value={data.selectedWindow}
-    onchange={(e) =>
-      goto(
-        resolve(
-          `/plan/[slug]/progress/exercises/[session]/[exercise]?window=${e.currentTarget.value}`,
-          {
-            slug: page.params.slug!,
-            session: page.params.session!,
-            exercise: page.params.exercise!,
-          },
-        ),
-        { invalidateAll: true },
-      )}
-  >
-    {#each data.windowOptions as option (option.id)}
-      <option value={option.id}>{option.label}</option>
-    {/each}
-  </select>
-</label>
+<WindowPills options={data.windowOptions} selected={data.selectedWindow} hrefFor={windowHref} />
 
 {#each data.charts as chart (chart.side ?? "none")}
   <section class="card">
@@ -105,23 +86,6 @@
 {/each}
 
 <style>
-  .window-picker {
-    display: block;
-    margin-bottom: 1rem;
-    font-size: var(--t-sm);
-    color: var(--muted);
-  }
-  .window-picker select {
-    display: block;
-    margin-top: 0.25rem;
-    width: 100%;
-    padding: var(--s-3) var(--s-3);
-    border-radius: var(--r-xs);
-    border: 1px solid var(--line-strong);
-    background: var(--raised);
-    color: var(--text);
-    font: inherit;
-  }
   .card {
     background: var(--surface);
     border: 1px solid var(--line-soft);
