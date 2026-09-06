@@ -1,5 +1,9 @@
 # Progress Redesign Implementation Plan
 
+> **Shipped.** The work described here landed; the durable half is in ARCHITECTURE section 10, UI
+> and CLAUDE.md. This file is kept only until the screen has been used for a week, then deleted.
+> It is a record of how the change was made, not a statement of what is still open.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace GAIN's four-route Progress feature, whose landing screen leads with session duration, with a two-route feature whose landing screen answers "what changed and how did I improve".

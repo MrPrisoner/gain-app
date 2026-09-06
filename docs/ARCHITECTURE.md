@@ -828,11 +828,24 @@ across workouts. Making it exact needs the `block_key` column §5 describes.
 
 ## 10. Progress & history
 
+- **The hub answers "what changed".** New bests, movements ready for a load increase, and
+  movements improved — then the readiness list, the movers list, one consistency strip and
+  the metric trends, on one screen. Duration and completion rate are gone: the runner
+  writes only `completed` or `stopped`, so a completion rate is always exactly 100% or 0%,
+  and nobody trains to move a session's duration.
+- **Improvement is scored on one scale per movement**, so bodyweight and timed work are
+  not second-class: an estimated 1RM for loaded reps (Epley, reps capped at 12), weight ×
+  seconds for a loaded hold, best reps, best seconds. The kind is decided once per series.
+  **That estimate is in-app only and must never enter the export** — the bundle's progress
+  summary is arithmetic the reviewing AI trusts and does not check, and an estimate from a
+  formula the plan never declared has no business in it.
+- **A new best is a running-max breakthrough** against full history, never against the
+  window, and the first logged session is a baseline rather than a breakthrough.
 - **Per exercise:** load × reps over time, estimated volume, double-progression state
   ("12/11/11 — one session from a load increase"), and difficulty distribution.
-- **Per session type:** duration, completion rate, deviation count.
-- **Metric trends:** any numeric plan-declared metric is chartable, so symptom and
-  energy tracking come free from the metric definitions rather than from hardcoding.
+- **Metric trends:** any numeric plan-declared metric is chartable, so symptom and energy
+  tracking come free from the metric definitions rather than from hardcoding. A `scale`
+  metric plots against its declared bounds rather than auto-scaling.
 - **History:** reverse-chronological workout list, each drilling into full set detail
   and the plan version it ran under.
 - Charts stay simple and read well on a phone. No dashboard sprawl.

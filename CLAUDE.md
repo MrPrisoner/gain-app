@@ -13,18 +13,18 @@ history rather than silently split.
 
 Where each part lives:
 
-| Area                                                                                                 | Code                                                                                                                    |
-| ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Pure round-trip core — contract schema, parser, diff engine, export generator, both prompt templates | `src/lib/contract/`, `parse/`, `diff/`, `export/`, `templates/`                                                         |
-| Storage — per-user provisioning, migrations, the import writer, reads                                | `src/lib/db/`                                                                                                           |
-| Server — config, `control.db`, OIDC, the auth gate, admin stats and reset, logging                   | `src/lib/server/`                                                                                                       |
-| Session runner — resolution, pre-fill, rest timer, resume, symptom guide                             | `src/lib/session/`; route at `src/routes/plan/[slug]/session/[key]/`                                                    |
-| Offline write layer — IndexedDB outbox, flush loop, replay, precache                                 | `src/lib/sync/`, `src/service-worker.ts`                                                                                |
-| Progress, charts & history                                                                           | `src/lib/progress/`, `src/lib/db/history.ts`                                                                            |
-| Home screen — next session, last done, activity strip, morning prompt                                | `src/lib/home/`; route at `src/routes/+page.svelte` and its sibling components                                          |
-| Import & revision diff review                                                                        | `src/lib/diff/present.ts`, `src/lib/import/`; route at `src/routes/import/`                                             |
-| Operator view                                                                                        | `src/lib/server/admin-stats.ts`, `admin-reset.ts`; route at `src/routes/admin/`                                         |
-| Shared components & actions                                                                          | `src/lib/components/` (`Sparkline.svelte`, `BarChart.svelte`, `MetricRow`, `BackLink`), `src/lib/actions/focus-trap.ts` |
+| Area                                                                                                 | Code                                                                                                                                                                                                                               |
+| ---------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pure round-trip core — contract schema, parser, diff engine, export generator, both prompt templates | `src/lib/contract/`, `parse/`, `diff/`, `export/`, `templates/`                                                                                                                                                                    |
+| Storage — per-user provisioning, migrations, the import writer, reads                                | `src/lib/db/`                                                                                                                                                                                                                      |
+| Server — config, `control.db`, OIDC, the auth gate, admin stats and reset, logging                   | `src/lib/server/`                                                                                                                                                                                                                  |
+| Session runner — resolution, pre-fill, rest timer, resume, symptom guide                             | `src/lib/session/`; route at `src/routes/plan/[slug]/session/[key]/`                                                                                                                                                               |
+| Offline write layer — IndexedDB outbox, flush loop, replay, precache                                 | `src/lib/sync/`, `src/service-worker.ts`                                                                                                                                                                                           |
+| Progress, charts & history                                                                           | `src/lib/progress/`, `src/lib/db/history.ts` — the hub composes `progress-window`, `personal-best`, `movers`, `consistency` and `headline`; the estimated 1RM in `personal-best.ts` is in-app only and must never reach the export |
+| Home screen — next session, last done, activity strip, morning prompt                                | `src/lib/home/`; route at `src/routes/+page.svelte` and its sibling components                                                                                                                                                     |
+| Import & revision diff review                                                                        | `src/lib/diff/present.ts`, `src/lib/import/`; route at `src/routes/import/`                                                                                                                                                        |
+| Operator view                                                                                        | `src/lib/server/admin-stats.ts`, `admin-reset.ts`; route at `src/routes/admin/`                                                                                                                                                    |
+| Shared components & actions                                                                          | `src/lib/components/` (`Sparkline.svelte`, `BarChart.svelte`, `MetricRow`, `BackLink`), `src/lib/actions/focus-trap.ts`                                                                                                            |
 
 The Playwright suite is the durable proof of each surface, and reading the relevant spec
 is the fastest way to learn how one actually behaves:
@@ -813,7 +813,7 @@ is invisible to it.** `src/lib/progress/exercise-series.ts`'s `exerciseOccurrenc
 pairing the plan itself prescribes; it never looks at `logs.set_logs`, so an exercise a
 user swapped in mid-session — never prescribed, only logged — has no occurrence to attach
 its sets to. Its sets stay visible in the raw CSV export and the Deviations row, but not
-on the Progress exercises list or the export's per-exercise summary table. This is a real,
+on the hub's movers list or the export's per-exercise summary table. This is a real,
 accepted gap rather than a defect. Fixing it needs its own design decision (what resolved
 prescription or range does a substitute-only occurrence carry? nothing today specifies
 one) and its own tests; anyone extending per-exercise progress or summary views on

@@ -4,6 +4,10 @@ Status: approved, not yet implemented. Delete this file when the work lands and 
 durable half into ARCHITECTURE §10, UI, and CLAUDE.md (see CLAUDE.md, "Tracking work, and
 folding it back in").
 
+> **Shipped.** The work described here landed; the durable half is in ARCHITECTURE section 10, UI
+> and CLAUDE.md. This file is kept only until the screen has been used for a week, then deleted.
+> It is a record of how the change was made, not a statement of what is still open.
+
 ## 1. Why
 
 The Progress feature answers the wrong question. Its landing screen is four session cards
