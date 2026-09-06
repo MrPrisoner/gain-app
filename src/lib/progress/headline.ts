@@ -15,8 +15,8 @@
 
 import type { GainContract } from "../contract/schema";
 import type { Logs } from "../logs/types";
-import { doubleProgressionState } from "./double-progression";
-import { buildExerciseSeries, buildPrescribedSeries, exerciseOccurrences } from "./exercise-series";
+import { readyOccurrences } from "./double-progression";
+import { buildPrescribedSeries, exerciseOccurrences } from "./exercise-series";
 import { breakthroughs } from "./personal-best";
 import { buildMovers } from "./movers";
 
@@ -59,24 +59,9 @@ export function buildHeadline(
     if (inWindow.length > 0) improvedSlugs.add(slug);
   }
 
-  let readyToIncrease = 0;
-  for (const occurrence of occurrences) {
-    const series = buildExerciseSeries(fullLogs, occurrence.sessionKey, occurrence.exerciseSlug);
-    const target =
-      occurrence.resolved.type === "time"
-        ? occurrence.resolved.durationSec
-        : occurrence.resolved.reps;
-    const state = doubleProgressionState(
-      series,
-      target,
-      occurrence.resolved.sets,
-      occurrence.resolved.type,
-      occurrence.resolved.perSide,
-    );
-    if (state === undefined) continue;
-    const sides = [state.none, state.left, state.right].filter((s) => s !== undefined);
-    if (sides.length > 0 && sides.every((s) => s.status === "ready")) readyToIncrease += 1;
-  }
+  // The same function the hub's own "Ready to go up" list is built from, so this number
+  // and that list can never disagree about what is ready.
+  const readyToIncrease = readyOccurrences(contract, fullLogs).length;
 
   const movers = buildMovers(contract, windowedLogs, fullLogs);
   const comparable = movers.filter((m) => m.deltaPct !== undefined);

@@ -14,8 +14,7 @@ import { contractOfVersion, getCurrentVersion, getPlanBySlug } from "$lib/db/rea
 import { logsForPlan } from "$lib/db/logs";
 import { filterLogsToWindow } from "$lib/export/bundle";
 import { progressWindowOptions, resolveProgressWindow } from "$lib/progress/progress-window";
-import { buildExerciseSeries, exerciseOccurrences } from "$lib/progress/exercise-series";
-import { doubleProgressionState, formatReadiness } from "$lib/progress/double-progression";
+import { formatReadiness, readyOccurrences } from "$lib/progress/double-progression";
 import { buildMovers } from "$lib/progress/movers";
 import { buildConsistency } from "$lib/progress/consistency";
 import { buildHeadline } from "$lib/progress/headline";
@@ -53,34 +52,16 @@ export const load: PageServerLoad = ({ params, locals, url }) => {
   }));
 
   // Readiness reads full unwindowed history: it is a statement about the next session,
-  // not about a span.
-  const ready = exerciseOccurrences(contract).flatMap((occurrence) => {
-    const series = buildExerciseSeries(logs, occurrence.sessionKey, occurrence.exerciseSlug);
-    if (series.length === 0) return [];
-    const target =
-      occurrence.resolved.type === "time"
-        ? occurrence.resolved.durationSec
-        : occurrence.resolved.reps;
-    const state = doubleProgressionState(
-      series,
-      target,
-      occurrence.resolved.sets,
-      occurrence.resolved.type,
-      occurrence.resolved.perSide,
-    );
-    if (state === undefined) return [];
-    const sides = [state.none, state.left, state.right].filter((s) => s !== undefined);
-    if (sides.length === 0 || !sides.every((s) => s.status === "ready")) return [];
-    return [
-      {
-        exerciseSlug: occurrence.exerciseSlug,
-        exerciseName: occurrence.exerciseName,
-        sessionKey: occurrence.sessionKey,
-        sessionName: occurrence.sessionName,
-        summary: formatReadiness(state, "No range to progress through"),
-      },
-    ];
-  });
+  // not about a span. The predicate itself lives in `double-progression.ts` because
+  // `buildHeadline` counts exactly these rows — two copies of it would let the count above
+  // the list disagree with the list.
+  const ready = readyOccurrences(contract, logs).map(({ occurrence, state }) => ({
+    exerciseSlug: occurrence.exerciseSlug,
+    exerciseName: occurrence.exerciseName,
+    sessionKey: occurrence.sessionKey,
+    sessionName: occurrence.sessionName,
+    summary: formatReadiness(state, "No range to progress through"),
+  }));
 
   return {
     planSlug: plan.slug,

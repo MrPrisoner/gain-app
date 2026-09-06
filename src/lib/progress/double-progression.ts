@@ -12,8 +12,14 @@
  * earned more load.
  */
 
-import type { IntOrRange } from "../contract/schema";
-import type { ExerciseSeriesPoint } from "./exercise-series";
+import type { GainContract, IntOrRange } from "../contract/schema";
+import type { Logs } from "../logs/types";
+import {
+  buildExerciseSeries,
+  exerciseOccurrences,
+  type ExerciseOccurrence,
+  type ExerciseSeriesPoint,
+} from "./exercise-series";
 
 export type DoubleProgressionState =
   | { status: "no_data" }
@@ -92,6 +98,49 @@ export function doubleProgressionState(
         right: stateForSide(series, "right", target, required, type),
       }
     : { none: stateForSide(series, undefined, target, required, type) };
+}
+
+export type ReadyOccurrence = {
+  occurrence: ExerciseOccurrence;
+  state: DoubleProgressionBySide;
+};
+
+/**
+ * Every prescribed `(session, exercise)` occurrence whose last performance earned a load
+ * increase, over full unwindowed history — readiness is a statement about the next
+ * session, not about a span, so callers pass the whole log rather than a window.
+ *
+ * This exists as one function because the Progress hub both **counts** these (the
+ * headline's "ready to go up") and **lists** them, from two different modules. Two
+ * independent copies of the predicate — pick reps or duration by type, resolve the state,
+ * require every defined side to read `ready` — is exactly the drift `buildPrescribedSeries`
+ * was extracted to prevent for the movers list: the count and the list under it could
+ * silently stop agreeing, with nothing failing.
+ *
+ * A movement with no logged history yields `no_data` rather than `ready`, so the empty
+ * case needs no guard of its own here.
+ */
+export function readyOccurrences(contract: GainContract, logs: Logs): ReadyOccurrence[] {
+  const ready: ReadyOccurrence[] = [];
+  for (const occurrence of exerciseOccurrences(contract)) {
+    const series = buildExerciseSeries(logs, occurrence.sessionKey, occurrence.exerciseSlug);
+    const target =
+      occurrence.resolved.type === "time"
+        ? occurrence.resolved.durationSec
+        : occurrence.resolved.reps;
+    const state = doubleProgressionState(
+      series,
+      target,
+      occurrence.resolved.sets,
+      occurrence.resolved.type,
+      occurrence.resolved.perSide,
+    );
+    if (state === undefined) continue;
+    const sides = [state.none, state.left, state.right].filter((s) => s !== undefined);
+    if (sides.length === 0 || !sides.every((s) => s.status === "ready")) continue;
+    ready.push({ occurrence, state });
+  }
+  return ready;
 }
 
 export function formatDoubleProgressionState(state: DoubleProgressionState): string {
