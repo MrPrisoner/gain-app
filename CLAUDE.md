@@ -182,7 +182,9 @@ that does it manually is in exactly the same position as one that does not have 
 limit.** A session's history lives with the workspace that was open when it ran; move
 that session into a worktree and it drops out of the VS Code extension's history tab,
 making an incomplete session unrecoverable there. Work directly in the main checkout
-instead.
+instead. This includes plan-execution skills (subagent-driven-development,
+executing-plans) whose default setup step creates one — override it and work on `main`
+directly.
 
 **Where the hook changes what you see.** It rewrites the file after your edit, so a
 follow-up edit whose target region was reformatted will not match — read the file back
