@@ -60,6 +60,49 @@ export function recentActivities(userDb: UserDb, limit = 20): ActivityKindRef[] 
     .all(limit) as ActivityKindRef[];
 }
 
+/** One workout the user started and never finished. Addressed by `client_id`, because
+ * every action Home offers on it (resume, discard) travels through the offline sync
+ * layer, which names workouts by client id and never by server id. */
+export type OpenWorkoutRef = {
+  workoutClientId: string;
+  sessionKey: string;
+  startedAt: string;
+  setCount: number;
+};
+
+/**
+ * Every workout of this plan the user started and never finished, newest first.
+ *
+ * "Unfinished" is `completed_at IS NULL` — ARCHITECTURE §5's rule that in-progress is the
+ * absence of a completion rather than a fourth status. There is no false-positive case
+ * to filter out: `$lib/sync/deferred-start.ts` means a session merely opened persists
+ * nothing, so a row existing at all is proof the user wrote something.
+ *
+ * `client_id IS NOT NULL` excludes rows nothing can act on. Every row the sync layer
+ * writes carries one; a row without one could only come from a direct insert, and
+ * offering Resume or Discard on something neither can address would be a dead button.
+ *
+ * The set count is a correlated subquery rather than a join, so a workout whose only
+ * write was a pre-session metric still comes back — with `0` — instead of being dropped
+ * by an inner join or duplicated by an outer one.
+ */
+export function openWorkoutsForPlan(userDb: UserDb, planId: string): OpenWorkoutRef[] {
+  return userDb.db
+    .prepare(
+      `SELECT w.client_id AS workoutClientId,
+              w.session_key AS sessionKey,
+              w.started_at  AS startedAt,
+              (SELECT COUNT(*) FROM set_log s WHERE s.workout_id = w.id) AS setCount
+       FROM workout w
+       JOIN plan_version pv ON pv.id = w.plan_version_id
+       WHERE pv.plan_id = ?
+         AND w.completed_at IS NULL
+         AND w.client_id IS NOT NULL
+       ORDER BY w.started_at DESC`,
+    )
+    .all(planId) as OpenWorkoutRef[];
+}
+
 type NextMorningRow = {
   id: string;
   clientId: string;
