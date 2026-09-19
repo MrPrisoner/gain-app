@@ -31,9 +31,11 @@
   } from "$lib/session/ledger";
   import { hydrateSession, type SessionHydration } from "$lib/session/resume";
   import { workoutStorageKey } from "$lib/session/workout-storage";
+  import { isResumable } from "$lib/session/workout-age";
   import type { DeviationKind } from "$lib/logs/types";
   import { goto } from "$app/navigation";
   import { resolve } from "$app/paths";
+  import { page } from "$app/state";
   import { newOpId } from "$lib/sync/ops";
   import {
     armDeferredStart,
@@ -134,10 +136,32 @@
     let clientId: string | undefined;
 
     (async () => {
-      const existing =
-        typeof localStorage !== "undefined" ? localStorage.getItem(storageKey) : null;
-      const resumed = existing !== null;
-      clientId = existing ?? newOpId();
+      /**
+       * `?resume=` is Home's Resume link. Adopting the id it names, rather than minting a
+       * fresh one, is what stops Resume forking: on a device that never held this
+       * workout's pointer the runner would otherwise start a *second* workout for the
+       * same session, splitting one session's effort across two rows in the export.
+       */
+      const requested = page.url.searchParams.get("resume");
+      const stored = typeof localStorage !== "undefined" ? localStorage.getItem(storageKey) : null;
+      const candidate = requested ?? stored;
+
+      /**
+       * A pointer older than the resume window is not resumed. Appending today's sets to
+       * a days-old workout makes the export report a multi-day session duration
+       * (`completed_at - started_at`, `$lib/export/bundle.ts`) — a wrong number reaching
+       * the reviewing AI, which nothing downstream can catch. Past the window the user
+       * gets a genuinely new workout, and the old one stays on Home as a discardable
+       * notice.
+       */
+      const resumed = candidate !== null && isResumable(candidate, new Date());
+      clientId = resumed ? candidate : newOpId();
+
+      // A pointer we are declining to resume must go, or the next visit re-reads it and
+      // the fresh workout started here is orphaned behind a stale key.
+      if (!resumed && stored !== null && typeof localStorage !== "undefined") {
+        localStorage.removeItem(storageKey);
+      }
 
       if (!resumed) {
         /**
