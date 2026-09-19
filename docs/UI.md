@@ -804,6 +804,57 @@ that. A native picker sheet buys nothing for four options.
 
 ---
 
+## 13. Home surfaces an unfinished session, and offers a way out of it
+
+A session that was opened, logged into, and then abandoned — a phone locked, a tab
+closed, a user simply stopped — leaves a real `workout` row behind: opening the runner
+writes nothing (§2, "Effort commits the workout, not only the set"), so a row existing at
+all means the user logged something. Before this section was settled, Home said nothing
+about it. The suggested-next-session card moved on as though the abandoned session had
+been completed, and the only way back into it was an unannounced `localStorage` pointer
+nobody was told existed.
+
+**Inside the twelve-hour resume window (ARCHITECTURE §9, "Resuming a workout"), the
+unfinished-session card replaces the plan's next-session suggestion outright, rather than
+sitting beside it.** Replacing costs almost nothing: the rotation cursor now reads
+finished workouts only (ARCHITECTURE §9), so the next-session card would be suggesting
+this very session anyway, and two cards agreeing with each other is not two pieces of
+information. What replacement buys is that the user resolves the open session — resume
+it, or let it go — before being offered anything else to start.
+
+**Outside the window, the two coexist**, and that asymmetry is deliberate rather than
+incidental. The unfinished-session card persists until discarded — no fade, no expiry,
+because cleaning up is the user's call and not the app's. If an aged-out card also hid
+the next-session card, those two decisions would combine into a trap: someone standing in
+a garage with a three-week-old abandoned session would have to perform an irreversible
+delete before GAIN would let them start anything at all. A destructive action must never
+be the price of admission to the rest of the app. So past the window the card degrades to
+a slim, discard-only notice, and the ordinary next-session card returns beneath it.
+
+**The session-override picker moves with the card rather than disappearing.** Inside the
+window, the card takes over the next-session card's plan-name heading and inherits its
+override list wholesale — "I abandoned A this morning, I will do B tonight" has to stay
+one tap away, because hiding the only picker on the screen behind an unfinished session
+would turn a legitimate change of plan into a dead end. More than one open workout can
+exist for one plan at once — starting the same session again past the window mints a
+fresh workout rather than reviving the old one, so abandoning a session twice leaves two
+— and at most one of them can be inside the window, so it is the one promoted to carry
+the picker; every other open workout renders as its own slim aged-out notice regardless
+of its own age, because the picker answers "what do I do instead of the session I'm
+mid-window on," and a plan is mid-window on at most one session at a time.
+
+**`--amber` is correct here, not an exception to §5.** §5's accent-only rule is scoped to
+the session runner specifically — the screen read one-handed, mid-set, where every extra
+hue competes with the number the user is about to act on. Home is not that screen. Amber
+in its ordinary warning sense — muted, a border or a label, not an alarm — is exactly
+what an unresolved, time-sensitive session calls for, and confining it to the runner
+alone would leave Home with no way to distinguish "this needs a decision" from the
+ordinary accent used for "tap this to proceed." `--red` stays on the discard
+confirmation, where the irreversible step actually happens, not on the card itself — the
+card describes a state that is entirely recoverable until someone confirms otherwise.
+
+---
+
 ## What this does not decide
 
 §1–§9 cover the session runner specifically; §10–§12 cover the tokens, primitives and

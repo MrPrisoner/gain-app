@@ -727,6 +727,16 @@ where a session is reached from.
   ships no list of sports, because the plan's own `scheduling.rules` already reference
   whatever the user actually does, and hardcoding one fixture's sport into the schema
   would make every other user's activity an "other".
+
+  **The rotation cursor reads finished workouts only.** `suggestNextSession`'s cursor is
+  the most recent workout with a non-NULL `completed_at`, whatever its `status` — a
+  red-flag stop still advances it, because `finishWorkout` stamps `completed_at` on a
+  stop, but a session abandoned mid-way never does, at any age: there is no time
+  branching here, only in the resume window below. This is the same predicate
+  `$lib/progress/consistency.ts` and `$lib/progress/session-stats.ts` already use to mean
+  "finished"; Home was the one module reading `completed_at` without applying it, which
+  is why a single logged set used to advance the suggestion as though the session it
+  belonged to had been completed.
 - **Pre-session:** prompts only for metrics with `prompt_when: start`.
 - **Running:** vertical list of exercises; the current one expanded and prominent,
   completed ones collapsed with a summary, upcoming ones dimmed. Target reps/weight
@@ -773,6 +783,21 @@ it ran under), so the outbox alone cannot answer "is there already a local worko
 this route" once a plan has been revised. `localStorage` rather than `sessionStorage`,
 deliberately: the latter dies with the tab, which is one of the failures this has to
 survive.
+
+**The pointer is honoured only within a twelve-hour window of the workout's
+`started_at`**, and so is a `?resume=<clientId>` link from Home's unfinished-session
+card (UI §13). Past that window the runner starts a fresh workout instead of resuming
+this one. The reason is the export: a logged session's duration is
+`completed_at - started_at` (`$lib/export/bundle.ts`), so silently appending today's
+sets to a days-old workout would report a multi-day session to the reviewing AI — a
+wrong number with nothing downstream positioned to catch it, exactly the failure mode
+the export's progress-summary invariant (CLAUDE.md) exists to prevent. The age is read
+from the workout's `client_id` itself rather than a fetched column: it is a ULID minted
+when the runner mounted, so it already carries `started_at` to the millisecond
+(`$lib/session/workout-age.ts`). That is what lets the client decide before any request
+reaches the server, and it is also why client and server can never disagree about a
+workout's age — both are reading the same embedded timestamp rather than two clocks
+that could drift.
 
 **Resuming the workout row is the easy half. Resuming the screen is the real one.** A
 reload that restores the row but not the ledger re-arms every set with a fresh ULID, and

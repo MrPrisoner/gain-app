@@ -601,6 +601,16 @@ protect:
   returns it; the clipboard and the download fallback are the user's only two copies, and
   a lost paste is regenerable from the same plan and window rather than recoverable from
   disk.
+- **A discard op's missing workout is success, not `NotYetError`.** Every other
+  workout-scoped op calls `requireWorkout` and stays pending when its workout is absent,
+  because the `start` op is still behind it in the queue. A discard has no `start` behind
+  it: the client purges every op for that workout, the `start` included, before enqueueing
+  the discard, so there is no start left to wait for and never will be. Routing it through
+  `requireWorkout` "for consistency" would retry an unsatisfiable op until it quarantined
+  — and a quarantined discard is an op the user can never clear, for a workout they
+  already deleted. `$lib/sync/replay.ts`'s `discard` case is deliberately the one op kind
+  that does not go through `requireWorkout`; a refactor that "fixes" that breaks it
+  silently.
 
 ## The fixture
 

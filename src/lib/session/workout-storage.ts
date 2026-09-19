@@ -12,6 +12,12 @@
  * start this failure mode is sharper still: a stale key means no start is even armed, so
  * the first set logged against it strands rather than merely resuming the wrong workout.
  *
+ * A stored pointer is no longer honoured unconditionally. The runner age-gates it — and a
+ * `?resume=` link from Home's unfinished-session card — against the twelve-hour resume
+ * window in `$lib/session/workout-age.ts`, so a key surviving here past that window is
+ * read back as "too old to resume" rather than silently reattached to. This module still
+ * only stores and enumerates the pointer; it carries no opinion about its age.
+ *
  * Both functions no-op where `localStorage` is unavailable (SSR, and a browser with
  * storage disabled) rather than throwing, because the callers are render paths.
  */
