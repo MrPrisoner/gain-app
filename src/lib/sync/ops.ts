@@ -101,6 +101,18 @@ const finishOpSchema = z.strictObject({
   finishedAt: isoTimestamp,
 });
 
+/**
+ * Throw a workout away. Carries nothing but the workout it names: a delete has no
+ * payload, and no timestamp is wanted — unlike `startedAt` and `finishedAt`, nothing
+ * downstream records *when* a discard happened, because the row it describes will not
+ * exist to carry it.
+ */
+const discardOpSchema = z.strictObject({
+  kind: z.literal("discard"),
+  id: opId,
+  workoutClientId: opId,
+});
+
 const activityOpSchema = z.strictObject({
   kind: z.literal("activity"),
   id: opId,
@@ -117,6 +129,7 @@ export const syncOpSchema = z.discriminatedUnion("kind", [
   metricOpSchema,
   deviationOpSchema,
   finishOpSchema,
+  discardOpSchema,
   activityOpSchema,
 ]);
 
@@ -135,6 +148,7 @@ export type SetOp = z.infer<typeof setOpSchema>;
 export type MetricOp = z.infer<typeof metricOpSchema>;
 export type DeviationOp = z.infer<typeof deviationOpSchema>;
 export type FinishOp = z.infer<typeof finishOpSchema>;
+export type DiscardOp = z.infer<typeof discardOpSchema>;
 export type ActivityOp = z.infer<typeof activityOpSchema>;
 export type SyncOp = z.infer<typeof syncOpSchema>;
 export type SyncBatch = z.infer<typeof syncBatchSchema>;

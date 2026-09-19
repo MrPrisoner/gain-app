@@ -31,6 +31,7 @@
  */
 
 import {
+  discardWorkout,
   finishWorkout,
   logActivity,
   logDeviation,
@@ -161,6 +162,24 @@ function applyOp(userDb: UserDb, op: SyncOp): void {
       });
       return;
 
+    case "discard":
+      /**
+       * The one op whose missing workout is **success, not `NotYetError`**.
+       *
+       * Every other workout-scoped op calls `requireWorkout` and stays pending when the
+       * workout is absent, because the `start` op is still behind it in the queue. A
+       * discard has no start behind it: the client purges every op for that workout,
+       * the start included, before enqueueing this one. Waiting for a start that was
+       * deleted means retrying forever and quarantining an op whose whole job is to make
+       * data not exist — the exact permanent-failure trap CLAUDE.md's offline section
+       * describes. "Nothing to delete" means the job is done.
+       *
+       * Deliberately does *not* go through `requireWorkout`. If a later refactor
+       * consolidates these two for consistency, this breaks silently.
+       */
+      discardWorkout(userDb, op.workoutClientId);
+      return;
+
     case "activity":
       // No workout to resolve and nothing that can arrive out of order relative to —
       // unlike every other op kind, this one can never be NotYet.
@@ -175,7 +194,7 @@ function applyOp(userDb: UserDb, op: SyncOp): void {
       return;
 
     default: {
-      // Exhaustiveness guard: if a sixth `SyncOp` kind is ever added and left unhandled
+      // Exhaustiveness guard: if a seventh `SyncOp` kind is ever added and left unhandled
       // above, this is a compile error rather than a silent fall-through that would
       // report the op as `applied` with no write ever made for it.
       const unhandled: never = op;

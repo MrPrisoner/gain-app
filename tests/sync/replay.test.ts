@@ -6,6 +6,8 @@ import { importPlan } from "../../src/lib/db/import-plan";
 import { openUserDb, type UserDb } from "../../src/lib/db/user-db";
 import { parsePlanDocument } from "../../src/lib/parse/parser";
 import { replayOps } from "../../src/lib/sync/replay";
+import { newOpId } from "../../src/lib/sync/ops";
+import { resolveWorkoutIdByClientId } from "../../src/lib/db/workout";
 import type { SyncOp } from "../../src/lib/sync/ops";
 
 const ROOT = new URL("../../", import.meta.url);
@@ -161,6 +163,50 @@ describe("replayOps", () => {
       )
       .get("02") as { v: number };
     expect(row.v).toBe(8);
+  });
+
+  describe("replaying a discard op", () => {
+    it("deletes the workout and reports it applied", () => {
+      // replay a start + two sets, then a discard
+      replayOps(userDb, [start(), set("02", 1), set("03", 2)]);
+      const ack = replayOps(userDb, [{ kind: "discard", id: newOpId(), workoutClientId: W }]);
+      expect(ack.applied).toEqual([expect.any(String)]);
+      expect(ack.failed).toEqual([]);
+      expect(ack.pending).toEqual([]);
+      expect(resolveWorkoutIdByClientId(userDb, W)).toBeUndefined();
+    });
+
+    it("reports applied for a workout the server has never seen", () => {
+      // The critical case. The client purges the workout's ops — the `start` among them —
+      // before enqueueing the discard, so there is no start op behind it and never will
+      // be. `NotYetError` here would retry an unsatisfiable op until it quarantined, which
+      // is the permanent-failure trap CLAUDE.md's offline section describes.
+      const ack = replayOps(userDb, [
+        { kind: "discard", id: newOpId(), workoutClientId: "01JNEVERSYNCEDXXXXXXXXXXXX" },
+      ]);
+      expect(ack.applied).toHaveLength(1);
+      expect(ack.pending).toEqual([]);
+      expect(ack.failed).toEqual([]);
+    });
+
+    it("is idempotent across a replay of the same op", () => {
+      replayOps(userDb, [start()]);
+      const op = { kind: "discard" as const, id: newOpId(), workoutClientId: W };
+      replayOps(userDb, [op]);
+      expect(replayOps(userDb, [op]).applied).toHaveLength(1);
+    });
+
+    it("discards a workout whose start op is in the same batch", () => {
+      // Ordered by ULID, so the start lands first and the discard undoes it. Odd, but it
+      // must not fail: an offline user who logs a set and immediately discards produces
+      // exactly this batch.
+      const startOp = start("01");
+      const setOp = set("02", 1);
+      const discardOp = { kind: "discard" as const, id: "03", workoutClientId: W };
+      const ack = replayOps(userDb, [startOp, setOp, discardOp]);
+      expect(ack.failed).toEqual([]);
+      expect(resolveWorkoutIdByClientId(userDb, W)).toBeUndefined();
+    });
   });
 
   describe("the activity op", () => {

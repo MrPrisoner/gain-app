@@ -67,6 +67,22 @@ describe("sync op schema", () => {
   });
 });
 
+describe("the discard op", () => {
+  const DISCARD = {
+    kind: "discard",
+    id: "01JZ0000000000000000000006",
+    workoutClientId: "01JZ0000000000000000000001",
+  };
+
+  it("accepts the minimal shape", () => {
+    expect(syncOpSchema.parse(DISCARD)).toEqual(DISCARD);
+  });
+
+  it("rejects an extra property", () => {
+    expect(() => syncOpSchema.parse({ ...DISCARD, extra: true })).toThrow();
+  });
+});
+
 describe("the activity op", () => {
   const ACTIVITY = {
     kind: "activity",
