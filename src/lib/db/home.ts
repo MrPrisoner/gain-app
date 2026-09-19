@@ -9,24 +9,42 @@ import type { GainContract, MetricDef } from "../contract/schema";
 import type { NextMorningCandidate } from "../home/next-morning";
 import type { UserDb } from "./user-db";
 
-export type HomeWorkoutRef = { sessionKey: string; startedAt: string };
+export type HomeWorkoutRef = {
+  sessionKey: string;
+  startedAt: string;
+  completedAt: string | undefined;
+};
 
 /** Most-recent-first, for `suggestNextSession` (`src/lib/home/next-session.ts`). */
 export function recentWorkoutsForPlan(
   userDb: UserDb,
   planId: string,
-  limit = 10,
+  limit = 25,
 ): HomeWorkoutRef[] {
-  return userDb.db
+  const rows = userDb.db
     .prepare(
-      `SELECT w.session_key AS sessionKey, w.started_at AS startedAt
+      `SELECT w.session_key AS sessionKey, w.started_at AS startedAt,
+              w.completed_at AS completedAt
        FROM workout w
        JOIN plan_version pv ON pv.id = w.plan_version_id
        WHERE pv.plan_id = ?
        ORDER BY w.started_at DESC
        LIMIT ?`,
     )
-    .all(planId, limit) as HomeWorkoutRef[];
+    .all(planId, limit) as {
+    sessionKey: string;
+    startedAt: string;
+    completedAt: string | null;
+  }[];
+
+  return rows.map((row) => ({
+    sessionKey: row.sessionKey,
+    startedAt: row.startedAt,
+    // SQLite returns null for missing completed_at; map to undefined so the
+    // isFinished check (completedAt !== undefined) works correctly. If we
+    // returned null, a workout would look finished to the predicate.
+    completedAt: row.completedAt ?? undefined,
+  }));
 }
 
 export type ActivityKindRef = { kind: string; occurredAt: string };

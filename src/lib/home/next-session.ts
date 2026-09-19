@@ -6,7 +6,15 @@
  */
 
 export type SessionOrderRef = { key: string; order: number };
-export type RecentWorkoutRef = { sessionKey: string; startedAt: string };
+export type RecentWorkoutRef = {
+  sessionKey: string;
+  startedAt: string;
+  /**
+   * ISO timestamp, or `undefined` for a workout still open. ARCHITECTURE §5: there is
+   * no "in progress" status — in-progress is the absence of `completed_at`.
+   */
+  completedAt: string | undefined;
+};
 
 export type SessionOverrideRef = {
   key: string;
@@ -21,6 +29,20 @@ export type NextSessionSuggestion = {
   /** One entry per declared session, in declaration order. */
   overrides: SessionOverrideRef[];
 };
+
+/**
+ * A workout that reached an ending, whatever that ending was. A red-flag stop counts:
+ * `finishWorkout` stamps `completed_at` on a stop, so the rotation still advances past
+ * one, which is the behaviour this module already documented. What does not count is a
+ * session abandoned mid-way — it never happened, so nothing may be derived from it.
+ *
+ * The same predicate is already the definition of "finished" in
+ * `$lib/progress/consistency.ts` and `$lib/progress/session-stats.ts`. Home was the one
+ * module not using it, which is why one logged set used to advance the suggestion.
+ */
+function isFinished(workout: RecentWorkoutRef): boolean {
+  return workout.completedAt !== undefined;
+}
 
 /**
  * The rotation order: `scheduling.sequence` when the plan declares one (or a non-empty
@@ -43,11 +65,13 @@ export function suggestNextSession(
   const order = rotationOrder(sessions, sequence);
   const firstKey = order[0] ?? sessions[0]?.key ?? "";
 
-  // The cursor is the most recent workout whose session is actually part of the
+  const finished = recentWorkouts.filter(isFinished);
+
+  // The cursor is the most recent finished workout whose session is actually part of the
   // rotation — a workout on a session the sequence omits (an "extra") must not derail
-  // it. Any status counts: a red-flag stop was still an attempt, and this function
-  // never sees status at all (see the "advances on any status" test above).
-  const cursor = recentWorkouts.find((w) => order.includes(w.sessionKey));
+  // it. An unfinished workout never advances the cursor at any age, since it never
+  // happened.
+  const cursor = finished.find((w) => order.includes(w.sessionKey));
   const suggestedKey =
     cursor === undefined
       ? firstKey
@@ -57,10 +81,10 @@ export function suggestNextSession(
     .sort((a, b) => a.order - b.order)
     .map((s) => ({
       key: s.key,
-      lastDoneDate: recentWorkouts.find((w) => w.sessionKey === s.key)?.startedAt.slice(0, 10),
+      lastDoneDate: finished.find((w) => w.sessionKey === s.key)?.startedAt.slice(0, 10),
     }));
 
-  const last = recentWorkouts[0];
+  const last = finished[0];
   return {
     suggestedKey,
     lastSession:
