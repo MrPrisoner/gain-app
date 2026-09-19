@@ -160,7 +160,7 @@ describe("discardWorkout", () => {
       weightKg: 6,
       clientId: "c-s2",
     });
-    logSet(userDb, {
+    const { id: otherSetLogId } = logSet(userDb, {
       workoutId: otherId,
       exerciseDefId: squatId,
       setNo: 2,
@@ -168,10 +168,31 @@ describe("discardWorkout", () => {
       weightKg: 6,
       clientId: "c-s3",
     });
+    // The second workout also owns a set-scope metric_value (references `set_log_id`,
+    // not `workout_id`) and a deviation, so this test actually exercises the two rows
+    // that a workout-scoped delete could plausibly leak across: a subquery missing its
+    // own `WHERE workout_id = ?` guard would match every set_log in the database, not
+    // just the discarded workout's.
+    logMetric(userDb, {
+      scope: "set",
+      setLogId: otherSetLogId,
+      metricKey: "symptoms_during",
+      valueText: "none",
+      clientId: "c-m-other-set",
+    });
+    logDeviation(userDb, {
+      workoutId: otherId,
+      exerciseDefId: squatId,
+      kind: "skip",
+      reasonCode: "time",
+      clientId: "c-d-other",
+    });
 
     expect(discardWorkout(userDb, "c-w1")).toBe(true);
     expect(countOf("workout")).toBe(1);
     expect(setLogCountForWorkout(otherId)).toBe(2);
+    expect(countOf("metric_value")).toBe(1);
+    expect(countOf("deviation")).toBe(1);
   });
 
   it("deletes a set-scope metric_value, which references the set and not the workout", () => {
