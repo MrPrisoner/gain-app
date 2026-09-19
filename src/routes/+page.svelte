@@ -11,7 +11,11 @@
   import ActivityStrip from "./ActivityStrip.svelte";
   import NextMorningPrompt from "./NextMorningPrompt.svelte";
   import { dueNextMorningPrompts } from "$lib/home/next-morning";
-  import { mergeUnfinished, type UnfinishedSession } from "$lib/home/unfinished";
+  import {
+    mergeUnfinished,
+    partitionUnfinished,
+    type UnfinishedSession,
+  } from "$lib/home/unfinished";
   import type { OpenWorkoutRef } from "$lib/db/home";
   import { listStoredWorkouts, workoutStorageKey } from "$lib/session/workout-storage";
   import { startSyncLoop, discardWorkout, pendingDiscardIds } from "$lib/sync/client.svelte";
@@ -287,11 +291,12 @@
 
   {#each data.plans as plan (plan.slug)}
     {@const open = unfinished.filter((u) => u.planSlug === plan.slug)}
-    {@const resuming = open.find((u) => u.resumable)}
+    {@const { promoted: resuming, rest } = partitionUnfinished(open)}
 
-    {#each open.filter((u) => !u.resumable) as session (session.workoutClientId)}
+    {#each rest as session (session.workoutClientId)}
       <UnfinishedSessionCard
         {session}
+        promoted={false}
         planName={undefined}
         todayDate={data.todayDate}
         onDiscard={() => (confirming = session)}
@@ -301,6 +306,7 @@
     {#if resuming}
       <UnfinishedSessionCard
         session={resuming}
+        promoted={true}
         planName={plan.name}
         todayDate={data.todayDate}
         onDiscard={() => (confirming = resuming)}

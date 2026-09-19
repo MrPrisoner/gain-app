@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { mergeUnfinished } from "../../src/lib/home/unfinished";
+import { mergeUnfinished, partitionUnfinished } from "../../src/lib/home/unfinished";
 import { ulidAt } from "../helpers/ulid-at";
 
 const NOW = new Date("2026-09-19T20:00:00.000Z");
@@ -158,5 +158,89 @@ describe("mergeUnfinished", () => {
         now: NOW,
       }),
     ).toEqual([]);
+  });
+});
+
+describe("partitionUnfinished", () => {
+  // Two different session keys on one plan, both started inside the twelve-hour window:
+  // session A this morning, abandoned, then session B started directly tonight before
+  // A's window expired. Nothing in `startWorkout` prevents this. The regression this
+  // guards: only one workout was ever promoted, and the second resumable one was
+  // filtered out of the notice list too (it isn't `!resumable`), so it vanished from
+  // Home entirely.
+  it("promotes only the newest of two simultaneously-resumable workouts, and keeps the other visible as a notice", () => {
+    const older = ulidAt(NOW.getTime() - 6 * 60 * 60 * 1000);
+    const newer = ulidAt(NOW.getTime() - 60 * 60 * 1000);
+    const merged = mergeUnfinished({
+      server: [
+        {
+          workoutClientId: older,
+          planSlug: "p",
+          sessionKey: "A",
+          startedAt: new Date(NOW.getTime() - 6 * 60 * 60 * 1000).toISOString(),
+          setCount: 2,
+        },
+        {
+          workoutClientId: newer,
+          planSlug: "p",
+          sessionKey: "B",
+          startedAt: new Date(NOW.getTime() - 60 * 60 * 1000).toISOString(),
+          setCount: 1,
+        },
+      ],
+      local: [],
+      pendingDiscards: [],
+      now: NOW,
+    });
+    // Both genuinely resumable — the bug's precondition.
+    expect(merged.every((u) => u.resumable)).toBe(true);
+
+    const { promoted, rest } = partitionUnfinished(merged);
+    expect(promoted?.workoutClientId).toBe(newer);
+    expect(rest.map((u) => u.workoutClientId)).toEqual([older]);
+    // The demoted one is still marked resumable in the data even though it renders as a
+    // notice — promotion is a layout decision, not a restatement of resumability.
+    expect(rest[0]?.resumable).toBe(true);
+  });
+
+  it("promotes nothing and treats every workout as a notice when none is resumable", () => {
+    const stale = ulidAt(NOW.getTime() - 30 * 60 * 60 * 1000);
+    const merged = mergeUnfinished({
+      server: [
+        {
+          workoutClientId: stale,
+          planSlug: "p",
+          sessionKey: "A",
+          startedAt: new Date(NOW.getTime() - 30 * 60 * 60 * 1000).toISOString(),
+          setCount: 2,
+        },
+      ],
+      local: [],
+      pendingDiscards: [],
+      now: NOW,
+    });
+    const { promoted, rest } = partitionUnfinished(merged);
+    expect(promoted).toBeUndefined();
+    expect(rest.map((u) => u.workoutClientId)).toEqual([stale]);
+  });
+
+  it("promotes the sole resumable workout and leaves rest empty", () => {
+    const merged = mergeUnfinished({
+      server: [
+        {
+          workoutClientId: FRESH,
+          planSlug: "p",
+          sessionKey: "A",
+          startedAt: new Date(NOW.getTime() - 60 * 60 * 1000).toISOString(),
+          setCount: 2,
+        },
+      ],
+      local: [],
+      pendingDiscards: [],
+      now: NOW,
+    });
+    const { promoted, rest } = partitionUnfinished(merged);
+    expect(promoted?.workoutClientId).toBe(FRESH);
+    expect(rest).toEqual([]);
   });
 });

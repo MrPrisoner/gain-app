@@ -77,3 +77,27 @@ export function mergeUnfinished({
 
   return [...byId.values()].sort((a, b) => b.startedAt.localeCompare(a.startedAt));
 }
+
+/**
+ * Splits one plan's open workouts (a slice of `mergeUnfinished`'s result already
+ * filtered to one `planSlug`) into the single workout promoted to the primary Home slot
+ * and every other open workout for that plan.
+ *
+ * At most one workout is ever promoted, even when two are simultaneously resumable — the
+ * user started session A this morning, abandoned it, then started session B this
+ * evening, before A's twelve-hour window expired. `open` is already newest-first
+ * (`mergeUnfinished`'s own ordering, preserved by a same-plan filter), so the first
+ * resumable entry is the most recently started one. Every other open workout —
+ * resumable or not — belongs in `rest` and renders as its own slim, aged-out-style
+ * notice: promotion is a Home-layout decision, not a restatement of `resumable`, so a
+ * second resumable workout that lost the primary slot must still be visible somewhere
+ * rather than disappearing (the bug this function exists to fix).
+ */
+export function partitionUnfinished(open: readonly UnfinishedSession[]): {
+  promoted: UnfinishedSession | undefined;
+  rest: UnfinishedSession[];
+} {
+  const promoted = open.find((u) => u.resumable);
+  const rest = open.filter((u) => u.workoutClientId !== promoted?.workoutClientId);
+  return { promoted, rest };
+}

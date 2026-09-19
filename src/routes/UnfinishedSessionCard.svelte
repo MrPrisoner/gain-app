@@ -8,12 +8,21 @@
   /**
    * One unfinished session, on Home.
    *
-   * Inside the resume window this replaces `NextSessionCard` for its plan (the parent
-   * decides), so it carries the plan name and is handed the override picker to render —
-   * hiding the only session picker on the screen would make "I will do B tonight" a dead
-   * end. Outside the window it is a slim notice above the normal card, and Resume is
-   * gone: appending today's sets to a days-old workout puts a multi-day duration in the
-   * export (`$lib/session/workout-age.ts`).
+   * `promoted` — set by the parent, never derived from `session.resumable` in here — is
+   * what chooses the shape. The parent promotes at most one open workout per plan (the
+   * most recently started one still inside the resume window, via
+   * `partitionUnfinished`): that one replaces `NextSessionCard` entirely, carries the
+   * plan name and the override picker ("I abandoned A this morning, I will do B tonight"
+   * must not be a dead end), and gets a Resume link. Every other open workout for the
+   * plan renders as a slim notice here — no plan name, no picker, no Resume link — even
+   * when it is itself still individually resumable: a plan can have two workouts open at
+   * once for two different session keys, and only one of them is ever the primary card
+   * (`docs/superpowers/specs/2026-09-19-unfinished-session-resume-design.md` §2, "every
+   * other open workout renders as an aged-out notice above it"). Outside the window
+   * Resume is gone for the same reason regardless of promotion: appending today's sets to
+   * a days-old workout puts a multi-day duration in the export
+   * (`$lib/session/workout-age.ts`) — but promotion already implies resumability, since
+   * the parent only ever promotes a resumable one.
    *
    * `--amber` rather than the accent: this is outside the session runner, where UI §5's
    * accent-only rule does not apply and amber carries its ordinary "warning" sense.
@@ -21,12 +30,14 @@
    */
   let {
     session,
+    promoted,
     planName,
     todayDate,
     onDiscard,
     picker,
   }: {
     session: UnfinishedSession;
+    promoted: boolean;
     planName: string | undefined;
     todayDate: string;
     onDiscard: () => void;
@@ -42,21 +53,21 @@
 
 {#snippet discardIcon()}<IconTrash2 />{/snippet}
 
-<section class="card unfinished" class:slim={!session.resumable}>
-  {#if session.resumable && planName}
+<section class="card unfinished" class:slim={!promoted}>
+  {#if promoted && planName}
     <h2 class="plan-name">{planName}</h2>
   {/if}
 
   <div class="status-row">
     <span class="suggested-key">{session.sessionKey}</span>
-    <span class="status-label">{session.resumable ? "in progress" : "left unfinished"}</span>
+    <span class="status-label">{promoted ? "in progress" : "left unfinished"}</span>
   </div>
 
   <p class="last">
     {setLabel} · {lastDoneLabel(session.startedAt.slice(0, 10), todayDate)}
   </p>
 
-  {#if session.resumable}
+  {#if promoted}
     <a
       class="start-link"
       href={`/plan/${session.planSlug}/session/${session.sessionKey}?resume=${session.workoutClientId}`}
@@ -67,7 +78,7 @@
 
   <Button variant="quiet" onclick={onDiscard} icon={discardIcon}>Discard</Button>
 
-  {#if session.resumable}
+  {#if promoted}
     {@render picker?.()}
   {/if}
 </section>
