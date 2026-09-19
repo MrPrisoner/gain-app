@@ -16,7 +16,12 @@ import { contractOfVersion, getCurrentVersion, listPlans } from "$lib/db/read";
 import { archivePlan, unarchivePlan } from "$lib/db/archive";
 import { deriveExerciseName, type GainContract } from "$lib/contract/schema";
 import { renderBootstrapPrompt, type BootstrapAnswers } from "$lib/templates/render";
-import { recentActivities, recentWorkoutsForPlan, nextMorningCandidates } from "$lib/db/home";
+import {
+  recentActivities,
+  recentWorkoutsForPlan,
+  nextMorningCandidates,
+  openWorkoutsForPlan,
+} from "$lib/db/home";
 import { suggestActivityKinds } from "$lib/home/activity-kinds";
 import { suggestNextSession } from "$lib/home/next-session";
 
@@ -64,6 +69,7 @@ export const load: PageServerLoad = ({ locals }) => {
         version_no: current.version_no,
         imported_at: current.imported_at.slice(0, 10),
         suggestion,
+        openWorkouts: openWorkoutsForPlan(userDb, plan.id),
         schedulingRules: contract.scheduling?.rules,
         dropOrder: contract.scheduling?.drop_order,
         sessions: contract.sessions
@@ -102,6 +108,10 @@ export const load: PageServerLoad = ({ locals }) => {
     // nothing until mount — which is a second layout shift on the screen these labels
     // exist to stop shifting.
     todayDate: new Date().toISOString().slice(0, 10),
+    // A server clock for `mergeUnfinished` during SSR — same reason `lastDoneLabel` takes
+    // `todayDate` rather than reading one: the server and the client's first render must
+    // agree, or hydration mismatches.
+    nowIso: new Date().toISOString(),
   };
 };
 

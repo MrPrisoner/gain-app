@@ -1,13 +1,20 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { enhance } from "$app/forms";
+  import { invalidateAll } from "$app/navigation";
   import { copyText, downloadText } from "$lib/copy";
   import { precacheSessions } from "$lib/sync/precache";
   import NextSessionCard from "./NextSessionCard.svelte";
+  import UnfinishedSessionCard from "./UnfinishedSessionCard.svelte";
+  import DiscardSessionSheet from "./DiscardSessionSheet.svelte";
+  import SessionOverrideList from "./SessionOverrideList.svelte";
   import ActivityStrip from "./ActivityStrip.svelte";
   import NextMorningPrompt from "./NextMorningPrompt.svelte";
   import { dueNextMorningPrompts } from "$lib/home/next-morning";
-  import { startSyncLoop } from "$lib/sync/client.svelte";
+  import { mergeUnfinished, type UnfinishedSession } from "$lib/home/unfinished";
+  import type { OpenWorkoutRef } from "$lib/db/home";
+  import { listStoredWorkouts, workoutStorageKey } from "$lib/session/workout-storage";
+  import { startSyncLoop, discardWorkout, pendingDiscardIds } from "$lib/sync/client.svelte";
   import Button from "$lib/components/Button.svelte";
   import Card from "$lib/components/Card.svelte";
   import IconArchive from "~icons/lucide/archive";
@@ -71,6 +78,58 @@
     if (typeof localStorage !== "undefined") {
       localStorage.setItem(DISMISS_KEY, JSON.stringify(dismissed));
     }
+  }
+
+  /** Every plan's server-reported open workouts, flattened with the plan slug each one
+   * belongs to — what `mergeUnfinished` calls `server`. */
+  function serverRows(d: PageData): (OpenWorkoutRef & { planSlug: string })[] {
+    if (d.view !== "plan") return [];
+    return d.plans.flatMap((plan) => plan.openWorkouts.map((w) => ({ ...w, planSlug: plan.slug })));
+  }
+
+  /** The SSR-safe render: server rows alone, through the same merge, with no local
+   * pointers or pending discards (neither is knowable on the server) and the server's own
+   * clock rather than a browser one — the same reasoning `todayDate` already carries. */
+  function serverOnlyUnfinished(d: PageData): UnfinishedSession[] {
+    if (d.view !== "plan") return [];
+    return mergeUnfinished({
+      server: serverRows(d),
+      local: [],
+      pendingDiscards: [],
+      now: new Date(d.nowIso),
+    });
+  }
+
+  // Server rows plus this device's own pointers. `$state` seeded in `$effect` rather than
+  // at the top level: `listStoredWorkouts` and `pendingDiscardIds` both need the browser,
+  // and the server's rows alone are the correct SSR render.
+  let unfinished = $state<UnfinishedSession[]>(untrack(() => serverOnlyUnfinished(data)));
+
+  $effect(() => {
+    void (async () => {
+      unfinished = mergeUnfinished({
+        server: serverRows(data),
+        local: listStoredWorkouts(),
+        pendingDiscards: await pendingDiscardIds(),
+        now: new Date(),
+      });
+    })();
+  });
+
+  // The workout awaiting a discard confirmation, or none. Rendered as a single modal
+  // sheet at the bottom of the page rather than per-card, the same shape as the runner's
+  // own `DeviationSheet`/`WrapUpSheet`.
+  let confirming = $state<UnfinishedSession | undefined>(undefined);
+
+  async function confirmDiscard(session: UnfinishedSession): Promise<void> {
+    confirming = undefined;
+    // Optimistic: the server still has the row until the op syncs, and `mergeUnfinished`
+    // will filter it on the next load via `pendingDiscardIds`. Removing it here is what
+    // makes the tap feel like it did something while offline.
+    unfinished = unfinished.filter((u) => u.workoutClientId !== session.workoutClientId);
+    localStorage.removeItem(workoutStorageKey(session.planSlug, session.sessionKey));
+    await discardWorkout(session.planSlug, session.workoutClientId);
+    await invalidateAll();
   }
 
   // `nowMs` is read only after mount (never at module/SSR eval time), so the server-
@@ -227,16 +286,48 @@
   {/each}
 
   {#each data.plans as plan (plan.slug)}
-    <NextSessionCard
-      planSlug={plan.slug}
-      planName={plan.name}
-      suggestedKey={plan.suggestion.suggestedKey}
-      lastSession={plan.suggestion.lastSession}
-      sessions={plan.sessions}
-      todayDate={data.todayDate}
-      schedulingRules={plan.schedulingRules}
-      dropOrder={plan.dropOrder}
-    />
+    {@const open = unfinished.filter((u) => u.planSlug === plan.slug)}
+    {@const resuming = open.find((u) => u.resumable)}
+
+    {#each open.filter((u) => !u.resumable) as session (session.workoutClientId)}
+      <UnfinishedSessionCard
+        {session}
+        planName={undefined}
+        todayDate={data.todayDate}
+        onDiscard={() => (confirming = session)}
+      />
+    {/each}
+
+    {#if resuming}
+      <UnfinishedSessionCard
+        session={resuming}
+        planName={plan.name}
+        todayDate={data.todayDate}
+        onDiscard={() => (confirming = resuming)}
+      >
+        {#snippet picker()}
+          <SessionOverrideList
+            planSlug={plan.slug}
+            suggestedKey={plan.suggestion.suggestedKey}
+            sessions={plan.sessions}
+            todayDate={data.todayDate}
+            schedulingRules={plan.schedulingRules}
+            dropOrder={plan.dropOrder}
+          />
+        {/snippet}
+      </UnfinishedSessionCard>
+    {:else}
+      <NextSessionCard
+        planSlug={plan.slug}
+        planName={plan.name}
+        suggestedKey={plan.suggestion.suggestedKey}
+        lastSession={plan.suggestion.lastSession}
+        sessions={plan.sessions}
+        todayDate={data.todayDate}
+        schedulingRules={plan.schedulingRules}
+        dropOrder={plan.dropOrder}
+      />
+    {/if}
   {/each}
 
   <ActivityStrip kinds={data.activityKinds} />
@@ -339,6 +430,15 @@
         </div>
       {/each}
     </details>
+  {/if}
+
+  {#if confirming}
+    {@const session = confirming}
+    <DiscardSessionSheet
+      {session}
+      onCancel={() => (confirming = undefined)}
+      onConfirm={() => confirmDiscard(session)}
+    />
   {/if}
 {/if}
 
