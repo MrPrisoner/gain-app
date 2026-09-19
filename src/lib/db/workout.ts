@@ -113,6 +113,45 @@ export function finishWorkout(userDb: UserDb, input: FinishWorkoutInput): void {
     .run(input.status, input.now.toISOString(), input.note ?? null, input.workoutId);
 }
 
+/**
+ * Delete a workout and everything logged under it. The app's one surgical destructive
+ * operation — `$lib/server/admin-reset.ts` wipes a whole account, and nothing else
+ * removes a logged row at all.
+ *
+ * A hard delete rather than a "discarded" status, deliberately. A soft-deleted row has
+ * to be filtered by every reader — `logsForPlan`, and through it the export, history and
+ * progress — and the one reader that forgets feeds discarded data to the reviewing AI
+ * with nothing to catch it. There is no filter to forget when the rows are gone.
+ *
+ * `metric_value` is deleted first and by two paths, because a `scope: 'set'` metric
+ * references its `set_log` and not the workout: deleting the sets first would orphan it.
+ *
+ * Returns whether anything was deleted. `false` is a normal outcome, not an error — a
+ * discard op replayed twice, or one whose workout never reached this server at all,
+ * both land here (see `$lib/sync/replay.ts`).
+ */
+export function discardWorkout(userDb: UserDb, workoutClientId: string): boolean {
+  const workoutId = selectByClientId(userDb, "workout", workoutClientId);
+  if (!workoutId) return false;
+
+  userDb.db
+    .transaction(() => {
+      userDb.db
+        .prepare(
+          `DELETE FROM metric_value
+           WHERE workout_id = ?
+              OR set_log_id IN (SELECT id FROM set_log WHERE workout_id = ?)`,
+        )
+        .run(workoutId, workoutId);
+      userDb.db.prepare("DELETE FROM deviation WHERE workout_id = ?").run(workoutId);
+      userDb.db.prepare("DELETE FROM set_log WHERE workout_id = ?").run(workoutId);
+      userDb.db.prepare("DELETE FROM workout WHERE id = ?").run(workoutId);
+    })
+    .immediate();
+
+  return true;
+}
+
 export function logSet(userDb: UserDb, input: LogSetInput): { id: string } {
   const existing = selectByClientId(userDb, "set_log", input.clientId);
   if (existing) return { id: existing };
