@@ -11,7 +11,11 @@ token layer, the shared component primitives (`Button`, `Card`, `PageHeader`, `F
 `EmptyState`), and the two mechanical checks that hold every screen to the same floor.
 That half exists because rules like the 44px touch-target minimum and the page-title
 treatment belong to no single screen, and by the time `Button` and `PageHeader` existed
-this document's "session runner" title no longer covered what it decided.
+this document's "session runner" title no longer covered what it decided. Neither half is
+a ceiling on the numbering: a screen outside the runner earns a section of its own once it
+has an interaction model genuinely worth settling, the way §13 does for Home's
+unfinished-session card — the two-part split describes how this document grew, not a
+closed list of what it may ever cover.
 
 The build was made to conform to this document rather than the document to the build, and
 that stays the direction of travel. **Exactly one clause goes deliberately unbuilt** —
@@ -863,7 +867,13 @@ information architecture or interaction model outside those two remits. Home's s
 next session, history, progress and the offline sync-state indicator are all built, and
 their decisions live where they were made: ARCHITECTURE §9 and §10 for the architecture,
 and CLAUDE.md's Invariants for the two that hardened into rules — the sync banner's
-700 ms / 1.5 s gate, and the celebration being a moment rather than a step.
+700 ms / 1.5 s gate, and the celebration being a moment rather than a step. The
+unfinished-session card is the one Home decision that does not follow that pattern: its
+interaction model — when the card replaces the next-session suggestion outright versus
+sits beside it, and where the override picker goes once it does — was genuinely
+undecided rather than a straightforward consequence of an architectural choice, so it
+earned a section of its own instead of a paragraph in ARCHITECTURE. That is §13, and it
+is why this document, not that one, is where those decisions live.
 
 §5's symptom framework — whether GAIN shows a plan's green/yellow/red pain guidance to
 the person training — was the last genuinely open question here, and it is settled and
