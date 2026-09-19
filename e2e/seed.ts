@@ -26,9 +26,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
+import { encodeTime } from "ulidx";
 import { parsePlanDocument } from "../src/lib/parse/parser";
 import { importPlan } from "../src/lib/db/import-plan";
+import { getCurrentVersion, getPlanBySlug } from "../src/lib/db/read";
 import { openUserDb } from "../src/lib/db/user-db";
+import { startWorkout } from "../src/lib/db/workout";
 import { openControlDb, findUserBySub, createUser } from "../src/lib/server/control-db";
 
 const FIXTURE_PATH = path.join(process.cwd(), "fixtures/plans/home-training-v1.md");
@@ -124,6 +127,60 @@ export function importRevision(
  * user is shared — three viewport projects, and every non-`home-walkthrough` spec, all
  * read through `E2E_DEV_USER`'s one account.
  */
+/**
+ * A ULID whose timestamp is exactly `ms` — the same construction as
+ * `tests/helpers/ulid-at.ts`'s `ulidAt`, duplicated here rather than imported because
+ * that file lives under Vitest's `tests/` tree and this one runs under Playwright's plain
+ * Node process. The 16-character random suffix is fixed; nothing here cares about it.
+ */
+function ulidAt(ms: number): string {
+  return `${encodeTime(ms, 10)}0000000000000000`;
+}
+
+/**
+ * Seeds a workout row directly — bypassing the `?/start` action and the sync outbox
+ * entirely — with a `started_at` column *and* a `client_id` ULID that both encode
+ * `startedAtMs`. Both have to agree: `isResumable` (`$lib/session/workout-age.ts`) reads
+ * the age from the client id, not from the column, so a fresh ULID paired with a stale
+ * `started_at` would look perfectly resumable to the app and prove nothing about the
+ * resume-window boundary a test wants to exercise.
+ *
+ * Returns the seeded workout's `client_id`, the only handle a spec needs to address it
+ * afterwards (`workoutCountFor`, a resume URL's `?resume=`, or a `localStorage` pointer).
+ */
+export function seedStaleWorkout(
+  dataDir: string,
+  devUser: string,
+  planSlug: string,
+  sessionKey: string,
+  startedAtMs: number,
+): string {
+  const now = new Date(startedAtMs);
+  const control = openControlDb(dataDir, now);
+  let userId: string;
+  try {
+    const user = findUserBySub(control, `dev-bypass:${devUser}`);
+    if (!user) throw new Error(`no seeded user for devUser "${devUser}" under ${dataDir}`);
+    userId = user.id;
+  } finally {
+    control.close();
+  }
+
+  const userDb = openUserDb(dataDir, userId, { now });
+  try {
+    const plan = getPlanBySlug(userDb, planSlug);
+    if (!plan) throw new Error(`no plan "${planSlug}" seeded for devUser "${devUser}"`);
+    const version = getCurrentVersion(userDb, plan.id);
+    if (!version) throw new Error(`plan "${planSlug}" has no current version`);
+
+    const clientId = ulidAt(startedAtMs);
+    startWorkout(userDb, { clientId, planVersionId: version.id, sessionKey, now });
+    return clientId;
+  } finally {
+    userDb.close();
+  }
+}
+
 export function openSeededUserDb(dataDir: string, devUser: string): Database.Database {
   const control = openControlDb(dataDir, new Date());
   let userId: string | undefined;

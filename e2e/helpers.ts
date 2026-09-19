@@ -221,7 +221,7 @@ export async function waitForPrecached(page: Page, url: string): Promise<void> {
 
 /** One outbox record as IndexedDB holds it — enough of `OutboxRecord` to assert on. */
 export type OutboxRecordShape = {
-  op: { kind: string; exerciseSlug?: string };
+  op: { kind: string; exerciseSlug?: string; workoutClientId?: string };
   state: string;
   error?: string;
 };

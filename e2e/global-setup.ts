@@ -11,10 +11,12 @@ import {
   E2E_DATA_DIR,
   E2E_DATA_DIR_VAR,
   E2E_DEV_USER,
+  E2E_OFFLINE_DISCARD_USER,
   E2E_VIEWPORT_PROJECTS,
   accountResetDevUserFor,
   adminSubjectFor,
   homeDevUserFor,
+  unfinishedSessionDevUserFor,
 } from "./env";
 import { seedFixturePlan } from "./seed";
 import { openControlDb, setDisplayLabel } from "../src/lib/server/control-db";
@@ -50,6 +52,16 @@ export default function globalSetup(): void {
   for (const project of E2E_VIEWPORT_PROJECTS) {
     seedFixturePlan(E2E_DATA_DIR, accountResetDevUserFor(project));
   }
+  // `unfinished-session.spec.ts` asserts on whole-account Home state (every open
+  // workout), so it gets its own account per viewport project — same reasoning as
+  // `homeDevUserFor`.
+  for (const project of E2E_VIEWPORT_PROJECTS) {
+    seedFixturePlan(E2E_DATA_DIR, unfinishedSessionDevUserFor(project));
+  }
+  // `offline-discard.spec.ts` runs only under the `offline` project, so this one needs no
+  // per-project variation — but still needs its own account, for the same
+  // whole-account-state reasoning.
+  seedFixturePlan(E2E_DATA_DIR, E2E_OFFLINE_DISCARD_USER);
   // Published for the worker processes, which are forked after this runs and would
   // otherwise re-import `env.ts` and mint an empty temp directory of their own.
   process.env[E2E_DATA_DIR_VAR] = E2E_DATA_DIR;

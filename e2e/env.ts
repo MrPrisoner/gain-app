@@ -114,6 +114,33 @@ export function peekDevUserFor(projectName: string): string {
 }
 
 /**
+ * A per-project dev user for the unfinished-session walkthrough (Task 10). Home lists
+ * *every* open workout on the account (`openWorkoutsForPlan`), so this spec's assertions
+ * on "the" resume card, "no Resume link", and "the normal NextSessionCard is present" are
+ * whole-account state — same reasoning as `homeDevUserFor`, and the same
+ * `x-gain-e2e-user` header makes it work. `e2e/unfinished-session.spec.ts` also runs its
+ * three tests with `test.describe.configure({ mode: "serial" })`: two of them seed a
+ * workout row directly into the database rather than through the browser, and running
+ * them concurrently with the one that starts a real session would put more than one open
+ * workout on the account at once — the exact ambiguity `partitionUnfinished` exists to
+ * resolve for the *user*, not for a test's locator.
+ */
+export function unfinishedSessionDevUserFor(projectName: string): string {
+  return `e2e-unfinished-session-${projectName}`;
+}
+
+/**
+ * The dev user for the offline discard walkthrough (Task 10). `e2e/offline-discard.spec.ts`
+ * runs only under the `offline` project, so unlike every `*For(projectName)` helper above
+ * it needs no per-project variation — but it still needs its own account rather than
+ * sharing `E2E_DEV_USER`: `offline-survival.spec.ts` and `offline-auth.spec.ts` both leave
+ * a workout open on that shared account on purpose, and this file's tests assert on
+ * Home's aggregate "every open workout" state, which a sibling spec's stray open workout
+ * would contaminate.
+ */
+export const E2E_OFFLINE_DISCARD_USER = "e2e-offline-discard";
+
+/**
  * A per-project dev user for the Progress hub's "Ready to go up" assertion.
  *
  * Readiness is decided by the movement's MOST RECENT workout of that session type
