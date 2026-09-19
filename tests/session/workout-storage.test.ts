@@ -6,7 +6,12 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { clearWorkoutStorage, workoutStorageKey } from "../../src/lib/session/workout-storage";
+import {
+  clearWorkoutStorage,
+  listStoredWorkouts,
+  parseWorkoutStorageKey,
+  workoutStorageKey,
+} from "../../src/lib/session/workout-storage";
 
 /** Enough of the `Storage` interface for the prefix sweep, backed by a Map. */
 function fakeStorage(entries: Record<string, string> = {}): Storage {
@@ -68,5 +73,52 @@ describe("clearWorkoutStorage", () => {
     const storage = fakeStorage(many);
     clearWorkoutStorage(storage);
     expect(storage.length).toBe(0);
+  });
+});
+
+describe("parseWorkoutStorageKey", () => {
+  it("splits the prefix, plan slug and session key", () => {
+    expect(parseWorkoutStorageKey("gain:workout:home-training:A")).toEqual({
+      planSlug: "home-training",
+      sessionKey: "A",
+    });
+  });
+
+  it("returns undefined for a key that is not ours", () => {
+    expect(parseWorkoutStorageKey("gain:theme")).toBeUndefined();
+    expect(parseWorkoutStorageKey("sveltekit:something")).toBeUndefined();
+  });
+
+  it("returns undefined for a malformed key rather than guessing", () => {
+    expect(parseWorkoutStorageKey("gain:workout:only-three")).toBeUndefined();
+    expect(parseWorkoutStorageKey("gain:workout:a:b:c")).toBeUndefined();
+    expect(parseWorkoutStorageKey("gain:workout::A")).toBeUndefined();
+  });
+
+  it("round-trips with workoutStorageKey", () => {
+    expect(parseWorkoutStorageKey(workoutStorageKey("home-training", "D"))).toEqual({
+      planSlug: "home-training",
+      sessionKey: "D",
+    });
+  });
+});
+
+describe("listStoredWorkouts", () => {
+  it("returns every stored pointer", () => {
+    const storage = fakeStorage({
+      "gain:workout:p:A": "01JAAA0000000000000000000A",
+      "gain:workout:p:B": "01JBBB0000000000000000000B",
+      "gain:theme": "dark",
+    });
+    expect(listStoredWorkouts(storage)).toHaveLength(2);
+  });
+
+  it("returns nothing when localStorage is unavailable", () => {
+    // SSR, and a browser with storage disabled. Both callers are render paths.
+    expect(listStoredWorkouts(undefined)).toEqual([]);
+  });
+
+  it("skips a key whose value is empty", () => {
+    expect(listStoredWorkouts(fakeStorage({ "gain:workout:p:A": "" }))).toEqual([]);
   });
 });

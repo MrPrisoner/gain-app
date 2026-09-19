@@ -37,3 +37,45 @@ export function clearWorkoutStorage(storage: Storage | undefined = globalThis.lo
     if (key?.startsWith(WORKOUT_KEY_PREFIX)) storage.removeItem(key);
   }
 }
+
+/**
+ * The inverse of `workoutStorageKey`. Neither a plan slug nor a session key may contain
+ * a colon, so a well-formed key is exactly four segments and anything else is a key that
+ * is not ours, or one a future format wrote. Both get `undefined` rather than a guess —
+ * a wrongly-parsed key would render a card pointing at a session that does not exist.
+ */
+export function parseWorkoutStorageKey(
+  key: string,
+): { planSlug: string; sessionKey: string } | undefined {
+  if (!key.startsWith(WORKOUT_KEY_PREFIX)) return undefined;
+  const parts = key.split(":");
+  if (parts.length !== 4) return undefined;
+  const [, , planSlug, sessionKey] = parts;
+  if (!planSlug || !sessionKey) return undefined;
+  return { planSlug, sessionKey };
+}
+
+/**
+ * Every workout this device has a resume pointer for. Home's fallback for the case the
+ * server cannot see: a session logged offline whose ops have not synced yet, which is
+ * this app's core scenario rather than an edge one.
+ *
+ * Iterates upwards — unlike `clearWorkoutStorage`, nothing is removed here, so the
+ * reindexing that forces that function to count down does not apply.
+ */
+export function listStoredWorkouts(
+  storage: Storage | undefined = globalThis.localStorage,
+): { planSlug: string; sessionKey: string; workoutClientId: string }[] {
+  if (!storage) return [];
+  const found: { planSlug: string; sessionKey: string; workoutClientId: string }[] = [];
+  for (let i = 0; i < storage.length; i += 1) {
+    const key = storage.key(i);
+    if (key === null) continue;
+    const parsed = parseWorkoutStorageKey(key);
+    if (!parsed) continue;
+    const workoutClientId = storage.getItem(key);
+    if (!workoutClientId) continue;
+    found.push({ ...parsed, workoutClientId });
+  }
+  return found;
+}
