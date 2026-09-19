@@ -98,6 +98,15 @@ export async function openOutbox(): Promise<OutboxStore> {
       return run(index.getAll(workoutClientId) as IDBRequest<OutboxRecord[]>);
     },
 
+    async dropForWorkout(workoutClientId: string): Promise<void> {
+      const store = tx(db, "readwrite");
+      const index = store.index("workoutClientId");
+      const records = await run(index.getAll(workoutClientId) as IDBRequest<OutboxRecord[]>);
+      // Every `delete` is issued before the first `await` that follows, for the same
+      // reason `ack` does it: they must land on this one transaction.
+      await Promise.all(records.map((record) => run(store.delete(record.op.id))));
+    },
+
     async counts(): Promise<{ pending: number; quarantined: number }> {
       const store = tx(db, "readonly");
       const all = await run(store.getAll() as IDBRequest<OutboxRecord[]>);

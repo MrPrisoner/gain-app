@@ -40,6 +40,14 @@ export function memoryOutbox(): OutboxStore {
         ),
       );
     },
+    dropForWorkout(workoutClientId) {
+      for (const [id, record] of records) {
+        if ((record.op as { workoutClientId?: string }).workoutClientId === workoutClientId) {
+          records.delete(id);
+        }
+      }
+      return Promise.resolve();
+    },
     counts() {
       const all = [...records.values()];
       return Promise.resolve({

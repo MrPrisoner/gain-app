@@ -27,6 +27,20 @@ export interface OutboxStore {
   ack(ids: readonly string[]): Promise<void>;
   quarantine(entries: readonly { id: string; error: string }[]): Promise<void>;
   forWorkout(workoutClientId: string): Promise<OutboxRecord[]>;
+  /**
+   * Drop every record for one workout, pending and quarantined alike. Called only when
+   * the user discards that workout.
+   *
+   * Its own method rather than a `forWorkout` + `ack` composition at the call site,
+   * because `ack` means "the server confirmed this" and every reader of that call would
+   * have to know it was being told a lie here.
+   *
+   * Quarantined records go too. "Held, never dropped" means held until the person whose
+   * data it is decides otherwise (ARCHITECTURE §4), and discarding the workout is that
+   * decision — a quarantined op for a workout that no longer exists could only keep the
+   * banner up forever.
+   */
+  dropForWorkout(workoutClientId: string): Promise<void>;
   counts(): Promise<{ pending: number; quarantined: number }>;
   /**
    * Drop every record, pending and quarantined. Called only on a generation mismatch —

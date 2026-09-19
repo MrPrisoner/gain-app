@@ -21,7 +21,7 @@ import {
   type SyncStatus,
 } from "./queue";
 import { resolveWrite } from "./deferred-start";
-import type { StartOp, SyncOp } from "./ops";
+import { newOpId, type StartOp, type SyncOp } from "./ops";
 import { openOutbox } from "./idb";
 
 export const syncStatus: SyncStatus = $state({
@@ -156,6 +156,38 @@ export async function discardQuarantined(): Promise<void> {
   const outbox = await store();
   await outbox.clearQuarantined();
   await refreshCounts();
+}
+
+/**
+ * Throw an unfinished workout away, from Home.
+ *
+ * Order matters. The purge runs **first**, so the workout's own `start` op cannot reach
+ * the server after the discard has already deleted the row it would recreate. The
+ * discard op then goes out to erase whatever had already synced; the server treats a
+ * workout it has never heard of as already discarded (`$lib/sync/replay.ts`), which is
+ * what makes the purge-first order safe for a workout that never synced at all.
+ *
+ * The `localStorage` resume pointer is the caller's to clear — this module owns the
+ * outbox, and `$lib/session/workout-storage.ts` owns that key.
+ */
+export async function discardWorkout(planSlug: string, workoutClientId: string): Promise<void> {
+  const outbox = await store();
+  await outbox.dropForWorkout(workoutClientId);
+  await outbox.append({ kind: "discard", id: newOpId(), workoutClientId });
+  await refreshCounts();
+  void flushNow(planSlug);
+}
+
+/**
+ * The workouts with a discard still queued. Home filters these out of what the server
+ * reported: until the op syncs, the server still has the row and would keep rendering a
+ * card for a workout the user has already thrown away. Self-healing — once the op is
+ * acked it leaves the outbox, and by then the server has stopped reporting the workout
+ * too.
+ */
+export async function pendingDiscardIds(): Promise<string[]> {
+  const ops = await (await store()).pending();
+  return ops.filter((op) => op.kind === "discard").map((op) => op.workoutClientId);
 }
 
 /**

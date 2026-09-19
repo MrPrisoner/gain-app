@@ -8,15 +8,27 @@ import {
 import type { SyncOp } from "../../src/lib/sync/ops";
 import { memoryOutbox } from "./memory-outbox";
 
-function setOp(id: string): SyncOp {
+const WORKOUT = "01JZ000000000000000000000W";
+const OTHER_WORKOUT = "01JZ000000000000000000000X";
+
+function setOp(id: string, workoutClientId: string = WORKOUT): SyncOp {
   return {
     kind: "set",
     id,
-    workoutClientId: "01JZ000000000000000000000W",
+    workoutClientId,
     exerciseSlug: "goblet-squat",
     setNo: 1,
     reps: 12,
     difficulty: "medium",
+  };
+}
+
+function activityOp(id: string): SyncOp {
+  return {
+    kind: "activity",
+    id,
+    activityKind: "run",
+    occurredAt: "2026-09-01T08:00:00.000Z",
   };
 }
 
@@ -84,6 +96,44 @@ describe("the outbox contract", () => {
     await outbox.clearAll();
 
     expect(await outbox.counts()).toEqual({ pending: 0, quarantined: 0 });
+  });
+});
+
+describe("dropForWorkout", () => {
+  it("removes pending and quarantined records alike for that workout", async () => {
+    const outbox = memoryOutbox();
+    await outbox.append(setOp("01"));
+    await outbox.append(setOp("02"));
+    await outbox.quarantine([{ id: "02", error: "unknown exercise `ghost`" }]);
+
+    // A quarantined op is held, never dropped (ARCHITECTURE §4) — but "held" means held
+    // until the person whose data it is decides otherwise, and discarding the workout it
+    // belongs to is exactly that decision. Leaving it would keep the quarantine banner
+    // up for a workout that no longer exists.
+    await outbox.dropForWorkout(WORKOUT);
+
+    expect(await outbox.counts()).toEqual({ pending: 0, quarantined: 0 });
+  });
+
+  it("leaves another workout's records alone", async () => {
+    const outbox = memoryOutbox();
+    await outbox.append(setOp("01"));
+    await outbox.append(setOp("02", OTHER_WORKOUT));
+    await outbox.append(setOp("03", OTHER_WORKOUT));
+
+    await outbox.dropForWorkout(WORKOUT);
+
+    expect(await outbox.forWorkout(OTHER_WORKOUT)).toHaveLength(2);
+  });
+
+  it("leaves activity ops alone, which carry no workoutClientId", async () => {
+    const outbox = memoryOutbox();
+    await outbox.append(setOp("01"));
+    await outbox.append(activityOp("02"));
+
+    await outbox.dropForWorkout(WORKOUT);
+
+    expect((await outbox.pending()).filter((op) => op.kind === "activity")).toHaveLength(1);
   });
 });
 
