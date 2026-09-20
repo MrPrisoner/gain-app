@@ -113,21 +113,6 @@ export function importRevision(
 }
 
 /**
- * A read-only handle on one seeded user's `gain.db`, for specs that need to assert on
- * what a form action actually wrote rather than only on what the page draws — resume's
- * "re-logging cannot create a duplicate `(workout, exercise, set_no, side)`" is a claim
- * about rows, and rendered state cannot make it.
- *
- * `devUser` resolves to a user id the same way `ensureBypassUser`
- * (`src/lib/server/auth.ts`) does — the same synthetic `dev-bypass:<devUser>` sub — so it
- * finds the right directory now that `seedFixturePlan` can provision more than one user
- * under one `dataDir` (`E2E_DEV_USER` and `E2E_HOME_DEV_USER`, `e2e/env.ts`). Opened
- * `readonly` deliberately: a test that can write to the app's database can make its own
- * assertions come true. Specs must still scope every query to their own workout where the
- * user is shared — three viewport projects, and every non-`home-walkthrough` spec, all
- * read through `E2E_DEV_USER`'s one account.
- */
-/**
  * A ULID whose timestamp is exactly `ms` — the same construction as
  * `tests/helpers/ulid-at.ts`'s `ulidAt`, duplicated here rather than imported because
  * that file lives under Vitest's `tests/` tree and this one runs under Playwright's plain
@@ -181,6 +166,21 @@ export function seedStaleWorkout(
   }
 }
 
+/**
+ * A read-only handle on one seeded user's `gain.db`, for specs that need to assert on
+ * what a form action actually wrote rather than only on what the page draws — resume's
+ * "re-logging cannot create a duplicate `(workout, exercise, set_no, side)`" is a claim
+ * about rows, and rendered state cannot make it.
+ *
+ * `devUser` resolves to a user id the same way `ensureBypassUser`
+ * (`src/lib/server/auth.ts`) does — the same synthetic `dev-bypass:<devUser>` sub — so it
+ * finds the right directory now that `seedFixturePlan` can provision more than one user
+ * under one `dataDir` (`E2E_DEV_USER` and `E2E_HOME_DEV_USER`, `e2e/env.ts`). Opened
+ * `readonly` deliberately: a test that can write to the app's database can make its own
+ * assertions come true. Specs must still scope every query to their own workout where the
+ * user is shared — three viewport projects, and every non-`home-walkthrough` spec, all
+ * read through `E2E_DEV_USER`'s one account.
+ */
 export function openSeededUserDb(dataDir: string, devUser: string): Database.Database {
   const control = openControlDb(dataDir, new Date());
   let userId: string | undefined;

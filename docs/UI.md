@@ -842,10 +842,11 @@ one tap away, because hiding the only picker on the screen behind an unfinished 
 would turn a legitimate change of plan into a dead end. More than one open workout can
 exist for one plan at once — starting the same session again past the window mints a
 fresh workout rather than reviving the old one, so abandoning a session twice leaves two
-— and at most one of them can be inside the window, so it is the one promoted to carry
-the picker; every other open workout renders as its own slim aged-out notice regardless
-of its own age, because the picker answers "what do I do instead of the session I'm
-mid-window on," and a plan is mid-window on at most one session at a time.
+— and only one of them can be promoted, so it is the most recently started resumable one
+that carries the picker; every other open workout renders as its own slim aged-out
+notice regardless of its own age, because the picker answers "what do I do instead of
+the session I'm mid-window on," and a plan is mid-window on at most one session at a
+time.
 
 **`--amber` is correct here, not an exception to §5.** §5's accent-only rule is scoped to
 the session runner specifically — the screen read one-handed, mid-set, where every extra

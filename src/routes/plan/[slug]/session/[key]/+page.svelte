@@ -158,8 +158,17 @@
       clientId = resumed ? candidate : newOpId();
 
       // A pointer we are declining to resume must go, or the next visit re-reads it and
-      // the fresh workout started here is orphaned behind a stale key.
-      if (!resumed && stored !== null && typeof localStorage !== "undefined") {
+      // the fresh workout started here is orphaned behind a stale key. But only when the
+      // stored pointer is the very candidate just rejected: `?resume=` can name a stale
+      // workout while `stored` under this key already points at a different, newer one
+      // started locally, and declining the URL's stale candidate must not delete a fresh
+      // pointer it doesn't match.
+      if (
+        !resumed &&
+        stored !== null &&
+        stored === candidate &&
+        typeof localStorage !== "undefined"
+      ) {
         localStorage.removeItem(storageKey);
       }
 

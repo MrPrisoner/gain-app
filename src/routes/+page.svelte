@@ -131,7 +131,12 @@
     // will filter it on the next load via `pendingDiscardIds`. Removing it here is what
     // makes the tap feel like it did something while offline.
     unfinished = unfinished.filter((u) => u.workoutClientId !== session.workoutClientId);
-    localStorage.removeItem(workoutStorageKey(session.planSlug, session.sessionKey));
+    // Only clear the pointer if it still names the workout being discarded: a stale
+    // workout and a fresh one can share this (planSlug, sessionKey) key at once, and
+    // removing the key unconditionally would orphan the fresh workout's pointer if it
+    // was the one actually stored there.
+    const key = workoutStorageKey(session.planSlug, session.sessionKey);
+    if (localStorage.getItem(key) === session.workoutClientId) localStorage.removeItem(key);
     await discardWorkout(session.planSlug, session.workoutClientId);
     await invalidateAll();
   }

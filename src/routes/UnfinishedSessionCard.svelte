@@ -16,9 +16,8 @@
    * must not be a dead end), and gets a Resume link. Every other open workout for the
    * plan renders as a slim notice here — no plan name, no picker, no Resume link — even
    * when it is itself still individually resumable: a plan can have two workouts open at
-   * once for two different session keys, and only one of them is ever the primary card
-   * (`docs/superpowers/specs/2026-09-19-unfinished-session-resume-design.md` §2, "every
-   * other open workout renders as an aged-out notice above it"). Outside the window
+   * once for two different session keys, and only one of them is ever the primary card —
+   * every other open workout renders as an aged-out notice above it. Outside the window
    * Resume is gone for the same reason regardless of promotion: appending today's sets to
    * a days-old workout puts a multi-day duration in the export
    * (`$lib/session/workout-age.ts`) — but promotion already implies resumability, since
