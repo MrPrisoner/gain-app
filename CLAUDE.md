@@ -606,11 +606,25 @@ protect:
   because the `start` op is still behind it in the queue. A discard has no `start` behind
   it: the client purges every op for that workout, the `start` included, before enqueueing
   the discard, so there is no start left to wait for and never will be. Routing it through
-  `requireWorkout` "for consistency" would retry an unsatisfiable op until it quarantined
-  — and a quarantined discard is an op the user can never clear, for a workout they
-  already deleted. `$lib/sync/replay.ts`'s `discard` case is deliberately the one op kind
-  that does not go through `requireWorkout`; a refactor that "fixes" that breaks it
-  silently.
+  `requireWorkout` "for consistency" would not quarantine it — which is the part worth
+  being precise about, because quarantine at least has an exit. `replayOps` reports a
+  `NotYetError` as `pending`, `applyAck` leaves a pending op in the outbox, and nothing
+  escalates it: the op retries on every sync forever, holding the banner at "pending",
+  with no failure for the user to act on and no `discardQuarantined` to reach for. An op
+  whose whole job is to make data not exist would be unable to finish and unable to fail.
+  `$lib/sync/replay.ts`'s `discard` case is deliberately the one op kind that does not go
+  through `requireWorkout`; a refactor that "fixes" that breaks it silently.
+- **A discard only ever deletes an _unfinished_ workout.** `discardWorkout`
+  (`src/lib/db/workout.ts`) resolves its target with `completed_at IS NULL` and reports
+  the same `false` as a workout that was never here, because "there is nothing left to
+  discard" is one answer, not three. Home only offers Discard for a row it read back as
+  open, so the guard costs the feature nothing — but the op is queued against a view that
+  can go stale before it replays (a second tab, a second device, a cached Home payload),
+  and by then the session may have been resumed and finished elsewhere. Without it that
+  op hard-deletes a _completed_ session and every set under it: the export silently loses
+  it, the next-morning prompt loses its row, and nothing anywhere errors. This is the one
+  destructive write in the app that a stale client can aim, which is why the aiming is
+  checked at the write rather than at the button.
 
 ## The fixture
 

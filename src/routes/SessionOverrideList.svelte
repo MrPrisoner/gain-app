@@ -9,9 +9,12 @@
    * toggle, each further expandable to the block detail the plan overview used to show
    * above the fold. `scheduling.rules`/`drop_order` render verbatim underneath as the
    * plan's own words, never automated — GAIN acts automatically on
-   * `scheduling.sequence` alone. Nested inside `NextSessionCard`'s `.next-session` card
-   * rather than a card of its own, so it renders no background or border of its own —
-   * only a divider to separate it from the start button above.
+   * `scheduling.sequence` alone. Nested inside whichever card holds the plan's primary
+   * slot — `NextSessionCard`, or `UnfinishedSessionCard` when an unfinished session has
+   * replaced it (UI §13) — rather than being a card of its own, so it renders no
+   * background or border, only a divider separating it from the button above. Keep it
+   * that way: a second parent is why none of its styles may reach for the first one's
+   * class.
    */
   let {
     planSlug,

@@ -85,9 +85,10 @@
   // Pre-session metrics (ARCHITECTURE §9, UI §8): a genuinely fresh start gates
   // the runner behind `data.startMetrics` until "Continue to session" is tapped — asking
   // "how do you feel before you start" makes no sense on a workout already in progress, so
-  // a workout resumed from an existing local pointer skips this gate entirely and never
-  // sets it true. Set once, in the mount effect below, from the same local-vs-fresh signal
-  // that decides whether to hydrate — never re-derived anywhere else. If the plan declares
+  // a resumed workout skips this gate entirely and never sets it true, whether it was
+  // reached through the local pointer or through Home's `?resume=` link. Set in exactly
+  // one place, `beginFreshWorkout` below, which is by definition every path that ends up
+  // on a genuinely new workout — never re-derived anywhere else. If the plan declares
   // no `start` metrics at all there is nothing to show, so the gate is skipped rather than
   // surfacing an empty sheet with only a Continue button.
   let showPreSession = $state(false);
@@ -106,34 +107,91 @@
   }
 
   /**
-   * Ask the server for whatever it already has under this `client_id` (still `?/start`,
-   * now demoted to a fallback). This is the half local-only
-   * reconstruction cannot cover: `idb.ts`'s `ack()` deletes an op from the outbox the
-   * moment the server confirms it, so once anything has synced — the common case for
-   * anyone online through most of a session — `opsForWorkout` alone would reconstruct an
-   * *incomplete* ledger on reload, missing exactly the sets that synced successfully.
-   * Offline, or any other failure here, is not fatal: every real write already reached
-   * `logWrite` and is safe in the outbox regardless of whether this call succeeds, so a
-   * failed fetch just means the local hydration below is the whole picture until the next
-   * sync fills in the rest.
+   * What the server has to say about a `client_id` the runner is about to resume onto.
+   *
+   * Three answers, and the runner acts differently on each:
+   *
+   * - `unknown` — no usable reply. Offline, or the action failed. **Not** a reason to
+   *   abandon the workout: every real write already reached `logWrite` and is safe in the
+   *   outbox regardless, so this just means the local hydration below is the whole
+   *   picture until the next sync fills in the rest. Offline resume is the core scenario,
+   *   not an edge one.
+   * - `not-this-session` — the server has this workout and it belongs to another session
+   *   or another plan. Only a supplied `?resume=` can produce this (see `?/start`), and
+   *   the only safe move is to stop resuming onto it.
+   * - `resumable` — this workout is ours, with whatever history the server already holds.
+   *   `hydration` is legitimately `undefined` for one that exists only in this device's
+   *   outbox so far, which is why that case must not be confused with the two above.
+   *
+   * The hydration itself is the half local-only reconstruction cannot cover: `idb.ts`'s
+   * `ack()` deletes an op from the outbox the moment the server confirms it, so once
+   * anything has synced — the common case for anyone online through most of a session —
+   * `opsForWorkout` alone would rebuild an *incomplete* ledger on reload, missing exactly
+   * the sets that synced successfully.
    */
-  async function fetchServerHydration(clientId: string): Promise<SessionHydration | undefined> {
+  type ResumeProbe =
+    | { outcome: "unknown" }
+    | { outcome: "not-this-session" }
+    | { outcome: "resumable"; hydration: SessionHydration | undefined };
+
+  async function probeResume(clientId: string): Promise<ResumeProbe> {
     try {
       const body = new FormData();
       body.set("client_id", clientId);
       const response = await fetch("?/start", { method: "POST", body });
       const result = deserialize(await response.text());
-      if (result.type !== "success") return undefined;
-      const resultData = result.data as { hydration?: SessionHydration } | undefined;
-      return resultData?.hydration;
+      if (result.type !== "success") return { outcome: "unknown" };
+      const resultData = result.data as
+        { hydration?: SessionHydration; notThisSession?: boolean } | undefined;
+      if (resultData?.notThisSession) return { outcome: "not-this-session" };
+      return { outcome: "resumable", hydration: resultData?.hydration };
     } catch {
-      return undefined;
+      return { outcome: "unknown" };
     }
   }
 
   $effect(() => {
     let cancelled = false;
     let clientId: string | undefined;
+
+    /**
+     * Mint a fresh workout and arm its `start`, without persisting either yet.
+     *
+     * Nothing is written here — not the resume key, not the `start` op. Both land on the
+     * first write against this workout, via the armed start
+     * (`$lib/sync/deferred-start`). A session someone only opened to look at must not be
+     * able to claim it happened: a `workout` row advances Home's rotation cursor and
+     * counts as a Partial in the export's Adherence table, and the reviewing AI reads a
+     * Partial as a session the user abandoned.
+     *
+     * The op is minted *whole* right here rather than at commit time, and that is
+     * load-bearing twice over. Its ULID must sort below every op it precedes, or
+     * `planBatch` sends the set first and replay costs a wasted round trip on
+     * `NotYetError`; ULIDs are monotonic, so minting it now makes that free. And
+     * `startedAt` is honestly the moment the session opened — warm-up and setup are part
+     * of a session, and stamping it at the first set would silently narrow every future
+     * duration and break comparison with everything already logged.
+     */
+    function beginFreshWorkout(): string {
+      // A local `const` rather than the effect's `clientId` binding, so `onCommit` writes
+      // the id armed here even if the binding has moved on by the time it runs.
+      const freshId = newOpId();
+      armDeferredStart(
+        {
+          kind: "start",
+          id: newOpId(),
+          workoutClientId: freshId,
+          planVersionId: data.planVersionId,
+          sessionKey: data.session.key,
+          startedAt: new Date().toISOString(),
+        },
+        () => {
+          if (typeof localStorage !== "undefined") localStorage.setItem(storageKey, freshId);
+        },
+      );
+      if (data.startMetrics.length > 0) showPreSession = true;
+      return freshId;
+    }
 
     (async () => {
       /**
@@ -155,7 +213,6 @@
        * notice.
        */
       const resumed = candidate !== null && isResumable(candidate, new Date());
-      clientId = resumed ? candidate : newOpId();
 
       // A pointer we are declining to resume must go, or the next visit re-reads it and
       // the fresh workout started here is orphaned behind a stale key. But only when the
@@ -163,6 +220,15 @@
       // workout while `stored` under this key already points at a different, newer one
       // started locally, and declining the URL's stale candidate must not delete a fresh
       // pointer it doesn't match.
+      //
+      // What that guard buys is narrower than it looks, and worth stating so nobody reads
+      // a stronger invariant into it: it protects the newer pointer across a *peek* at a
+      // stale session. If anything is then written here, the fresh workout's own
+      // `onCommit` below overwrites the key anyway — one key holds one workout, and the
+      // most recently started one is the right occupant. The newer workout is not lost by
+      // that: its data lives in the outbox and, once synced, on the server, both of which
+      // Home reads. The pointer only decides which workout a *reload of this route*
+      // rejoins.
       if (
         !resumed &&
         stored !== null &&
@@ -173,60 +239,58 @@
       }
 
       if (!resumed) {
-        /**
-         * Nothing is persisted here — not the resume key, not the `start` op. Both land
-         * on the first write against this workout, via the start armed below
-         * (`$lib/sync/deferred-start`). A session someone only opened to look at must
-         * not be able to claim it happened: a `workout` row advances Home's rotation
-         * cursor and counts as a Partial in the export's Adherence table, and the
-         * reviewing AI reads a Partial as a session the user abandoned.
-         *
-         * The op is minted *whole* right here rather than at commit time, and that is
-         * load-bearing twice over. Its ULID must sort below every op it precedes, or
-         * `planBatch` sends the set first and replay costs a wasted round trip on
-         * `NotYetError`; ULIDs are monotonic, so minting it now makes that free. And
-         * `startedAt` is honestly the moment the session opened — warm-up and setup are
-         * part of a session, and stamping it at the first set would silently narrow
-         * every future duration and break comparison with everything already logged.
-         */
-        // Narrows `clientId` (declared `string | undefined` above) to a definite `string`
-        // for the `onCommit` closure below — capturing the outer binding instead would
-        // read whatever it holds when the closure runs, not what it held here.
-        const freshId = clientId;
-        armDeferredStart(
-          {
-            kind: "start",
-            id: newOpId(),
-            workoutClientId: freshId,
-            planVersionId: data.planVersionId,
-            sessionKey: data.session.key,
-            startedAt: new Date().toISOString(),
-          },
-          () => {
-            if (typeof localStorage !== "undefined") localStorage.setItem(storageKey, freshId);
-          },
-        );
+        clientId = beginFreshWorkout();
+        if (cancelled) return;
+        workoutClientId = clientId;
+        return;
       }
+
+      clientId = candidate;
+
+      // Resuming by `?resume=` adopts an id this device may never have stored — Home's
+      // link is built from the *server's* view, which a second device or a cleared
+      // profile has no local pointer for. Writing it here is what stops the fork one
+      // visit later: without it the next arrival at this route finds no pointer, mints a
+      // second workout, and one session's effort ends up split across two rows in the
+      // export — the very outcome adopting the id was meant to prevent. Unconditional
+      // rather than guarded on `stored !== candidate`: writing the value already there is
+      // a no-op, and the guard would only be a second thing to keep correct.
+      //
+      // Safe against the peek this file otherwise takes such care over: `resumed` means
+      // the workout already exists, so there is no claim being manufactured here — the
+      // key is a pointer at something real, not a record that a session happened.
+      if (typeof localStorage !== "undefined") localStorage.setItem(storageKey, clientId);
 
       if (cancelled) return;
       workoutClientId = clientId;
 
-      if (resumed) {
-        // Server first (already-synced history), then local pending ops (whatever the
-        // server does not know about yet) — `applyHydration` sets per key, so a pending
-        // op's more recent value wins over whatever the server last saw for that same
-        // slot, and a slot only one side covers is simply the union of both.
-        const [serverHydration, localOps] = await Promise.all([
-          fetchServerHydration(clientId),
-          opsForWorkout(clientId),
-        ]);
-        if (cancelled) return;
-        if (serverHydration) applyHydration(serverHydration);
-        if (localOps.length > 0) {
-          applyHydration(hydrateSession(data.session, historyFromOps(localOps)));
+      // Server first (already-synced history), then local pending ops (whatever the
+      // server does not know about yet) — `applyHydration` sets per key, so a pending
+      // op's more recent value wins over whatever the server last saw for that same
+      // slot, and a slot only one side covers is simply the union of both.
+      const [probe, localOps] = await Promise.all([probeResume(clientId), opsForWorkout(clientId)]);
+      if (cancelled) return;
+
+      if (probe.outcome === "not-this-session") {
+        // The id named a real workout belonging to another session or plan — only a
+        // supplied `?resume=` reaches here. Abandon it and start fresh rather than
+        // logging this session's sets onto it. The window between adopting the id and
+        // this answer is a live network round trip, so a set logged inside it is already
+        // queued against the wrong workout; that residue is accepted rather than
+        // prevented, because closing it means blocking the runner on a request that
+        // legitimately never answers offline, which is the scenario this whole layer
+        // exists for.
+        if (typeof localStorage !== "undefined" && localStorage.getItem(storageKey) === clientId) {
+          localStorage.removeItem(storageKey);
         }
-      } else if (data.startMetrics.length > 0) {
-        showPreSession = true;
+        clientId = beginFreshWorkout();
+        workoutClientId = clientId;
+        return;
+      }
+
+      if (probe.outcome === "resumable" && probe.hydration) applyHydration(probe.hydration);
+      if (localOps.length > 0) {
+        applyHydration(hydrateSession(data.session, historyFromOps(localOps)));
       }
     })();
 

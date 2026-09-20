@@ -59,7 +59,8 @@
  */
 
 import { expect, test } from "@playwright/test";
-import { E2E_OFFLINE_DISCARD_USER, E2E_PLAN_SLUG } from "./env";
+import { E2E_OFFLINE_DISCARD_USER, E2E_PLAN_SLUG, seededDataDir } from "./env";
+import { clearOpenWorkouts } from "./seed";
 import {
   dismissPreSessionPrompt,
   logSetThroughRest,
@@ -74,6 +75,11 @@ const SESSION_NAME = "Squat, Press & Row";
 test.describe.configure({ mode: "serial" });
 
 test.beforeEach(async ({ page }) => {
+  // Both tests end by discarding what they opened, so this is normally a no-op — but an
+  // attempt that fails partway through leaves an open workout behind, and CI's retry
+  // would then re-run the file against an account these whole-account assertions cannot
+  // describe. Same reasoning as `unfinished-session.spec.ts`.
+  clearOpenWorkouts(seededDataDir(), E2E_OFFLINE_DISCARD_USER);
   await page.setExtraHTTPHeaders({ "x-gain-e2e-user": E2E_OFFLINE_DISCARD_USER });
 });
 

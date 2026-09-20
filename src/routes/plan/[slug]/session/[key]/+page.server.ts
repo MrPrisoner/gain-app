@@ -23,7 +23,7 @@ import {
 } from "$lib/db/read";
 import { recentSetLogsForExercise } from "$lib/db/recent-sets";
 import { workoutHistoryFor } from "$lib/db/workout-history";
-import { resolveWorkoutIdByClientId } from "$lib/db/workout";
+import { resolveWorkoutIdByClientId, resolveWorkoutRoute } from "$lib/db/workout";
 import type { UserDb } from "$lib/db/user-db";
 import { pickPrefill, type PrefillByExercise } from "$lib/session/prefill";
 import { hydrateSession, type SessionHydration } from "$lib/session/resume";
@@ -153,6 +153,18 @@ export const actions: Actions = {
    * time — silently reintroducing the clock bug the offline replay path was built to
    * avoid. Resolving by `client_id` first and returning nothing when it is not found
    * keeps this action honestly read-only.
+   *
+   * **The workout has to belong to this route, and that is checked rather than assumed.**
+   * Until Home grew a Resume link the only source of a `client_id` here was the runner's
+   * own `localStorage` pointer, which is keyed by plan slug and session key and so paired
+   * the workout with its session by construction. `?resume=<clientId>` is a value the
+   * user can supply — a hand-edited or pasted URL — and pairs nothing. Without this check
+   * `/plan/p/session/A?resume=<a session-B workout>` hydrates B's ledger into A's screen
+   * and every set logged afterwards attaches to a workout whose `session_key` is B: an
+   * export row nobody can account for, with nothing failing along the way. The refusal is
+   * reported as `notThisSession` rather than as an empty hydration, because the runner
+   * has to tell it apart from the legitimately empty answer for a workout that only
+   * exists in this device's outbox so far.
    */
   start: async ({ request, params, locals }) => {
     if (!locals.user) throw redirect(303, "/login");
@@ -169,6 +181,13 @@ export const actions: Actions = {
       if (!plan) return fail(404, { actionError: "No such plan." });
       const version = getCurrentVersion(userDb, plan.id);
       if (!version) return fail(404, { actionError: "This plan has no imported version." });
+
+      // The plan, not the version: a workout left open across a revision names the older
+      // version it ran under (§8) and must still resume onto this route.
+      const route = resolveWorkoutRoute(userDb, workoutId);
+      if (!route || route.planId !== plan.id || route.sessionKey !== params.key) {
+        return { workoutId: undefined, hydration: undefined, notThisSession: true };
+      }
 
       return {
         workoutId,

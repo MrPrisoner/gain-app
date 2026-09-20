@@ -848,6 +848,16 @@ notice regardless of its own age, because the picker answers "what do I do inste
 the session I'm mid-window on," and a plan is mid-window on at most one session at a
 time.
 
+**A card with no Resume button says why it has none.** "Left unfinished · today" beside a
+lone Discard reads as a bug to anyone looking at a session they abandoned this morning:
+the twelve-hour window is the whole reason, and nothing else on the card hints at it, so
+the aged-out card carries one muted line — *too old to resume, starting this session again
+begins a new one* — which also answers the question the user asks next. That line is keyed
+on the window, never on which card won the primary slot: a second still-resumable workout
+also loses its Resume button, but for a layout reason rather than an age one, and telling
+it that it is too old would be a plain lie. That one says nothing, and the picker above it
+is how the user reaches it.
+
 **`--amber` is correct here, not an exception to §5.** §5's accent-only rule is scoped to
 the session runner specifically — the screen read one-handed, mid-set, where every extra
 hue competes with the number the user is about to act on. Home is not that screen. Amber

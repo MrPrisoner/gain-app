@@ -15,7 +15,21 @@ export type HomeWorkoutRef = {
   completedAt: string | undefined;
 };
 
-/** Most-recent-first, for `suggestNextSession` (`src/lib/home/next-session.ts`). */
+/**
+ * The plan's finished workouts, most-recent-first, for `suggestNextSession`
+ * (`src/lib/home/next-session.ts`).
+ *
+ * **Finished is filtered here, not only there.** `suggestNextSession` applies the same
+ * predicate itself and must keep doing so — it is pure, and its contract cannot depend on
+ * a caller having filtered first. But a `LIMIT` applied before that filter makes the
+ * effective depth of the rotation's history vary with how often the user abandons a
+ * session: twenty-five abandoned rows would push every finished one out of range and
+ * leave the whole screen claiming no session had ever been done. Filtering in the `WHERE`
+ * makes the limit mean twenty-five *usable* rows, which is what the number was chosen as.
+ *
+ * The unfinished half is not dropped, just answered elsewhere: `openWorkoutsForPlan`
+ * below is the reader for it, and Home renders both.
+ */
 export function recentWorkoutsForPlan(
   userDb: UserDb,
   planId: string,
@@ -28,6 +42,7 @@ export function recentWorkoutsForPlan(
        FROM workout w
        JOIN plan_version pv ON pv.id = w.plan_version_id
        WHERE pv.plan_id = ?
+         AND w.completed_at IS NOT NULL
        ORDER BY w.started_at DESC
        LIMIT ?`,
     )
@@ -74,9 +89,19 @@ export type OpenWorkoutRef = {
  * Every workout of this plan the user started and never finished, newest first.
  *
  * "Unfinished" is `completed_at IS NULL` — ARCHITECTURE §5's rule that in-progress is the
- * absence of a completion rather than a fourth status. There is no false-positive case
- * to filter out: `$lib/sync/deferred-start.ts` means a session merely opened persists
- * nothing, so a row existing at all is proof the user wrote something.
+ * absence of a completion rather than a fourth status. For every row written since lazy
+ * start there is no false-positive case to filter out: `$lib/sync/deferred-start.ts`
+ * means a session merely opened persists nothing, so such a row existing at all is proof
+ * the user wrote something.
+ *
+ * Older rows are not quite that clean, and the difference is visible rather than
+ * harmful. Migration 3 (`delete-peeked-workouts`, `$lib/db/schema.ts`) swept the
+ * pre-lazy-start peek rows, but only those already past its seven-day floor when it ran
+ * for that user — a peek row younger than that survived, and will surface here as a
+ * genuinely empty session reading "0 sets logged". That is a card the user can discard,
+ * not a wrong number anywhere, so it is left to them rather than filtered out: a
+ * `set_log`-count filter here would also hide a live session whose only write so far was
+ * a pre-session metric, which is the case the correlated subquery below exists to keep.
  *
  * `client_id IS NOT NULL` excludes rows nothing can act on. Every row the sync layer
  * writes carries one; a row without one could only come from a direct insert, and

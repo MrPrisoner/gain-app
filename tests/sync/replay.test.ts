@@ -8,6 +8,7 @@ import { parsePlanDocument } from "../../src/lib/parse/parser";
 import { replayOps } from "../../src/lib/sync/replay";
 import { newOpId } from "../../src/lib/sync/ops";
 import { resolveWorkoutIdByClientId } from "../../src/lib/db/workout";
+import { workoutHistoryFor } from "../../src/lib/db/workout-history";
 import type { SyncOp } from "../../src/lib/sync/ops";
 
 const ROOT = new URL("../../", import.meta.url);
@@ -194,6 +195,33 @@ describe("replayOps", () => {
       const op = { kind: "discard" as const, id: newOpId(), workoutClientId: W };
       replayOps(userDb, [op]);
       expect(replayOps(userDb, [op]).applied).toHaveLength(1);
+    });
+
+    it("leaves a workout finished since the discard was queued, and still reports applied", () => {
+      // The stale-discard race: a second tab or a second device resumed and finished this
+      // workout while the discard sat in an offline outbox. Deleting it now would destroy
+      // a completed session (`discardWorkout`'s `completed_at IS NULL` guard). It still
+      // has to come back `applied`, because the alternative — `failed` — quarantines an op
+      // the user can do nothing useful about, for a decision the app has already made.
+      replayOps(userDb, [start(), set("02", 1)]);
+      replayOps(userDb, [
+        {
+          kind: "finish",
+          id: "03",
+          workoutClientId: W,
+          status: "completed",
+          finishedAt: "2026-09-08T09:00:00.000Z",
+        },
+      ]);
+
+      const ack = replayOps(userDb, [{ kind: "discard", id: newOpId(), workoutClientId: W }]);
+      expect(ack.applied).toHaveLength(1);
+      expect(ack.failed).toEqual([]);
+      expect(ack.pending).toEqual([]);
+      expect(resolveWorkoutIdByClientId(userDb, W)).toBeDefined();
+      expect(
+        workoutHistoryFor(userDb, resolveWorkoutIdByClientId(userDb, W) ?? "").sets,
+      ).toHaveLength(1);
     });
 
     it("discards a workout whose start op is in the same batch", () => {

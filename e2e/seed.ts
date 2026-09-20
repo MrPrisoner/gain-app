@@ -31,7 +31,7 @@ import { parsePlanDocument } from "../src/lib/parse/parser";
 import { importPlan } from "../src/lib/db/import-plan";
 import { getCurrentVersion, getPlanBySlug } from "../src/lib/db/read";
 import { openUserDb } from "../src/lib/db/user-db";
-import { startWorkout } from "../src/lib/db/workout";
+import { discardWorkout, startWorkout } from "../src/lib/db/workout";
 import { openControlDb, findUserBySub, createUser } from "../src/lib/server/control-db";
 
 const FIXTURE_PATH = path.join(process.cwd(), "fixtures/plans/home-training-v1.md");
@@ -161,6 +161,44 @@ export function seedStaleWorkout(
     const clientId = ulidAt(startedAtMs);
     startWorkout(userDb, { clientId, planVersionId: version.id, sessionKey, now });
     return clientId;
+  } finally {
+    userDb.close();
+  }
+}
+
+/**
+ * Hard-delete every unfinished workout on one seeded account, through the app's own
+ * `discardWorkout` so the delete order stays defined in exactly one place.
+ *
+ * For specs whose assertions are about Home's aggregate "every open workout" state. Those
+ * cannot be written against "whatever the last test left behind": a spec that seeds open
+ * workouts and asserts on "the" resume card is only deterministic from an account with
+ * none, and `retries: 1` in CI (`playwright.config.ts`) re-runs a serial file from its
+ * first test with the previous attempt's rows still in place — so a flake in one test
+ * turns into a different, more confusing failure in another. Called from `beforeEach`
+ * rather than `afterEach`, because it is the *starting* state a test needs guaranteed,
+ * and an `afterEach` never runs for the attempt that crashed.
+ */
+export function clearOpenWorkouts(dataDir: string, devUser: string): void {
+  const now = new Date();
+  const control = openControlDb(dataDir, now);
+  let userId: string;
+  try {
+    const user = findUserBySub(control, `dev-bypass:${devUser}`);
+    if (!user) throw new Error(`no seeded user for devUser "${devUser}" under ${dataDir}`);
+    userId = user.id;
+  } finally {
+    control.close();
+  }
+
+  const userDb = openUserDb(dataDir, userId, { now });
+  try {
+    const rows = userDb.db
+      .prepare(
+        "SELECT client_id AS clientId FROM workout WHERE completed_at IS NULL AND client_id IS NOT NULL",
+      )
+      .all() as { clientId: string }[];
+    for (const row of rows) discardWorkout(userDb, row.clientId);
   } finally {
     userDb.close();
   }

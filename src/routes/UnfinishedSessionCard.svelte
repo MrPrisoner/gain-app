@@ -33,6 +33,7 @@
     planName,
     todayDate,
     onDiscard,
+    error,
     picker,
   }: {
     session: UnfinishedSession;
@@ -40,6 +41,8 @@
     planName: string | undefined;
     todayDate: string;
     onDiscard: () => void;
+    /** A discard that could not be queued at all, set by the parent. */
+    error?: string | undefined;
     picker?: import("svelte").Snippet;
   } = $props();
 
@@ -73,6 +76,19 @@
     >
       <IconPlay />Resume {session.sessionKey}
     </a>
+  {:else if !session.resumable}
+    <!-- Say why there is no Resume button, rather than leaving its absence to be inferred.
+         "Left unfinished · today" with only a Discard beside it reads as a bug to anyone
+         looking at a session they abandoned this morning — the twelve-hour window is the
+         reason, and nothing else on the card hints at it. Keyed on `resumable` and not on
+         `promoted`: a second still-resumable workout also loses the Resume link, but for a
+         layout reason rather than an age one, and telling it it is too old would be a
+         plain lie. That one says nothing, which is the status quo. -->
+    <p class="why">Too old to resume — starting this session again begins a new one.</p>
+  {/if}
+
+  {#if error}
+    <p class="error" role="alert">{error}</p>
   {/if}
 
   <Button variant="quiet" onclick={onDiscard} icon={discardIcon}>Discard</Button>
@@ -119,6 +135,19 @@
   }
   .slim .last {
     margin-bottom: 0.75rem;
+  }
+  .why {
+    margin: 0 0 0.75rem;
+    color: var(--muted);
+    font-size: var(--t-xs);
+  }
+  /* `--red` is correct outside the runner (UI §5), and this is the one thing on the card
+     that has actually gone wrong rather than merely needing a decision. */
+  .error {
+    margin: 0 0 0.75rem;
+    color: var(--red);
+    font-size: var(--t-sm);
+    font-weight: var(--w-semi);
   }
   .suggested-key {
     display: inline-flex;

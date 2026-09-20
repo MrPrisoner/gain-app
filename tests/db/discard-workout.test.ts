@@ -14,6 +14,7 @@ import { getExerciseDefIdBySlug } from "../../src/lib/db/read";
 import { openUserDb, type UserDb } from "../../src/lib/db/user-db";
 import {
   discardWorkout,
+  finishWorkout,
   logActivity,
   logDeviation,
   logMetric,
@@ -248,5 +249,54 @@ describe("discardWorkout", () => {
     expect(discardWorkout(userDb, "c-w1")).toBe(true);
     // `activity` carries no workout reference and belongs to the user, not the session.
     expect(countOf("activity")).toBe(1);
+  });
+
+  it("refuses a workout that has been finished, and keeps every row under it", () => {
+    // The stale-discard case: a discard queued against a view of this workout as open,
+    // replaying after a second tab or a second device resumed and finished it. Without
+    // the `completed_at IS NULL` guard this permanently deletes a completed session, and
+    // nothing anywhere errors.
+    const { id: workoutId } = startWorkout(userDb, {
+      planVersionId,
+      sessionKey: "A",
+      clientId: "c-w1",
+      now: NOW,
+    });
+    logSet(userDb, {
+      workoutId,
+      exerciseDefId: squatId,
+      setNo: 1,
+      reps: 12,
+      weightKg: 6,
+      clientId: "c-s1",
+    });
+    finishWorkout(userDb, { workoutId, status: "completed", now: NOW });
+
+    expect(discardWorkout(userDb, "c-w1")).toBe(false);
+    expect(countOf("workout")).toBe(1);
+    expect(setLogCountForWorkout(workoutId)).toBe(1);
+  });
+
+  it("refuses a stopped workout too — any completion counts, not just a clean one", () => {
+    // A red-flag stop stamps `completed_at` with `status = 'stopped'` and is just as much
+    // a session that happened. The guard reads the timestamp, never the status.
+    const { id: workoutId } = startWorkout(userDb, {
+      planVersionId,
+      sessionKey: "A",
+      clientId: "c-w1",
+      now: NOW,
+    });
+    logSet(userDb, {
+      workoutId,
+      exerciseDefId: squatId,
+      setNo: 1,
+      reps: 12,
+      weightKg: 6,
+      clientId: "c-s1",
+    });
+    finishWorkout(userDb, { workoutId, status: "stopped", now: NOW });
+
+    expect(discardWorkout(userDb, "c-w1")).toBe(false);
+    expect(setLogCountForWorkout(workoutId)).toBe(1);
   });
 });

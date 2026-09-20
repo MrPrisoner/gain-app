@@ -109,14 +109,32 @@
   // and the server's rows alone are the correct SSR render.
   let unfinished = $state<UnfinishedSession[]>(untrack(() => serverOnlyUnfinished(data)));
 
+  /**
+   * Which write to `unfinished` is the current one. Bumped by every writer — the merge
+   * effect below and `confirmDiscard` alike — and checked again after each `await`, so a
+   * slower run can never land on top of a newer answer.
+   *
+   * Both orderings this fixes are real. Two `data` changes in quick succession (a
+   * discard's `invalidateAll` on top of an in-flight load) resolve their IndexedDB reads
+   * independently, and without the check the older merge wins whenever it finishes
+   * second. And a merge already in flight when Discard is tapped would otherwise land
+   * after the optimistic removal and put the card straight back — for a workout the user
+   * has already thrown away, with nothing further scheduled to correct it until the next
+   * navigation.
+   */
+  let unfinishedSeq = 0;
+
   $effect(() => {
+    // Read synchronously, before the first `await`: this is what makes the effect track
+    // `data` at all, and it pins every input to the moment the run began.
+    const seq = (unfinishedSeq += 1);
+    const server = serverRows(data);
+    const local = listStoredWorkouts();
+    const now = new Date();
     void (async () => {
-      unfinished = mergeUnfinished({
-        server: serverRows(data),
-        local: listStoredWorkouts(),
-        pendingDiscards: await pendingDiscardIds(),
-        now: new Date(),
-      });
+      const pendingDiscards = await pendingDiscardIds();
+      if (seq !== unfinishedSeq) return;
+      unfinished = mergeUnfinished({ server, local, pendingDiscards, now });
     })();
   });
 
@@ -125,20 +143,70 @@
   // own `DeviationSheet`/`WrapUpSheet`.
   let confirming = $state<UnfinishedSession | undefined>(undefined);
 
+  /**
+   * A discard that could not even be queued, and the card it belongs to. Rendered on that
+   * card rather than anywhere else on the page: the control that failed is its Discard
+   * button, and an error somewhere else on a scrolling list is an error the user does not
+   * see (CLAUDE.md, "Rules learned the hard way").
+   */
+  let discardError = $state<{ workoutClientId: string; message: string } | undefined>(undefined);
+
   async function confirmDiscard(session: UnfinishedSession): Promise<void> {
     confirming = undefined;
-    // Optimistic: the server still has the row until the op syncs, and `mergeUnfinished`
-    // will filter it on the next load via `pendingDiscardIds`. Removing it here is what
-    // makes the tap feel like it did something while offline.
-    unfinished = unfinished.filter((u) => u.workoutClientId !== session.workoutClientId);
+    discardError = undefined;
+
+    const key = workoutStorageKey(session.planSlug, session.sessionKey);
+    const storage = typeof localStorage !== "undefined" ? localStorage : undefined;
     // Only clear the pointer if it still names the workout being discarded: a stale
     // workout and a fresh one can share this (planSlug, sessionKey) key at once, and
     // removing the key unconditionally would orphan the fresh workout's pointer if it
     // was the one actually stored there.
-    const key = workoutStorageKey(session.planSlug, session.sessionKey);
-    if (localStorage.getItem(key) === session.workoutClientId) localStorage.removeItem(key);
-    await discardWorkout(session.planSlug, session.workoutClientId);
-    await invalidateAll();
+    const ourPointer = storage?.getItem(key) === session.workoutClientId;
+
+    // Optimistic: the server still has the row until the op syncs, and `mergeUnfinished`
+    // will filter it on the next load via `pendingDiscardIds`. Removing it here is what
+    // makes the tap feel like it did something while offline — and it is only provisional,
+    // because until the op is in the outbox nothing has actually been discarded.
+    unfinishedSeq += 1;
+    unfinished = unfinished.filter((u) => u.workoutClientId !== session.workoutClientId);
+    if (ourPointer) storage?.removeItem(key);
+
+    try {
+      await discardWorkout(session.planSlug, session.workoutClientId);
+    } catch (err) {
+      // Nothing reached the outbox, so nothing will ever be discarded and no retry is
+      // scheduled — this is the one failure here the user has to be told about, or a card
+      // silently vanishes and reappears on the next load with no explanation. Put the
+      // optimistic removal back, restore the pointer, and say so on the card itself.
+      //
+      // Re-inserted into whatever the list holds now, rather than restored from a snapshot
+      // taken before the `await`: a merge that completed in the meantime would make that
+      // snapshot the stale one. Guarded on absence because `{#each}` is keyed on
+      // `workoutClientId` — and a merge that completed here *would* have re-included this
+      // workout, since nothing was ever queued to filter it out.
+      unfinishedSeq += 1;
+      if (!unfinished.some((u) => u.workoutClientId === session.workoutClientId)) {
+        unfinished = [...unfinished, session].sort((a, b) =>
+          b.startedAt.localeCompare(a.startedAt),
+        );
+      }
+      if (ourPointer) storage?.setItem(key, session.workoutClientId);
+      discardError = {
+        workoutClientId: session.workoutClientId,
+        message: err instanceof Error ? err.message : "Could not discard this session.",
+      };
+      return;
+    }
+
+    // Unlike the above, a failure here costs nothing and gets no error surface: the op is
+    // already queued and the card is already gone, so this refetch only replaces an
+    // optimistic view with the same answer from the server. Offline with no cached Home
+    // payload it simply rejects, which is not a discard that failed.
+    try {
+      await invalidateAll();
+    } catch {
+      // Intentionally ignored — see above.
+    }
   }
 
   // `nowMs` is read only after mount (never at module/SSR eval time), so the server-
@@ -305,6 +373,9 @@
         planName={undefined}
         todayDate={data.todayDate}
         onDiscard={() => (confirming = session)}
+        error={discardError?.workoutClientId === session.workoutClientId
+          ? discardError.message
+          : undefined}
       />
     {/each}
 
@@ -315,6 +386,9 @@
         planName={plan.name}
         todayDate={data.todayDate}
         onDiscard={() => (confirming = resuming)}
+        error={discardError?.workoutClientId === resuming.workoutClientId
+          ? discardError.message
+          : undefined}
       >
         {#snippet picker()}
           <SessionOverrideList

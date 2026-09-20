@@ -170,12 +170,22 @@ function applyOp(userDb: UserDb, op: SyncOp): void {
        * workout is absent, because the `start` op is still behind it in the queue. A
        * discard has no start behind it: the client purges every op for that workout,
        * the start included, before enqueueing this one. Waiting for a start that was
-       * deleted means retrying forever and quarantining an op whose whole job is to make
-       * data not exist — the exact permanent-failure trap CLAUDE.md's offline section
-       * describes. "Nothing to delete" means the job is done.
+       * deleted means waiting forever — and note what `NotYetError` actually costs here,
+       * because it is worse than quarantine rather than the same thing: `replayOps`
+       * reports it as `pending`, `applyAck` leaves a pending op in the outbox, and
+       * nothing in the flush loop ever escalates it. The op would retry on every sync for
+       * the life of the account, holding the banner at "pending" with no failure for the
+       * user to act on — an op whose whole job is to make data not exist, unable to
+       * finish and unable to fail. "Nothing to delete" means the job is done.
        *
        * Deliberately does *not* go through `requireWorkout`. If a later refactor
        * consolidates these two for consistency, this breaks silently.
+       *
+       * "Nothing to delete" also covers a workout that has since been *finished*
+       * elsewhere, which `discardWorkout` refuses rather than destroying — same `false`,
+       * same `applied`, for the same reason: the client asked for a state that already
+       * holds as far as it can be honoured, and there is nothing useful it could do with
+       * a failure.
        */
       discardWorkout(userDb, op.workoutClientId);
       return;

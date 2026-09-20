@@ -30,11 +30,16 @@ import {
   workoutClientId,
   workoutCountFor,
 } from "./helpers";
-import { seedStaleWorkout } from "./seed";
+import { clearOpenWorkouts, seedStaleWorkout } from "./seed";
 
 test.describe.configure({ mode: "serial" });
 
 test.beforeEach(async ({ page }, testInfo) => {
+  // Each test's assertions are about *every* open workout on the account, so each one
+  // needs an account with none — including the third test, which deliberately leaves two
+  // behind, and including a CI retry, which re-runs this file from the top with the
+  // previous attempt's rows still there. See `clearOpenWorkouts`.
+  clearOpenWorkouts(seededDataDir(), unfinishedSessionDevUserFor(testInfo.project.name));
   await page.setExtraHTTPHeaders({
     "x-gain-e2e-user": unfinishedSessionDevUserFor(testInfo.project.name),
   });

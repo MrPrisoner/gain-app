@@ -39,25 +39,52 @@ describe("src/lib/db/home", () => {
     fs.rmSync(dataDir, { recursive: true, force: true });
   });
 
+  /**
+   * `recentWorkoutsForPlan` answers the rotation cursor's question and
+   * `openWorkoutsForPlan` (`tests/db/open-workouts.test.ts`) answers Home's
+   * unfinished-session card. Between them every workout is accounted for exactly once,
+   * which is why what each one *excludes* matters as much as what it returns.
+   */
   describe("recentWorkoutsForPlan", () => {
+    function workoutAt(clientId: string, sessionKey: string, iso: string, finished: boolean) {
+      const { id } = startWorkout(userDb, {
+        planVersionId,
+        sessionKey,
+        clientId,
+        now: new Date(iso),
+      });
+      if (finished) {
+        finishWorkout(userDb, { workoutId: id, status: "completed", now: new Date(iso) });
+      }
+    }
+
     it("returns workouts most-recent-first, limited", () => {
-      startWorkout(userDb, {
-        planVersionId,
-        sessionKey: "A",
-        clientId: "wk-1",
-        now: new Date("2026-09-01T08:00:00Z"),
-      });
-      startWorkout(userDb, {
-        planVersionId,
-        sessionKey: "B",
-        clientId: "wk-2",
-        now: new Date("2026-09-05T08:00:00Z"),
-      });
+      workoutAt("wk-1", "A", "2026-09-01T08:00:00Z", true);
+      workoutAt("wk-2", "B", "2026-09-05T08:00:00Z", true);
 
       const rows = recentWorkoutsForPlan(userDb, planId);
       expect(rows.map((r) => r.sessionKey)).toEqual(["B", "A"]);
 
       expect(recentWorkoutsForPlan(userDb, planId, 1)).toHaveLength(1);
+    });
+
+    it("returns only finished workouts", () => {
+      workoutAt("wk-1", "A", "2026-09-01T08:00:00Z", true);
+      workoutAt("wk-2", "B", "2026-09-05T08:00:00Z", false);
+
+      expect(recentWorkoutsForPlan(userDb, planId).map((r) => r.sessionKey)).toEqual(["A"]);
+    });
+
+    it("does not let abandoned workouts push finished ones out of the limit", () => {
+      // Why the filter is in the query and not only in `suggestNextSession`: applied after
+      // a LIMIT, these three abandoned rows would fill the whole window on their own and
+      // Home would claim no session had ever been done on this plan.
+      workoutAt("wk-done", "A", "2026-09-01T08:00:00Z", true);
+      workoutAt("wk-x1", "B", "2026-09-02T08:00:00Z", false);
+      workoutAt("wk-x2", "C", "2026-09-03T08:00:00Z", false);
+      workoutAt("wk-x3", "D", "2026-09-04T08:00:00Z", false);
+
+      expect(recentWorkoutsForPlan(userDb, planId, 3).map((r) => r.sessionKey)).toEqual(["A"]);
     });
   });
 

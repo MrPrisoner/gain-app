@@ -126,12 +126,27 @@ export function finishWorkout(userDb: UserDb, input: FinishWorkoutInput): void {
  * `metric_value` is deleted first and by two paths, because a `scope: 'set'` metric
  * references its `set_log` and not the workout: deleting the sets first would orphan it.
  *
+ * **Only an unfinished workout can be discarded**, and that `completed_at IS NULL` is
+ * load-bearing rather than defensive. Home only ever offers Discard for a row it read
+ * back as open, so refusing a finished one costs the feature nothing — but a discard op
+ * can be queued against a view that has since gone stale (a second tab, a second device,
+ * a cached Home payload), and by the time it replays the session may have been resumed
+ * and finished elsewhere. Without the guard that op permanently deletes a *completed*
+ * session and everything logged in it: the export silently loses it, the morning prompt
+ * loses its row, and nothing anywhere errors. A discard that arrives too late is the one
+ * case where doing nothing is the only honest answer, and it reports the same `false` as
+ * a workout that was never here — the caller's contract is "there is nothing left to
+ * discard", not "a row was removed".
+ *
  * Returns whether anything was deleted. `false` is a normal outcome, not an error — a
- * discard op replayed twice, or one whose workout never reached this server at all,
- * both land here (see `$lib/sync/replay.ts`).
+ * discard op replayed twice, one whose workout never reached this server at all, and one
+ * for a workout already finished elsewhere all land here (see `$lib/sync/replay.ts`).
  */
 export function discardWorkout(userDb: UserDb, workoutClientId: string): boolean {
-  const workoutId = selectByClientId(userDb, "workout", workoutClientId);
+  const row = userDb.db
+    .prepare("SELECT id FROM workout WHERE client_id = ? AND completed_at IS NULL")
+    .get(workoutClientId) as { id: string } | undefined;
+  const workoutId = row?.id;
   if (!workoutId) return false;
 
   userDb.db
@@ -412,6 +427,36 @@ export function resolveWorkoutIdByClientId(userDb: UserDb, clientId: string): st
 /** Resolve a `set_log` row by its client id, for a `scope: 'set'` metric op. */
 export function resolveSetLogIdByClientId(userDb: UserDb, clientId: string): string | undefined {
   return selectByClientId(userDb, "set_log", clientId);
+}
+
+/**
+ * Which route a workout actually belongs to: its plan, and the session key it was
+ * started on.
+ *
+ * Exists for the one caller that resolves a workout from a value the *user* supplied —
+ * the session runner's `?resume=<clientId>`. Every other path reaches a workout through
+ * a route-keyed `localStorage` pointer or through an op the client minted for it, both
+ * of which pair the workout with its session by construction. A pasted or hand-edited
+ * `?resume=` does not, so the runner's `?/start` has to check the pairing rather than
+ * assume it (see that action).
+ *
+ * The plan, not the plan version: a workout stays bound to the version it ran under
+ * (ARCHITECTURE §8), so one left open across a revision legitimately names an older
+ * version of the same plan and must still resume.
+ */
+export function resolveWorkoutRoute(
+  userDb: UserDb,
+  workoutId: string,
+): { planId: string; sessionKey: string } | undefined {
+  const row = userDb.db
+    .prepare(
+      `SELECT pv.plan_id AS planId, w.session_key AS sessionKey
+       FROM workout w
+       JOIN plan_version pv ON pv.id = w.plan_version_id
+       WHERE w.id = ?`,
+    )
+    .get(workoutId) as { planId: string; sessionKey: string } | undefined;
+  return row;
 }
 
 /** Resolve a workout's plan version id by its server id — the other half of resolving
