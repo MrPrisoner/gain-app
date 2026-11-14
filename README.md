@@ -79,7 +79,7 @@ between you and your training data.
 ### How it's built
 
 Self-hosted as a single container behind your own reverse proxy. Authentication via
-Authentik (OIDC), with access gated on a group. Each user gets their own SQLite database
+any OIDC provider, with access gated on a list of verified email addresses. Each user gets their own SQLite database
 and their own directory — isolation is physical, not a `WHERE` clause. An optional
 operator role sees per-user counts and can reset a user's data, but no admin role can
 read anyone's training _content_.
@@ -95,9 +95,10 @@ cp .env.example .env # fill in ORIGIN, the OIDC_* values and SESSION_SECRET
 docker compose up -d --build
 ```
 
-Register `${ORIGIN}/auth/callback` as the redirect URI of the Authentik
-OAuth2/OpenID provider, and gate access with the group named by
-`OIDC_REQUIRED_GROUP`. `/healthz` answers without authentication for uptime
+Register `${ORIGIN}/auth/callback` as the redirect URI of your OIDC
+provider, and list who may sign in in `OIDC_ALLOWED_EMAILS`. Moving an existing
+instance to a different provider changes every user's `sub`; re-link them first
+(ARCHITECTURE §4) or each signs in to an empty account. `/healthz` answers without authentication for uptime
 checks, and the container logs the effective origin and redirect URI at
 startup so a proxy misconfiguration is easy to spot.
 

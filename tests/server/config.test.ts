@@ -10,7 +10,7 @@ const FULL_OIDC = {
   OIDC_ISSUER: "https://auth.example.com/application/o/gain/",
   OIDC_CLIENT_ID: "gain",
   OIDC_CLIENT_SECRET: "secret",
-  OIDC_REQUIRED_GROUP: "gain-users",
+  OIDC_ALLOWED_EMAILS: "ada@example.com, operator@example.com",
 };
 
 describe("loadConfig", () => {
@@ -32,7 +32,10 @@ describe("loadConfig", () => {
       expect(config.dataDir).toBe("/data");
       expect(config.auth.mode).toBe("oidc");
       if (config.auth.mode === "oidc") {
-        expect(config.auth.oidc.requiredGroup).toBe("gain-users");
+        expect([...config.auth.oidc.allowedEmails]).toEqual([
+          "ada@example.com",
+          "operator@example.com",
+        ]);
       }
     });
 
@@ -260,24 +263,35 @@ describe("loadConfig", () => {
       SESSION_SECRET: "a".repeat(32),
     };
 
-    it("carries the admin group when OIDC is complete", () => {
-      const config = loadConfig({ ...prodEnv, OIDC_ADMIN_GROUP: "gain-admins" }, "production");
-      expect(config.adminGroup).toBe("gain-admins");
+    it("carries the admin addresses when OIDC is complete", () => {
+      const config = loadConfig(
+        { ...prodEnv, OIDC_ADMIN_EMAILS: "Operator@Example.com" },
+        "production",
+      );
+      expect(config.adminEmails && [...config.adminEmails]).toEqual(["operator@example.com"]);
       expect(config.devAdmin).toBeNull();
     });
 
     it("defaults to no admin at all", () => {
       const config = loadConfig(prodEnv, "production");
-      expect(config.adminGroup).toBeNull();
+      expect(config.adminEmails).toBeNull();
     });
 
-    it("refuses an admin group without a complete OIDC configuration", () => {
+    // An admin the access gate refuses is never an admin, so an address listed only
+    // here is a typo — a startup error, not a silently powerless setting.
+    it("refuses an admin address that is not also allowed in", () => {
+      expect(() =>
+        loadConfig({ ...prodEnv, OIDC_ADMIN_EMAILS: "stranger@example.com" }, "production"),
+      ).toThrow(/stranger@example.com.*not in OIDC_ALLOWED_EMAILS/);
+    });
+
+    it("refuses admin addresses without a complete OIDC configuration", () => {
       expect(() =>
         loadConfig(
-          { GAIN_DEV_USER: "dev", OIDC_ADMIN_GROUP: "gain-admins", SESSION_SECRET: "s" },
+          { GAIN_DEV_USER: "dev", OIDC_ADMIN_EMAILS: "a@example.com", SESSION_SECRET: "s" },
           "development",
         ),
-      ).toThrow(/OIDC_ADMIN_GROUP/);
+      ).toThrow(/OIDC_ADMIN_EMAILS/);
     });
 
     it("grants dev admin to the named bypass user only", () => {
@@ -286,13 +300,61 @@ describe("loadConfig", () => {
         "development",
       );
       expect(config.devAdmin).toBe("dev");
-      expect(config.adminGroup).toBeNull();
+      expect(config.adminEmails).toBeNull();
     });
 
     it("refuses GAIN_DEV_ADMIN in production", () => {
       expect(() => loadConfig({ ...prodEnv, GAIN_DEV_ADMIN: "dev" }, "production")).toThrow(
         /GAIN_DEV_ADMIN/,
       );
+    });
+  });
+
+  describe("the email allowlist", () => {
+    const prodEnv = { ORIGIN: "https://gain.example.com", SESSION_SECRET: "a".repeat(32) };
+    const allowed = (raw: string) => {
+      const config = loadConfig(
+        { ...FULL_OIDC, ...prodEnv, OIDC_ALLOWED_EMAILS: raw },
+        "production",
+      );
+      return config.auth.mode === "oidc" ? [...config.auth.oidc.allowedEmails] : null;
+    };
+
+    it("splits on commas and whitespace, lower-cases and de-duplicates", () => {
+      expect(allowed(" Ada@Example.com,bob@example.com\n ada@example.com ")).toEqual([
+        "ada@example.com",
+        "bob@example.com",
+      ]);
+    });
+
+    // Gmail ignores dots and +tags; folding them here would admit addresses nobody wrote.
+    it("compares addresses literally beyond case", () => {
+      expect(allowed("a.da+gain@gmail.com")).toEqual(["a.da+gain@gmail.com"]);
+    });
+
+    it("refuses an entry that is not an address", () => {
+      expect(() => allowed("ada@example.com, gain-users")).toThrow(/gain-users/);
+    });
+
+    // A list pasted with its quotes, or copied out of a mail client, would otherwise
+    // parse into addresses that never match and refuse those users with no hint why.
+    it.each(['"ada@example.com,bob@example.com"', "<ada@example.com>", "mailto:ada@example.com"])(
+      "refuses the pasted-in wrapping of %s",
+      (raw) => {
+        expect(() => allowed(raw)).toThrow(/is not an email address/);
+      },
+    );
+
+    it("counts an empty list as missing, so OIDC is only partially configured", () => {
+      expect(() => allowed(" , ")).toThrow(/Partial OIDC configuration/);
+    });
+
+    // A deployment upgraded without renaming its variables must fail loudly at startup
+    // rather than boot with them ignored and refuse every user.
+    it.each(["OIDC_REQUIRED_GROUP", "OIDC_ADMIN_GROUP"])("refuses the retired %s", (name) => {
+      expect(() =>
+        loadConfig({ ...FULL_OIDC, ...prodEnv, [name]: "gain-users" }, "production"),
+      ).toThrow(new RegExp(`${name} is no longer read`));
     });
   });
 });

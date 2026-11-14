@@ -35,5 +35,5 @@ In scope: the application code in this repository (`src/`, `Dockerfile`,
 cookies, and per-user data isolation (`docs/ARCHITECTURE.md` §3–4;
 `CLAUDE.md`'s "Isolation is physical, not a WHERE clause").
 
-Out of scope: your own deployment's reverse proxy, Authentik instance, or host
+Out of scope: your own deployment's reverse proxy, identity provider, or host
 configuration — those are yours to secure, this project ships neither.

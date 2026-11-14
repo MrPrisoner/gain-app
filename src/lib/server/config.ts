@@ -13,7 +13,11 @@ export type OidcConfig = {
   issuer: string;
   clientId: string;
   clientSecret: string;
-  requiredGroup: string;
+  /**
+   * Who may use this instance: verified email addresses, lower-cased. The gate (§4)
+   * compares the ID token's `email` against this set at login and on every refresh.
+   */
+  allowedEmails: ReadonlySet<string>;
 };
 
 export type AuthConfig =
@@ -30,7 +34,7 @@ export type GainConfig = {
    * enforces it too); in dev it defaults to the local dev server.
    */
   origin: string;
-  /** `${origin}/auth/callback` — registered in the Authentik provider. */
+  /** `${origin}/auth/callback` — registered with the IdP as this client's redirect URI. */
   redirectUri: string;
   /** HMAC key for the session cookie. Random per boot in dev. */
   sessionSecret: string;
@@ -38,11 +42,11 @@ export type GainConfig = {
   sessionIdleMs: number;
   auth: AuthConfig;
   /**
-   * The Authentik group whose members are operators. `null` means this
-   * instance has no admin at all and `/admin` 404s for everyone — an operator who has
-   * not opted in has no admin surface.
+   * The verified email addresses that are operators, lower-cased — always a subset of
+   * `allowedEmails`. `null` means this instance has no admin at all and `/admin` 404s for
+   * everyone — an operator who has not opted in has no admin surface.
    */
-  adminGroup: string | null;
+  adminEmails: ReadonlySet<string> | null;
   /**
    * Dev-only: the single `GAIN_DEV_USER`-style name that is treated as an operator.
    * A name rather than a flag, so an e2e run can drive an admin and a non-admin at
@@ -104,7 +108,7 @@ export function loadConfig(
     throw new Error(
       `GAIN_DEV_ADMIN is set on what looks like a real deployment (ORIGIN=${origin}` +
         `${isProduction ? ", NODE_ENV=production" : ""}) — it is a development tool. ` +
-        "Use OIDC_ADMIN_GROUP instead.",
+        "Use OIDC_ADMIN_EMAILS instead.",
     );
   }
 
@@ -121,18 +125,29 @@ export function loadConfig(
     );
   }
 
+  // The group gate these replaced read a `groups` claim, which an IdP that only brokers a
+  // social login (Google, via Tinyauth) never sends. A deployment whose environment
+  // still carries either old variable — a Portainer stack, a `docker run -e` — gets told
+  // what replaced it, rather than only that OIDC is incomplete. (The shipped
+  // compose.yaml names its variables explicitly, so there the old ones never arrive and
+  // the "Partial OIDC configuration" error below is what fires instead.)
+  for (const retired of ["OIDC_REQUIRED_GROUP", "OIDC_ADMIN_GROUP"] as const) {
+    if (env[retired]?.trim()) {
+      throw new Error(
+        `${retired} is no longer read: access is now an email allowlist. Replace ` +
+          "OIDC_REQUIRED_GROUP with OIDC_ALLOWED_EMAILS and OIDC_ADMIN_GROUP with " +
+          "OIDC_ADMIN_EMAILS (comma-separated addresses), then unset the old variable.",
+      );
+    }
+  }
+
+  const allowedEmails = parseEmailList("OIDC_ALLOWED_EMAILS", env.OIDC_ALLOWED_EMAILS);
   const oidcEnv = {
     issuer: env.OIDC_ISSUER?.trim() || null,
     clientId: env.OIDC_CLIENT_ID?.trim() || null,
     clientSecret: env.OIDC_CLIENT_SECRET || null,
-    requiredGroup: env.OIDC_REQUIRED_GROUP?.trim() || null,
   };
-  const oidcPartials = [
-    oidcEnv.issuer,
-    oidcEnv.clientId,
-    oidcEnv.clientSecret,
-    oidcEnv.requiredGroup,
-  ];
+  const oidcPartials = [oidcEnv.issuer, oidcEnv.clientId, oidcEnv.clientSecret, allowedEmails];
   const oidcComplete = oidcPartials.every((v) => v !== null && v !== "");
 
   let auth: AuthConfig;
@@ -143,13 +158,13 @@ export function loadConfig(
         issuer: oidcEnv.issuer as string,
         clientId: oidcEnv.clientId as string,
         clientSecret: oidcEnv.clientSecret as string,
-        requiredGroup: oidcEnv.requiredGroup as string,
+        allowedEmails: allowedEmails as ReadonlySet<string>,
       },
     };
   } else if (oidcPartials.some((v) => v !== null && v !== "")) {
     throw new Error(
       "Partial OIDC configuration: OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET and " +
-        "OIDC_REQUIRED_GROUP must all be set together. For local development without an IdP, " +
+        "OIDC_ALLOWED_EMAILS must all be set together. For local development without an IdP, " +
         "set GAIN_DEV_USER instead.",
     );
   } else if (devUser) {
@@ -157,7 +172,7 @@ export function loadConfig(
   } else if (isProduction) {
     throw new Error(
       "No auth configuration: set OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET and " +
-        "OIDC_REQUIRED_GROUP.",
+        "OIDC_ALLOWED_EMAILS.",
     );
   } else {
     throw new Error(
@@ -166,13 +181,27 @@ export function loadConfig(
     );
   }
 
-  const adminGroup = env.OIDC_ADMIN_GROUP?.trim() || null;
-  if (adminGroup && auth.mode !== "oidc") {
+  const adminEmails = parseEmailList("OIDC_ADMIN_EMAILS", env.OIDC_ADMIN_EMAILS);
+  if (adminEmails && auth.mode !== "oidc") {
     throw new Error(
-      "OIDC_ADMIN_GROUP is set but OIDC is not configured. A variable that looks like " +
+      "OIDC_ADMIN_EMAILS is set but OIDC is not configured. A variable that looks like " +
         "it grants access and silently does nothing is worse than a startup error. " +
         "For local development, set GAIN_DEV_ADMIN to a GAIN_DEV_USER name instead.",
     );
+  }
+  if (adminEmails && auth.mode === "oidc") {
+    // An admin who cannot get past the access gate is never an admin, so an address
+    // listed only here is a typo or a half-finished edit — say so rather than ignore it.
+    const allowed = auth.oidc.allowedEmails;
+    const stranded = [...adminEmails].filter((email) => !allowed.has(email));
+    if (stranded.length > 0) {
+      throw new Error(
+        `OIDC_ADMIN_EMAILS lists ${stranded.join(", ")}, ` +
+          `which ${stranded.length === 1 ? "is" : "are"} ` +
+          "not in OIDC_ALLOWED_EMAILS. An operator must also be allowed in; add the address " +
+          "to both.",
+      );
+    }
   }
 
   const sessionSecret = env.SESSION_SECRET || (looksDeployed ? null : devRandomSecret());
@@ -195,10 +224,36 @@ export function loadConfig(
     sessionSecret,
     sessionIdleMs: SEVEN_DAYS_MS,
     auth,
-    adminGroup,
+    adminEmails,
     devAdmin: auth.mode === "bypass" ? devAdmin : null,
     appVersion: env.APP_VERSION?.trim() || "dev",
   };
+}
+
+/**
+ * A comma- or whitespace-separated list of email addresses, lower-cased and de-duplicated.
+ * `null` when the variable is unset or holds nothing, so "not configured" stays one case.
+ *
+ * Lower-casing is the whole of the normalisation. Gmail treats dots and `+tags` as the
+ * same mailbox, but that is one provider's rule rather than an address's, and folding them
+ * here would let an allowlist entry admit addresses nobody wrote down.
+ */
+export function parseEmailList(name: string, raw: string | undefined): ReadonlySet<string> | null {
+  const entries = (raw ?? "")
+    .split(/[\s,]+/)
+    .map((entry) => entry.trim().toLowerCase())
+    .filter((entry) => entry !== "");
+  if (entries.length === 0) return null;
+  for (const entry of entries) {
+    // Deliberately loose — the IdP has already verified the real address; this only
+    // catches a pasted group name, a value that lost its domain, or the quotes and
+    // brackets a copy from a UI or a mail client brings along. Each of those would
+    // otherwise parse, never match, and refuse that user with no hint why.
+    if (!/^[^@\s"'<>;]+@[^@\s"'<>;]+$/.test(entry) || entry.startsWith("mailto:")) {
+      throw new Error(`${name} contains "${entry}", which is not an email address.`);
+    }
+  }
+  return new Set(entries);
 }
 
 /**

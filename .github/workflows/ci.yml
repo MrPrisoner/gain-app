@@ -192,7 +192,7 @@ jobs:
             -e OIDC_ISSUER=https://auth.example.com/application/o/gain/ \
             -e OIDC_CLIENT_ID=gain \
             -e OIDC_CLIENT_SECRET=secret \
-            -e OIDC_REQUIRED_GROUP=gain-users \
+            -e OIDC_ALLOWED_EMAILS=smoke@example.com \
             -p 3000:3000 '${{ steps.image.outputs.name }}:latest'
           for i in $(seq 1 30); do
             if curl -fsS http://localhost:3000/healthz; then healthy=1; break; fi

@@ -24,9 +24,9 @@ declare global {
          */
         displayName: string | null;
         /**
-         * Operator. Re-derived from the IdP's groups at login and on
-         * every token refresh, so revoking the group revokes this — there is no
-         * separate revocation path to forget.
+         * Operator. Re-derived from the verified email at login and on
+         * every token refresh, so dropping an address from `OIDC_ADMIN_EMAILS`
+         * revokes this — there is no separate revocation path to forget.
          */
         isAdmin: boolean;
       } | null;

@@ -110,10 +110,9 @@ export function seeOther(location: string): Response {
 }
 
 /**
- * The 403's message is `checkSession`'s, and that one names the required group — which
- * comes from `OIDC_REQUIRED_GROUP`, i.e. from configuration rather than from this
- * codebase. Interpolating it into markup unescaped is how a refusal page becomes an
- * injection point.
+ * The 403's message is `checkSession`'s, and that one names the address the IdP
+ * supplied — which comes from the IdP, i.e. from outside this codebase. Interpolating
+ * it into markup unescaped is how a refusal page becomes an injection point.
  */
 function escapeHtml(value: string): string {
   return value

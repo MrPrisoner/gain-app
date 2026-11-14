@@ -1,6 +1,6 @@
 /**
  * The OIDC module (ARCHITECTURE §4): discovery, PKCE, token exchange, ID-token
- * verification and the group gate — all against injected fetch/keys, no live
+ * verification and the email gate — all against injected fetch/keys, no live
  * IdP. ID tokens are real RS256 JWTs signed with a throwaway key.
  */
 
@@ -15,10 +15,14 @@ import {
   discoveryUrl,
   exchangeCode,
   extractDisplayName,
-  extractGroups,
-  fetchUserinfoGroups,
+  claimsAnswerEmail,
+  extractDisplayLabel,
+  extractEmailAnswer,
+  extractVerifiedEmail,
+  fetchUserinfoEmail,
   generatePkce,
-  hasRequiredGroup,
+  isEmailAllowed,
+  resolveLoginEmail,
   randomToken,
   refreshTokens,
   verifyIdToken,
@@ -136,7 +140,7 @@ describe("PKCE + authorization request", () => {
         authorizationEndpoint: `${ISSUER}authorization/`,
         clientId: CLIENT_ID,
         redirectUri: "https://gain.example.com/auth/callback",
-        scope: "openid profile email groups",
+        scope: "openid profile email",
         state: "st",
         codeChallenge: "ch",
         nonce: "no",
@@ -147,7 +151,7 @@ describe("PKCE + authorization request", () => {
     expect(url.searchParams.get("response_type")).toBe("code");
     expect(url.searchParams.get("client_id")).toBe(CLIENT_ID);
     expect(url.searchParams.get("redirect_uri")).toBe("https://gain.example.com/auth/callback");
-    expect(url.searchParams.get("scope")).toBe("openid profile email groups");
+    expect(url.searchParams.get("scope")).toBe("openid profile email");
     expect(url.searchParams.get("state")).toBe("st");
     expect(url.searchParams.get("nonce")).toBe("no");
     expect(url.searchParams.get("code_challenge")).toBe("ch");
@@ -239,7 +243,11 @@ describe("ID token verification", () => {
   }
 
   it("verifies a valid token and returns its claims", async () => {
-    const idToken = await signIdToken({ sub: "user-1", groups: ["gain-users"] });
+    const idToken = await signIdToken({
+      sub: "user-1",
+      email: "ada@example.com",
+      email_verified: true,
+    });
     const claims = await verifyIdToken(idToken, {
       issuer: ISSUER,
       clientId: CLIENT_ID,
@@ -247,7 +255,7 @@ describe("ID token verification", () => {
       now: NOW,
     });
     expect(claims.sub).toBe("user-1");
-    expect(claims.groups).toEqual(["gain-users"]);
+    expect(claims.email).toBe("ada@example.com");
   });
 
   it("rejects a wrong audience", async () => {
@@ -333,29 +341,113 @@ describe("ID token verification", () => {
   });
 });
 
-describe("the group gate", () => {
-  it("extracts groups from an array claim", () => {
-    expect(extractGroups({ groups: ["gain-users", "other"] })).toEqual(["gain-users", "other"]);
+describe("the email gate", () => {
+  it("reads a verified address, lower-cased and trimmed", () => {
+    expect(extractVerifiedEmail({ email: "  Ada@Example.COM ", email_verified: true })).toBe(
+      "ada@example.com",
+    );
   });
 
-  it("extracts a single string claim", () => {
-    expect(extractGroups({ groups: "gain-users" })).toEqual(["gain-users"]);
+  // The allowlist is only as strong as the address it compares: an unverified one is
+  // whatever the user typed, so anything short of a literal `true` is no address at all.
+  it("refuses an address the IdP has not verified", () => {
+    expect(extractVerifiedEmail({ email: "ada@example.com" })).toBeNull();
+    expect(extractVerifiedEmail({ email: "ada@example.com", email_verified: false })).toBeNull();
+    expect(extractVerifiedEmail({ email: "ada@example.com", email_verified: "true" })).toBeNull();
   });
 
-  it("filters out non-string entries", () => {
-    expect(extractGroups({ groups: ["a", 42, null, "b"] })).toEqual(["a", "b"]);
+  it("returns null when the claim is missing or malformed", () => {
+    expect(extractVerifiedEmail({ email_verified: true })).toBeNull();
+    expect(extractVerifiedEmail({ email: 42, email_verified: true })).toBeNull();
+    expect(extractVerifiedEmail({ email: "  ", email_verified: true })).toBeNull();
   });
 
-  it("returns no groups when the claim is missing or malformed", () => {
-    expect(extractGroups({})).toEqual([]);
-    expect(extractGroups({ groups: 42 })).toEqual([]);
-    expect(extractGroups({ groups: null })).toEqual([]);
+  it("decides membership, and never admits a missing address", () => {
+    const allowed = new Set(["ada@example.com"]);
+    expect(isEmailAllowed("ada@example.com", allowed)).toBe(true);
+    expect(isEmailAllowed("bob@example.com", allowed)).toBe(false);
+    expect(isEmailAllowed(null, allowed)).toBe(false);
   });
 
-  it("decides membership", () => {
-    expect(hasRequiredGroup(["gain-users", "x"], "gain-users")).toBe(true);
-    expect(hasRequiredGroup(["x"], "gain-users")).toBe(false);
-    expect(hasRequiredGroup([], "gain-users")).toBe(false);
+  it("keeps an unverified address aside for the refusal, never as the gated address", () => {
+    expect(extractEmailAnswer({ email: "Ada@Example.com", email_verified: false })).toEqual({
+      email: null,
+      unverified: "ada@example.com",
+    });
+    expect(extractEmailAnswer({ email: "ada@example.com", email_verified: true })).toEqual({
+      email: "ada@example.com",
+      unverified: null,
+    });
+    expect(extractEmailAnswer({})).toEqual({ email: null, unverified: null });
+  });
+
+  it("tells a token that says nothing about email from one that says no", () => {
+    expect(claimsAnswerEmail({ sub: "x" })).toBe(false);
+    expect(claimsAnswerEmail({ sub: "x", email: "ada@example.com" })).toBe(true);
+    expect(claimsAnswerEmail({ sub: "x", email_verified: false })).toBe(true);
+  });
+});
+
+describe("the login-time email answer", () => {
+  const USERINFO = `${ISSUER}userinfo/`;
+
+  it("uses the ID token when it speaks about email, without asking userinfo", async () => {
+    const fetchImpl = mockFetch(() => {
+      throw new Error("userinfo must not be asked");
+    });
+    expect(
+      await resolveLoginEmail(
+        { email: "ada@example.com", email_verified: true },
+        USERINFO,
+        "at",
+        fetchImpl,
+      ),
+    ).toEqual({ email: "ada@example.com", unverified: null });
+  });
+
+  it("falls back to userinfo when the ID token is silent", async () => {
+    const fetchImpl = mockFetch(() =>
+      jsonResponse({ sub: "user-1", email: "ada@example.com", email_verified: true }),
+    );
+    expect(await resolveLoginEmail({ sub: "user-1" }, USERINFO, "at", fetchImpl)).toEqual({
+      email: "ada@example.com",
+      unverified: null,
+    });
+  });
+
+  // At login there is no session to protect, so "could not tell" denies.
+  it("denies when the token is silent and userinfo cannot answer", async () => {
+    const fetchImpl = mockFetch(() => {
+      throw new Error("boom");
+    });
+    expect(await resolveLoginEmail({ sub: "user-1" }, USERINFO, "at", fetchImpl)).toEqual({
+      email: null,
+      unverified: null,
+    });
+    expect(await resolveLoginEmail({ sub: "user-1" }, null, "at", fetchImpl)).toEqual({
+      email: null,
+      unverified: null,
+    });
+  });
+});
+
+describe("the operator label", () => {
+  // Access is a list of addresses, so the label the operator screen shows must be the
+  // one that list holds — not a username the provider minted from it.
+  it("prefers email over preferred_username and name", () => {
+    expect(
+      extractDisplayLabel({
+        email: "ada@example.com",
+        preferred_username: "ada_example.com",
+        name: "Ada",
+      }),
+    ).toBe("ada@example.com");
+  });
+
+  it("falls back to preferred_username, then name", () => {
+    expect(extractDisplayLabel({ preferred_username: "ada", name: "Ada" })).toBe("ada");
+    expect(extractDisplayLabel({ name: "Ada" })).toBe("Ada");
+    expect(extractDisplayLabel({})).toBeNull();
   });
 });
 
@@ -381,35 +473,38 @@ describe("the display name", () => {
     expect(extractDisplayName({ name: "   " })).toBeNull();
   });
 
-  it("falls back to userinfo groups", async () => {
+  it("falls back to the userinfo email", async () => {
     const fetchImpl = mockFetch((url, init) => {
       expect(url).toBe(`${ISSUER}userinfo/`);
       expect(init?.headers).toMatchObject({ authorization: "Bearer at" });
-      return jsonResponse({ sub: "user-1", groups: ["gain-users"] });
+      return jsonResponse({ sub: "user-1", email: "Ada@example.com", email_verified: true });
     });
 
-    const groups = await fetchUserinfoGroups(`${ISSUER}userinfo/`, "at", fetchImpl);
-    expect(groups).toEqual(["gain-users"]);
+    const answer = await fetchUserinfoEmail(`${ISSUER}userinfo/`, "at", fetchImpl);
+    expect(answer).toEqual({ email: "ada@example.com", unverified: null });
   });
 
-  // `null`, not `[]`: "the IdP says no groups" and "GAIN could not ask" are
+  // `null`, not `{ email: null }`: "the IdP says no verified address" and "GAIN could not ask" are
   // different facts. A login denies on either; a mid-session re-check must not
   // evict a legitimate user over a network blip (see auth.test.ts).
   it("reports 'could not tell' when userinfo is unreachable", async () => {
     const fetchImpl = mockFetch(() => {
       throw new Error("boom");
     });
-    expect(await fetchUserinfoGroups(`${ISSUER}userinfo/`, "at", fetchImpl)).toBeNull();
+    expect(await fetchUserinfoEmail(`${ISSUER}userinfo/`, "at", fetchImpl)).toBeNull();
   });
 
   it("reports 'could not tell' when userinfo refuses the token", async () => {
     const fetchImpl = mockFetch(() => jsonResponse({ error: "invalid_token" }, 401));
-    expect(await fetchUserinfoGroups(`${ISSUER}userinfo/`, "at", fetchImpl)).toBeNull();
+    expect(await fetchUserinfoEmail(`${ISSUER}userinfo/`, "at", fetchImpl)).toBeNull();
   });
 
-  it("reports an empty list when the IdP answers with no groups", async () => {
+  it("reports no address when the IdP answers without a verified one", async () => {
     const fetchImpl = mockFetch(() => jsonResponse({ sub: "abc" }));
-    expect(await fetchUserinfoGroups(`${ISSUER}userinfo/`, "at", fetchImpl)).toEqual([]);
+    expect(await fetchUserinfoEmail(`${ISSUER}userinfo/`, "at", fetchImpl)).toEqual({
+      email: null,
+      unverified: null,
+    });
   });
 });
 

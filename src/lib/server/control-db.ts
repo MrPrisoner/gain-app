@@ -109,7 +109,7 @@ export type SessionRow = {
   access_expires_at: string | null;
   refresh_token: string | null;
   id_token: string | null;
-  /** SQLite has no boolean: 0 or 1. Re-derived from the IdP's groups, never stored on the user. */
+  /** SQLite has no boolean: 0 or 1. Re-derived from the verified email, never stored per user. */
   is_admin: number;
 };
 
@@ -204,8 +204,9 @@ export function listUsers(control: ControlDb): ControlUser[] {
 }
 
 /**
- * The label the operator identifies this user by, rewritten on every login from
- * `preferred_username ?? email ?? name`. Display only — never an identity key (§4).
+ * The label the operator identifies this user by, rewritten on every login from the
+ * gated address, else `preferred_username ?? name`. Display only — never an identity
+ * key (§4).
  */
 export function setDisplayLabel(control: ControlDb, userId: string, label: string | null): void {
   control.db.prepare("UPDATE control_user SET display_label = ? WHERE id = ?").run(label, userId);
@@ -344,7 +345,7 @@ export function storeRefreshedTokens(
     );
 }
 
-/** Re-stamp a live session's operator flag after a token refresh re-read the groups. */
+/** Re-stamp a live session's operator flag after a token refresh re-read the email. */
 export function setSessionAdmin(control: ControlDb, sessionId: string, isAdmin: boolean): void {
   control.db
     .prepare("UPDATE session SET is_admin = ? WHERE id = ?")

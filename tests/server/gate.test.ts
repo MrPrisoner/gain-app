@@ -112,9 +112,9 @@ describe("refusal", () => {
   });
 
   it("answers a navigation with a readable page", async () => {
-    const response = refusal(403, "You are not in the required group.", true);
+    const response = refusal(403, "That address is not on the list.", true);
     expect(response.headers.get("content-type")).toContain("text/html");
-    expect(await response.text()).toContain("You are not in the required group.");
+    expect(await response.text()).toContain("That address is not on the list.");
   });
 
   it("escapes the message, which carries a group name straight from configuration", async () => {

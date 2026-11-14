@@ -55,8 +55,8 @@ beforeEach(() => {
   delete process.env.OIDC_ISSUER;
   delete process.env.OIDC_CLIENT_ID;
   delete process.env.OIDC_CLIENT_SECRET;
-  delete process.env.OIDC_REQUIRED_GROUP;
-  delete process.env.OIDC_ADMIN_GROUP;
+  delete process.env.OIDC_ALLOWED_EMAILS;
+  delete process.env.OIDC_ADMIN_EMAILS;
   resetConfigForTests();
   resetAppStateForTests();
 });

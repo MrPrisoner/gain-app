@@ -92,8 +92,8 @@ applied.
 |---|---|---|---|
 | 1 | Plan structuring | Contract block (fenced YAML) emitted by the AI + review/diff editor before commit | An AI can reliably emit structure inside a fence; it cannot reliably be trusted to preserve identity across a rewrite. The review is where a human catches a renamed exercise before it splits history (§8) |
 | 2 | AI integration | None in-app. Export/import only | The loop crosses to whichever chat the user already pays for and trusts. Embedding a model would mean API keys, a provider choice and a running cost, to replace a paste that already works (§1) |
-| 3 | Authentication | OIDC client against Authentik | This is a self-hosted instance beside an IdP the operator already runs. Identity is administered there, so GAIN stores no password and owns no account recovery |
-| 4 | Access control | Gated on an Authentik group, auto-provision on first login, optional operator role on a second group | Access stays a question answered in Authentik, not a user-management screen GAIN would otherwise have to build and secure. Leaving the second group unset means the instance has no admin at all |
+| 3 | Authentication | OIDC client against the operator's IdP | This is a self-hosted instance beside an IdP the operator already runs. Identity is administered there, so GAIN stores no password and owns no account recovery |
+| 4 | Access control | Gated on an allowlist of verified email addresses, auto-provision on first login, optional operator role on a second list | A list in the deployment's configuration rather than a user-management screen GAIN would otherwise have to build and secure. It used to be an IdP group, but an IdP that brokers a social login (Google, via Tinyauth) has no groups to send, while every IdP can vouch for an address. Leaving the second list unset means the instance has no admin at all |
 | 5 | Storage | One SQLite DB **per user**, plus a per-user file directory. DB is source of truth | Physical isolation cannot be forgotten the way a `WHERE user_id = ?` can. No cross-user query can exist because there is no cross-user database, and deleting a user is `rm -rf` plus one row |
 | 6 | Client | Installable PWA, offline-capable sessions with sync | The screen is used in a garage with no signal, one-handed, mid-set. Losing a workout to a dropped connection or a locked phone is the one failure that would stop someone using the app |
 | 7 | Log schema | Fixed core (reps/weight/duration/difficulty) + plan-declared custom metrics | The core four are what every plan logs and what every chart needs. Everything else varies per plan, so the plan declares it — hardcoding a symptom or energy field would fix one plan's vocabulary onto all of them |
@@ -135,8 +135,8 @@ services:
       OIDC_ISSUER: https://auth.example.com/application/o/gain/
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID}
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET}
-      OIDC_REQUIRED_GROUP: gain-users
-      OIDC_ADMIN_GROUP: gain-admins
+      OIDC_ALLOWED_EMAILS: ada@example.com,operator@example.com
+      OIDC_ADMIN_EMAILS: operator@example.com
       SESSION_SECRET: ${SESSION_SECRET}
       DATA_DIR: /data
       TZ: Africa/Johannesburg
@@ -206,11 +206,11 @@ Two consequences worth stating rather than rediscovering:
 - **The gate returns its refusals rather than throwing them.** SvelteKit catches an
   `HttpError` or a `Redirect` thrown out of `handle` and builds that response itself,
   entirely outside the hook — so the 401 an expired fetch gets, the login redirect a
-  navigation gets and the 403 a lost group gets used to be the only responses in the app
+  navigation gets and the 403 a refused address gets used to be the only responses in the app
   shipping without any of these headers. `$lib/server/gate.ts`'s `refusal` and `seeOther`
   build them instead, and `handle` returns them through the same wrapper as everything
-  else. The 403's message names the configured group, so it is escaped: owning a response
-  body means owning its escaping.
+  else. The 403's message names the address the IdP supplied, so it is escaped: owning a
+  response body means owning its escaping.
 - **`style-src-attr 'unsafe-inline'` is deliberate and narrow.** Svelte's `style:`
   directives compile to inline style *attributes* — the confetti overlay, every chart,
   `app.html`'s own `display: contents` wrapper — so the attribute directive has to allow
@@ -246,38 +246,71 @@ made. Losing a copied bundle costs one more export, not a lost paste.
 
 ## 4. Authentication & identity
 
-Standard OIDC authorization-code flow with PKCE against an Authentik OAuth2/OpenID
-provider.
+Standard OIDC authorization-code flow with PKCE against any conforming provider —
+for example Authentik or Tinyauth.
 
-- **Scopes:** `openid profile email groups`.
-- **Gate:** the `groups` claim must contain `OIDC_REQUIRED_GROUP`, else 403 with a
-  human explanation. Re-checked on every token refresh, not just first login.
-- **Identity key:** the `sub` claim, never email. Emails change; `sub` doesn't.
+- **Scopes:** `openid profile email`.
+- **Gate:** the ID token's `email` (userinfo's, when the token carries none) must be
+  verified — `email_verified` literally `true` — and listed in `OIDC_ALLOWED_EMAILS`,
+  else 403 with a human explanation naming the address — worded differently when the
+  address arrived unverified, because that fix is at the IdP rather than in the list.
+  Re-checked on every token refresh, not just first login. An unverified address is one
+  the user typed, and a list of addresses admits anyone who can type one of them, so this
+  is the one claim read strictly. Addresses compare case-insensitively and otherwise
+  literally: Gmail's dot-and-`+tag` folding is one provider's rule, and applying it would
+  admit addresses nobody wrote down.
+- **What "verified" actually guarantees is the IdP's business.** GAIN can only refuse an
+  address the provider did not vouch for; it cannot check the provider's reasons. A
+  broker such as Tinyauth sets `email_verified: true` for every address it has, so behind
+  one the guarantee is that every login method the broker offers verifies addresses
+  itself — Google does; a local account or a self-registration provider added to the
+  same broker would not, and would let anyone claim an allowlisted address. Going the
+  other way, a provider that sends `email_verified: false` for addresses it does know
+  (some Authentik scope mappings do) refuses everyone until it is configured to vouch.
+- **Identity key:** the `sub` claim, never email. Email decides whether you may come in;
+  `sub` decides who you are. Emails change; `sub` doesn't — within one IdP. **Changing
+  IdP changes every `sub`**, and a user whose `sub` GAIN has never seen is provisioned
+  as a new, empty account. Before the first login through a new IdP, rewrite
+  `control_user.oidc_sub` for each existing user to the value the new IdP will send
+  (Tinyauth's is deterministic — a UUIDv5 in the URL namespace of
+  `<username>:<client id>`, its username for a Google login being the address with `@`
+  replaced by `_` — so it can be computed in advance). Do it before anyone signs in:
+  `oidc_sub` is `UNIQUE`, so once a user's first new-IdP login has minted an empty
+  account, that row has to be deleted before the old one can take its `sub`. GAIN
+  deliberately does not re-link by email itself, because that would make the address an
+  identity after all.
 - **Provisioning:** first successful login creates the user row, the DB file and the
   directory.
 - **Session:** an httpOnly, `Secure`, `SameSite=Lax` cookie holding an opaque session
   ID; server-side session records live in `control.db`. No JWT in the cookie — but the
   session row does hold the IdP's `access_token`, `refresh_token` and `id_token` as
-  plain text, so that a group re-check can happen without a fresh login. A refresh token
+  plain text, so that the email re-check can happen without a fresh login. A refresh token
   is a live credential: `control.db` is therefore a secret-bearing file, and the backup
   recipe in the README copies it. Treat it accordingly.
-- **Logout:** clear the local session, then redirect to Authentik's end-session
-  endpoint so it's a real logout, not a re-login-in-one-click.
+- **Logout:** clear the local session, then redirect to the IdP's end-session
+  endpoint so it's a real logout, not a re-login-in-one-click. A provider that
+  advertises none (Tinyauth) gets only the local half, and the next sign-in may be
+  silent while the IdP's own session lasts — accepted, because GAIN cannot end a
+  session the IdP gives it no way to end.
 - **Offline reality:** the PWA must work with an expired session. Requests that 401
   do not destroy queued local data — the sync queue holds, and the UI shows a
   "reconnect to sync" state. Losing a workout to a token expiry is unacceptable.
 
-There is one optional operator role, gated on a second Authentik group
-(`OIDC_ADMIN_GROUP`); leave it unset and the instance has no admin at all. The operator
-sees that a user exists, the label that user's IdP supplied — `preferred_username`, or
-failing that their **email address** — their OIDC subject, when they were last active, and
+There is one optional operator role, gated on a second list of addresses
+(`OIDC_ADMIN_EMAILS`, each of which must also be in `OIDC_ALLOWED_EMAILS` or the instance
+refuses to start); leave it unset and the instance has no admin at all. The operator
+sees that a user exists, the label that user's IdP supplied — their **email address**, or
+failing that `preferred_username` — their OIDC subject, when they were last active, and
 how much they have logged, and can reset any user's data to a clean slate. The identifying
 label is deliberate: an operator aiming a destructive reset at one of several accounts has
-to be able to tell which one, and pushing that identification out into Authentik would
-make it unchecked. What they cannot see is any *training content*. No plan, exercise,
+to be able to tell which one, and pushing that identification out into the IdP would
+make it unchecked. Email leads because it is the string the allowlist holds. What they cannot see is any *training content*. No plan, exercise,
 set, metric or note is reachable from `/admin` through any code path — every cross-user
 read in the app lives in `src/lib/server/admin-stats.ts` and returns nothing but counts,
-dates and byte totals. Access itself is still administered entirely in Authentik.
+dates and byte totals. Access itself is administered in the deployment's configuration
+— changing either list is an edit and a restart — plus whatever the IdP in front applies
+before GAIN ever sees a login. Removal takes effect at the user's next token refresh,
+not their next request: a session is re-checked only when its access token comes due.
 
 ---
 

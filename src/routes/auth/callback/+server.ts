@@ -1,6 +1,6 @@
 /**
  * The OIDC callback (ARCHITECTURE §4): exchange the code with the PKCE
- * verifier, verify the ID token, apply the group gate, provision the user on
+ * verifier, verify the ID token, apply the email gate, provision the user on
  * first successful login, and start the server-side session.
  *
  * A failed gate is a clean 403 with a human explanation — no user row, no
@@ -23,9 +23,8 @@ import { safeReturnTo } from "$lib/server/gate";
 import {
   exchangeCode,
   extractDisplayLabel,
-  extractGroups,
-  fetchUserinfoGroups,
-  hasRequiredGroup,
+  isEmailAllowed,
+  resolveLoginEmail,
   verifyIdToken,
 } from "$lib/server/oidc";
 
@@ -81,18 +80,12 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
     throw redirect(303, "/login?error=bad_id_token");
   }
 
-  // The group gate (§4). The ID token carries `groups` when the Authentik
-  // provider maps the scope; userinfo is the fallback when it does not.
-  //
-  // Unlike the mid-session re-check, a login denies when membership cannot be
-  // established at all: there is no established session to protect here, and
-  // admitting an unverified user is the wrong direction to fail in.
-  let groups = extractGroups(claims);
-  if (groups.length === 0 && endpoints.userinfo_endpoint) {
-    groups = (await fetchUserinfoGroups(endpoints.userinfo_endpoint, tokens.access_token)) ?? [];
-  }
-  if (!hasRequiredGroup(groups, oidc.requiredGroup)) {
-    throw error(403, forbiddenMessage(oidc.requiredGroup));
+  // The email gate (§4): the ID token's address, else userinfo's. A login denies
+  // when the address cannot be established at all — see `resolveLoginEmail`.
+  const answer = await resolveLoginEmail(claims, endpoints.userinfo_endpoint, tokens.access_token);
+  const email = answer.email;
+  if (!isEmailAllowed(email, oidc.allowedEmails)) {
+    throw error(403, forbiddenMessage(answer));
   }
 
   const now = new Date();
@@ -103,10 +96,10 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
     user = createUser(control, claims.sub, now);
   }
   touchUserLogin(control, user.id, now);
-  // The label the operator identifies this user by. `preferred_username`
-  // leads because it is what Authentik's own user list shows, so an operator matching
-  // a name across the two screens sees the same string.
-  setDisplayLabel(control, user.id, extractDisplayLabel(claims));
+  // The label the operator identifies this user by. The gated address leads — the
+  // same lower-cased string the allowlist holds, even when it came from userinfo
+  // rather than the ID token — so the operator screen and that list match.
+  setDisplayLabel(control, user.id, email ?? extractDisplayLabel(claims));
   getUserDbFor(user.id);
 
   const session = createSession(control, {
@@ -122,7 +115,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
       refresh_token: tokens.refresh_token ?? null,
       id_token: tokens.id_token ?? null,
     },
-    isAdmin: config.adminGroup !== null && hasRequiredGroup(groups, config.adminGroup),
+    isAdmin: config.adminEmails !== null && isEmailAllowed(email, config.adminEmails),
   });
 
   setSessionCookie(cookies, config, session.id);

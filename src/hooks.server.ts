@@ -1,7 +1,7 @@
 /**
  * The auth gate (ARCHITECTURE §4). Every route except `/healthz`, `/login`
- * and `/auth/*` needs a session; a missing one redirects to login, a group
- * lost on refresh ends in a clean 403.
+ * and `/auth/*` needs a session; a missing one redirects to login, an address
+ * no longer allowed at refresh ends in a clean 403.
  *
  * Module scope doubles as startup: loading the config validates the whole
  * environment, so a misconfigured container fails on its first import rather

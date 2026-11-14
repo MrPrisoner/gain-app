@@ -74,7 +74,7 @@ tsconfig.worker.json` pass for `src/service-worker.ts` — SvelteKit's generated
 - `npm run check` — `svelte-check` covers the `.svelte` files typecheck cannot
 - `npm run dev` / `npm run build` — Vite dev server / adapter-node production build
   (`node build` serves it; `ORIGIN` required outside dev). `GAIN_DEV_USER=you npm run dev`
-  bypasses OIDC so the UI can be driven without an Authentik to point at; per-developer
+  bypasses OIDC so the UI can be driven without an IdP to point at; per-developer
   variables belong in the git-ignored `.env.local`, and the bottom of `.env.example` says
   which ones are allowed there. `GAIN_DEV_HOSTS=my-phone.home.arpa` also binds the dev
   server beyond localhost, which is how a session gets driven on a real phone
@@ -359,7 +359,7 @@ wrong number rather than failing.
 Each user gets their own `gain.db` and their own directory under `/data/users/<id>/`.
 There is no cross-user query because there is no cross-user database. Do not introduce a
 shared table keyed by `user_id`. There is exactly one optional operator role
-(`OIDC_ADMIN_GROUP`) and exactly one module it may read another user's database
+(`OIDC_ADMIN_EMAILS`) and exactly one module it may read another user's database
 from — `src/lib/server/admin-stats.ts`, which returns counts, dates and byte totals and
 never a content row. Outside that module there is no code path by which one user reads
 another's training data.
@@ -368,7 +368,7 @@ The one shared database is `control.db` — the OIDC `sub` → user id mapping a
 server-side sessions — and it holds **no training data**, which is the line that actually
 matters. It is not, however, free of personal data, and reasoning that assumes otherwise
 is wrong: `control_user.display_label` holds whatever the IdP supplied
-(`preferred_username`, else the **email address**, else `name` — `extractDisplayLabel`,
+(the **email address**, else `preferred_username`, else `name` — `extractDisplayLabel`,
 `src/lib/server/oidc.ts`), and every `session` row holds the IdP's access, refresh and ID
 tokens in plain text. A refresh token is a live credential, so `control.db` is a
 secret-bearing file: it is what the operator screen identifies accounts by, and it is
@@ -549,7 +549,7 @@ protect:
   spinner or badge reintroduces the flicker one screen at a time; route sync feedback
   through the banner, or through the gate.
 - **The operator sees counts, never content — and the reset's order is load-bearing.**
-  `OIDC_ADMIN_GROUP` grants a `/admin` screen (ARCHITECTURE §4) whose every cross-user
+  `OIDC_ADMIN_EMAILS` grants a `/admin` screen (ARCHITECTURE §4) whose every cross-user
   read goes through `src/lib/server/admin-stats.ts`, which returns only `COUNT(*)`,
   `MAX(...)` and byte totals. Nothing else in the app may open another user's `gain.db`;
   putting a second such reader anywhere else dissolves the guarantee, because it is the
@@ -674,7 +674,7 @@ the clearest case — resolution, pre-fill, the rest timer and resume reconstruc
 live in `src/lib/session/` and are unit-tested without SvelteKit. `src/lib/server/` holds
 the same line: config loading, `control.db`, the OIDC module and the cookie signing are
 injectable and unit-tested without a live IdP, with real signed JWTs in the tests. The
-dev bypass (`GAIN_DEV_USER`) exists so the UI can be driven without an Authentik to point
+dev bypass (`GAIN_DEV_USER`) exists so the UI can be driven without an IdP to point
 at, and a deployed instance refuses to start with it set.
 
 There are no component tests and no DOM tooling; `vitest.config.ts` sets
@@ -743,12 +743,13 @@ state it names.
 
 ### Server, auth and sync
 
-**An unevaluable check is not a failed check.** The group gate is re-checked on every
-token refresh (ARCHITECTURE §4), and the first implementation treated "GAIN could not
-establish membership" the same as "the IdP says no" — so an IdP that omits `id_token` from
-a refresh response, plus one blip at the userinfo endpoint, evicted a legitimate user
-mid-session. `fetchUserinfoGroups` returns `null` for "could not tell", distinct from
-`[]`, and the mid-session re-check keeps the session on `null` while a login still denies.
+**An unevaluable check is not a failed check.** The access gate is re-checked on every
+token refresh (ARCHITECTURE §4), and the first implementation (then a group gate) treated
+"GAIN could not establish membership" the same as "the IdP says no" — so an IdP that omits
+`id_token` from a refresh response, plus one blip at the userinfo endpoint, evicted a
+legitimate user mid-session. `fetchUserinfoEmail` returns `null` for "could not tell",
+distinct from `{ email: null }`, and the mid-session re-check keeps the session on `null`
+while a login still denies.
 Same rule at the token endpoint: unreachable keeps the session, an explicit rejection ends
 it. Expect this distinction anywhere a remote answer gates access.
 

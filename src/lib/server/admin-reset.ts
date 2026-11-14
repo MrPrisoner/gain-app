@@ -17,7 +17,7 @@
  *    broken one.
  *
  * The account itself survives: the `control_user` row stays, because the user is still
- * in `OIDC_REQUIRED_GROUP` and deleting the row only means their next login mints a new
+ * in `OIDC_ALLOWED_EMAILS` and deleting the row only means their next login mints a new
  * user id and the list entry reappears.
  */
 

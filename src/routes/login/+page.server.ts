@@ -7,7 +7,7 @@ import { safeReturnTo } from "$lib/server/gate";
 import { buildAuthorizationUrl, generatePkce, randomToken } from "$lib/server/oidc";
 
 /** Scopes per ARCHITECTURE §4. */
-const SCOPE = "openid profile email groups";
+const SCOPE = "openid profile email";
 
 /** Authorization states older than this are garbage. */
 const STATE_MAX_AGE_MS = 10 * 60 * 1000;

@@ -1,6 +1,6 @@
 /**
  * Session resolution (ARCHITECTURE §4): the sliding expiry, the token refresh,
- * and the group gate that is re-checked on every refresh rather than only at
+ * and the email gate that is re-checked on every refresh rather than only at
  * login.
  *
  * Everything runs against an injected `AuthDeps` — a real on-disk `control.db`
@@ -33,7 +33,10 @@ import type { FetchImpl, OidcEndpoints } from "../../src/lib/server/oidc";
 
 const ISSUER = "https://auth.example.com/application/o/gain/";
 const CLIENT_ID = "gain";
-const REQUIRED_GROUP = "gain-users";
+const USER_EMAIL = "ada@example.com";
+const ADMIN_EMAIL = "operator@example.com";
+/** The claims a provider sends for an address it has verified. */
+const verified = (email: string) => ({ email, email_verified: true });
 const SECRET = "test-session-secret";
 const IDLE_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -81,7 +84,7 @@ const config: GainConfig = {
   sessionSecret: SECRET,
   sessionIdleMs: IDLE_MS,
   auth: { mode: "oidc", oidc: oidcConfig() },
-  adminGroup: "gain-admins",
+  adminEmails: new Set([ADMIN_EMAIL]),
   devAdmin: null,
   appVersion: "dev",
 };
@@ -91,7 +94,7 @@ function oidcConfig(): OidcConfig {
     issuer: ISSUER,
     clientId: CLIENT_ID,
     clientSecret: "shhh",
-    requiredGroup: REQUIRED_GROUP,
+    allowedEmails: new Set([USER_EMAIL, ADMIN_EMAIL]),
   };
 }
 
@@ -264,10 +267,10 @@ describe("the sliding expiry", () => {
   });
 });
 
-describe("the group gate on refresh", () => {
-  it("refreshes when the access token is nearly out, and keeps a member signed in", async () => {
+describe("the email gate on refresh", () => {
+  it("refreshes when the access token is nearly out, and keeps an allowed user in", async () => {
     const sessionId = seedSession({ accessTtlMs: 30_000 });
-    const refreshed = await idToken({ groups: [REQUIRED_GROUP, "other"] });
+    const refreshed = await idToken(verified(USER_EMAIL));
     let grant: string | null = null;
 
     const result = await check(
@@ -304,9 +307,9 @@ describe("the group gate on refresh", () => {
     expect(row?.id_token).toBe(refreshed);
   });
 
-  it("revokes the session when the required group is gone", async () => {
+  it("revokes the session when the address is no longer allowed", async () => {
     const sessionId = seedSession({ accessTtlMs: 30_000 });
-    const refreshed = await idToken({ groups: ["some-other-group"] });
+    const refreshed = await idToken(verified("mallory@example.com"));
 
     const result = await check(
       sessionId,
@@ -318,14 +321,14 @@ describe("the group gate on refresh", () => {
 
     expect(result).toEqual({
       status: "forbidden",
-      message: forbiddenMessage(REQUIRED_GROUP),
+      message: forbiddenMessage({ email: "mallory@example.com", unverified: null }),
     });
     expect(getSession(control, sessionId, NOW)).toBeUndefined();
   });
 
-  it("treats a verified ID token with an empty groups claim as a definite no", async () => {
+  it("treats a verified ID token with an unverified address as a definite no", async () => {
     const sessionId = seedSession({ accessTtlMs: 30_000 });
-    const refreshed = await idToken({ groups: [] });
+    const refreshed = await idToken({ email: USER_EMAIL, email_verified: false });
 
     const result = await check(
       sessionId,
@@ -346,7 +349,7 @@ describe("the group gate on refresh", () => {
       NOW,
       deps(control, {
         token: () => json({ access_token: "access-2", token_type: "Bearer" }),
-        userinfo: () => json({ sub: "sub-123", groups: [REQUIRED_GROUP] }),
+        userinfo: () => json({ sub: "sub-123", ...verified(USER_EMAIL) }),
       }),
     );
 
@@ -359,7 +362,7 @@ describe("the group gate on refresh", () => {
     });
   });
 
-  it("revokes when userinfo answers that membership is gone", async () => {
+  it("revokes when userinfo answers with an address that is not allowed", async () => {
     const sessionId = seedSession({ accessTtlMs: 30_000 });
 
     const result = await check(
@@ -367,7 +370,7 @@ describe("the group gate on refresh", () => {
       NOW,
       deps(control, {
         token: () => json({ access_token: "access-2", token_type: "Bearer" }),
-        userinfo: () => json({ sub: "sub-123", groups: ["something-else"] }),
+        userinfo: () => json({ sub: "sub-123", ...verified("mallory@example.com") }),
       }),
     );
 
@@ -379,7 +382,7 @@ describe("the group gate on refresh", () => {
 describe("an unevaluable gate does not evict the user", () => {
   // The regression this guards: an IdP that omits `id_token` from a refresh
   // response (the spec allows it) plus a userinfo endpoint that blips used to
-  // read exactly like "removed from the group", and logged the user out.
+  // read exactly like "no longer allowed", and logged the user out.
   it("keeps the session when no ID token comes back and userinfo is unreachable", async () => {
     const sessionId = seedSession({ accessTtlMs: 30_000 });
 
@@ -433,6 +436,52 @@ describe("an unevaluable gate does not evict the user", () => {
     expect(result.status).toBe("ok");
   });
 
+  // A verified token that carries no email claims at all is silent, not a "no": the
+  // provider simply keeps email out of its ID tokens. Treating it as `{ email: null }`
+  // would evict every user of such a provider at their first refresh.
+  it("keeps the session when a verified ID token is silent on email and userinfo is down", async () => {
+    const sessionId = seedSession({ accessTtlMs: 30_000, isAdmin: true });
+    const silent = await idToken({ name: "Ada" });
+
+    const result = await check(
+      sessionId,
+      NOW,
+      deps(control, {
+        token: () => json({ access_token: "access-2", token_type: "Bearer", id_token: silent }),
+        // No userinfo stub: the harness throws, exactly like a network failure.
+      }),
+    );
+
+    expect(result).toMatchObject({ status: "ok", isAdmin: true });
+    expect(getSession(control, sessionId, NOW)?.is_admin).toBe(1);
+  });
+
+  it("asks userinfo when a verified ID token is silent on email, and honours its answer", async () => {
+    const allowedId = seedSession({ accessTtlMs: 30_000 });
+    const silent = await idToken({ name: "Ada" });
+    const allowed = await check(
+      allowedId,
+      NOW,
+      deps(control, {
+        token: () => json({ access_token: "access-2", token_type: "Bearer", id_token: silent }),
+        userinfo: () => json({ sub: "sub-123", ...verified(USER_EMAIL) }),
+      }),
+    );
+    expect(allowed.status).toBe("ok");
+
+    const refusedId = seedSession({ accessTtlMs: 30_000 });
+    const refused = await check(
+      refusedId,
+      NOW,
+      deps(control, {
+        token: () => json({ access_token: "access-2", token_type: "Bearer", id_token: silent }),
+        userinfo: () => json({ sub: "sub-123", ...verified("mallory@example.com") }),
+      }),
+    );
+    expect(refused.status).toBe("forbidden");
+    expect(getSession(control, refusedId, NOW)).toBeUndefined();
+  });
+
   it("still revokes when the gate *can* be evaluated after an unusable ID token", async () => {
     const sessionId = seedSession({ accessTtlMs: 30_000 });
 
@@ -442,7 +491,7 @@ describe("an unevaluable gate does not evict the user", () => {
       deps(control, {
         token: () =>
           json({ access_token: "access-2", token_type: "Bearer", id_token: "not.a.jwt" }),
-        userinfo: () => json({ sub: "sub-123", groups: [] }),
+        userinfo: () => json({ sub: "sub-123" }),
       }),
     );
 
@@ -551,10 +600,25 @@ describe("the display name", () => {
 });
 
 describe("the forbidden message", () => {
-  it("names the group and points at Authentik, not at GAIN", () => {
-    const message = forbiddenMessage(REQUIRED_GROUP);
-    expect(message).toContain(REQUIRED_GROUP);
-    expect(message).toContain("Authentik");
+  // A second Google account signed in to the same browser is the likeliest cause of a
+  // refusal, so the user has to be told which address was refused.
+  it("names the address that was refused", () => {
+    const message = forbiddenMessage({ email: "mallory@example.com", unverified: null });
+    expect(message).toContain("mallory@example.com");
+    expect(message).toContain("not on this GAIN instance's list");
+  });
+
+  // "Not on the list" would send the operator to the allowlist when the fix is the
+  // provider's email_verified claim.
+  it("says an address arrived unverified rather than that it is not listed", () => {
+    const message = forbiddenMessage({ email: null, unverified: "ada@example.com" });
+    expect(message).toContain("ada@example.com");
+    expect(message).toContain("did not mark that address as verified");
+    expect(message).not.toContain("list of allowed users");
+  });
+
+  it("says the provider supplied no verified address when there was none", () => {
+    expect(forbiddenMessage({ email: null, unverified: null })).toContain("verified email");
   });
 });
 
@@ -567,7 +631,7 @@ describe("the admin flag", () => {
     });
   });
 
-  it("drops the flag when a refresh shows the admin group is gone", async () => {
+  it("drops the flag when a refresh shows a non-admin address", async () => {
     const sessionId = seedSession({ accessTtlMs: -1, isAdmin: true });
     const result = await check(
       sessionId,
@@ -577,7 +641,7 @@ describe("the admin flag", () => {
           json({
             access_token: "access-2",
             expires_in: 3600,
-            id_token: await idToken({ groups: ["gain-users"] }),
+            id_token: await idToken(verified(USER_EMAIL)),
           }),
       }),
     );
@@ -585,7 +649,7 @@ describe("the admin flag", () => {
     expect(getSession(control, sessionId, NOW)?.is_admin).toBe(0);
   });
 
-  it("grants the flag when a refresh shows the group was added", async () => {
+  it("grants the flag when a refresh shows an admin address", async () => {
     const sessionId = seedSession({ accessTtlMs: -1, isAdmin: false });
     const result = await check(
       sessionId,
@@ -595,7 +659,7 @@ describe("the admin flag", () => {
           json({
             access_token: "access-2",
             expires_in: 3600,
-            id_token: await idToken({ groups: ["gain-users", "gain-admins"] }),
+            id_token: await idToken(verified(ADMIN_EMAIL)),
           }),
       }),
     );
@@ -603,9 +667,9 @@ describe("the admin flag", () => {
     expect(getSession(control, sessionId, NOW)?.is_admin).toBe(1);
   });
 
-  it("leaves the flag untouched when membership cannot be established", async () => {
+  it("leaves the flag untouched when the address cannot be established", async () => {
     // No `id_token` in the refresh response, and `deps` throws for an un-overridden
-    // userinfo endpoint — which `fetchUserinfoGroups` turns into `null`, not `[]`.
+    // userinfo endpoint — which `fetchUserinfoEmail` turns into `null`, not a denial.
     // This is the phase-3 rule the whole design leans on; if it regresses, an IdP blip
     // silently demotes the operator.
     const sessionId = seedSession({ accessTtlMs: -1, isAdmin: true });

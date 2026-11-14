@@ -1,6 +1,6 @@
 /**
  * Request-level authentication (ARCHITECTURE §4): resolve the session cookie,
- * refresh tokens when they are due, re-check the group gate on every refresh,
+ * refresh tokens when they are due, re-check the email gate on every refresh,
  * and keep the sliding expiry alive. `hooks.server.ts` calls `checkSession`;
  * the callback route shares the cookie helpers and the 403 wording.
  */
@@ -21,12 +21,14 @@ import {
 import { getControlDb, getJwksFor, getOidcEndpoints, getUserDbFor } from "./app-state";
 import {
   OidcError,
+  claimsAnswerEmail,
   extractDisplayName,
-  extractGroups,
-  fetchUserinfoGroups,
-  hasRequiredGroup,
+  extractEmailAnswer,
+  fetchUserinfoEmail,
+  isEmailAllowed,
   refreshTokens,
   verifyIdToken,
+  type EmailAnswer,
   type FetchImpl,
   type JwksResolver,
   type OidcEndpoints,
@@ -40,7 +42,7 @@ const REFRESH_MARGIN_MS = 60_000;
 /**
  * The I/O `checkSession` needs. Defaults come from the process-wide singletons;
  * tests pass their own so the whole flow — refresh, ID-token verification, the
- * group re-check — runs against real signed JWTs and no live IdP.
+ * email re-check — runs against real signed JWTs and no live IdP.
  */
 export type AuthDeps = {
   control: ControlDb;
@@ -59,11 +61,33 @@ function defaultDeps(): AuthDeps {
   };
 }
 
-export function forbiddenMessage(requiredGroup: string): string {
+/**
+ * The 403's wording. It names the address the IdP supplied, because "which account did
+ * I sign in with?" is the first thing a refused user needs to know — a second Google
+ * account in the same browser is the likeliest cause. An address that arrived unverified
+ * gets its own wording: telling that user "not on the list" would send the operator to
+ * the list when the fix is the IdP's `email_verified` claim. `gate.ts` escapes it.
+ */
+export function forbiddenMessage(answer: EmailAnswer): string {
+  const { email, unverified } = answer;
+  if (email === null && unverified !== null) {
+    return (
+      `You are signed in as ${unverified}, but your identity provider did not mark that ` +
+      "address as verified, and this GAIN instance only lets in verified addresses. Ask " +
+      "the person who runs it to check that the provider sends email_verified."
+    );
+  }
+  if (email === null) {
+    return (
+      "You are signed in, but your identity provider did not supply a verified email " +
+      "address, which this GAIN instance needs to decide whether to let you in. Ask the " +
+      "person who runs it to check the provider's email scope."
+    );
+  }
   return (
-    `You are signed in, but your account is not a member of the '${requiredGroup}' group, ` +
-    `which this GAIN instance requires. Access to GAIN is managed entirely in Authentik — ` +
-    `ask the person who runs it to add you to the group, then sign in again.`
+    `You are signed in as ${email}, but that address is not on this GAIN instance's list ` +
+    "of allowed users. If you meant to use a different account, sign out of it and sign in " +
+    "again; otherwise ask the person who runs GAIN to add you."
   );
 }
 
@@ -97,7 +121,7 @@ export type SessionCheck =
       /** Set when the sliding expiry was extended. */ setCookie: string | null;
       /** For the greeting and the bootstrap prompt — display only, see `displayNameFromIdToken`. */
       displayName: string | null;
-      /** Operator, as of the last group evaluation. See `refreshIfDue`. */
+      /** Operator, as of the last email evaluation. See `refreshIfDue`. */
       isAdmin: boolean;
     }
   | { status: "anonymous" }
@@ -121,7 +145,7 @@ function displayNameFromIdToken(idToken: string | null): string | null {
 /**
  * Resolve the session for this request. Anonymous when there is no valid
  * session (→ login redirect); forbidden when a token refresh revealed the
- * required group is gone (→ clean 403, §4).
+ * address is no longer allowed (→ clean 403, §4).
  */
 export async function checkSession(
   cookies: Cookies,
@@ -136,10 +160,10 @@ export async function checkSession(
   const session = sessionId ? getSession(control, sessionId, now) : undefined;
   if (!session) return { status: "anonymous" };
 
-  const refresh = await refreshIfDue(session, oidc, config.adminGroup, now, deps);
+  const refresh = await refreshIfDue(session, oidc, config.adminEmails, now, deps);
   if (refresh.outcome === "failed") return { status: "anonymous" };
   if (refresh.outcome === "forbidden") {
-    return { status: "forbidden", message: forbiddenMessage(oidc.requiredGroup) };
+    return { status: "forbidden", message: forbiddenMessage(refresh.answer) };
   }
 
   // Sliding expiry: extend once less than half the idle window remains, so a
@@ -161,35 +185,33 @@ export async function checkSession(
 }
 
 type RefreshOutcome =
-  { outcome: "ok"; isAdmin: boolean } | { outcome: "failed" } | { outcome: "forbidden" };
+  | { outcome: "ok"; isAdmin: boolean }
+  | { outcome: "failed" }
+  | { outcome: "forbidden"; answer: EmailAnswer };
 
 /**
- * Group membership as of the refresh, or `null` when GAIN could not establish
- * it at all — see `resolveGroups`.
- */
-type GroupsOrUnknown = string[] | null;
-
-/**
- * The group gate is re-checked on every token refresh, not just first login
+ * The email gate is re-checked on every token refresh, not just first login
  * (§4). A refresh that fails logs the user out; a refresh that shows the
- * required group is gone ends in a 403.
+ * address is no longer allowed ends in a 403. The allowlist itself is
+ * configuration, so removing someone takes effect at their next refresh after
+ * the restart that applies it.
  *
  * The third case is the one worth being careful about: GAIN asked and got no
  * usable answer. An IdP that omits `id_token` from a refresh response (the
  * spec allows it) combined with a userinfo endpoint that blips would otherwise
- * read exactly like "removed from the group", and evict a legitimate user
+ * read exactly like "no verified address", and evict a legitimate user
  * mid-session. An unevaluable gate keeps the session and is re-checked on the
- * next refresh; only a definite "not a member" revokes.
+ * next refresh; only a definite answer revokes.
  */
 async function refreshIfDue(
   session: SessionRow,
   oidc: OidcConfig,
-  adminGroup: string | null,
+  adminEmails: ReadonlySet<string> | null,
   now: Date,
   deps: AuthDeps,
 ): Promise<RefreshOutcome> {
   const control = deps.control;
-  // Every path that does not re-read the groups reports the stored flag unchanged.
+  // Every path that does not re-read the email reports the stored flag unchanged.
   const stored = { outcome: "ok", isAdmin: session.is_admin === 1 } as const;
   const accessExpiry = session.access_expires_at ? Date.parse(session.access_expires_at) : null;
   if (accessExpiry === null || now.getTime() < accessExpiry - REFRESH_MARGIN_MS) return stored;
@@ -228,19 +250,19 @@ async function refreshIfDue(
     return { outcome: "failed" };
   }
 
-  const groups = await resolveGroups(tokens, endpoints, oidc, now, deps);
-  if (groups !== null && !hasRequiredGroup(groups, oidc.requiredGroup)) {
+  const answer = await resolveEmail(tokens, endpoints, oidc, now, deps);
+  if (answer !== null && !isEmailAllowed(answer.email, oidc.allowedEmails)) {
     deleteSession(control, session.id);
-    return { outcome: "forbidden" };
+    return { outcome: "forbidden", answer };
   }
 
   // Admin-ness is re-derived from the same answer that just re-checked the access
-  // gate. `groups === null` means GAIN could not establish membership at all, and the
+  // gate. `answer === null` means GAIN could not establish the address at all, and the
   // same rule applies as to the gate itself: an unevaluable check is not a failed
   // check, so the flag is left exactly as it was.
   let isAdmin = session.is_admin === 1;
-  if (groups !== null) {
-    const nowAdmin = adminGroup !== null && hasRequiredGroup(groups, adminGroup);
+  if (answer !== null) {
+    const nowAdmin = adminEmails !== null && isEmailAllowed(answer.email, adminEmails);
     if (nowAdmin !== isAdmin) {
       setSessionAdmin(control, session.id, nowAdmin);
       isAdmin = nowAdmin;
@@ -260,21 +282,22 @@ async function refreshIfDue(
 }
 
 /**
- * Membership as of this refresh: the `groups` claim of a freshly verified ID
- * token, else the userinfo endpoint, else `null` for "could not tell".
+ * The verified address as of this refresh: the `email` claim of a freshly
+ * verified ID token, else the userinfo endpoint, else `null` for "could not tell".
  *
- * An ID token that verifies is authoritative even when it lists no groups —
- * that is the IdP saying "none". `null` is reserved for the cases where no
- * source answered: no ID token in the refresh response and no reachable
- * userinfo endpoint.
+ * An ID token that verifies and carries `email` or `email_verified` is
+ * authoritative even when the address is unverified — that is the IdP saying
+ * "no verified address". `null` is reserved for the cases where no source
+ * answered: no ID token in the refresh response and no reachable userinfo
+ * endpoint.
  */
-async function resolveGroups(
+async function resolveEmail(
   tokens: TokenResponse,
   endpoints: OidcEndpoints,
   oidc: OidcConfig,
   now: Date,
   deps: AuthDeps,
-): Promise<GroupsOrUnknown> {
+): Promise<EmailAnswer | null> {
   if (tokens.id_token) {
     try {
       const claims = await verifyIdToken(tokens.id_token, {
@@ -283,10 +306,9 @@ async function resolveGroups(
         key: await deps.getKey(endpoints),
         now,
       });
-      const claimed = extractGroups(claims);
-      // A verified token with no `groups` claim at all is not an answer: the
-      // provider simply does not map the scope. Fall through to userinfo.
-      if (claimed.length > 0 || "groups" in claims) return claimed;
+      // A verified token with no email claims at all is not an answer: the
+      // provider simply does not put them in the ID token. Fall through to userinfo.
+      if (claimsAnswerEmail(claims)) return extractEmailAnswer(claims);
     } catch {
       // Fall through — an unverifiable refresh token response is not evidence
       // of lost membership.
@@ -294,7 +316,7 @@ async function resolveGroups(
   }
 
   if (endpoints.userinfo_endpoint) {
-    return fetchUserinfoGroups(endpoints.userinfo_endpoint, tokens.access_token, deps.fetchImpl);
+    return fetchUserinfoEmail(endpoints.userinfo_endpoint, tokens.access_token, deps.fetchImpl);
   }
   return null;
 }

@@ -1,11 +1,14 @@
 /**
- * OIDC authorization-code flow with PKCE against Authentik (ARCHITECTURE §4).
+ * OIDC authorization-code flow with PKCE against any standard provider
+ * (ARCHITECTURE §4).
  *
  * Everything here takes its I/O as parameters — `fetchImpl` for HTTP, an
  * explicit key for ID-token verification, an injected clock — so the whole
  * flow is unit-testable without a live IdP. The identity key is the `sub`
- * claim, never email; the group gate reads the `groups` claim and is
- * re-checked on every token refresh, not just first login.
+ * claim; the access gate reads the verified `email` claim against an
+ * allowlist and is re-checked on every token refresh, not just first login.
+ * Email decides whether you may come in, `sub` decides who you are — the two
+ * are deliberately never swapped.
  */
 
 import crypto from "node:crypto";
@@ -222,7 +225,8 @@ export type IdTokenClaims = {
   exp: number;
   iat: number;
   nonce?: string;
-  groups?: unknown;
+  email?: unknown;
+  email_verified?: unknown;
   [claim: string]: unknown;
 };
 
@@ -290,23 +294,100 @@ export async function verifyIdToken(
 }
 
 // ---------------------------------------------------------------------------
-// The group gate
+// The email gate
 // ---------------------------------------------------------------------------
 
 /**
- * Reads the `groups` claim tolerantly: an array of strings (Authentik's shape),
- * a single string, or anything else → no groups. Group membership is the only
- * authorisation decision GAIN ever makes (§4).
+ * The address the IdP vouches for, lower-cased — or `null` when it vouches for none.
+ *
+ * `email_verified` must be literally `true`. An address the provider has not verified is
+ * one the user typed, and an allowlist keyed on typed addresses admits anyone who can type
+ * an allowed one. Whether a user may use GAIN is the only authorisation decision it ever
+ * makes (§4), so this is the one claim that has to be strict.
+ *
+ * Strict here is only as strong as the IdP's own claim, though: a broker such as
+ * Tinyauth marks every address it has as verified, so the real guarantee is that every
+ * login method the broker offers verifies addresses itself (§4).
  */
-export function extractGroups(claims: Record<string, unknown>): string[] {
-  const raw = claims.groups;
-  if (typeof raw === "string") return [raw];
-  if (!Array.isArray(raw)) return [];
-  return raw.filter((g): g is string => typeof g === "string");
+export function extractVerifiedEmail(claims: Record<string, unknown>): string | null {
+  if (claims.email_verified !== true) return null;
+  const email = claims.email;
+  if (typeof email !== "string" || email.trim() === "") return null;
+  return email.trim().toLowerCase();
 }
 
-export function hasRequiredGroup(groups: readonly string[], requiredGroup: string): boolean {
-  return groups.includes(requiredGroup);
+export function isEmailAllowed(email: string | null, allowed: ReadonlySet<string>): boolean {
+  return email !== null && allowed.has(email);
+}
+
+/**
+ * The provider's answer about this user's email. `email: null` is an answer — "no
+ * verified address" — and denies; a bare `null` from the functions below means no answer
+ * at all, which a mid-session re-check must not treat as a denial (§4).
+ *
+ * `unverified` carries an address the provider sent without vouching for it, so the
+ * refusal can say "not verified" rather than "not on the list" — the two point the
+ * operator at different fixes. It is never compared against anything.
+ */
+export type EmailAnswer = { email: string | null; unverified: string | null };
+
+export const NO_EMAIL: EmailAnswer = { email: null, unverified: null };
+
+export function extractEmailAnswer(claims: Record<string, unknown>): EmailAnswer {
+  const email = extractVerifiedEmail(claims);
+  const raw = claims.email;
+  const unverified =
+    email === null && typeof raw === "string" && raw.trim() !== ""
+      ? raw.trim().toLowerCase()
+      : null;
+  return { email, unverified };
+}
+
+/** Does this claim set say anything about email? A token with neither claim is silent. */
+export function claimsAnswerEmail(claims: Record<string, unknown>): boolean {
+  return "email" in claims || "email_verified" in claims;
+}
+
+/**
+ * Fallback for IdPs that do not put `email` in the ID token: ask the userinfo
+ * endpoint with the access token.
+ *
+ * Returns `null` — not `{ email: null }` — when the endpoint could not be reached or did
+ * not answer. "The IdP says you have no verified address" and "GAIN could not ask the IdP"
+ * are different facts, and callers make different decisions on them: a login denies on
+ * either, but a mid-session re-check must not evict a user over a network blip (§4).
+ */
+export async function fetchUserinfoEmail(
+  userinfoEndpoint: string,
+  accessToken: string,
+  fetchImpl: FetchImpl = fetch,
+): Promise<EmailAnswer | null> {
+  try {
+    const response = await fetchImpl(userinfoEndpoint, {
+      headers: { authorization: `Bearer ${accessToken}`, accept: "application/json" },
+    });
+    if (!response.ok) return null;
+    const data = (await response.json()) as Record<string, unknown>;
+    return extractEmailAnswer(data);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The login-time answer: the ID token's, else userinfo's. Unlike the mid-session
+ * re-check, "could not tell" collapses to `NO_EMAIL` and denies — there is no
+ * established session to protect at login, and admitting an unverified user is the
+ * wrong direction to fail in.
+ */
+export async function resolveLoginEmail(
+  claims: Record<string, unknown>,
+  userinfoEndpoint: string | null,
+  accessToken: string,
+  fetchImpl: FetchImpl = fetch,
+): Promise<EmailAnswer> {
+  if (claimsAnswerEmail(claims) || !userinfoEndpoint) return extractEmailAnswer(claims);
+  return (await fetchUserinfoEmail(userinfoEndpoint, accessToken, fetchImpl)) ?? NO_EMAIL;
 }
 
 // ---------------------------------------------------------------------------
@@ -329,42 +410,17 @@ export function extractDisplayName(claims: Record<string, unknown>): string | nu
 
 /**
  * The operator-facing label for a user, distinct from `extractDisplayName`'s greeting:
- * this one prefers `preferred_username` because that is the string Authentik's admin UI
- * shows, so the two lists can be matched by eye. Display only, never an identity.
+ * this one prefers `email` because access is administered as a list of addresses
+ * (`OIDC_ALLOWED_EMAILS`), so the operator screen and that list can be matched by eye.
+ * `preferred_username` is no substitute — a provider brokering a social login may mint it
+ * (Tinyauth sends `name_example.com`). Display only, never an identity.
  */
 export function extractDisplayLabel(claims: Record<string, unknown>): string | null {
-  for (const key of ["preferred_username", "email", "name"] as const) {
+  for (const key of ["email", "preferred_username", "name"] as const) {
     const value = claims[key];
     if (typeof value === "string" && value.trim() !== "") return value.trim();
   }
   return null;
-}
-
-/**
- * Fallback for IdPs that do not put `groups` in the ID token: ask the userinfo
- * endpoint with the access token.
- *
- * Returns `null` — not `[]` — when the endpoint could not be reached or did not
- * answer. "The IdP says you are in no groups" and "GAIN could not ask the IdP"
- * are different facts, and callers make different decisions on them: a login
- * denies on either, but a mid-session re-check must not evict a user over a
- * network blip (§4).
- */
-export async function fetchUserinfoGroups(
-  userinfoEndpoint: string,
-  accessToken: string,
-  fetchImpl: FetchImpl = fetch,
-): Promise<string[] | null> {
-  try {
-    const response = await fetchImpl(userinfoEndpoint, {
-      headers: { authorization: `Bearer ${accessToken}`, accept: "application/json" },
-    });
-    if (!response.ok) return null;
-    const data = (await response.json()) as Record<string, unknown>;
-    return extractGroups(data);
-  } catch {
-    return null;
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -372,8 +428,9 @@ export async function fetchUserinfoGroups(
 // ---------------------------------------------------------------------------
 
 /**
- * Authentik's end-session endpoint. `id_token_hint` makes it a real logout —
- * without it the IdP would re-issue a token on the next login attempt (§4).
+ * The IdP's end-session endpoint, when it advertises one. `id_token_hint` makes it a
+ * real logout — without it the IdP would re-issue a token on the next login attempt
+ * (§4). A provider with no such endpoint (Tinyauth) gets a local logout only.
  */
 export function buildEndSessionUrl(
   endSessionEndpoint: string,

@@ -1,8 +1,9 @@
 /**
  * Real logout (ARCHITECTURE §4): delete the server-side session, clear the
- * cookie, then hand the user to Authentik's end-session endpoint with the
+ * cookie, then hand the user to the IdP's end-session endpoint with the
  * id_token_hint — otherwise the IdP session survives and "login" is a
- * one-click re-authentication, not a login.
+ * one-click re-authentication, not a login. A provider that advertises no
+ * end-session endpoint gets the local half only.
  *
  * POST-only: SvelteKit's CSRF check validates the Origin header on POSTs.
  */

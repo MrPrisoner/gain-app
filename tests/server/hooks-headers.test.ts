@@ -33,7 +33,7 @@ beforeEach(() => {
   process.env.OIDC_ISSUER = "https://auth.example.com";
   process.env.OIDC_CLIENT_ID = "gain";
   process.env.OIDC_CLIENT_SECRET = "secret";
-  process.env.OIDC_REQUIRED_GROUP = "gain-users";
+  process.env.OIDC_ALLOWED_EMAILS = "ada@example.com";
   delete process.env.GAIN_DEV_USER;
   resetConfigForTests();
   resetAppStateForTests();
@@ -51,7 +51,7 @@ afterEach(() => {
     "OIDC_ISSUER",
     "OIDC_CLIENT_ID",
     "OIDC_CLIENT_SECRET",
-    "OIDC_REQUIRED_GROUP",
+    "OIDC_ALLOWED_EMAILS",
   ]) {
     delete process.env[key];
   }
